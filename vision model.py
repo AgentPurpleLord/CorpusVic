@@ -2,15 +2,27 @@ import torch
 import logging
 import time
 
-from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
-from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
+from docling.datamodel.accelerator_options import (
+    AcceleratorDevice,
+    AcceleratorOptions,
+)
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.settings import settings
+from docling.datamodel.pipeline_options import VlmPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.pipeline.vlm_pipeline import VlmPipeline
+
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
-    PdfPipelineOptions,
-    TableStructureOptions,
+    VlmConvertOptions,
+    VlmPipelineOptions,
+)
+from docling.datamodel.vlm_engine_options import (
+    MlxVlmEngineOptions,
+    TransformersVlmEngineOptions,
 )
 from docling.document_converter import DocumentConverter, PdfFormatOption
-
+from docling.pipeline.vlm_pipeline import VlmPipeline
 
 # ---------------------------------------------------------
 # Logging
@@ -25,31 +37,50 @@ logging.getLogger("docling").setLevel(logging.INFO)
 
 logger = logging.getLogger("corpus")
 
+
+# ---------------------------------------------------------
+# Diagnostics
+# ---------------------------------------------------------
+
+print(f"PyTorch version: {torch.__version__}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA version: {torch.version.cuda}")
+
+if torch.cuda.is_available():
+    print(f"GPU: {torch.cuda.get_device_name(0)}")
+else:
+    print("GPU: None")
+
+# Check GPU memory
+if torch.cuda.is_available():
+    print(f"GPU Memory allocated: {torch.cuda.memory_allocated(0) / 1024**3:.2f} GB")
+    print(f"GPU Memory reserved: {torch.cuda.memory_reserved(0) / 1024**3:.2f} GB")
+
 # ---------------------------------------------------------
 # Enable Docling profiling
 # ---------------------------------------------------------
 
+settings.debug.profile_pipeline_timings = True
+settings.perf.page_batch_size = 24
+
 source = "acts/crimes-act-50.pdf"
 
-pipeline_options = PdfPipelineOptions()
-pipeline_options.do_ocr = False
-# pipeline_options.ocr_options = TesseractOcrOptions()
-pipeline_options.do_table_structure = True
-pipeline_options.table_structure_options = TableStructureOptions(
-    do_cell_matching=True
+pipeline_options = VlmPipelineOptions(
+    accelerator_options=AcceleratorOptions(
+        device=AcceleratorDevice.CUDA,
+    ),
+    vlm_options= VlmConvertOptions.from_preset("granite_docling"),
 )
-pipeline_options.ocr_options.lang = ["en"]
-pipeline_options.accelerator_options = AcceleratorOptions(
-    num_threads=4, device=AcceleratorDevice.AUTO
-)
+
 
 converter = DocumentConverter(
     format_options={
-        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options, backend=PyPdfiumDocumentBackend)
+        InputFormat.PDF: PdfFormatOption(
+            pipeline_cls=VlmPipeline,
+            pipeline_options=pipeline_options,
+        ),
     }
 )
-
-
 
 # ---------------------------------------------------------
 # Initialise
@@ -58,6 +89,8 @@ converter = DocumentConverter(
 logger.info("Initialising Docling pipeline...")
 
 start = time.perf_counter()
+
+converter.initialize_pipeline(InputFormat.PDF)
 
 elapsed = time.perf_counter() - start
 
