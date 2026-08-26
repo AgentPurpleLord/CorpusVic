@@ -1,6 +1,7 @@
 # Regenerable pipeline outputs (re-run run_pipeline.py to recreate)
 data/extracted/
 data/ai_parsed/
+data/diagnostics/
 
 # Keep data/verified/ and data/corrections.jsonl tracked -- that's the
 # accumulated human-verified ground truth / few-shot learning data.

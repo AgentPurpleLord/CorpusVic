@@ -35,9 +35,14 @@ def _runs_by(nodes: list[dict], level: str) -> dict:
     return runs
 
 
+def _normalize_number(s: str | None) -> str:
+    return (s or "").strip("()").lower()
+
+
 def _find_by_number(candidates: list[dict], number: str, types: set[str]) -> dict | None:
+    target = _normalize_number(number)
     for node in candidates:
-        if node.get("number") == number and node.get("type") in types:
+        if _normalize_number(node.get("number")) == target and node.get("type") in types:
             return node
     return None
 
@@ -65,6 +70,14 @@ def attach_history(nodes: list[dict], pages) -> list[dict]:
     unattached = []
     for note in collect_page_notes(pages):
         target = None
+        # A note is only "confidence: high" when either (a) it names no
+        # deeper reference and lands on the section/division/part itself, or
+        # (b) it names one and we found that exact node. Falling back to a
+        # broader node because the specific one couldn't be found is a
+        # guess -- tag it "low" rather than presenting it as equally solid.
+        wanted_specific = bool(note["sub_path"] or note["def_name"])
+        found_specific = False
+
         if note["section"]:
             candidates = section_runs.get(note["section"], [])
             if candidates:
@@ -77,6 +90,7 @@ def attach_history(nodes: list[dict], pages) -> list[dict]:
                             candidates, sub_path[-1], {"subsection", "paragraph", "subparagraph"}
                         )
                         sub_path.pop()
+                found_specific = target is not None
                 if target is None:
                     target = candidates[0]
         elif note["division"]:
@@ -84,6 +98,7 @@ def attach_history(nodes: list[dict], pages) -> list[dict]:
             if candidates:
                 if note["sub_path"]:
                     target = _find_by_number(candidates, note["sub_path"][-1], {"subdivision"})
+                found_specific = target is not None
                 if target is None:
                     target = candidates[0]
         elif note["part"]:
@@ -92,6 +107,7 @@ def attach_history(nodes: list[dict], pages) -> list[dict]:
                 target = candidates[0]
 
         if target is not None:
+            note["confidence"] = "high" if (found_specific or not wanted_specific) else "low"
             target.setdefault("history", []).append(note)
         else:
             unattached.append(note)

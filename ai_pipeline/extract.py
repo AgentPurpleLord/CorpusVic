@@ -29,25 +29,59 @@ BOILERPLATE_MIN_FREQUENCY = 0.5
 
 
 @dataclass
+class BodyLine:
+    text: str
+    x0: float
+    x1: float
+    y0: float
+    y1: float
+    page_no: int
+    size: float = 0.0
+    bold: bool = False
+
+
+@dataclass
 class PageText:
     page_no: int
     body: str
+    page_width: float = 0.0
     margin_notes: list = field(default_factory=list)
     header: list = field(default_factory=list)
     footer: list = field(default_factory=list)
+    body_lines: list = field(default_factory=list)  # list[BodyLine]
 
 
 def slugify(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]+", "-", name).strip("-").lower()
 
 
-def _block_text(block) -> str:
-    return "".join(
-        span["text"] for line in block["lines"] for span in line["spans"]
-    ).strip()
+def _line_text(line) -> str:
+    return "".join(span["text"] for span in line["spans"]).strip()
+
+
+def _line_font(line) -> tuple[float, bool]:
+    """Dominant font size and bold-ness for a line, weighted by character
+    count -- this is what actually encodes the drafter's intended hierarchy
+    (Part/Division/Section headings are set bold at distinct sizes), far
+    more reliably than the line's position on the page."""
+    spans = [s for s in line["spans"] if s["text"].strip()]
+    if not spans:
+        return 0.0, False
+    dominant = max(spans, key=lambda s: len(s["text"]))
+    is_bold = bool(dominant["flags"] & 16)
+    return dominant["size"], is_bold
+
+
+BOILERPLATE_MIN_LENGTH = 8
 
 
 def _normalize_for_frequency(text: str) -> str:
+    """Collapses digits so e.g. page numbers don't defeat exact-text
+    matching. Short results (a lone page number, a note item's leading "1")
+    are excluded by the caller -- collapsing digits makes them collide with
+    every other short numeric line in the document, which would otherwise
+    push things like note numbers over the frequency threshold and get them
+    wrongly stripped as boilerplate."""
     return re.sub(r"\d+", "#", text).strip()
 
 
@@ -60,9 +94,20 @@ def extract_pages(pdf_path: str) -> list[PageText]:
         for b in page.get_text("dict")["blocks"]:
             if b["type"] != 0:
                 continue
-            text = _block_text(b)
-            if text:
-                blocks.append({"bbox": b["bbox"], "text": text})
+            block_lines = []
+            for line in b["lines"]:
+                text = _line_text(line)
+                if text:
+                    size, bold = _line_font(line)
+                    block_lines.append({"bbox": line["bbox"], "text": text, "size": size, "bold": bold})
+            if block_lines:
+                # Margin notes and header/footer boilerplate are typeset as
+                # short wrapped phrases -- classify (and, if it's not body
+                # text, reconstruct) at the whole-block level, since a block
+                # is one coherent note/heading even though it spans several
+                # internal lines. Body text still needs per-line granularity
+                # for its own font-based classification, done below.
+                blocks.append({"bbox": b["bbox"], "text": " ".join(l["text"] for l in block_lines), "lines": block_lines})
         raw_pages.append((page.number + 1, w, h, blocks))
 
     # Boilerplate that repeats near-identically on most pages (title lines,
@@ -72,9 +117,9 @@ def extract_pages(pdf_path: str) -> list[PageText]:
     freq = Counter()
     for _, _, _, blocks in raw_pages:
         seen = set()
-        for b in blocks:
-            key = _normalize_for_frequency(b["text"])
-            if key and key not in seen:
+        for blk in blocks:
+            key = _normalize_for_frequency(blk["text"])
+            if len(key) >= BOILERPLATE_MIN_LENGTH and key not in seen:
                 freq[key] += 1
                 seen.add(key)
     n_pages = max(len(raw_pages), 1)
@@ -85,9 +130,9 @@ def extract_pages(pdf_path: str) -> list[PageText]:
     pages = []
     for page_no, w, h, blocks in raw_pages:
         body, margin, header, footer = [], [], [], []
-        for b in blocks:
-            x0, y0, x1, y1 = b["bbox"]
-            text = b["text"]
+        for blk in blocks:
+            x0, y0, x1, y1 = blk["bbox"]
+            text = blk["text"]
             if _normalize_for_frequency(text) in boilerplate:
                 header.append((y0, text))
             elif y1 <= h * TOP_MASTHEAD_FRACTION:
@@ -97,16 +142,26 @@ def extract_pages(pdf_path: str) -> list[PageText]:
             elif x0 >= w * MARGIN_RIGHT_X0_FRACTION or x0 <= w * MARGIN_LEFT_X0_FRACTION:
                 margin.append((y0, text))
             else:
-                body.append((y0, text))
-        for lst in (body, margin, header, footer):
-            lst.sort(key=lambda t: t[0])
+                for l in blk["lines"]:
+                    lx0, ly0, lx1, ly1 = l["bbox"]
+                    body.append((lx0, ly0, lx1, ly1, l["text"], l["size"], l["bold"]))
+        margin.sort(key=lambda t: t[0])
+        header.sort(key=lambda t: t[0])
+        footer.sort(key=lambda t: t[0])
+        body.sort(key=lambda t: t[1])
+        body_lines = [
+            BodyLine(text=text, x0=x0, x1=x1, y0=y0, y1=y1, page_no=page_no, size=size, bold=bold)
+            for x0, y0, x1, y1, text, size, bold in body
+        ]
         pages.append(
             PageText(
                 page_no=page_no,
-                body="\n".join(t for _, t in body),
+                body="\n".join(l.text for l in body_lines),
+                page_width=w,
                 margin_notes=[t for _, t in margin],
                 header=[t for _, t in header],
                 footer=[t for _, t in footer],
+                body_lines=body_lines,
             )
         )
     return pages
@@ -117,4 +172,9 @@ def pages_to_dicts(pages: list[PageText]) -> list[dict]:
 
 
 def pages_from_dicts(dicts: list[dict]) -> list[PageText]:
-    return [PageText(**d) for d in dicts]
+    pages = []
+    for d in dicts:
+        d = dict(d)
+        d["body_lines"] = [BodyLine(**bl) for bl in d.get("body_lines", [])]
+        pages.append(PageText(**d))
+    return pages
