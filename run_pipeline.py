@@ -18,7 +18,9 @@ import json
 from pathlib import Path
 
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
+from ai_pipeline.llm_backend import get_backend
 from ai_pipeline.structure import structure_act
+from ai_pipeline.tree import attach_history
 
 
 def main():
@@ -27,6 +29,11 @@ def main():
     ap.add_argument("--pages-per-chunk", type=int, default=8)
     ap.add_argument("--start-page", type=int, default=1, help="1-indexed; use to skip the Table of Provisions")
     ap.add_argument("--end-page", type=int, default=None)
+    ap.add_argument(
+        "--backend", choices=["ollama", "claude"], default="ollama",
+        help="which model interprets the text (default: ollama, runs fully local/free)",
+    )
+    ap.add_argument("--model", default=None, help="override the backend's default model name")
     args = ap.parse_args()
 
     pdf_path = Path(args.pdf_path)
@@ -46,13 +53,30 @@ def main():
         json.dumps(pages_to_dicts(pages), indent=2), encoding="utf-8"
     )
 
-    nodes = structure_act(pages, act_slug, pages_per_chunk=args.pages_per_chunk)
+    backend = get_backend(args.backend, model=args.model)
+    print(f"Structuring with backend={args.backend!r} model={backend.model!r} ...")
+    nodes = structure_act(pages, act_slug, backend, pages_per_chunk=args.pages_per_chunk)
+
+    print("Attaching amendment-history margin notes ...")
+    unattached_notes = attach_history(nodes, pages)
+    if unattached_notes:
+        print(f"  {len(unattached_notes)} note(s) could not be auto-linked to a node (kept for manual review)")
 
     parsed_dir = Path("data/ai_parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
     out_path = parsed_dir / f"{act_slug}.json"
     out_path.write_text(
-        json.dumps({"act": act_slug, "source": str(pdf_path), "nodes": nodes}, indent=2),
+        json.dumps(
+            {
+                "act": act_slug,
+                "source": str(pdf_path),
+                "backend": args.backend,
+                "model": backend.model,
+                "nodes": nodes,
+                "unattached_notes": unattached_notes,
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
     print(f"\nWrote {len(nodes)} nodes to {out_path}")

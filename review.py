@@ -32,7 +32,8 @@ def load_parsed(act: str):
     path = Path("data/ai_parsed") / f"{act}.json"
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
-    return json.loads(path.read_text(encoding="utf-8"))["nodes"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data["nodes"], data.get("unattached_notes", [])
 
 
 def load_verified(act: str) -> list[dict]:
@@ -54,6 +55,9 @@ def render_node(node: dict, idx: int, total: int) -> None:
     body = node["text"]
     if len(body) > 1500:
         body = body[:1500] + "\n... [truncated for display; full text carries through unedited]"
+    history = node.get("history") or []
+    if history:
+        body += "\n\n[dim]History:[/]\n" + "\n".join(f"  • {h['raw']}" for h in history)
     console.print(Panel(body or "(no text)", title=header, subtitle=pages))
 
 
@@ -82,12 +86,17 @@ def main():
     ap.add_argument("--restart", action="store_true", help="ignore existing progress and start from node 1")
     args = ap.parse_args()
 
-    nodes = load_parsed(args.act)
+    nodes, unattached_notes = load_parsed(args.act)
     verified = [] if args.restart else load_verified(args.act)
     start_idx = len(verified)
 
     s = stats()
     console.print(f"Corrections logged so far across all Acts: {s['total']} ({s['changed']} changed)")
+    if unattached_notes:
+        console.print(
+            f"[yellow]{len(unattached_notes)} amendment-history note(s) couldn't be auto-linked to a node[/] "
+            f"-- see data/ai_parsed/{args.act}.json -> unattached_notes"
+        )
     if start_idx:
         console.print(f"Resuming at node {start_idx + 1}/{len(nodes)} (use --restart to start over)")
 
