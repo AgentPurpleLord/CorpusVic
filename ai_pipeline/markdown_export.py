@@ -30,7 +30,12 @@ import re
 from pathlib import Path
 
 from .akn_export import HIERARCHY_ORDER, _format_num, build_hierarchy_tree
-from .definitions import extract_terms, looks_like_definitions_section
+from .definitions import (
+    extract_section_ref_terms,
+    extract_terms,
+    looks_like_definitions_section,
+    split_definition_clauses,
+)
 
 SECTIONS_DIR = "sections"
 NON_LEAF_TYPES = set(HIERARCHY_ORDER) | {"heading_group"}
@@ -79,6 +84,28 @@ def _heading_level(node_type: str) -> int:
     return {"part": 1, "division": 2, "subdivision": 3, "heading_group": 3}.get(node_type, 3)
 
 
+def _clause_anchor(base_eid: str, index: int, total: int) -> str:
+    """A node holding more than one concatenated definition clause gets a
+    per-clause sub-anchor (base_eid__def2, __def3, ...) so a term links to
+    its own clause rather than the top of a node that might hold several;
+    a node with just one clause keeps using its own eid, unchanged."""
+    return base_eid if total <= 1 else f"{base_eid}__def{index + 1}"
+
+
+def _display_title(node_type: str, number: str | None, heading: str | None) -> str:
+    """"Part I - Offences", "Division 1 - Offences against the person",
+    "Subdivision (1) - Homicide" -- the type name spelled out (Part/
+    Division/Subdivision aren't in the source text for a citation like "3
+    Punishment for murder" is, but spelling them out is exactly what makes
+    an index or breadcrumb readable on its own, AustLII-style). A section
+    keeps its bare "3 Punishment for murder" form -- that already matches
+    how sections are actually cited, so no type-name prefix there."""
+    heading = heading or ""
+    if node_type == "section" or not number:
+        return f"{number or ''} {heading}".strip()
+    return f"{node_type.capitalize()} {_format_num(node_type, number)} - {heading}".strip(" -")
+
+
 # ---------------------------------------------------------------------------
 # Tree walks: collect sections (for the index + prev/next chain) and defined
 # terms (for cross-linking), each keyed by the eId scheme from akn_export so
@@ -105,21 +132,44 @@ def collect_sections(tree_roots: list[dict]) -> list[tuple[dict, list[dict]]]:
     return sections
 
 
-def collect_definitions(sections: list[tuple[dict, list[dict]]], filenames_by_eid: dict[str, str]) -> dict[str, dict]:
-    """term (lowercase) -> {"eid", "file", "display"}. Only looks inside
-    sections whose heading suggests they define terms."""
+def collect_definitions(
+    sections: list[tuple[dict, list[dict]]],
+    filenames_by_eid: dict[str, str],
+    section_files: dict[str, str],
+) -> dict[str, dict]:
+    """term (lowercase) -> {"eid", "file", "display"}, under two conditions
+    (see definitions.py): the term is introduced inside a section whose
+    heading suggests it defines terms, or a clause anywhere points a term at
+    a specific section ("term has the same meaning as in section N") -- the
+    latter always wins on overlap, since following the pointer to where the
+    term is actually explained beats linking to wherever the pointer sits."""
     definitions: dict[str, dict] = {}
 
-    def walk(tree_node, filename):
+    def walk_definitions_section(tree_node, filename):
         node = tree_node["node"]
-        for term in extract_terms(node.get("text") or ""):
-            definitions.setdefault(term, {"eid": tree_node["eid"], "file": filename, "display": term})
+        clauses = split_definition_clauses(node.get("text") or "")
+        for i, clause in enumerate(clauses):
+            anchor = _clause_anchor(tree_node["eid"], i, len(clauses))
+            for term in extract_terms(clause):
+                definitions.setdefault(term, {"eid": anchor, "file": filename, "display": term})
         for child in tree_node["children"]:
-            walk(child, filename)
+            walk_definitions_section(child, filename)
+
+    def walk_section_refs(tree_node):
+        for terms, section_num in extract_section_ref_terms(tree_node["node"].get("text") or ""):
+            target_file = section_files.get(section_num.lower())
+            if not target_file:
+                continue  # referenced section doesn't exist in this Act -- leave unlinked, not linked wrong
+            for term in terms:
+                definitions[term] = {"eid": None, "file": target_file, "display": term}
+        for child in tree_node["children"]:
+            walk_section_refs(child)
 
     for section_node, _ in sections:
         if looks_like_definitions_section(section_node["node"].get("heading")):
-            walk(section_node, filenames_by_eid[section_node["eid"]])
+            walk_definitions_section(section_node, filenames_by_eid[section_node["eid"]])
+    for section_node, _ in sections:
+        walk_section_refs(section_node)
     return definitions
 
 
@@ -159,7 +209,8 @@ def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], d
             info = definitions.get(text.lower())
             if not info or info["eid"] == current_eid:
                 return text
-            return f"[{text}]({info['file']}#{info['eid']})"
+            target = f"{info['file']}#{info['eid']}" if info["eid"] else info["file"]
+            return f"[{text}]({target})"
         if m.lastgroup == "secref":
             num = re.search(r"\d+[A-Za-z]*", text).group(0)
             filename = section_files.get(num.lower())
@@ -194,39 +245,64 @@ def _render_history(tree_node: dict, out: list[str]) -> None:
         _render_history(child, out)
 
 
-def _render_body(tree_node: dict, linkify, current_section_eid: str, out: list[str], depth: int = 0) -> None:
+def _render_body(tree_node: dict, linkify, current_section_eid: str, out: list[str], depth: int = 0, in_definitions: bool = False) -> None:
     node = tree_node["node"]
     t = node["type"]
     indent = "  " * depth
 
     if t == "section":
         label = None  # the section's own num/heading are the page's H1, not repeated in the body
+        in_definitions = in_definitions or looks_like_definitions_section(node.get("heading"))
     else:
         label = _format_num(t, node["number"]) if node.get("number") else None
 
     text = (node.get("text") or "").strip()
     heading = node.get("heading")
 
-    if t != "section":
-        out.append(f'<a id="{tree_node["eid"]}"></a>')
     if heading and t != "section":
+        out.append(f'<a id="{tree_node["eid"]}"></a>')
         out.append(f"{indent}**{label} {heading}**" if label else f"{indent}**{heading}**")
+        out.append("")
     elif text:
-        rendered = linkify(text.replace("\n", " "), current_section_eid)
-        out.append(f"{indent}{label} {rendered}" if label else f"{indent}{rendered}")
+        # A Definitions section's separate "term means ..." clauses commonly
+        # arrive concatenated into one node's text blob with the rule parser
+        # unable to split them (see definitions.py's module docstring) --
+        # split on that same boundary so each clause becomes its own
+        # paragraph (rather than one run-on line) with its own anchor
+        # (matching collect_definitions's _clause_anchor exactly), so a
+        # term links to its own clause rather than the top of a node that
+        # might hold several. A node with just one clause (the common case
+        # outside Definitions sections) renders exactly as before.
+        clauses = split_definition_clauses(text) if in_definitions else [text.replace("\n", " ")]
+        for i, clause in enumerate(clauses):
+            anchor = _clause_anchor(tree_node["eid"], i, len(clauses))
+            # A section's own eid is already anchored once by its page H1
+            # (render_section_page); only emit here too when this clause's
+            # anchor is actually distinct from that (i.e. this section node
+            # holds more than one clause itself) -- otherwise skip to avoid
+            # a pointless duplicate id, since a non-section node's own eid
+            # never gets anchored anywhere else.
+            if t != "section" or anchor != tree_node["eid"]:
+                out.append(f'<a id="{anchor}"></a>')
+            rendered = linkify(clause, current_section_eid)
+            prefix = f"{indent}{label} " if (label and i == 0) else indent
+            out.append(f"{prefix}{rendered}")
+            out.append("")
     elif label:
+        if t != "section":
+            out.append(f'<a id="{tree_node["eid"]}"></a>')
         out.append(f"{indent}{label}")
-    out.append("")
+        out.append("")
 
     for child in tree_node["children"]:
-        _render_body(child, linkify, current_section_eid, out, depth + 1 if t != "section" else depth)
+        _render_body(child, linkify, current_section_eid, out, depth + 1 if t != "section" else depth, in_definitions)
 
 
 def render_section_page(tree_node: dict, breadcrumb: list[dict], linkify, prev_link: str | None, next_link: str | None) -> str:
     node = tree_node["node"]
     out = []
     if breadcrumb:
-        crumb = " > ".join(f"{_format_num(b['node']['type'], b['node']['number'])} {b['node'].get('heading') or ''}".strip() for b in breadcrumb)
+        crumb = " > ".join(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading")) for b in breadcrumb)
         out.append(f"[Act index](../index.md) > {crumb}")
         out.append("")
     out.append(f'<a id="{tree_node["eid"]}"></a>')
@@ -264,8 +340,7 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
             return
         if t in ("part", "division", "subdivision", "heading_group"):
             level = _heading_level(t)
-            label = _format_num(t, node.get("number")) if node.get("number") else ""
-            title = f"{label} {node.get('heading') or ''}".strip()
+            title = _display_title(t, node.get("number"), node.get("heading"))
             out.append(f'<a id="{tree_node["eid"]}"></a>')
             out.append(f"{'#' * level} {title}")
             out.append("")
@@ -288,7 +363,7 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
     tree_roots, _collisions = build_hierarchy_tree(nodes)
     sections = collect_sections(tree_roots)
     filenames_by_eid, section_files = assign_filenames(sections)
-    definitions = collect_definitions(sections, filenames_by_eid)
+    definitions = collect_definitions(sections, filenames_by_eid, section_files)
 
     part_eids = {b["node"]["number"].lower(): b["eid"] for root in tree_roots for b in _all_of_type(root, "part") if b["node"].get("number")}
     division_eids = {b["node"]["number"].lower(): b["eid"] for root in tree_roots for b in _all_of_type(root, "division") if b["node"].get("number")}
