@@ -79,6 +79,20 @@ def _heading_level(node_type: str) -> int:
     return {"part": 1, "division": 2, "subdivision": 3, "heading_group": 3}.get(node_type, 3)
 
 
+def _display_title(node_type: str, number: str | None, heading: str | None) -> str:
+    """"Part I - Offences", "Division 1 - Offences against the person",
+    "Subdivision (1) - Homicide" -- the type name spelled out (Part/
+    Division/Subdivision aren't in the source text for a citation like "3
+    Punishment for murder" is, but spelling them out is exactly what makes
+    an index or breadcrumb readable on its own, AustLII-style). A section
+    keeps its bare "3 Punishment for murder" form -- that already matches
+    how sections are actually cited, so no type-name prefix there."""
+    heading = heading or ""
+    if node_type == "section" or not number:
+        return f"{number or ''} {heading}".strip()
+    return f"{node_type.capitalize()} {_format_num(node_type, number)} - {heading}".strip(" -")
+
+
 # ---------------------------------------------------------------------------
 # Tree walks: collect sections (for the index + prev/next chain) and defined
 # terms (for cross-linking), each keyed by the eId scheme from akn_export so
@@ -226,7 +240,7 @@ def render_section_page(tree_node: dict, breadcrumb: list[dict], linkify, prev_l
     node = tree_node["node"]
     out = []
     if breadcrumb:
-        crumb = " > ".join(f"{_format_num(b['node']['type'], b['node']['number'])} {b['node'].get('heading') or ''}".strip() for b in breadcrumb)
+        crumb = " > ".join(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading")) for b in breadcrumb)
         out.append(f"[Act index](../index.md) > {crumb}")
         out.append("")
     out.append(f'<a id="{tree_node["eid"]}"></a>')
@@ -264,8 +278,7 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
             return
         if t in ("part", "division", "subdivision", "heading_group"):
             level = _heading_level(t)
-            label = _format_num(t, node.get("number")) if node.get("number") else ""
-            title = f"{label} {node.get('heading') or ''}".strip()
+            title = _display_title(t, node.get("number"), node.get("heading"))
             out.append(f'<a id="{tree_node["eid"]}"></a>')
             out.append(f"{'#' * level} {title}")
             out.append("")
