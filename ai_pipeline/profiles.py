@@ -27,11 +27,12 @@ DEFAULT_PATTERNS = {
     # bold (checked separately, not in this regex). The same Act can also
     # spell it out as "Subdivision 2—Title" in places, so both are accepted.
     "subdivision": r"^(?:\((\w+)\)\s+(.+)|Subdivision\s+(\w+)\s*[—–-]\s*(.+))$",
-    # A section is any leading number (with optional letter suffix, e.g.
-    # "34AB") NOT wrapped in brackets -- brackets always mean
-    # subsection/paragraph/subparagraph instead, so there's no ambiguity
-    # with the patterns below.
-    "section": r"^(\d+[A-Za-z]{0,3})\s+(.+)$",
+    # A section is any leading number (with optional letter suffix -- some
+    # heavily-amended Acts run these out to 5-6 letters, e.g. "464ZFAAA",
+    # "465AAAAB", so the suffix is unbounded rather than capped) NOT
+    # wrapped in brackets -- brackets always mean subsection/paragraph/
+    # subparagraph instead, so there's no ambiguity with the patterns below.
+    "section": r"^(\d+[A-Za-z]*)\s+(.+)$",
     "subsection": r"^\((\d+[A-Za-z]*)\)\s*(.*)$",
     "paragraph": r"^\(([a-z]{1,3})\)\s*(.*)$",
     "subparagraph": r"^\(([ivxlcdm]+)\)\s*(.*)$",

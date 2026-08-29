@@ -137,6 +137,20 @@ def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
             parent["children"].append(tree_node)
             level_stack.append((idx, tree_node))
         else:
+            if t == "heading_group":
+                # A bare topical heading grouping a run of sections always
+                # sits between two Sections (or before the first one in a
+                # Division/Part) -- never inside one -- however deep the
+                # stack happened to be when the rules engine noticed it
+                # text-wise (it's appended without going through the
+                # open_node/stack machinery above, since it isn't itself a
+                # hierarchy level). Pop down the same way a new Section
+                # opening would, so it attaches as a sibling of sections
+                # under the enclosing Division/Part instead of getting
+                # buried inside whatever subsection happened to be open.
+                section_idx = HIERARCHY_ORDER.index("section")
+                while level_stack and level_stack[-1][0] >= section_idx:
+                    level_stack.pop()
             parent_level, parent = level_stack[-1]
             prefix = {"note": "note", "heading_group": "hd", "definition": "def"}.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"

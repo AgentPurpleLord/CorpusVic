@@ -98,6 +98,82 @@ def _next_roman(s: str) -> str | None:
     return None if n is None else _int_to_roman(n + 1)
 
 
+_GROUP_HEADING_MAX_WORDS = 8
+
+# A defined term is conventionally bolded where it's introduced, even
+# outside a section that reads as a "Definitions" section by heading (see
+# definitions.py's own docstring on this same convention) -- "medical
+# practitioner means—", "youth justice custodial worker has the same
+# meaning...", "sexual penetration—see section 35A;". These are bold,
+# body-size, and stand at the start of a fresh clause exactly like a
+# genuine topic heading does, so the shape of a definition's own opening
+# words is the only thing that tells the two apart.
+_DEFLIKE_RE = re.compile(
+    r"^[A-Za-z][\w \"',()/-]{0,80}?\s+(?:means?\b|has\b|have\b|includes?\b)|[—-]\s*see\s+section\b",
+    re.IGNORECASE,
+)
+# A defined term can also wrap so that only the term itself sits on the bold
+# line and the defining verb starts the very next (non-bold) line, e.g.
+# "approved alternative publication Internet site" / "means an Internet
+# site approved under ...". _DEFLIKE_RE alone can't see that -- the verb
+# isn't on this line -- so a heading candidate is also rejected when the
+# *next* line opens with one.
+_DEF_CONTINUATION_RE = re.compile(r"^(?:\([^)]*\)\s*)?(?:means?\b|has\b|have\b|includes?\b)", re.IGNORECASE)
+_TERMINAL_PUNCT_RE = re.compile(r"[.;:!?]\s*$")
+
+
+def _looks_like_group_heading(text: str, prev_text: str, next_text: str) -> bool:
+    """A bare topical heading grouping a run of sections ("Theft, robbery,
+    burglary, &c.", "Fraud and blackmail", "Fingerprinting") can be set at
+    ordinary body size, distinguished from an inline bold emphasis (a
+    defined term, an Act-name citation tail wrapped from the previous
+    line, a small-print endnotes/amendment-history table row) only by
+    shape and position: short, not itself the start (or, wrapped, the lead-
+    in) of a "term means ..." clause, and sitting right after the previous
+    node reached a clean sentence break rather than continuing it."""
+    if not text[:1].isupper():
+        # A genuine heading always opens with a capitalised word; a lower-
+        # case start means this bold line is actually the tail of a
+        # multi-line bolded defined term wrapping across several lines
+        # (only the first of which reads as a definition opener), not a
+        # heading in its own right.
+        return False
+    if len(text.split()) > _GROUP_HEADING_MAX_WORDS:
+        return False
+    if text.rstrip().endswith(("—", "–")):
+        # A term introducing a lettered list of alternative meanings
+        # instead of "means"/"has"/"includes" ("ASIC Regulations—" then
+        # "(a) when used in relation to ...") -- still a defined term, not
+        # a heading; a genuine topical heading never trails off like this.
+        return False
+    if _DEFLIKE_RE.search(text) or _DEF_CONTINUATION_RE.match(next_text):
+        return False
+    return not prev_text or bool(_TERMINAL_PUNCT_RE.search(prev_text))
+
+
+# Legislative sentences that happen to open a subsection commonly start with
+# one of these -- "In this section, X means ...", "If under the ... Act the
+# Secretary ...", "Section 3 of the Crimes (...) Act ...". A genuine
+# Subdivision title never does; it's a noun-phrase caption ("Homicide",
+# "Child stealing", "Abrogation of obsolete rules of law"), never the start
+# of a flowing sentence -- so this is the discriminator for the rare case
+# where a numbered subsection's first line prints entirely bold (usually
+# because a defined term sits early in it) and would otherwise be
+# misidentified as a "(N) Title"-shaped Subdivision.
+_SENTENCE_OPENER_WORDS = {
+    "in", "if", "section", "sections", "subsection", "where", "for", "when",
+    "unless", "notwithstanding", "despite", "subject", "this", "that", "a",
+    "an", "the", "any", "every", "no", "nothing", "whosoever", "whoever",
+}
+
+
+def _looks_like_subdivision_title(heading: str) -> bool:
+    first_word = re.match(r"[A-Za-z]+", heading)
+    if first_word and first_word.group(0).lower() in _SENTENCE_OPENER_WORDS:
+        return False
+    return not _DEFLIKE_RE.search(heading)
+
+
 def _bracket_level(content: str, stack: list[dict]) -> str:
     """Disambiguates a bracketed token like "(1)", "(a)", "(i)". Digits are
     always a subsection. For alphabetic content, single letters and roman
@@ -136,6 +212,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
     asterisk_run: list[BodyLine] = []
     cursor = 0
     lines_consumed = 0
+    prev_line_text = ""
 
     def close_top():
         node = stack.pop()
@@ -187,7 +264,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                 append_text(stack[-1], l.text.strip(), l, char_end)
         asterisk_run.clear()
 
-    for line in lines:
+    for idx, line in enumerate(lines):
         text = line.text.strip()
         char_start = cursor
         char_end = cursor + len(text)
@@ -195,6 +272,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
         lines_consumed += 1
         if not text:
             continue
+        next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
 
         if text == "*":
             if not asterisk_run:
@@ -232,29 +310,67 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             notes_mode = False
 
         matched = False
-        section_idx = HIERARCHY_ORDER.index("section")
-        already_past_section = bool(stack) and HIERARCHY_ORDER.index(stack[-1]["type"]) >= section_idx
 
         if line.bold:
-            levels = ("part", "division", "section") if already_past_section else ("part", "division", "subdivision", "section")
-            for level in levels:
+            for level in ("part", "division", "section"):
                 m = patterns[level].match(text)
                 if m:
-                    groups = [g for g in m.groups() if g is not None]
-                    number, heading = groups[0], groups[1].strip()
+                    number, heading = m.group(1), m.group(2).strip()
                     open_node(level, number, heading, line, char_start)
                     matched = True
                     break
 
+            # A Subdivision heading is a bracketed number plus a short bold
+            # title ("(1) Homicide", "(8G) Abrogation of obsolete rules of
+            # law") -- or the number is spelled out ("Subdivision 2—Title").
+            # The bracket form overlaps in shape with a bracketed
+            # paragraph/subparagraph marker ("(a)", "(i)"), which is also
+            # commonly bolded when it's an Act-name citation inside an
+            # enumerated list ("(i) the Conservation, Forests and Lands
+            # Act 1987; or") -- but a Subdivision's own number is always
+            # digit-led in this drafting convention (paragraphs are letters,
+            # subparagraphs are lowercase roman numerals, never digits), so
+            # that's the one discriminator size/position doesn't need to
+            # gate on: a lettered/roman bracket here isn't a Subdivision
+            # candidate at all, and falls through to bracket-item
+            # classification below same as it always did.
+            #
+            # A digit-led bracket can still be a false positive of a
+            # different kind, though: a bold mid-sentence pinpoint citation
+            # that itself starts a new physical line, e.g. "under section
+            # 9A(1A) or\n(1B) of the Corrections Act 1986 to exercise ..."
+            # -- "(1B)" here is a continuation of "or", not a fresh heading.
+            # A genuine Subdivision only ever opens right after whatever
+            # came before it reached a clean sentence break, same signal
+            # used for the unnumbered heading_group case below.
+            if not matched:
+                m = patterns["subdivision"].match(text)
+                if m:
+                    if m.group(1) is not None:
+                        heading = m.group(2).strip()
+                        if (
+                            re.match(r"^\d", m.group(1))
+                            and (not prev_line_text or _TERMINAL_PUNCT_RE.search(prev_line_text))
+                            and _looks_like_subdivision_title(heading)
+                        ):
+                            open_node("subdivision", m.group(1), heading, line, char_start)
+                            matched = True
+                    else:
+                        open_node("subdivision", m.group(3), m.group(4).strip(), line, char_start)
+                        matched = True
+
+            # A bare section number with nothing else on the line -- the
+            # heading wraps onto the next bold line instead (same wrap
+            # pattern as the bare Subdivision case above), e.g. "465AAAA"
+            # alone followed by "Police may use assistants and equipment"
+            # as a separate bold line.
+            if not matched and re.match(r"^\d+[A-Za-z]*$", text) and (not prev_line_text or _TERMINAL_PUNCT_RE.search(prev_line_text)):
+                open_node("section", text, None, line, char_start)
+                matched = True
+
         # Bracket items (subsection/paragraph/subparagraph) are classified by
         # content shape + sequence context, not boldness -- Act-name
-        # citations are commonly bolded throughout these Acts, and a bracket
-        # item within an already-open section can never legitimately be a
-        # Subdivision (those only ever appear directly under a Division,
-        # before any Section has opened), so bold Act-name styling on e.g.
-        # "(i) the Conservation, Forests and Lands Act 1987; or" must not be
-        # read as a Subdivision heading just because it also matches that
-        # shape.
+        # citations are commonly bolded throughout these Acts.
         if not matched:
             m = patterns["subsection"].match(text)
             bracket_match, level = None, None
@@ -266,6 +382,22 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                     bracket_match, level = m2, _bracket_level(m2.group(1), stack)
             if level and bracket_match:
                 remainder = bracket_match.group(2).strip() or None
+                if (
+                    level == "subsection"
+                    and line.bold
+                    and remainder is None
+                    and (not prev_line_text or _TERMINAL_PUNCT_RE.search(prev_line_text))
+                ):
+                    # A bare bold "(N)" with nothing else on the line -- the
+                    # Subdivision's title wraps onto the next bold line
+                    # instead (mirrors the heading-wrap handling below), e.g.
+                    # "(4A)" / "Non-fatal strangulation" as two lines. A
+                    # genuine subsection number is never bold on its own,
+                    # and a genuine Subdivision only opens right after a
+                    # clean sentence break -- guards against a bold bracket
+                    # that's actually a pinpoint citation ("section 9A(1A)
+                    # or\n(1B) of ...") wrapping mid-sentence instead.
+                    level = "subdivision"
                 open_node(level, bracket_match.group(1), None, line, char_start)
                 if remainder:
                     append_text(stack[-1], remainder, line, char_end)
@@ -278,10 +410,20 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                 # "3A Unintentional killing in the course or furtherance\nof
                 # a crime of violence" -- extend the heading, not the body.
                 append_heading(top, text, char_end)
-            elif round(line.size, 1) > body_size:
-                # Bold and visibly larger than body text, but no numbered
-                # pattern matched -- a bare topical heading (e.g. "Fraud
-                # and blackmail" grouping a run of sections).
+            elif round(line.size, 1) > body_size or (
+                round(line.size, 1) == body_size and _looks_like_group_heading(text, prev_line_text, next_text)
+            ):
+                # A bare topical heading grouping a run of sections. Usually
+                # bold and visibly larger than body text (e.g. "Fraud and
+                # blackmail"), but some Acts set these at plain body size
+                # ("Theft, robbery, burglary, &c."), distinguishable from
+                # inline bold emphasis only by shape -- see
+                # _looks_like_group_heading. It always sits between two
+                # sections, never inside one, but tree reconstruction
+                # (build_hierarchy_tree in akn_export.py, shared by both
+                # exporters) replays node *types* from this flat list
+                # independently of this function's own stack -- so that's
+                # where attachment gets corrected, not here.
                 nodes.append({
                     "type": "heading_group", "number": None, "heading": text, "text": text,
                     "page_start": line.page_no, "page_end": line.page_no,
@@ -304,6 +446,8 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                 open_node("part", None, "Preliminary", line, char_start)
                 warnings.append(f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node")
             append_text(stack[-1], text, line, char_end)
+
+        prev_line_text = text
 
     if asterisk_run:
         flush_asterisk_run(cursor)
