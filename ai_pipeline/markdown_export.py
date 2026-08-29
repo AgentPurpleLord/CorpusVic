@@ -84,12 +84,119 @@ def _heading_level(node_type: str) -> int:
     return {"part": 1, "division": 2, "subdivision": 3, "heading_group": 3}.get(node_type, 3)
 
 
-def _clause_anchor(base_eid: str, index: int, total: int) -> str:
-    """A node holding more than one concatenated definition clause gets a
-    per-clause sub-anchor (base_eid__def2, __def3, ...) so a term links to
-    its own clause rather than the top of a node that might hold several;
-    a node with just one clause keeps using its own eid, unchanged."""
-    return base_eid if total <= 1 else f"{base_eid}__def{index + 1}"
+# ---------------------------------------------------------------------------
+# Every internal link target is a real Markdown header, not an HTML <a id>.
+# Plenty of viewers (VS Code's built-in preview among them) only resolve a
+# "#fragment" link against auto-generated header anchors -- they never look
+# at arbitrary <a id="..."> tags, even though that's valid HTML and GitHub's
+# own renderer *does* honour it. So every node that can be a link target
+# (every Part/Division/Subdivision in the index, every Subsection/Paragraph/
+# Subparagraph in a Section page, each individual clause of a Definitions
+# section that got split apart for readability) is rendered as its own
+# header, and every link is built from that header's own computed slug --
+# the same lowercase/strip-punctuation/hyphenate/de-duplicate algorithm
+# GitHub (and most other Markdown tools) use, so the fragment actually
+# matches what the file will resolve to.
+# ---------------------------------------------------------------------------
+
+_SLUG_STRIP_RE = re.compile(r"[^\w\s-]")
+
+
+def _github_slug(text: str, counts: dict[str, int]) -> str:
+    s = text.strip().lower()
+    s = _SLUG_STRIP_RE.sub("", s)
+    s = re.sub(r"\s+", "-", s)
+    if s not in counts:
+        counts[s] = 0
+        return s
+    counts[s] += 1
+    return f"{s}-{counts[s]}"
+
+
+def _clause_header_text(label: str | None, index: int, total: int) -> str | None:
+    if total <= 1:
+        return label
+    if label:
+        return f"{label} ({index + 1})"
+    return f"¶{index + 1}"  # a lead-in clause with no bracket label of its own (e.g. a section's own un-numbered text)
+
+
+def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = False):
+    """Yields one dict per renderable unit of a section's subtree, in the
+    exact order rendering will emit them -- the single source of truth both
+    _render_body (which prints them) and compute_section_slugs (which
+    predicts their header anchors, before the page is even written) walk."""
+    node = tree_node["node"]
+    t = node["type"]
+
+    if t == "section":
+        label = None  # the section's own num/heading are the page's H1, not repeated in the body
+        in_definitions = in_definitions or looks_like_definitions_section(node.get("heading"))
+    else:
+        label = _format_num(t, node["number"]) if node.get("number") else None
+
+    text = (node.get("text") or "").strip()
+    heading = node.get("heading")
+    level = min(depth + 2, 6)
+
+    if heading and t != "section":
+        header_text = f"{label} {heading}".strip() if label else heading
+        yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level}
+    elif text:
+        # A Definitions section's separate "term means ..." clauses commonly
+        # arrive concatenated into one node's text blob with the rule parser
+        # unable to split them (see definitions.py's module docstring) --
+        # split on that same boundary so each clause becomes its own
+        # paragraph (and, when there's more than one, its own header)
+        # instead of one run-on line.
+        clauses = split_definition_clauses(text) if in_definitions else [text.replace("\n", " ")]
+        needs_header = t != "section" or len(clauses) > 1
+        for i, clause in enumerate(clauses):
+            header_text = _clause_header_text(label, i, len(clauses)) if needs_header else None
+            yield {"tree_node": tree_node, "clause_index": i, "text": clause, "header_text": header_text, "level": level}
+    elif label:
+        yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": label, "level": level}
+
+    child_depth = depth + 1 if t != "section" else depth
+    for child in tree_node["children"]:
+        yield from _iter_body_units(child, child_depth, in_definitions)
+
+
+def compute_section_slugs(tree_node: dict) -> dict[tuple[str, int], str | None]:
+    """(node_eid, clause_index) -> the header slug that unit will render as
+    on its page, or None for a unit that doesn't get its own header (a
+    section's single, un-labelled block of lead-in text -- already covered
+    by the page's own H1, so a link to it just omits the fragment)."""
+    node = tree_node["node"]
+    counts: dict[str, int] = {}
+    _github_slug(f"{node['number']} {node.get('heading') or ''}".strip(), counts)  # reserve the page's own H1 slug first
+    slugs: dict[tuple[str, int], str | None] = {}
+    for unit in _iter_body_units(tree_node):
+        key = (unit["tree_node"]["eid"], unit["clause_index"])
+        slugs[key] = _github_slug(unit["header_text"], counts) if unit["header_text"] is not None else None
+    return slugs
+
+
+def compute_index_slugs(tree_roots: list[dict], act_title: str) -> dict[str, str]:
+    """node_eid -> header slug for every Part/Division/Subdivision/
+    heading_group that will appear in index.md (all one page, so one shared
+    counts table, seeded with the page's own H1 first to match real order)."""
+    counts: dict[str, int] = {}
+    _github_slug(act_title, counts)
+    slugs: dict[str, str] = {}
+
+    def walk(tree_node):
+        node = tree_node["node"]
+        t = node["type"]
+        if t in ("part", "division", "subdivision", "heading_group"):
+            title = _display_title(t, node.get("number"), node.get("heading"))
+            slugs[tree_node["eid"]] = _github_slug(title, counts)
+        for child in tree_node["children"]:
+            walk(child)
+
+    for root in tree_roots:
+        walk(root)
+    return slugs
 
 
 def _display_title(node_type: str, number: str | None, heading: str | None) -> str:
@@ -137,23 +244,23 @@ def collect_definitions(
     filenames_by_eid: dict[str, str],
     section_files: dict[str, str],
 ) -> dict[str, dict]:
-    """term (lowercase) -> {"eid", "file", "display"}, under two conditions
-    (see definitions.py): the term is introduced inside a section whose
-    heading suggests it defines terms, or a clause anywhere points a term at
-    a specific section ("term has the same meaning as in section N") -- the
-    latter always wins on overlap, since following the pointer to where the
-    term is actually explained beats linking to wherever the pointer sits."""
+    """term (lowercase) -> {"fragment", "file", "display"}, under two
+    conditions (see definitions.py): the term is introduced inside a section
+    whose heading suggests it defines terms, or a clause anywhere points a
+    term at a specific section ("term has the same meaning as in section N")
+    -- the latter always wins on overlap, since following the pointer to
+    where the term is actually explained beats linking to wherever the
+    pointer sits. "fragment" is the same header-slug computed by
+    compute_section_slugs/_render_body, so a term's link lands on the exact
+    clause header that page will actually render."""
     definitions: dict[str, dict] = {}
 
     def walk_definitions_section(tree_node, filename):
-        node = tree_node["node"]
-        clauses = split_definition_clauses(node.get("text") or "")
-        for i, clause in enumerate(clauses):
-            anchor = _clause_anchor(tree_node["eid"], i, len(clauses))
-            for term in extract_terms(clause):
-                definitions.setdefault(term, {"eid": anchor, "file": filename, "display": term})
-        for child in tree_node["children"]:
-            walk_definitions_section(child, filename)
+        slugs = compute_section_slugs(tree_node)
+        for unit in _iter_body_units(tree_node):
+            for term in extract_terms(unit["text"] or ""):
+                key = (unit["tree_node"]["eid"], unit["clause_index"])
+                definitions.setdefault(term, {"fragment": slugs.get(key), "file": filename, "display": term})
 
     def walk_section_refs(tree_node):
         for terms, section_num in extract_section_ref_terms(tree_node["node"].get("text") or ""):
@@ -161,7 +268,7 @@ def collect_definitions(
             if not target_file:
                 continue  # referenced section doesn't exist in this Act -- leave unlinked, not linked wrong
             for term in terms:
-                definitions[term] = {"eid": None, "file": target_file, "display": term}
+                definitions[term] = {"fragment": None, "file": target_file, "display": term}
         for child in tree_node["children"]:
             walk_section_refs(child)
 
@@ -203,13 +310,15 @@ def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], d
     parts.append(f"(?P<divref>{_DIVISION_REF_RE})")
     master = re.compile("|".join(parts), re.IGNORECASE)
 
-    def replace(m: re.Match, current_eid: str, index_href: str) -> str:
+    def replace(m: re.Match, current_file: str, current_fragment: str | None, index_href: str) -> str:
         text = m.group(0)
         if m.lastgroup == "def":
             info = definitions.get(text.lower())
-            if not info or info["eid"] == current_eid:
+            if not info:
                 return text
-            target = f"{info['file']}#{info['eid']}" if info["eid"] else info["file"]
+            if info["file"] == current_file and info.get("fragment") == current_fragment:
+                return text  # already sitting under this exact heading -- don't link a term to itself
+            target = f"{info['file']}#{info['fragment']}" if info["fragment"] else info["file"]
             return f"[{text}]({target})"
         if m.lastgroup == "secref":
             num = re.search(r"\d+[A-Za-z]*", text).group(0)
@@ -217,16 +326,16 @@ def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], d
             return f"[{text}]({filename})" if filename else text
         if m.lastgroup == "partref":
             num = text.split(None, 1)[1]
-            eid = part_eids.get(num.lower())
-            return f"[{text}]({index_href}#{eid})" if eid else text
+            fragment = part_eids.get(num.lower())
+            return f"[{text}]({index_href}#{fragment})" if fragment else text
         if m.lastgroup == "divref":
             num = text.split(None, 1)[1]
-            eid = division_eids.get(num.lower())
-            return f"[{text}]({index_href}#{eid})" if eid else text
+            fragment = division_eids.get(num.lower())
+            return f"[{text}]({index_href}#{fragment})" if fragment else text
         return text
 
-    def linkify(text: str, current_eid: str, index_href: str = "../index.md") -> str:
-        return master.sub(lambda m: replace(m, current_eid, index_href), text)
+    def linkify(text: str, current_file: str, current_fragment: str | None = None, index_href: str = "../index.md") -> str:
+        return master.sub(lambda m: replace(m, current_file, current_fragment, index_href), text)
 
     return linkify
 
@@ -245,70 +354,42 @@ def _render_history(tree_node: dict, out: list[str]) -> None:
         _render_history(child, out)
 
 
-def _render_body(tree_node: dict, linkify, current_section_eid: str, out: list[str], depth: int = 0, in_definitions: bool = False) -> None:
-    node = tree_node["node"]
-    t = node["type"]
-    indent = "  " * depth
-
-    if t == "section":
-        label = None  # the section's own num/heading are the page's H1, not repeated in the body
-        in_definitions = in_definitions or looks_like_definitions_section(node.get("heading"))
-    else:
-        label = _format_num(t, node["number"]) if node.get("number") else None
-
-    text = (node.get("text") or "").strip()
-    heading = node.get("heading")
-
-    if heading and t != "section":
-        out.append(f'<a id="{tree_node["eid"]}"></a>')
-        out.append(f"{indent}**{label} {heading}**" if label else f"{indent}**{heading}**")
-        out.append("")
-    elif text:
-        # A Definitions section's separate "term means ..." clauses commonly
-        # arrive concatenated into one node's text blob with the rule parser
-        # unable to split them (see definitions.py's module docstring) --
-        # split on that same boundary so each clause becomes its own
-        # paragraph (rather than one run-on line) with its own anchor
-        # (matching collect_definitions's _clause_anchor exactly), so a
-        # term links to its own clause rather than the top of a node that
-        # might hold several. A node with just one clause (the common case
-        # outside Definitions sections) renders exactly as before.
-        clauses = split_definition_clauses(text) if in_definitions else [text.replace("\n", " ")]
-        for i, clause in enumerate(clauses):
-            anchor = _clause_anchor(tree_node["eid"], i, len(clauses))
-            # A section's own eid is already anchored once by its page H1
-            # (render_section_page); only emit here too when this clause's
-            # anchor is actually distinct from that (i.e. this section node
-            # holds more than one clause itself) -- otherwise skip to avoid
-            # a pointless duplicate id, since a non-section node's own eid
-            # never gets anchored anywhere else.
-            if t != "section" or anchor != tree_node["eid"]:
-                out.append(f'<a id="{anchor}"></a>')
-            rendered = linkify(clause, current_section_eid)
-            prefix = f"{indent}{label} " if (label and i == 0) else indent
-            out.append(f"{prefix}{rendered}")
+def _render_body(
+    tree_node: dict,
+    linkify,
+    current_file: str,
+    slugs: dict[tuple[str, int], str | None],
+    out: list[str],
+    in_definitions: bool = False,
+) -> None:
+    for unit in _iter_body_units(tree_node, 0, in_definitions):
+        if unit["header_text"] is not None:
+            out.append(f"{'#' * unit['level']} {unit['header_text']}")
             out.append("")
-    elif label:
-        if t != "section":
-            out.append(f'<a id="{tree_node["eid"]}"></a>')
-        out.append(f"{indent}{label}")
-        out.append("")
-
-    for child in tree_node["children"]:
-        _render_body(child, linkify, current_section_eid, out, depth + 1 if t != "section" else depth, in_definitions)
+        if unit["text"] is not None:
+            key = (unit["tree_node"]["eid"], unit["clause_index"])
+            out.append(linkify(unit["text"], current_file, slugs.get(key)))
+            out.append("")
 
 
-def render_section_page(tree_node: dict, breadcrumb: list[dict], linkify, prev_link: str | None, next_link: str | None) -> str:
+def render_section_page(
+    tree_node: dict,
+    breadcrumb: list[dict],
+    linkify,
+    current_file: str,
+    prev_link: str | None,
+    next_link: str | None,
+) -> str:
     node = tree_node["node"]
     out = []
     if breadcrumb:
         crumb = " > ".join(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading")) for b in breadcrumb)
         out.append(f"[Act index](../index.md) > {crumb}")
         out.append("")
-    out.append(f'<a id="{tree_node["eid"]}"></a>')
     out.append(f"# {node['number']} {node.get('heading') or ''}".strip())
     out.append("")
-    _render_body(tree_node, linkify, tree_node["eid"], out)
+    slugs = compute_section_slugs(tree_node)
+    _render_body(tree_node, linkify, current_file, slugs, out)
 
     history: list[str] = []
     _render_history(tree_node, history)
@@ -341,7 +422,6 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
         if t in ("part", "division", "subdivision", "heading_group"):
             level = _heading_level(t)
             title = _display_title(t, node.get("number"), node.get("heading"))
-            out.append(f'<a id="{tree_node["eid"]}"></a>')
             out.append(f"{'#' * level} {title}")
             out.append("")
         for child in tree_node["children"]:
@@ -365,8 +445,10 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
     filenames_by_eid, section_files = assign_filenames(sections)
     definitions = collect_definitions(sections, filenames_by_eid, section_files)
 
-    part_eids = {b["node"]["number"].lower(): b["eid"] for root in tree_roots for b in _all_of_type(root, "part") if b["node"].get("number")}
-    division_eids = {b["node"]["number"].lower(): b["eid"] for root in tree_roots for b in _all_of_type(root, "division") if b["node"].get("number")}
+    title = act_title or parsed.get("act", "Act")
+    index_slugs = compute_index_slugs(tree_roots, title)
+    part_eids = {b["node"]["number"].lower(): index_slugs[b["eid"]] for root in tree_roots for b in _all_of_type(root, "part") if b["node"].get("number")}
+    division_eids = {b["node"]["number"].lower(): index_slugs[b["eid"]] for root in tree_roots for b in _all_of_type(root, "division") if b["node"].get("number")}
     linkify = _build_linkifier(section_files, part_eids, division_eids, definitions)
 
     out_path = Path(out_dir)
@@ -375,10 +457,10 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
     for i, (section_node, breadcrumb) in enumerate(sections):
         prev_link = filenames_by_eid[sections[i - 1][0]["eid"]] if i > 0 else None
         next_link = filenames_by_eid[sections[i + 1][0]["eid"]] if i + 1 < len(sections) else None
-        page = render_section_page(section_node, breadcrumb, linkify, prev_link, next_link)
-        (out_path / SECTIONS_DIR / filenames_by_eid[section_node["eid"]]).write_text(page, encoding="utf-8")
+        current_file = filenames_by_eid[section_node["eid"]]
+        page = render_section_page(section_node, breadcrumb, linkify, current_file, prev_link, next_link)
+        (out_path / SECTIONS_DIR / current_file).write_text(page, encoding="utf-8")
 
-    title = act_title or parsed.get("act", "Act")
     (out_path / "index.md").write_text(render_index(tree_roots, title, filenames_by_eid), encoding="utf-8")
 
     return {"sections": len(sections), "definitions": len(definitions)}
