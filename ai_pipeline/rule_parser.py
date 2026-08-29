@@ -183,7 +183,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             # fold it into whatever's currently open instead.
             for l in asterisk_run:
                 if not stack:
-                    open_node("part", None, "(preamble)", l, l.y0)
+                    open_node("part", None, "Preliminary", l, l.y0)
                 append_text(stack[-1], l.text.strip(), l, char_end)
         asterisk_run.clear()
 
@@ -261,7 +261,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                     # Bold at body size with no structural pattern -- inline
                     # emphasis (e.g. a defined term), not a boundary.
                     if not stack:
-                        open_node("part", None, "(preamble)", line, char_start)
+                        open_node("part", None, "Preliminary", line, char_start)
                     append_text(stack[-1], text, line, char_end)
                 matched = True
 
@@ -286,7 +286,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             # yet (preamble text before the first Part), open a synthetic
             # holder rather than dropping it.
             if not stack:
-                open_node("part", None, "(preamble)", line, char_start)
+                open_node("part", None, "Preliminary", line, char_start)
                 warnings.append(f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node")
             append_text(stack[-1], text, line, char_end)
 
