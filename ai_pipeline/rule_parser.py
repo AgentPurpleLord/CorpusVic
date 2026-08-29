@@ -232,8 +232,12 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             notes_mode = False
 
         matched = False
+        section_idx = HIERARCHY_ORDER.index("section")
+        already_past_section = bool(stack) and HIERARCHY_ORDER.index(stack[-1]["type"]) >= section_idx
+
         if line.bold:
-            for level in ("part", "division", "subdivision", "section"):
+            levels = ("part", "division", "section") if already_past_section else ("part", "division", "subdivision", "section")
+            for level in levels:
                 m = patterns[level].match(text)
                 if m:
                     groups = [g for g in m.groups() if g is not None]
@@ -241,30 +245,16 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                     open_node(level, number, heading, line, char_start)
                     matched = True
                     break
-            if not matched:
-                top = stack[-1] if stack else None
-                if top is not None and top["type"] in HEADING_LEVELS and not top["text"]:
-                    # Heading text that wrapped onto another bold line, e.g.
-                    # "3A Unintentional killing in the course or furtherance\nof
-                    # a crime of violence" -- extend the heading, not the body.
-                    append_heading(top, text, char_end)
-                elif round(line.size, 1) > body_size:
-                    # Bold and visibly larger than body text, but no numbered
-                    # pattern matched -- a bare topical heading (e.g. "Fraud
-                    # and blackmail" grouping a run of sections).
-                    nodes.append({
-                        "type": "heading_group", "number": None, "heading": text, "text": text,
-                        "page_start": line.page_no, "page_end": line.page_no,
-                        "char_start": char_start, "char_end": char_end, "source": "rules",
-                    })
-                else:
-                    # Bold at body size with no structural pattern -- inline
-                    # emphasis (e.g. a defined term), not a boundary.
-                    if not stack:
-                        open_node("part", None, "Preliminary", line, char_start)
-                    append_text(stack[-1], text, line, char_end)
-                matched = True
 
+        # Bracket items (subsection/paragraph/subparagraph) are classified by
+        # content shape + sequence context, not boldness -- Act-name
+        # citations are commonly bolded throughout these Acts, and a bracket
+        # item within an already-open section can never legitimately be a
+        # Subdivision (those only ever appear directly under a Division,
+        # before any Section has opened), so bold Act-name styling on e.g.
+        # "(i) the Conservation, Forests and Lands Act 1987; or" must not be
+        # read as a Subdivision heading just because it also matches that
+        # shape.
         if not matched:
             m = patterns["subsection"].match(text)
             bracket_match, level = None, None
@@ -280,6 +270,31 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                 if remainder:
                     append_text(stack[-1], remainder, line, char_end)
                 matched = True
+
+        if not matched and line.bold:
+            top = stack[-1] if stack else None
+            if top is not None and top["type"] in HEADING_LEVELS and not top["text"]:
+                # Heading text that wrapped onto another bold line, e.g.
+                # "3A Unintentional killing in the course or furtherance\nof
+                # a crime of violence" -- extend the heading, not the body.
+                append_heading(top, text, char_end)
+            elif round(line.size, 1) > body_size:
+                # Bold and visibly larger than body text, but no numbered
+                # pattern matched -- a bare topical heading (e.g. "Fraud
+                # and blackmail" grouping a run of sections).
+                nodes.append({
+                    "type": "heading_group", "number": None, "heading": text, "text": text,
+                    "page_start": line.page_no, "page_end": line.page_no,
+                    "char_start": char_start, "char_end": char_end, "source": "rules",
+                })
+            else:
+                # Bold at body size with no structural pattern -- inline
+                # emphasis (e.g. a defined term or, as above, an Act-name
+                # citation), not a boundary.
+                if not stack:
+                    open_node("part", None, "Preliminary", line, char_start)
+                append_text(stack[-1], text, line, char_end)
+            matched = True
 
         if not matched:
             # Continuation of whatever is currently open. If nothing is open
