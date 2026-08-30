@@ -122,6 +122,33 @@ def test_commit_unit_gives_each_node_its_own_timestamp(isolate_corrections):
     assert timestamps == sorted(timestamps)  # stamped in commit order
 
 
+def test_commit_unit_tags_the_last_node_with_its_unit_index(isolate_corrections):
+    nodes = [make_node("section", "1"), make_node("subsection", "1")]
+    verified: list[dict] = []
+    commit_unit([dict(n) for n in nodes], nodes, "test-act", verified, unit_index=3)
+    assert "_unit_end_index" not in verified[0]
+    assert verified[1]["_unit_end_index"] == 3
+
+
+def test_resume_point_trusts_a_unit_end_marker_over_raw_length():
+    """Regression: merge_piece can make commit_unit append *fewer* nodes
+    than a unit's original size (the merged-away piece is discarded, never
+    reaching `verified`) -- once that happens, the unit's real size no
+    longer matches units[u]'s original length, so the raw cumulative-
+    length arithmetic below can't tell "this unit committed short because
+    of a merge" apart from "review quit partway through this unit", and
+    would wrongly trim back a fully-completed unit and force redoing it.
+    commit_unit's `_unit_end_index` tag sidesteps that entirely -- when
+    present, it's trusted directly instead of counting nodes."""
+    units = [[0, 1, 2], [3, 4], [5, 6, 7]]
+    # Unit 0 (originally 3 nodes) committed only 2 -- one piece was merged
+    # away -- so raw cumulative length no longer lines up with units[0]'s
+    # size of 3, exactly the shape a naive length check would misread.
+    verified = [{}, {"_unit_end_index": 0}, {}, {"_unit_end_index": 1}]
+    assert _resume_point(units, verified) == 2
+    assert len(verified) == 4  # untouched -- no legacy trim-back triggered
+
+
 def test_resume_point_on_unit_boundary():
     units = [[0], [1], [2, 3, 4], [5, 6]]
     verified = [{} for _ in range(2)]  # exactly covers the first two units
