@@ -1,0 +1,53 @@
+# Profile template -- copy this file to <act-slug>.yaml (the same slug
+# run_pipeline.py derives from the PDF filename, e.g. "crimes-act" for
+# acts/crimes-act.pdf) and pass --profile <act-slug> to use it. Every
+# pattern below shows the DEFAULT it would replace as a comment -- delete
+# the ones you don't need to override; only listed keys change, everything
+# else keeps using the default.
+#
+# Quick start:
+#   1. Run `python show_profile.py <act-slug>` to see what's currently
+#      resolving for this Act (all defaults, until you add overrides here).
+#   2. Find a heading line the default pattern is getting wrong (check
+#      data/diagnostics/<act-slug>.json, or look for it showing up as a
+#      "heading_group" node in data/ai_parsed/<act-slug>.json when it
+#      should have been a real Part/Division/Section/etc.).
+#   3. Write a regex for it below, then check it immediately with:
+#        python show_profile.py <act-slug> --test "the exact line text"
+#      -- no need to re-run the whole PDF pipeline just to check one line.
+#   4. Once it matches with the right groups, re-run
+#      `python run_pipeline.py acts/<act-slug>.pdf --profile <act-slug>`
+#      and confirm both the completeness count and the specific heading
+#      you were fixing.
+#
+# THE ONE HARD RULE: every pattern needs at least two capture groups, in
+# this order -- (number, heading-or-remaining-text) -- except
+# notes_marker, which is a pure yes/no boundary check ("does this line say
+# 'Notes'?") and needs none. rule_parser.py always reads the other keys'
+# captures as group(1) and group(2); a profile pattern with too few groups
+# fails to load (with a clear error naming the key) rather than crashing
+# confusingly mid-parse. Quoting matters: use
+# single quotes ('...') so backslashes in the regex are read literally --
+# double-quoted YAML strings process backslash escapes the same way JSON
+# does, which brings back exactly the backslash-doubling this format
+# exists to avoid.
+
+# part: '^Part\s+([A-Z0-9]+[A-Z]?)\s*[—–-]\s*(.+)$'
+# division: '^Division\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
+
+# Subdivision is the one pattern with a real wrinkle: it has TWO
+# alternatives -- "(1) Title" (groups 1-2) and "Subdivision 2—Title"
+# (groups 3-4) -- because real Acts use both forms in different places.
+# rule_parser.py checks `m.group(1) is not None` to pick which alternative
+# actually matched, so if you override this one, keep both alternatives
+# (or the branch that decides which groups to read will break). Simplest
+# safe approach: only change the number/title character classes inside
+# whichever alternative you need, leave the overall (?:...|...) shape alone.
+# subdivision: '^(?:\((\w+)\)\s+(.+)|Subdivision\s+(\w+)\s*[—–-]\s*(.+))$'
+
+# section: '^(\d+[A-Za-z]*)\s+(.+)$'
+# subsection: '^\((\d+[A-Za-z]*)\)\s*(.*)$'
+# paragraph: '^\(([a-z]{1,3})\)\s*(.*)$'
+# subparagraph: '^\(([ivxlcdm]+)\)\s*(.*)$'
+# notes_marker: '^Notes?$'
+# note_item: '^(\d+)\s+(.+)$'

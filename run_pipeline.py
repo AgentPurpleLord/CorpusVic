@@ -62,7 +62,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pdf_path")
     ap.add_argument("--engine", choices=["rules", "ai"], default="rules")
-    ap.add_argument("--profile", default=None, help="rules engine: pattern profile name (ai_pipeline/profiles/<name>.json)")
+    ap.add_argument("--profile", default=None, help="rules engine: pattern profile name (ai_pipeline/profiles/<name>.yaml)")
     ap.add_argument("--pages-per-chunk", type=int, default=8, help="AI engine only")
     ap.add_argument("--start-page", type=int, default=None, help="1-indexed; default: auto-detect end of Table of Provisions")
     ap.add_argument("--end-page", type=int, default=None)
