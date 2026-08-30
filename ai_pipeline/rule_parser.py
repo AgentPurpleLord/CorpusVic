@@ -128,21 +128,37 @@ _DEF_CONTINUATION_RE = re.compile(r"^(?:\([^)]*\)\s*)?(?:means?\b|has\b|have\b|i
 _TERMINAL_PUNCT_RE = re.compile(r"[.;:!?]\s*$")
 
 
-def _is_fresh_start(prev_text: str, prev_bold: bool) -> bool:
+def _prev_line_was_heading(stack: list[dict]) -> bool:
+    """True if the line just processed left us still inside an open
+    heading's own title -- a Part/Division/Subdivision/Section node with
+    no body text yet, either because it just opened or its title wrapped
+    across more than one bold line -- as opposed to inside an ordinary
+    node's body content, even body content that happens to be bold
+    throughout. An Act-name citation commonly spans several *consecutive*
+    bold lines ("... the Crimes\n(Mental Impairment and Unfitness to be\n
+    Tried) Act 1997, the Magistrates' Court\nAct 1989, ..."); only the
+    first genuine heading line should count as a fresh start, so this
+    checks what the previous line actually *did* (extend an open heading
+    with no body content yet) rather than merely whether it was bold,
+    which every line in a wrapped citation is."""
+    return bool(stack) and stack[-1]["type"] in HEADING_LEVELS and not stack[-1]["text"]
+
+
+def _is_fresh_start(prev_text: str, prev_line_was_heading: bool) -> bool:
     """Is the line that follows starting clean, rather than continuing a
     sentence in progress? True at the very start of the document, right
     after body text that reached a terminal full stop/semicolon/etc., or
-    right after a bold heading line (Part/Division/Subdivision/Section
-    titles are always bold and never themselves end in that punctuation --
-    "Division 1—Offences against the person" has nothing to terminate).
-    Used to gate several "is this really a heading, or just continuing
-    whatever came before" decisions below: a numbered Subdivision, a bare
-    Section-number wrap, and a bare topical heading_group all only ever
-    legitimately start right after one of these two things."""
-    return not prev_text or prev_bold or bool(_TERMINAL_PUNCT_RE.search(prev_text))
+    right after a Part/Division/Subdivision/Section heading line (those
+    never themselves end in that punctuation -- "Division 1—Offences
+    against the person" has nothing to terminate). Used to gate several
+    "is this really a heading, or just continuing whatever came before"
+    decisions below: a numbered Subdivision, a bare Section-number wrap,
+    and a bare topical heading_group all only ever legitimately start
+    right after one of these two things."""
+    return not prev_text or prev_line_was_heading or bool(_TERMINAL_PUNCT_RE.search(prev_text))
 
 
-def _looks_like_group_heading(text: str, prev_text: str, prev_bold: bool, next_text: str) -> bool:
+def _looks_like_group_heading(text: str, prev_text: str, prev_line_was_heading: bool, next_text: str) -> bool:
     """A bare topical heading grouping a run of sections ("Theft, robbery,
     burglary, &c.", "Fraud and blackmail", "Fingerprinting") can be set at
     ordinary body size, distinguished from an inline bold emphasis (a
@@ -168,7 +184,7 @@ def _looks_like_group_heading(text: str, prev_text: str, prev_bold: bool, next_t
         return False
     if _DEFLIKE_RE.search(text) or _DEF_CONTINUATION_RE.match(next_text):
         return False
-    return _is_fresh_start(prev_text, prev_bold)
+    return _is_fresh_start(prev_text, prev_line_was_heading)
 
 
 # Legislative sentences that happen to open a subsection commonly start with
@@ -264,7 +280,6 @@ class _LineParser:
         self.lines_total = 0
         self.lines_consumed = 0
         self.prev_text = ""
-        self.prev_bold = False
 
     # -- stack bookkeeping ---------------------------------------------------
 
@@ -370,7 +385,6 @@ class _LineParser:
                 self._consume_as_continuation(line, text, char_start, char_end)
 
             self.prev_text = text
-            self.prev_bold = line.bold
 
         if self.asterisk_run:
             self._flush_asterisk_run(self.cursor)
@@ -456,7 +470,7 @@ class _LineParser:
                 heading = m.group(2).strip()
                 if (
                     re.match(r"^\d", m.group(1))
-                    and _is_fresh_start(self.prev_text, self.prev_bold)
+                    and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack))
                     and _looks_like_subdivision_title(heading)
                 ):
                     self._open_node("subdivision", m.group(1), heading, line, char_start)
@@ -470,7 +484,7 @@ class _LineParser:
         # pattern as the bare Subdivision case above), e.g. "465AAAA"
         # alone followed by "Police may use assistants and equipment"
         # as a separate bold line.
-        if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, self.prev_bold):
+        if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack)):
             self._open_node("section", text, None, line, char_start)
             return True
 
@@ -496,7 +510,7 @@ class _LineParser:
             level == "subsection"
             and line.bold
             and remainder is None
-            and _is_fresh_start(self.prev_text, self.prev_bold)
+            and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack))
         ):
             # A bare bold "(N)" with nothing else on the line -- the
             # Subdivision's title wraps onto the next bold line instead
@@ -528,7 +542,7 @@ class _LineParser:
             _append_heading(top, text, char_end)
         elif round(line.size, 1) > self.body_size or (
             round(line.size, 1) == self.body_size
-            and _looks_like_group_heading(text, self.prev_text, self.prev_bold, next_text)
+            and _looks_like_group_heading(text, self.prev_text, _prev_line_was_heading(self.stack), next_text)
         ):
             # A bare topical heading grouping a run of sections. Usually
             # bold and visibly larger than body text (e.g. "Fraud and

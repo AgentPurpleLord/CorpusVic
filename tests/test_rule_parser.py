@@ -269,3 +269,36 @@ def test_hanging_list_does_not_fire_on_genuine_nested_wrap():
     result = _parse(lines)
     paragraph_b = find(result.nodes, "paragraph", "b")
     assert "that child within the preceding 2 years" in paragraph_b["text"]
+
+
+def test_multiline_bold_act_citation_is_not_split_into_heading_groups():
+    """Regression: a Paragraph listing several Act names being amended can
+    wrap across many *consecutive* bold lines ("... the Crimes\n(Mental
+    Impairment and Unfitness to be\nTried) Act 1997, the Magistrates'
+    Court\nAct 1989, ...") -- an earlier fix let a bold previous line
+    count as a "fresh start" for heading detection (to recognise a
+    Subdivision opening right after its Division's own bold heading
+    line), but that wrongly treated every wrapped line of a multi-line
+    bold citation as its own fresh start too, splitting the citation into
+    a string of spurious heading_group nodes instead of keeping it as one
+    Paragraph's continuing text."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+        line("(k) to amend the Crimes Act 1958, the Crimes", x0=PARA_X0),
+        line("(Mental Impairment and Unfitness to be", x0=PARA_WRAP_X0, bold=True),
+        line("Tried) Act 1997, the Magistrates' Court", x0=PARA_WRAP_X0, bold=True),
+        line("Act 1989, the Children, Youth and", x0=PARA_WRAP_X0, bold=True),
+        line("Families Act 2005 and the Appeal Costs", x0=PARA_WRAP_X0, bold=True),
+        line("Act 1998;", x0=PARA_WRAP_X0, bold=True),
+        line("(l) to repeal the Crimes (Criminal Trials)", x0=PARA_X0, bold=True),
+        line("Act 1999;", x0=PARA_WRAP_X0, bold=True),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "heading_group" for n in result.nodes)
+    paragraph_k = find(result.nodes, "paragraph", "k")
+    assert "Families Act 2005 and the Appeal Costs" in paragraph_k["text"]
+    assert "Act 1998;" in paragraph_k["text"]
+    paragraph_l = find(result.nodes, "paragraph", "l")
+    assert "Act 1999;" in paragraph_l["text"]
