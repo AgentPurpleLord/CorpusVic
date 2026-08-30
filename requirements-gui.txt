@@ -1,0 +1,5 @@
+# Only needed to run link_review.py (the span-highlighting web GUI), not
+# the pipeline or the review.py CLI.
+-r requirements.txt
+fastapi
+uvicorn
