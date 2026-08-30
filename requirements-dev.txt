@@ -1,0 +1,4 @@
+# Only needed to run the test suite (pytest tests/), not the pipeline itself.
+-r requirements.txt
+pytest
+xmlschema

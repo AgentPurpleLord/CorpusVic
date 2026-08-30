@@ -80,7 +80,16 @@ def parse_note(raw: str) -> dict:
         elif gd.get("div"):
             result["part"] = gd.get("part")
             result["division"] = gd["div"]
-            result["sub_path"] = _split_subpath(gd.get("subdiv"))
+            # Unlike nsub/sub (captured *with* their own parens, since
+            # those groups can repeat -- "(1)(a)"), subdiv's capture group
+            # sits inside a single literal \(...\) in the regex and so
+            # only ever holds the bare content ("18", not "(18)") --
+            # _split_subpath expects the parens still attached to split
+            # multiple bracketed levels apart, so passing it the bare
+            # content directly finds nothing to split and silently drops
+            # the Subdivision reference instead of attaching it.
+            if gd.get("subdiv"):
+                result["sub_path"] = [f"({gd['subdiv']})"]
         elif gd.get("part2"):
             result["part"] = gd["part2"]
     defm = _DEF_RE.search(raw)

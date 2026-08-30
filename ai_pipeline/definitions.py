@@ -46,8 +46,10 @@ _TERMS = r'"?[A-Za-z][\w \'()/-]*?"?(?:\s*,\s*"?[A-Za-z][\w \'()/-]*?"?)*(?:\s+a
 _DEF_RE = re.compile(
     # "means" not followed by "of" specifically excludes the common idiom
     # "by means of ..." ("by" preceding "means" would otherwise parse as a
-    # one-word defined term "by").
-    rf"^(?P<terms>{_TERMS})\s+(?:means\b(?!\s+of\b)|means,|has(?: the| its)? same meanings?\b|includes\b)",
+    # one-word defined term "by"). "has"/"have" both appear in real Act
+    # text -- a compound subject ("X, Y and Z have the same meanings as
+    # ...") takes the plural verb, same as "means"/"mean" would.
+    rf"^(?P<terms>{_TERMS})\s+(?:means\b(?!\s+of\b)|means,|(?:has|have)(?: the| its)? same meanings?\b|includes\b)",
     re.MULTILINE,
 )
 
@@ -69,7 +71,7 @@ _STOPWORDS = {
 # Act" tell, same reasoning as markdown_export.py's own section-reference
 # guard for prose mentions.
 _SAME_MEANING_SECTION_RE = re.compile(
-    rf"^(?P<terms>{_TERMS})\s+has(?: the| its)? same meanings?\s+as\s+in\s+section\s+(?P<section>\d+[A-Za-z]*)\b"
+    rf"^(?P<terms>{_TERMS})\s+(?:has|have)(?: the| its)? same meanings?\s+as\s+in\s+section\s+(?P<section>\d+[A-Za-z]*)\b"
     r"(?!(?:\s*\([^)]*\))?\s+of\s+(?:the|that|any)\b)",
     re.MULTILINE | re.IGNORECASE,
 )

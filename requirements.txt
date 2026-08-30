@@ -1,5 +1,6 @@
 pymupdf
 rich
+pyyaml
 
 # Only needed if you use --backend claude. The default, --backend ollama,
 # talks to a local Ollama server over plain HTTP and needs no extra package

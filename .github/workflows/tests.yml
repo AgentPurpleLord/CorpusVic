@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        run: pytest -v
+
+      - name: Run the full pipeline against every sample Act (completeness check)
+        run: |
+          for act in crimes-act interpretation evidence-act; do
+            python run_pipeline.py "acts/$act.pdf"
+          done
+          # This Act numbers its Parts "5.1"/"4.6A" instead of roman
+          # numerals -- see ai_pipeline/profiles/criminal-procedure-act.yaml.
+          python run_pipeline.py acts/criminal-procedure-act.pdf --profile criminal-procedure-act
+
+      - name: Export Markdown and AKN for every sample Act
+        run: |
+          for act in crimes-act interpretation criminal-procedure-act evidence-act; do
+            python export_markdown.py "$act"
+            python export_akn.py "$act"
+          done
