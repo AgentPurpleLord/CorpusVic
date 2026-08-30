@@ -9,6 +9,8 @@ right-hand margin amendment-history notes already stripped out, and page
 boundaries marked inline as "<<<PAGE N>>>".
 
 Victorian Acts use these structural levels, in this nesting order:
+  chapter       e.g. "Chapter 2—Commencing a criminal proceeding" -- the
+                optional top level a few Acts group their Parts under
   part          e.g. "Part I—Offences" or "Part 3—Sentencing"
   division      e.g. "Division 1—Offences against the person"
   subdivision   a bracketed-number sub-grouping heading inside a Division,

@@ -4,21 +4,22 @@ asking the model to emit nested JSON or explicit parent paths, which is more
 error-prone) and attaches parsed amendment-history notes to the node they
 belong to.
 """
-from .hierarchy import HIERARCHY_ORDER, HIERARCHY_RANK
+from .hierarchy import HIERARCHY_ORDER, make_ranks
 from .history_notes import collect_page_notes
 
 
-def annotate_paths(nodes: list[dict]) -> list[dict]:
+def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
     """Adds a node["path"] breadcrumb (e.g. {"part": "I", "division": "1",
     "section": "3", "subsection": "(2)", ...}) to every node, by tracking the
     most recent number seen at each hierarchy level and resetting deeper
     levels whenever a shallower one changes."""
-    current = {level: None for level in HIERARCHY_ORDER}
+    rank = make_ranks(hierarchy_order)
+    current = {level: None for level in hierarchy_order}
     for node in nodes:
         t = node.get("type")
-        if t in HIERARCHY_RANK:
+        if t in rank:
             current[t] = node.get("number")
-            for deeper in HIERARCHY_ORDER[HIERARCHY_RANK[t] + 1 :]:
+            for deeper in hierarchy_order[rank[t] + 1 :]:
                 current[deeper] = None
         node["path"] = dict(current)
     return nodes
@@ -56,11 +57,11 @@ def _find_definition(candidates: list[dict], def_name: str) -> dict | None:
     return None
 
 
-def attach_history(nodes: list[dict], pages) -> list[dict]:
+def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
     """Attaches parsed margin notes to the most specific matching node's
     node["history"] list. Notes that can't be matched to any node are
     returned separately for manual follow-up, not discarded."""
-    annotate_paths(nodes)
+    annotate_paths(nodes, hierarchy_order)
     section_runs = _runs_by(nodes, "section")
     division_runs = _runs_by(nodes, "division")
     part_runs = _runs_by(nodes, "part")

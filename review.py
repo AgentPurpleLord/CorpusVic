@@ -46,6 +46,13 @@ from ai_pipeline.schema import NODE_TYPES
 
 console = Console()
 
+# The type labels edit_node offers when relabelling a node. Starts as the
+# built-in NODE_TYPES; main() prepends this Act's own hierarchy levels
+# (from data/ai_parsed/<act>.json) so an Act with e.g. Chapters can have
+# its mis-typed headings relabelled to "chapter". Mutated in place once,
+# at startup, so the edit helpers don't each need it threaded in.
+RELABEL_TYPES = list(NODE_TYPES)
+
 # Rich treats "[a]" as a markup style tag and silently drops it rather than
 # printing it -- so a prompt string like "[a]ccept / [e]dit" doesn't lose
 # its brackets, it loses the "a" and "e" too (the single letters the
@@ -90,7 +97,7 @@ def load_parsed(act: str):
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
     data = json.loads(path.read_text(encoding="utf-8"))
-    return data["nodes"], data.get("unattached_notes", [])
+    return data["nodes"], data.get("unattached_notes", []), data.get("hierarchy", [])
 
 
 def load_verified(act: str) -> list[dict]:
@@ -149,7 +156,7 @@ def render_node(node: dict, idx: int, total: int, findings: list[dict] | None = 
 # reconstruct the full tree (build_hierarchy_tree in akn_export.py) just to
 # find "everything under this Section": the flat node list is already in
 # document order, so a single pass is enough.
-_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "heading_group"}
+_UNIT_BOUNDARY_TYPES = {"chapter", "part", "division", "subdivision", "section", "heading_group"}
 
 
 def group_into_units(nodes: list[dict]) -> list[list[int]]:
@@ -560,7 +567,7 @@ def split_node(node: dict, act: str, verified: list[dict]) -> dict | None:
 
 def edit_node(node: dict) -> dict:
     edited = dict(node)
-    edited["type"] = Prompt.ask("  type", choices=NODE_TYPES, default=node["type"])
+    edited["type"] = Prompt.ask("  type", choices=RELABEL_TYPES, default=node["type"])
     number = Prompt.ask("  number", default=node.get("number") or "")
     edited["number"] = number or None
     heading = Prompt.ask("  heading", default=node.get("heading") or "")
@@ -648,8 +655,12 @@ def main():
     )
     args = ap.parse_args()
 
-    nodes, unattached_notes = load_parsed(args.act)
+    nodes, unattached_notes, hierarchy = load_parsed(args.act)
     verified = [] if args.restart else load_verified(args.act)
+
+    # Offer this Act's own hierarchy levels first when relabelling a node
+    # (a custom top level like "chapter" won't be in the built-in list).
+    RELABEL_TYPES[:] = list(dict.fromkeys([*hierarchy, *NODE_TYPES]))
 
     s = stats()
     console.print(f"Corrections logged so far across all Acts: {s['total']} ({s['changed']} changed)")

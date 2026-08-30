@@ -34,8 +34,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .extract import BodyLine, PageText
-from .hierarchy import HEADING_LEVELS, HIERARCHY_RANK
-from .profiles import load_profile
+from .hierarchy import HIERARCHY_ORDER, heading_levels, make_ranks
+from .profiles import load_hierarchy, load_profile
 
 
 @dataclass
@@ -44,6 +44,10 @@ class ParseResult:
     lines_total: int
     lines_consumed: int
     warnings: list[str] = field(default_factory=list)
+    # The resolved container ordering this parse used (default, or the
+    # profile's `hierarchy:` override) -- run_pipeline.py persists it so the
+    # exporters can rebuild the tree with the same level order.
+    hierarchy: list[str] = field(default_factory=lambda: list(HIERARCHY_ORDER))
 
 
 def _flatten_lines(pages: list[PageText]) -> list[BodyLine]:
@@ -220,7 +224,6 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 
 
 _INDENT_TOLERANCE = 3.0
-_HANGING_LIST_FLOOR = HIERARCHY_RANK["subsection"]
 
 
 def _append_text(node: dict, text: str, line: BodyLine, char_end: int) -> None:
@@ -236,8 +239,9 @@ def _append_heading(node: dict, text: str, char_end: int) -> None:
 
 def _looks_like_boundary(text: str, patterns: dict) -> bool:
     return any(
-        patterns[key].match(text)
-        for key in ("part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph")
+        compiled.match(text)
+        for key, compiled in patterns.items()
+        if key not in ("notes_marker", "note_item")
     ) or text == "*"
 
 
@@ -246,9 +250,26 @@ class _LineParser:
     the classifier priority order; each `_try_*`/`_handle_*` method returns
     True once it has consumed the current line."""
 
-    def __init__(self, patterns: dict, body_size: float):
+    def __init__(self, patterns: dict, body_size: float, hierarchy_order: list[str]):
         self.patterns = patterns
         self.body_size = body_size
+
+        self.order = list(hierarchy_order)
+        self.rank = make_ranks(self.order)
+        self.heading_levels = heading_levels(self.order)
+        self._hanging_list_floor = self.rank["subsection"]
+        # The heading levels that use the "Word N—Title" shape (Chapter/
+        # Part/Division/...) plus "section" itself, tried in hierarchy
+        # order in _try_bold_heading. "subdivision" is excluded -- it has
+        # its own two-form handling right after.
+        self._prefix_heading_levels = [
+            lvl for lvl in self.order
+            if self.rank[lvl] <= self.rank["section"] and lvl != "subdivision" and lvl in patterns
+        ]
+        # Synthetic bucket for text before the first real container. "part"
+        # for every real Victorian Act; the top level otherwise (a profile
+        # could conceivably drop "part").
+        self._preamble_level = "part" if "part" in self.rank else self.order[0]
 
         self.nodes: list[dict] = []
         self.stack: list[dict] = []
@@ -274,8 +295,8 @@ class _LineParser:
         node["text"] = node["text"].strip()
 
     def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine, char_start: int) -> dict:
-        rank = HIERARCHY_RANK[level]
-        while self.stack and HIERARCHY_RANK[self.stack[-1]["type"]] >= rank:
+        rank = self.rank[level]
+        while self.stack and self.rank[self.stack[-1]["type"]] >= rank:
             self._close_top()
         node = {
             "type": level, "number": number, "heading": heading, "text": "",
@@ -307,7 +328,7 @@ class _LineParser:
             # fold it into whatever's currently open instead.
             for l in run:
                 if not self.stack:
-                    self._open_node("part", None, "Preliminary", l, l.y0)
+                    self._open_node(self._preamble_level, None, "Preliminary", l, l.y0)
                 _append_text(self.stack[-1], l.text.strip(), l, char_end)
         run.clear()
 
@@ -327,7 +348,7 @@ class _LineParser:
         via an explicit pattern match."""
         while (
             len(self.stack) > 1
-            and HIERARCHY_RANK[self.stack[-1]["type"]] >= _HANGING_LIST_FLOOR
+            and self.rank[self.stack[-1]["type"]] >= self._hanging_list_floor
             and x0 < self.stack_x0[-1] - _INDENT_TOLERANCE
         ):
             self._close_top()
@@ -384,6 +405,7 @@ class _LineParser:
             lines_total=self.lines_total,
             lines_consumed=self.lines_consumed,
             warnings=self.warnings,
+            hierarchy=list(self.order),
         )
 
     # -- classifiers -----------------------------------------------------
@@ -416,12 +438,12 @@ class _LineParser:
         return False
 
     def _try_bold_heading(self, line: BodyLine, text: str, char_start: int) -> bool:
-        """Part/Division/Section headings, then the two bare-number wrap
-        cases (Subdivision, Section) -- all bold-only."""
+        """Chapter/Part/Division/Section headings, then the two bare-number
+        wrap cases (Subdivision, Section) -- all bold-only."""
         if not line.bold:
             return False
 
-        for level in ("part", "division", "section"):
+        for level in self._prefix_heading_levels:
             m = self.patterns[level].match(text)
             if m:
                 self._open_node(level, m.group(1), m.group(2).strip(), line, char_start)
@@ -521,7 +543,7 @@ class _LineParser:
             return False
 
         top = self.stack[-1] if self.stack else None
-        if top is not None and top["type"] in HEADING_LEVELS and not top["text"]:
+        if top is not None and top["type"] in self.heading_levels and not top["text"]:
             # Heading text that wrapped onto another bold line, e.g.
             # "3A Unintentional killing in the course or furtherance\nof
             # a crime of violence" -- extend the heading, not the body.
@@ -551,7 +573,7 @@ class _LineParser:
             # emphasis (e.g. a defined term or, as above, an Act-name
             # citation), not a boundary.
             if not self.stack:
-                self._open_node("part", None, "Preliminary", line, char_start)
+                self._open_node(self._preamble_level, None, "Preliminary", line, char_start)
             _append_text(self.stack[-1], text, line, char_end)
         return True
 
@@ -560,7 +582,7 @@ class _LineParser:
         yet (preamble text before the first Part), open a synthetic holder
         rather than dropping it."""
         if not self.stack:
-            self._open_node("part", None, "Preliminary", line, char_start)
+            self._open_node(self._preamble_level, None, "Preliminary", line, char_start)
             self.warnings.append(
                 f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node"
             )
@@ -571,7 +593,8 @@ class _LineParser:
 
 def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseResult:
     patterns = load_profile(profile_name)
+    hierarchy_order = load_hierarchy(profile_name)
     lines = _flatten_lines(pages)
-    parser = _LineParser(patterns, _body_font_size(lines))
+    parser = _LineParser(patterns, _body_font_size(lines), hierarchy_order)
     parser.feed(lines)
     return parser.result()

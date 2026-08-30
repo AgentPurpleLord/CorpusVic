@@ -35,6 +35,7 @@ from pathlib import Path
 
 from ai_pipeline.diagnostics import run_diagnostics
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
+from ai_pipeline.hierarchy import HIERARCHY_ORDER
 from ai_pipeline.rule_parser import parse_act
 from ai_pipeline.toc import detect_body_start
 from ai_pipeline.tree import attach_history
@@ -96,12 +97,14 @@ def main():
     if args.engine == "rules":
         nodes, parse_result = run_rules_engine(pages, act_slug, args.profile)
         engine_meta = {"engine": "rules", "profile": args.profile}
+        hierarchy_order = parse_result.hierarchy
     else:
         nodes, backend = run_ai_engine(pages, act_slug, args.backend, args.model, args.pages_per_chunk)
         engine_meta = {"engine": "ai", "backend": args.backend, "model": backend.model}
+        hierarchy_order = list(HIERARCHY_ORDER)
 
     print("Attaching amendment-history margin notes ...")
-    unattached_notes = attach_history(nodes, pages)
+    unattached_notes = attach_history(nodes, pages, hierarchy_order)
     if unattached_notes:
         print(f"  {len(unattached_notes)} note(s) could not be auto-linked to a node (kept for manual review)")
 
@@ -110,7 +113,11 @@ def main():
     out_path = parsed_dir / f"{act_slug}.json"
     out_path.write_text(
         json.dumps(
-            {"act": act_slug, "source": str(pdf_path), **engine_meta, "nodes": nodes, "unattached_notes": unattached_notes},
+            {
+                "act": act_slug, "source": str(pdf_path), **engine_meta,
+                "hierarchy": hierarchy_order,
+                "nodes": nodes, "unattached_notes": unattached_notes,
+            },
             indent=2,
         ),
         encoding="utf-8",

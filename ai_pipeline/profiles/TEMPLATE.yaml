@@ -32,8 +32,17 @@
 # does, which brings back exactly the backslash-doubling this format
 # exists to avoid.
 
+# chapter: '^Chapter\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
 # part: '^Part\s+([A-Z0-9]+[A-Z]?)\s*[—–-]\s*(.+)$'
 # division: '^Division\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
+
+# The one non-pattern key: 'hierarchy', the ordered list of container
+# levels. The default already includes "chapter" on top with the pattern
+# above, so an Act that groups Parts under Chapters needs nothing here.
+# Only set this to REORDER the heading levels or add a level with no
+# default pattern (define its pattern above too). section/subsection/
+# paragraph/subparagraph must stay in the list.
+# hierarchy: [chapter, part, division, subdivision, section, subsection, paragraph, subparagraph]
 
 # Subdivision is the one pattern with a real wrinkle: it has TWO
 # alternatives -- "(1) Title" (groups 1-2) and "Subdivision 2—Title"

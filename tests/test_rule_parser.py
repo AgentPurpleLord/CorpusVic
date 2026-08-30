@@ -253,6 +253,51 @@ def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     assert paragraph_b["text"].rstrip().endswith("suicide—")
 
 
+def test_chapter_heading_recognised_and_nests_a_part_under_it():
+    """The Criminal Procedure Act / Evidence Act group their Parts under
+    numbered Chapters. "Chapter N—Title" matches the built-in chapter
+    pattern (no profile needed), and a following Part nests inside it."""
+    lines = [
+        line("Chapter 2—Commencing a criminal proceeding", bold=True),
+        line("Part 1—How a criminal proceeding is commenced", bold=True),
+        line("1 Commencement", bold=True),
+        line("A criminal proceeding is commenced by filing a charge-sheet.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    chapter = find(result.nodes, "chapter", "2")
+    assert chapter["heading"] == "Commencing a criminal proceeding"
+    # order: chapter, then part, then section -- nesting is reconstructed
+    # downstream from this flat order (see akn_export.build_hierarchy_tree).
+    types = [n["type"] for n in result.nodes]
+    assert types.index("chapter") < types.index("part") < types.index("section")
+
+
+def test_chapter_title_wrapping_onto_a_second_bold_line_extends_the_heading():
+    lines = [
+        line("Chapter 2—Commencing a", bold=True),
+        line("criminal proceeding", bold=True),
+        line("Part 1—How it starts", bold=True),
+        line("Text.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    chapter = find(result.nodes, "chapter", "2")
+    assert chapter["heading"] == "Commencing a criminal proceeding"
+
+
+def test_act_with_no_chapter_lines_produces_no_chapter_nodes():
+    """Regression guard: "chapter" is in the default hierarchy, but an Act
+    that never prints a "Chapter N—..." line must not sprout one."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("Division 1—Offences against the person", bold=True),
+        line("1 Murder", bold=True),
+        line("(1) A person who commits murder is guilty of an offence.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "chapter" for n in result.nodes)
+    assert result.hierarchy[0] == "chapter"  # available, just unused
+
+
 def test_hanging_list_does_not_fire_on_genuine_nested_wrap():
     """The same mechanism must leave an ordinary multi-line Paragraph
     (no closing clause, just a wrapped sentence within the Paragraph
