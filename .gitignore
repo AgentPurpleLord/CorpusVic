@@ -11,3 +11,4 @@ data/markdown/
 __pycache__/
 *.pyc
 .idea/
+.pytest_cache/

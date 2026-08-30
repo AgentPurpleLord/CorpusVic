@@ -30,6 +30,7 @@ Next step: python review.py <act-slug>
 """
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from ai_pipeline.diagnostics import run_diagnostics
@@ -130,6 +131,14 @@ def main():
             f"({'OK' if report.complete else 'MISMATCH -- see diagnostics'})"
         )
         print(f"Diagnostics: {n_err} error(s), {n_warn} warning(s), {n_info} info -> {diag_path}")
+        if not report.complete:
+            # Every input line landing in exactly one node is a hard
+            # invariant of the rules engine (see rule_parser.py's module
+            # docstring), never an expected outcome -- a mismatch here
+            # means something regressed, so this must fail loudly (CI
+            # included), not just print a warning nobody's watching.
+            print(f"ERROR: {act_slug} -- completeness invariant violated, aborting.", file=sys.stderr)
+            sys.exit(1)
 
     print(f"Next: python review.py {act_slug}")
 

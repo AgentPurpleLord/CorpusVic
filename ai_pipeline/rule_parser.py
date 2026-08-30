@@ -122,7 +122,21 @@ _DEF_CONTINUATION_RE = re.compile(r"^(?:\([^)]*\)\s*)?(?:means?\b|has\b|have\b|i
 _TERMINAL_PUNCT_RE = re.compile(r"[.;:!?]\s*$")
 
 
-def _looks_like_group_heading(text: str, prev_text: str, next_text: str) -> bool:
+def _is_fresh_start(prev_text: str, prev_bold: bool) -> bool:
+    """Is the line that follows starting clean, rather than continuing a
+    sentence in progress? True at the very start of the document, right
+    after body text that reached a terminal full stop/semicolon/etc., or
+    right after a bold heading line (Part/Division/Subdivision/Section
+    titles are always bold and never themselves end in that punctuation --
+    "Division 1—Offences against the person" has nothing to terminate).
+    Used to gate several "is this really a heading, or just continuing
+    whatever came before" decisions below: a numbered Subdivision, a bare
+    Section-number wrap, and a bare topical heading_group all only ever
+    legitimately start right after one of these two things."""
+    return not prev_text or prev_bold or bool(_TERMINAL_PUNCT_RE.search(prev_text))
+
+
+def _looks_like_group_heading(text: str, prev_text: str, prev_bold: bool, next_text: str) -> bool:
     """A bare topical heading grouping a run of sections ("Theft, robbery,
     burglary, &c.", "Fraud and blackmail", "Fingerprinting") can be set at
     ordinary body size, distinguished from an inline bold emphasis (a
@@ -148,7 +162,7 @@ def _looks_like_group_heading(text: str, prev_text: str, next_text: str) -> bool
         return False
     if _DEFLIKE_RE.search(text) or _DEF_CONTINUATION_RE.match(next_text):
         return False
-    return not prev_text or bool(_TERMINAL_PUNCT_RE.search(prev_text))
+    return _is_fresh_start(prev_text, prev_bold)
 
 
 # Legislative sentences that happen to open a subsection commonly start with
@@ -239,6 +253,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
     cursor = 0
     lines_consumed = 0
     prev_line_text = ""
+    prev_line_bold = False
 
     def close_top():
         node = stack.pop()
@@ -378,7 +393,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                         heading = m.group(2).strip()
                         if (
                             re.match(r"^\d", m.group(1))
-                            and (not prev_line_text or _TERMINAL_PUNCT_RE.search(prev_line_text))
+                            and _is_fresh_start(prev_line_text, prev_line_bold)
                             and _looks_like_subdivision_title(heading)
                         ):
                             open_node("subdivision", m.group(1), heading, line, char_start)
@@ -392,7 +407,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             # pattern as the bare Subdivision case above), e.g. "465AAAA"
             # alone followed by "Police may use assistants and equipment"
             # as a separate bold line.
-            if not matched and re.match(r"^\d+[A-Za-z]*$", text) and (not prev_line_text or _TERMINAL_PUNCT_RE.search(prev_line_text)):
+            if not matched and re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(prev_line_text, prev_line_bold):
                 open_node("section", text, None, line, char_start)
                 matched = True
 
@@ -414,7 +429,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                     level == "subsection"
                     and line.bold
                     and remainder is None
-                    and (not prev_line_text or _TERMINAL_PUNCT_RE.search(prev_line_text))
+                    and _is_fresh_start(prev_line_text, prev_line_bold)
                 ):
                     # A bare bold "(N)" with nothing else on the line -- the
                     # Subdivision's title wraps onto the next bold line
@@ -439,7 +454,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
                 # a crime of violence" -- extend the heading, not the body.
                 append_heading(top, text, char_end)
             elif round(line.size, 1) > body_size or (
-                round(line.size, 1) == body_size and _looks_like_group_heading(text, prev_line_text, next_text)
+                round(line.size, 1) == body_size and _looks_like_group_heading(text, prev_line_text, prev_line_bold, next_text)
             ):
                 # A bare topical heading grouping a run of sections. Usually
                 # bold and visibly larger than body text (e.g. "Fraud and
@@ -478,6 +493,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             append_text(stack[-1], text, line, char_end)
 
         prev_line_text = text
+        prev_line_bold = line.bold
 
     if asterisk_run:
         flush_asterisk_run(cursor)
