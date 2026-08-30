@@ -20,16 +20,22 @@ exactly one output node. There is no code path that silently drops a line;
 anything that doesn't match a known pattern becomes continuation text of
 whatever node is currently open. `parse_result.lines_total ==
 parse_result.lines_consumed` is a hard assertion, not a hope.
+
+Structure: `parse_act` builds a `_LineParser` and feeds it the flat line
+list. `_LineParser.feed` is the single pass; for each line it runs the
+classifiers below in priority order (`_try_bold_heading` ->
+`_try_bracket_item` -> `_try_bold_emphasis`), and any line none of them
+claims falls through to `_consume_as_continuation`. Each classifier
+returns True once it has consumed the line. The stack bookkeeping
+(`_open_node`/`_close_top`/...) is shared state on the instance.
 """
 import re
 from collections import Counter
 from dataclasses import dataclass, field
 
 from .extract import BodyLine, PageText
+from .hierarchy import HEADING_LEVELS, HIERARCHY_RANK
 from .profiles import load_profile
-
-HIERARCHY_ORDER = ["part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"]
-HEADING_LEVELS = {"part", "division", "subdivision", "section"}
 
 
 @dataclass
@@ -214,294 +220,18 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 
 
 _INDENT_TOLERANCE = 3.0
-_HANGING_LIST_FLOOR = HIERARCHY_ORDER.index("subsection")
+_HANGING_LIST_FLOOR = HIERARCHY_RANK["subsection"]
 
 
-def _resolve_hanging_list(stack: list[dict], stack_x0: list[float], x0: float, close_top) -> None:
-    """A common legislative construct opens a subsection (or section) with
-    lead-in text, breaks into a lettered/roman list, and then closes the
-    list with independent text that grammatically resumes the *lead-in's*
-    sentence, not the list item's -- "(a) does X; or (b) does Y -- is
-    guilty of an offence." A purely textual parse has no way to see that;
-    but the PDF's own hanging indent does: each level's own wrapped
-    continuation lines print at a fixed indent past that level's opening
-    marker, so a plain continuation line that outdents back past the
-    innermost list item's own indent is resuming whatever shallower level
-    actually sits at that indent, not continuing the list item. Only ever
-    pops subsection/paragraph/subparagraph -- Part/Division/Subdivision/
-    Section only ever close via an explicit pattern match."""
-    while (
-        len(stack) > 1
-        and HIERARCHY_ORDER.index(stack[-1]["type"]) >= _HANGING_LIST_FLOOR
-        and x0 < stack_x0[-1] - _INDENT_TOLERANCE
-    ):
-        close_top()
+def _append_text(node: dict, text: str, line: BodyLine, char_end: int) -> None:
+    node["text"] = (node["text"] + "\n" + text) if node["text"] else text
+    node["page_end"] = line.page_no
+    node["char_end"] = char_end
 
 
-def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseResult:
-    patterns = load_profile(profile_name)
-    lines = _flatten_lines(pages)
-    body_size = _body_font_size(lines)
-
-    nodes: list[dict] = []
-    stack: list[dict] = []
-    stack_x0: list[float] = []
-    warnings: list[str] = []
-    current_note: dict | None = None
-    notes_mode = False
-    asterisk_run: list[BodyLine] = []
-    cursor = 0
-    lines_consumed = 0
-    prev_line_text = ""
-    prev_line_bold = False
-
-    def close_top():
-        node = stack.pop()
-        stack_x0.pop()
-        node["text"] = node["text"].strip()
-
-    def open_node(level: str, number: str | None, heading: str | None, line: BodyLine, char_start: int) -> dict:
-        idx = HIERARCHY_ORDER.index(level)
-        while stack and HIERARCHY_ORDER.index(stack[-1]["type"]) >= idx:
-            close_top()
-        node = {
-            "type": level, "number": number, "heading": heading, "text": "",
-            "page_start": line.page_no, "page_end": line.page_no,
-            "char_start": char_start, "char_end": char_start, "source": "rules",
-        }
-        nodes.append(node)
-        stack.append(node)
-        stack_x0.append(line.x0)
-        return node
-
-    def append_text(node: dict, text: str, line: BodyLine, char_end: int):
-        node["text"] = (node["text"] + "\n" + text) if node["text"] else text
-        node["page_end"] = line.page_no
-        node["char_end"] = char_end
-
-    def append_heading(node: dict, text: str, char_end: int):
-        node["heading"] = (node["heading"] + " " + text) if node["heading"] else text
-        node["char_end"] = char_end
-
-    def close_note():
-        nonlocal current_note
-        if current_note is not None:
-            current_note["text"] = current_note["text"].strip()
-            current_note = None
-
-    def flush_asterisk_run(char_end: int):
-        if len(asterisk_run) >= 3:
-            first, last = asterisk_run[0], asterisk_run[-1]
-            nodes.append({
-                "type": "note", "number": None, "heading": None,
-                "text": ("* " * len(asterisk_run)).strip(),
-                "page_start": first.page_no, "page_end": last.page_no,
-                "char_start": asterisk_start, "char_end": char_end, "source": "rules",
-            })
-        else:
-            # Too short a run to be the repealed-text marker -- don't lose it,
-            # fold it into whatever's currently open instead.
-            for l in asterisk_run:
-                if not stack:
-                    open_node("part", None, "Preliminary", l, l.y0)
-                append_text(stack[-1], l.text.strip(), l, char_end)
-        asterisk_run.clear()
-
-    for idx, line in enumerate(lines):
-        text = line.text.strip()
-        char_start = cursor
-        char_end = cursor + len(text)
-        cursor = char_end + 1  # account for the "\n" join
-        lines_consumed += 1
-        if not text:
-            continue
-        next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
-
-        if text == "*":
-            if not asterisk_run:
-                asterisk_start = char_start
-            asterisk_run.append(line)
-            continue
-        elif asterisk_run:
-            flush_asterisk_run(char_start - 1)
-
-        if patterns["notes_marker"].match(text):
-            close_note()
-            notes_mode = True
-            continue
-
-        if notes_mode:
-            m = patterns["note_item"].match(text)
-            # A hanging-indent note number ("1") can land as its own line,
-            # separate from its text, if the PDF laid it out with a tab stop
-            # rather than inline -- don't let that split fool us into
-            # thinking the notes block ended.
-            if m or (text.isdigit() and len(text) <= 3):
-                close_note()
-                current_note = {
-                    "type": "note", "number": m.group(1) if m else text, "heading": None,
-                    "text": m.group(2) if m else "",
-                    "page_start": line.page_no, "page_end": line.page_no,
-                    "char_start": char_start, "char_end": char_end, "source": "rules",
-                }
-                nodes.append(current_note)
-                continue
-            if current_note is not None and not _looks_like_boundary(text, patterns):
-                append_text(current_note, text, line, char_end)
-                continue
-            close_note()
-            notes_mode = False
-
-        matched = False
-
-        if line.bold:
-            for level in ("part", "division", "section"):
-                m = patterns[level].match(text)
-                if m:
-                    number, heading = m.group(1), m.group(2).strip()
-                    open_node(level, number, heading, line, char_start)
-                    matched = True
-                    break
-
-            # A Subdivision heading is a bracketed number plus a short bold
-            # title ("(1) Homicide", "(8G) Abrogation of obsolete rules of
-            # law") -- or the number is spelled out ("Subdivision 2—Title").
-            # The bracket form overlaps in shape with a bracketed
-            # paragraph/subparagraph marker ("(a)", "(i)"), which is also
-            # commonly bolded when it's an Act-name citation inside an
-            # enumerated list ("(i) the Conservation, Forests and Lands
-            # Act 1987; or") -- but a Subdivision's own number is always
-            # digit-led in this drafting convention (paragraphs are letters,
-            # subparagraphs are lowercase roman numerals, never digits), so
-            # that's the one discriminator size/position doesn't need to
-            # gate on: a lettered/roman bracket here isn't a Subdivision
-            # candidate at all, and falls through to bracket-item
-            # classification below same as it always did.
-            #
-            # A digit-led bracket can still be a false positive of a
-            # different kind, though: a bold mid-sentence pinpoint citation
-            # that itself starts a new physical line, e.g. "under section
-            # 9A(1A) or\n(1B) of the Corrections Act 1986 to exercise ..."
-            # -- "(1B)" here is a continuation of "or", not a fresh heading.
-            # A genuine Subdivision only ever opens right after whatever
-            # came before it reached a clean sentence break, same signal
-            # used for the unnumbered heading_group case below.
-            if not matched:
-                m = patterns["subdivision"].match(text)
-                if m:
-                    if m.group(1) is not None:
-                        heading = m.group(2).strip()
-                        if (
-                            re.match(r"^\d", m.group(1))
-                            and _is_fresh_start(prev_line_text, prev_line_bold)
-                            and _looks_like_subdivision_title(heading)
-                        ):
-                            open_node("subdivision", m.group(1), heading, line, char_start)
-                            matched = True
-                    else:
-                        open_node("subdivision", m.group(3), m.group(4).strip(), line, char_start)
-                        matched = True
-
-            # A bare section number with nothing else on the line -- the
-            # heading wraps onto the next bold line instead (same wrap
-            # pattern as the bare Subdivision case above), e.g. "465AAAA"
-            # alone followed by "Police may use assistants and equipment"
-            # as a separate bold line.
-            if not matched and re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(prev_line_text, prev_line_bold):
-                open_node("section", text, None, line, char_start)
-                matched = True
-
-        # Bracket items (subsection/paragraph/subparagraph) are classified by
-        # content shape + sequence context, not boldness -- Act-name
-        # citations are commonly bolded throughout these Acts.
-        if not matched:
-            m = patterns["subsection"].match(text)
-            bracket_match, level = None, None
-            if m and re.match(r"^\d", m.group(1)):
-                bracket_match, level = m, "subsection"
-            else:
-                m2 = patterns["paragraph"].match(text) or patterns["subparagraph"].match(text)
-                if m2:
-                    bracket_match, level = m2, _bracket_level(m2.group(1), stack)
-            if level and bracket_match:
-                remainder = bracket_match.group(2).strip() or None
-                if (
-                    level == "subsection"
-                    and line.bold
-                    and remainder is None
-                    and _is_fresh_start(prev_line_text, prev_line_bold)
-                ):
-                    # A bare bold "(N)" with nothing else on the line -- the
-                    # Subdivision's title wraps onto the next bold line
-                    # instead (mirrors the heading-wrap handling below), e.g.
-                    # "(4A)" / "Non-fatal strangulation" as two lines. A
-                    # genuine subsection number is never bold on its own,
-                    # and a genuine Subdivision only opens right after a
-                    # clean sentence break -- guards against a bold bracket
-                    # that's actually a pinpoint citation ("section 9A(1A)
-                    # or\n(1B) of ...") wrapping mid-sentence instead.
-                    level = "subdivision"
-                open_node(level, bracket_match.group(1), None, line, char_start)
-                if remainder:
-                    append_text(stack[-1], remainder, line, char_end)
-                matched = True
-
-        if not matched and line.bold:
-            top = stack[-1] if stack else None
-            if top is not None and top["type"] in HEADING_LEVELS and not top["text"]:
-                # Heading text that wrapped onto another bold line, e.g.
-                # "3A Unintentional killing in the course or furtherance\nof
-                # a crime of violence" -- extend the heading, not the body.
-                append_heading(top, text, char_end)
-            elif round(line.size, 1) > body_size or (
-                round(line.size, 1) == body_size and _looks_like_group_heading(text, prev_line_text, prev_line_bold, next_text)
-            ):
-                # A bare topical heading grouping a run of sections. Usually
-                # bold and visibly larger than body text (e.g. "Fraud and
-                # blackmail"), but some Acts set these at plain body size
-                # ("Theft, robbery, burglary, &c."), distinguishable from
-                # inline bold emphasis only by shape -- see
-                # _looks_like_group_heading. It always sits between two
-                # sections, never inside one, but tree reconstruction
-                # (build_hierarchy_tree in akn_export.py, shared by both
-                # exporters) replays node *types* from this flat list
-                # independently of this function's own stack -- so that's
-                # where attachment gets corrected, not here.
-                nodes.append({
-                    "type": "heading_group", "number": None, "heading": text, "text": text,
-                    "page_start": line.page_no, "page_end": line.page_no,
-                    "char_start": char_start, "char_end": char_end, "source": "rules",
-                })
-            else:
-                # Bold at body size with no structural pattern -- inline
-                # emphasis (e.g. a defined term or, as above, an Act-name
-                # citation), not a boundary.
-                if not stack:
-                    open_node("part", None, "Preliminary", line, char_start)
-                append_text(stack[-1], text, line, char_end)
-            matched = True
-
-        if not matched:
-            # Continuation of whatever is currently open. If nothing is open
-            # yet (preamble text before the first Part), open a synthetic
-            # holder rather than dropping it.
-            if not stack:
-                open_node("part", None, "Preliminary", line, char_start)
-                warnings.append(f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node")
-            else:
-                _resolve_hanging_list(stack, stack_x0, line.x0, close_top)
-            append_text(stack[-1], text, line, char_end)
-
-        prev_line_text = text
-        prev_line_bold = line.bold
-
-    if asterisk_run:
-        flush_asterisk_run(cursor)
-    close_note()
-    while stack:
-        close_top()
-
-    return ParseResult(nodes=nodes, lines_total=len(lines), lines_consumed=lines_consumed, warnings=warnings)
+def _append_heading(node: dict, text: str, char_end: int) -> None:
+    node["heading"] = (node["heading"] + " " + text) if node["heading"] else text
+    node["char_end"] = char_end
 
 
 def _looks_like_boundary(text: str, patterns: dict) -> bool:
@@ -509,3 +239,339 @@ def _looks_like_boundary(text: str, patterns: dict) -> bool:
         patterns[key].match(text)
         for key in ("part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph")
     ) or text == "*"
+
+
+class _LineParser:
+    """One pass over the flat body-line list. See the module docstring for
+    the classifier priority order; each `_try_*`/`_handle_*` method returns
+    True once it has consumed the current line."""
+
+    def __init__(self, patterns: dict, body_size: float):
+        self.patterns = patterns
+        self.body_size = body_size
+
+        self.nodes: list[dict] = []
+        self.stack: list[dict] = []
+        self.stack_x0: list[float] = []
+        self.warnings: list[str] = []
+
+        self.current_note: dict | None = None
+        self.notes_mode = False
+        self.asterisk_run: list[BodyLine] = []
+        self.asterisk_start = 0
+
+        self.cursor = 0
+        self.lines_total = 0
+        self.lines_consumed = 0
+        self.prev_text = ""
+        self.prev_bold = False
+
+    # -- stack bookkeeping ---------------------------------------------------
+
+    def _close_top(self) -> None:
+        node = self.stack.pop()
+        self.stack_x0.pop()
+        node["text"] = node["text"].strip()
+
+    def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine, char_start: int) -> dict:
+        rank = HIERARCHY_RANK[level]
+        while self.stack and HIERARCHY_RANK[self.stack[-1]["type"]] >= rank:
+            self._close_top()
+        node = {
+            "type": level, "number": number, "heading": heading, "text": "",
+            "page_start": line.page_no, "page_end": line.page_no,
+            "char_start": char_start, "char_end": char_start, "source": "rules",
+        }
+        self.nodes.append(node)
+        self.stack.append(node)
+        self.stack_x0.append(line.x0)
+        return node
+
+    def _close_note(self) -> None:
+        if self.current_note is not None:
+            self.current_note["text"] = self.current_note["text"].strip()
+            self.current_note = None
+
+    def _flush_asterisk_run(self, char_end: int) -> None:
+        run = self.asterisk_run
+        if len(run) >= 3:
+            first, last = run[0], run[-1]
+            self.nodes.append({
+                "type": "note", "number": None, "heading": None,
+                "text": ("* " * len(run)).strip(),
+                "page_start": first.page_no, "page_end": last.page_no,
+                "char_start": self.asterisk_start, "char_end": char_end, "source": "rules",
+            })
+        else:
+            # Too short a run to be the repealed-text marker -- don't lose it,
+            # fold it into whatever's currently open instead.
+            for l in run:
+                if not self.stack:
+                    self._open_node("part", None, "Preliminary", l, l.y0)
+                _append_text(self.stack[-1], l.text.strip(), l, char_end)
+        run.clear()
+
+    def _resolve_hanging_list(self, x0: float) -> None:
+        """A common legislative construct opens a subsection (or section)
+        with lead-in text, breaks into a lettered/roman list, and then
+        closes the list with independent text that grammatically resumes
+        the *lead-in's* sentence, not the list item's -- "(a) does X; or
+        (b) does Y -- is guilty of an offence." A purely textual parse has
+        no way to see that; but the PDF's own hanging indent does: each
+        level's own wrapped continuation lines print at a fixed indent past
+        that level's opening marker, so a plain continuation line that
+        outdents back past the innermost list item's own indent is
+        resuming whatever shallower level actually sits at that indent, not
+        continuing the list item. Only ever pops subsection/paragraph/
+        subparagraph -- Part/Division/Subdivision/Section only ever close
+        via an explicit pattern match."""
+        while (
+            len(self.stack) > 1
+            and HIERARCHY_RANK[self.stack[-1]["type"]] >= _HANGING_LIST_FLOOR
+            and x0 < self.stack_x0[-1] - _INDENT_TOLERANCE
+        ):
+            self._close_top()
+
+    # -- main pass --------------------------------------------------------
+
+    def feed(self, lines: list[BodyLine]) -> None:
+        self.lines_total = len(lines)
+        for idx, line in enumerate(lines):
+            text = line.text.strip()
+            char_start = self.cursor
+            char_end = self.cursor + len(text)
+            self.cursor = char_end + 1  # account for the "\n" join
+            self.lines_consumed += 1
+            if not text:
+                continue
+            next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
+
+            if text == "*":
+                if not self.asterisk_run:
+                    self.asterisk_start = char_start
+                self.asterisk_run.append(line)
+                continue
+            elif self.asterisk_run:
+                self._flush_asterisk_run(char_start - 1)
+
+            if self.patterns["notes_marker"].match(text):
+                self._close_note()
+                self.notes_mode = True
+                continue
+
+            if self.notes_mode and self._handle_notes_mode(line, text, char_start, char_end):
+                continue
+
+            if not (
+                self._try_bold_heading(line, text, char_start)
+                or self._try_bracket_item(line, text, char_start, char_end)
+                or self._try_bold_emphasis(line, text, char_start, char_end, next_text)
+            ):
+                self._consume_as_continuation(line, text, char_start, char_end)
+
+            self.prev_text = text
+            self.prev_bold = line.bold
+
+        if self.asterisk_run:
+            self._flush_asterisk_run(self.cursor)
+        self._close_note()
+        while self.stack:
+            self._close_top()
+
+    def result(self) -> ParseResult:
+        return ParseResult(
+            nodes=self.nodes,
+            lines_total=self.lines_total,
+            lines_consumed=self.lines_consumed,
+            warnings=self.warnings,
+        )
+
+    # -- classifiers -----------------------------------------------------
+
+    def _handle_notes_mode(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """Inside an amendment-history "Notes" block. Returns True if the
+        line belongs to that block (caller skips to the next line); returns
+        False -- having also turned notes_mode off -- when the block has
+        ended and the line needs normal classification instead."""
+        m = self.patterns["note_item"].match(text)
+        # A hanging-indent note number ("1") can land as its own line,
+        # separate from its text, if the PDF laid it out with a tab stop
+        # rather than inline -- don't let that split fool us into thinking
+        # the notes block ended.
+        if m or (text.isdigit() and len(text) <= 3):
+            self._close_note()
+            self.current_note = {
+                "type": "note", "number": m.group(1) if m else text, "heading": None,
+                "text": m.group(2) if m else "",
+                "page_start": line.page_no, "page_end": line.page_no,
+                "char_start": char_start, "char_end": char_end, "source": "rules",
+            }
+            self.nodes.append(self.current_note)
+            return True
+        if self.current_note is not None and not _looks_like_boundary(text, self.patterns):
+            _append_text(self.current_note, text, line, char_end)
+            return True
+        self._close_note()
+        self.notes_mode = False
+        return False
+
+    def _try_bold_heading(self, line: BodyLine, text: str, char_start: int) -> bool:
+        """Part/Division/Section headings, then the two bare-number wrap
+        cases (Subdivision, Section) -- all bold-only."""
+        if not line.bold:
+            return False
+
+        for level in ("part", "division", "section"):
+            m = self.patterns[level].match(text)
+            if m:
+                self._open_node(level, m.group(1), m.group(2).strip(), line, char_start)
+                return True
+
+        # A Subdivision heading is a bracketed number plus a short bold
+        # title ("(1) Homicide", "(8G) Abrogation of obsolete rules of
+        # law") -- or the number is spelled out ("Subdivision 2—Title").
+        # The bracket form overlaps in shape with a bracketed
+        # paragraph/subparagraph marker ("(a)", "(i)"), which is also
+        # commonly bolded when it's an Act-name citation inside an
+        # enumerated list ("(i) the Conservation, Forests and Lands
+        # Act 1987; or") -- but a Subdivision's own number is always
+        # digit-led in this drafting convention (paragraphs are letters,
+        # subparagraphs are lowercase roman numerals, never digits), so
+        # that's the one discriminator size/position doesn't need to
+        # gate on: a lettered/roman bracket here isn't a Subdivision
+        # candidate at all, and falls through to bracket-item
+        # classification below same as it always did.
+        #
+        # A digit-led bracket can still be a false positive of a
+        # different kind, though: a bold mid-sentence pinpoint citation
+        # that itself starts a new physical line, e.g. "under section
+        # 9A(1A) or\n(1B) of the Corrections Act 1986 to exercise ..."
+        # -- "(1B)" here is a continuation of "or", not a fresh heading.
+        # A genuine Subdivision only ever opens right after whatever
+        # came before it reached a clean sentence break, same signal
+        # used for the unnumbered heading_group case below.
+        m = self.patterns["subdivision"].match(text)
+        if m:
+            if m.group(1) is not None:
+                heading = m.group(2).strip()
+                if (
+                    re.match(r"^\d", m.group(1))
+                    and _is_fresh_start(self.prev_text, self.prev_bold)
+                    and _looks_like_subdivision_title(heading)
+                ):
+                    self._open_node("subdivision", m.group(1), heading, line, char_start)
+                    return True
+            else:
+                self._open_node("subdivision", m.group(3), m.group(4).strip(), line, char_start)
+                return True
+
+        # A bare section number with nothing else on the line -- the
+        # heading wraps onto the next bold line instead (same wrap
+        # pattern as the bare Subdivision case above), e.g. "465AAAA"
+        # alone followed by "Police may use assistants and equipment"
+        # as a separate bold line.
+        if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, self.prev_bold):
+            self._open_node("section", text, None, line, char_start)
+            return True
+
+        return False
+
+    def _try_bracket_item(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """Bracket items (subsection/paragraph/subparagraph) are classified
+        by content shape + sequence context, not boldness -- Act-name
+        citations are commonly bolded throughout these Acts."""
+        m = self.patterns["subsection"].match(text)
+        bracket_match, level = None, None
+        if m and re.match(r"^\d", m.group(1)):
+            bracket_match, level = m, "subsection"
+        else:
+            m2 = self.patterns["paragraph"].match(text) or self.patterns["subparagraph"].match(text)
+            if m2:
+                bracket_match, level = m2, _bracket_level(m2.group(1), self.stack)
+        if not (level and bracket_match):
+            return False
+
+        remainder = bracket_match.group(2).strip() or None
+        if (
+            level == "subsection"
+            and line.bold
+            and remainder is None
+            and _is_fresh_start(self.prev_text, self.prev_bold)
+        ):
+            # A bare bold "(N)" with nothing else on the line -- the
+            # Subdivision's title wraps onto the next bold line instead
+            # (mirrors the heading-wrap handling below), e.g. "(4A)" /
+            # "Non-fatal strangulation" as two lines. A genuine subsection
+            # number is never bold on its own, and a genuine Subdivision
+            # only opens right after a clean sentence break -- guards
+            # against a bold bracket that's actually a pinpoint citation
+            # ("section 9A(1A) or\n(1B) of ...") wrapping mid-sentence
+            # instead.
+            level = "subdivision"
+        self._open_node(level, bracket_match.group(1), None, line, char_start)
+        if remainder:
+            _append_text(self.stack[-1], remainder, line, char_end)
+        return True
+
+    def _try_bold_emphasis(self, line: BodyLine, text: str, char_start: int, char_end: int, next_text: str) -> bool:
+        """Any remaining bold line: a wrapped heading tail, a bare topical
+        heading_group, or plain inline emphasis folded into the open node.
+        A bold line always ends here -- this never returns False for one."""
+        if not line.bold:
+            return False
+
+        top = self.stack[-1] if self.stack else None
+        if top is not None and top["type"] in HEADING_LEVELS and not top["text"]:
+            # Heading text that wrapped onto another bold line, e.g.
+            # "3A Unintentional killing in the course or furtherance\nof
+            # a crime of violence" -- extend the heading, not the body.
+            _append_heading(top, text, char_end)
+        elif round(line.size, 1) > self.body_size or (
+            round(line.size, 1) == self.body_size
+            and _looks_like_group_heading(text, self.prev_text, self.prev_bold, next_text)
+        ):
+            # A bare topical heading grouping a run of sections. Usually
+            # bold and visibly larger than body text (e.g. "Fraud and
+            # blackmail"), but some Acts set these at plain body size
+            # ("Theft, robbery, burglary, &c."), distinguishable from
+            # inline bold emphasis only by shape -- see
+            # _looks_like_group_heading. It always sits between two
+            # sections, never inside one, but tree reconstruction
+            # (build_hierarchy_tree in akn_export.py, shared by both
+            # exporters) replays node *types* from this flat list
+            # independently of this function's own stack -- so that's
+            # where attachment gets corrected, not here.
+            self.nodes.append({
+                "type": "heading_group", "number": None, "heading": text, "text": text,
+                "page_start": line.page_no, "page_end": line.page_no,
+                "char_start": char_start, "char_end": char_end, "source": "rules",
+            })
+        else:
+            # Bold at body size with no structural pattern -- inline
+            # emphasis (e.g. a defined term or, as above, an Act-name
+            # citation), not a boundary.
+            if not self.stack:
+                self._open_node("part", None, "Preliminary", line, char_start)
+            _append_text(self.stack[-1], text, line, char_end)
+        return True
+
+    def _consume_as_continuation(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
+        """Continuation of whatever is currently open. If nothing is open
+        yet (preamble text before the first Part), open a synthetic holder
+        rather than dropping it."""
+        if not self.stack:
+            self._open_node("part", None, "Preliminary", line, char_start)
+            self.warnings.append(
+                f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node"
+            )
+        else:
+            self._resolve_hanging_list(line.x0)
+        _append_text(self.stack[-1], text, line, char_end)
+
+
+def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseResult:
+    patterns = load_profile(profile_name)
+    lines = _flatten_lines(pages)
+    parser = _LineParser(patterns, _body_font_size(lines))
+    parser.feed(lines)
+    return parser.result()

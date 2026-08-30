@@ -52,10 +52,10 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from .hierarchy import HIERARCHY_ORDER, HIERARCHY_RANK
+
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
 ET.register_namespace("", AKN_NS)
-
-HIERARCHY_ORDER = ["part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"]
 
 # Native AKN element name per hierarchy type (identical to the type name
 # here, but kept explicit in case a profile ever needs to remap one).
@@ -126,8 +126,8 @@ def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
 
     for node in nodes:
         t = node["type"]
-        if t in HIERARCHY_ORDER:
-            idx = HIERARCHY_ORDER.index(t)
+        if t in HIERARCHY_RANK:
+            idx = HIERARCHY_RANK[t]
             while level_stack and level_stack[-1][0] >= idx:
                 level_stack.pop()
             parent_level, parent = level_stack[-1]
@@ -148,7 +148,7 @@ def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
                 # opening would, so it attaches as a sibling of sections
                 # under the enclosing Division/Part instead of getting
                 # buried inside whatever subsection happened to be open.
-                section_idx = HIERARCHY_ORDER.index("section")
+                section_idx = HIERARCHY_RANK["section"]
                 while level_stack and level_stack[-1][0] >= section_idx:
                     level_stack.pop()
             parent_level, parent = level_stack[-1]
@@ -323,7 +323,6 @@ def export_to_akn(parsed: dict, source_pdf: str | None = None) -> ET.ElementTree
     nodes = parsed["nodes"]
     act_slug = parsed.get("act", "act")
     citation = _detect_act_citation(source_pdf or parsed.get("source"))
-    title = citation["title"] or act_slug
     work_year = citation["year"] or "unknown-year"
     work_no = citation["act_no"] or act_slug
 

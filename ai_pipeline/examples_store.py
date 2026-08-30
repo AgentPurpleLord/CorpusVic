@@ -25,13 +25,19 @@ def add_correction(act: str, ai_output: dict, human_output: dict, changed: bool)
         f.write(json.dumps(record) + "\n")
 
 
-def load_examples(k: int = 6) -> list[dict]:
-    """Most recent corrected examples first, plus a few confirmed-correct ones."""
+def _read_records() -> list[dict]:
     if not CORRECTIONS_PATH.exists():
         return []
-    records = [
-        json.loads(line) for line in CORRECTIONS_PATH.read_text(encoding="utf-8").splitlines() if line.strip()
+    return [
+        json.loads(line)
+        for line in CORRECTIONS_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip()
     ]
+
+
+def load_examples(k: int = 6) -> list[dict]:
+    """Most recent corrected examples first, plus a few confirmed-correct ones."""
+    records = _read_records()
     changed = [r for r in records if r["changed"]]
     unchanged = [r for r in records if not r["changed"]]
     picks = list(reversed(changed))[:k] + list(reversed(unchanged))[: max(0, k // 2)]
@@ -39,9 +45,5 @@ def load_examples(k: int = 6) -> list[dict]:
 
 
 def stats() -> dict:
-    if not CORRECTIONS_PATH.exists():
-        return {"total": 0, "changed": 0}
-    records = [
-        json.loads(line) for line in CORRECTIONS_PATH.read_text(encoding="utf-8").splitlines() if line.strip()
-    ]
+    records = _read_records()
     return {"total": len(records), "changed": sum(1 for r in records if r["changed"])}
