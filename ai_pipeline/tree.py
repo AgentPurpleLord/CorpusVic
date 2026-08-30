@@ -4,9 +4,8 @@ asking the model to emit nested JSON or explicit parent paths, which is more
 error-prone) and attaches parsed amendment-history notes to the node they
 belong to.
 """
+from .hierarchy import HIERARCHY_ORDER, HIERARCHY_RANK
 from .history_notes import collect_page_notes
-
-HIERARCHY_ORDER = ["part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"]
 
 
 def annotate_paths(nodes: list[dict]) -> list[dict]:
@@ -17,10 +16,9 @@ def annotate_paths(nodes: list[dict]) -> list[dict]:
     current = {level: None for level in HIERARCHY_ORDER}
     for node in nodes:
         t = node.get("type")
-        if t in HIERARCHY_ORDER:
-            idx = HIERARCHY_ORDER.index(t)
+        if t in HIERARCHY_RANK:
             current[t] = node.get("number")
-            for deeper in HIERARCHY_ORDER[idx + 1 :]:
+            for deeper in HIERARCHY_ORDER[HIERARCHY_RANK[t] + 1 :]:
                 current[deeper] = None
         node["path"] = dict(current)
     return nodes

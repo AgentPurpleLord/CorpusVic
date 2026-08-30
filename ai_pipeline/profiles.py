@@ -1,4 +1,4 @@
-"""
+r"""
 Per-act-family pattern configuration for the rule-based parser.
 
 The base patterns below match the Chief Parliamentary Counsel (Victoria)

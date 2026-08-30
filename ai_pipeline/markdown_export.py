@@ -41,7 +41,8 @@ from pathlib import Path
 
 import yaml
 
-from .akn_export import HIERARCHY_ORDER, _format_num, build_hierarchy_tree
+from .akn_export import _format_num, build_hierarchy_tree
+from .hierarchy import HIERARCHY_ORDER
 from .definitions import (
     extract_section_ref_terms,
     extract_terms,
@@ -534,8 +535,21 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
 
     title = act_title or parsed.get("act", "Act")
     index_slugs = compute_index_slugs(tree_roots, title)
-    part_eids = {b["node"]["number"].lower(): index_slugs[b["eid"]] for root in tree_roots for b in _all_of_type(root, "part") if b["node"].get("number")}
-    division_eids = {b["node"]["number"].lower(): index_slugs[b["eid"]] for root in tree_roots for b in _all_of_type(root, "division") if b["node"].get("number")}
+    # Part/Division eId lookups for prose "Part N" / "Division N" links. One
+    # walk over the tree in document order; on a duplicate number (a Schedule
+    # reprinting a Part) the later occurrence wins, same as the dict
+    # comprehension this replaces.
+    part_eids: dict[str, str] = {}
+    division_eids: dict[str, str] = {}
+    for root in tree_roots:
+        for tree_node in _iter_tree(root):
+            number = tree_node["node"].get("number")
+            if not number:
+                continue
+            if tree_node["node"]["type"] == "part":
+                part_eids[number.lower()] = index_slugs[tree_node["eid"]]
+            elif tree_node["node"]["type"] == "division":
+                division_eids[number.lower()] = index_slugs[tree_node["eid"]]
     linkify = _build_linkifier(section_files, part_eids, division_eids, definitions)
 
     out_path = Path(out_dir)
@@ -553,8 +567,9 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
     return {"sections": len(sections), "definitions": len(definitions)}
 
 
-def _all_of_type(tree_node: dict, type_name: str):
-    if tree_node["node"]["type"] == type_name:
-        yield tree_node
+def _iter_tree(tree_node: dict):
+    """Every tree node in the subtree, pre-order (node before its children),
+    i.e. document order."""
+    yield tree_node
     for child in tree_node["children"]:
-        yield from _all_of_type(child, type_name)
+        yield from _iter_tree(child)
