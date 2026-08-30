@@ -199,6 +199,31 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
     return "paragraph"
 
 
+_INDENT_TOLERANCE = 3.0
+_HANGING_LIST_FLOOR = HIERARCHY_ORDER.index("subsection")
+
+
+def _resolve_hanging_list(stack: list[dict], stack_x0: list[float], x0: float, close_top) -> None:
+    """A common legislative construct opens a subsection (or section) with
+    lead-in text, breaks into a lettered/roman list, and then closes the
+    list with independent text that grammatically resumes the *lead-in's*
+    sentence, not the list item's -- "(a) does X; or (b) does Y -- is
+    guilty of an offence." A purely textual parse has no way to see that;
+    but the PDF's own hanging indent does: each level's own wrapped
+    continuation lines print at a fixed indent past that level's opening
+    marker, so a plain continuation line that outdents back past the
+    innermost list item's own indent is resuming whatever shallower level
+    actually sits at that indent, not continuing the list item. Only ever
+    pops subsection/paragraph/subparagraph -- Part/Division/Subdivision/
+    Section only ever close via an explicit pattern match."""
+    while (
+        len(stack) > 1
+        and HIERARCHY_ORDER.index(stack[-1]["type"]) >= _HANGING_LIST_FLOOR
+        and x0 < stack_x0[-1] - _INDENT_TOLERANCE
+    ):
+        close_top()
+
+
 def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseResult:
     patterns = load_profile(profile_name)
     lines = _flatten_lines(pages)
@@ -206,6 +231,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
 
     nodes: list[dict] = []
     stack: list[dict] = []
+    stack_x0: list[float] = []
     warnings: list[str] = []
     current_note: dict | None = None
     notes_mode = False
@@ -216,6 +242,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
 
     def close_top():
         node = stack.pop()
+        stack_x0.pop()
         node["text"] = node["text"].strip()
 
     def open_node(level: str, number: str | None, heading: str | None, line: BodyLine, char_start: int) -> dict:
@@ -229,6 +256,7 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
         }
         nodes.append(node)
         stack.append(node)
+        stack_x0.append(line.x0)
         return node
 
     def append_text(node: dict, text: str, line: BodyLine, char_end: int):
@@ -445,6 +473,8 @@ def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseRe
             if not stack:
                 open_node("part", None, "Preliminary", line, char_start)
                 warnings.append(f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node")
+            else:
+                _resolve_hanging_list(stack, stack_x0, line.x0, close_top)
             append_text(stack[-1], text, line, char_end)
 
         prev_line_text = text
