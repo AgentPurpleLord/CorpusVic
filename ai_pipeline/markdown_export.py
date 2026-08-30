@@ -25,9 +25,21 @@ and doesn't look like it's citing a different Act ("section 5 of the
 Sentencing Act 1991" is deliberately left unlinked). This is a navigation
 aid, not a guarantee -- an unmatched or ambiguous reference is left as
 plain text rather than linked to the wrong place.
+
+Every file opens with YAML front matter -- a title and description meant
+for a future web interface (search results, browser tabs, link previews),
+plus a "verified" flag summarising human review coverage. review.py stamps
+a node with verified_at the moment a human accepts or edits it (never on a
+mere flag-for-follow-up -- see its commit_unit/_apply_action docstrings);
+a Section page's front matter is "full" only if every one of its own
+Subsection/Paragraph/Subparagraph/Note pieces carries that stamp, "partial"
+if only some do, "none" if it's still straight of the rules engine.
+index.md's front matter reports the same rollup across the whole Act.
 """
 import re
 from pathlib import Path
+
+import yaml
 
 from .akn_export import HIERARCHY_ORDER, _format_num, build_hierarchy_tree
 from .definitions import (
@@ -197,6 +209,53 @@ def compute_index_slugs(tree_roots: list[dict], act_title: str) -> dict[str, str
     for root in tree_roots:
         walk(root)
     return slugs
+
+
+def _collect_verification(tree_nodes: list[dict]) -> dict:
+    """Rolls up review.py's per-node verified_at stamps (see commit_unit/
+    _apply_action there) across every node in these subtrees -- "full" if
+    all of them carry a stamp, "partial" if only some do, "none" if none
+    do. verified_at is the most recent stamp found (ISO 8601, UTC, so a
+    plain string max() is chronological), or None. Called once per Section
+    for that page's own front matter, and once across the whole tree for
+    index.md's Act-wide rollup."""
+    total = 0
+    timestamps: list[str] = []
+
+    def walk(tree_node: dict) -> None:
+        nonlocal total
+        total += 1
+        ts = tree_node["node"].get("verified_at")
+        if ts:
+            timestamps.append(ts)
+        for child in tree_node["children"]:
+            walk(child)
+
+    for tree_node in tree_nodes:
+        walk(tree_node)
+
+    if not timestamps:
+        status = "none"
+    elif len(timestamps) == total:
+        status = "full"
+    else:
+        status = "partial"
+    return {
+        "status": status,
+        "verified_at": max(timestamps) if timestamps else None,
+        "verified_count": len(timestamps),
+        "total_count": total,
+    }
+
+
+def _front_matter(fields: dict) -> str:
+    """YAML front matter, safely serialised -- titles/descriptions are
+    derived from Act text, which routinely contains colons, quotes and
+    other characters that would silently corrupt a hand-formatted
+    "key: value" line (e.g. a heading containing ": " would be misread as
+    introducing a nested mapping)."""
+    body = yaml.safe_dump(fields, sort_keys=False, default_flow_style=False, allow_unicode=True)
+    return f"---\n{body}---\n\n"
 
 
 def _display_title(node_type: str, number: str | None, heading: str | None) -> str:
@@ -379,14 +438,30 @@ def render_section_page(
     current_file: str,
     prev_link: str | None,
     next_link: str | None,
+    act_title: str,
 ) -> str:
     node = tree_node["node"]
+    title = f"{node['number']} {node.get('heading') or ''}".strip()
+    citation = f"{act_title} s {node['number']}".strip() if node.get("number") else act_title
+    description = f"{citation}: {node['heading']}" if node.get("heading") else citation
+    verification = _collect_verification([tree_node])
+    front_matter = _front_matter(
+        {
+            "title": title,
+            "description": description,
+            "verified": verification["status"],
+            "verified_at": verification["verified_at"],
+            "verified_count": verification["verified_count"],
+            "total_count": verification["total_count"],
+        }
+    )
+
     out = []
     if breadcrumb:
         crumb = " > ".join(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading")) for b in breadcrumb)
         out.append(f"[Act index](../index.md) > {crumb}")
         out.append("")
-    out.append(f"# {node['number']} {node.get('heading') or ''}".strip())
+    out.append(f"# {title}")
     out.append("")
     slugs = compute_section_slugs(tree_node)
     _render_body(tree_node, linkify, current_file, slugs, out)
@@ -406,10 +481,22 @@ def render_section_page(
     if next_link:
         nav.append(f"[Next »]({next_link})")
     out.append(" | ".join(nav))
-    return "\n".join(out) + "\n"
+    return front_matter + "\n".join(out) + "\n"
 
 
 def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[str, str]) -> str:
+    verification = _collect_verification(tree_roots)
+    front_matter = _front_matter(
+        {
+            "title": act_title,
+            "description": f"Index of sections in the {act_title}.",
+            "verified": verification["status"],
+            "verified_at": verification["verified_at"],
+            "verified_count": verification["verified_count"],
+            "total_count": verification["total_count"],
+        }
+    )
+
     out = [f"# {act_title}", ""]
 
     def walk(tree_node, out):
@@ -429,7 +516,7 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
 
     for root in tree_roots:
         walk(root, out)
-    return "\n".join(out) + "\n"
+    return front_matter + "\n".join(out) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -458,7 +545,7 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
         prev_link = filenames_by_eid[sections[i - 1][0]["eid"]] if i > 0 else None
         next_link = filenames_by_eid[sections[i + 1][0]["eid"]] if i + 1 < len(sections) else None
         current_file = filenames_by_eid[section_node["eid"]]
-        page = render_section_page(section_node, breadcrumb, linkify, current_file, prev_link, next_link)
+        page = render_section_page(section_node, breadcrumb, linkify, current_file, prev_link, next_link, title)
         (out_path / SECTIONS_DIR / current_file).write_text(page, encoding="utf-8")
 
     (out_path / "index.md").write_text(render_index(tree_roots, title, filenames_by_eid), encoding="utf-8")

@@ -32,6 +32,7 @@ node), so you can quit ('q') and resume later from where you left off.
 import argparse
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from rich.console import Console
@@ -75,6 +76,13 @@ TYPE_STYLES = {
     "heading_group": "bold white",
 }
 _DEPTH_BY_TYPE = {"subsection": 0, "paragraph": 1, "subparagraph": 2}
+
+
+def _now_iso() -> str:
+    """UTC, ISO 8601, always "+00:00" -- so verification timestamps sort
+    correctly as plain strings (used by markdown_export.py to find the most
+    recent one across a Section's pieces without parsing dates)."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def load_parsed(act: str):
@@ -366,10 +374,13 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
         target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
         # This node was already committed (and logged) by an earlier
         # Section's own accept -- log this extra edit against it now, since
-        # nothing will revisit it later to log it for us.
+        # nothing will revisit it later to log it for us. Its content is
+        # changing again right now, under direct human review, so its
+        # verification timestamp is refreshed too.
         original_target_text = target.get("text") or ""
         tail_text = "\n".join(lines[split_at - 1 :]).strip()
         target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
+        target["verified_at"] = _now_iso()
         add_correction(
             act,
             ai_output={"type": target["type"], "number": target.get("number"), "heading": target.get("heading"), "text": original_target_text},
@@ -390,11 +401,19 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
 def commit_unit(unit_nodes: list[dict], unit_orig: list[dict], act: str, verified: list[dict], flagged: bool = False) -> None:
     """Appends every node in the unit to `verified` and logs one correction
     per node -- same per-node granularity data/corrections.jsonl has always
-    had, just decided on in one batch instead of one prompt per node."""
+    had, just decided on in one batch instead of one prompt per node.
+
+    Every accepted/edited node is stamped with when a human confirmed it --
+    markdown_export.py reads this back to flag human-verified content in
+    each page's front matter. A flagged node explicitly isn't confirmed
+    (that's what flagging means -- "not sure, revisit this"), so it's kept
+    unstamped even though the reviewer looked at it."""
     for original, current in zip(unit_orig, unit_nodes):
         node = dict(current)
         if flagged:
             node["needs_followup"] = True
+        else:
+            node["verified_at"] = _now_iso()
         verified.append(node)
         changed = any(node.get(k) != original.get(k) for k in ("type", "number", "heading", "text"))
         add_correction(act, ai_output=original, human_output=node, changed=changed)
@@ -446,12 +465,18 @@ def run_section_review(act: str, nodes: list[dict], verified: list[dict], findin
 def _apply_action(action: str, node: dict, act: str, verified: list[dict]) -> bool:
     """Handles one accept/edit/flag/quit decision, appending the result to
     `verified` and logging a correction where relevant. Returns False on
-    quit (caller should stop the loop), True otherwise."""
+    quit (caller should stop the loop), True otherwise.
+
+    Accept/edit stamp when a human confirmed the node -- see commit_unit's
+    docstring for why flagging doesn't."""
     if action == "a":
+        node = dict(node)
+        node["verified_at"] = _now_iso()
         verified.append(node)
         add_correction(act, ai_output=node, human_output=node, changed=False)
     elif action == "e":
         edited = edit_node(node)
+        edited["verified_at"] = _now_iso()
         verified.append(edited)
         changed = any(edited[k] != node.get(k) for k in ("type", "number", "heading", "text"))
         add_correction(act, ai_output=node, human_output=edited, changed=changed)
@@ -519,6 +544,7 @@ def split_node(node: dict, act: str, verified: list[dict]) -> dict | None:
     tail_text = "\n".join(lines[split_at - 1 :]).strip()
     original_target_text = target.get("text") or ""
     target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
+    target["verified_at"] = _now_iso()
     add_correction(
         act,
         ai_output={"type": target["type"], "number": target.get("number"), "heading": target.get("heading"), "text": original_target_text},
