@@ -10,10 +10,11 @@ it at into a conformant .xml file.
 
 Structural mapping (verified against the actual OASIS akomantoso30.xsd,
 not recalled from memory):
-  part/division/subdivision/section/subsection/paragraph/subparagraph
-      -> the native AKN elements of the same name. All seven exist directly
+  chapter/part/division/subdivision/section/subsection/paragraph/subparagraph
+      -> the native AKN elements of the same name. All eight exist directly
       in the core vocabulary's hierarchy group, so no generic <hcontainer>
-      workaround is needed for any of them.
+      workaround is needed for any of them. ("chapter" only appears for
+      Acts whose profile puts it in the hierarchy -- see hierarchy.py.)
   heading_group (a bare topical heading with no number, e.g. "Fraud and
       blackmail") -> <crossHeading>, AKN's element for exactly this: "a
       heading placed side by side with hierarchical containers."
@@ -52,7 +53,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .hierarchy import HIERARCHY_ORDER, HIERARCHY_RANK
+from .hierarchy import HIERARCHY_ORDER, make_ranks
 
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
 ET.register_namespace("", AKN_NS)
@@ -62,7 +63,7 @@ ET.register_namespace("", AKN_NS)
 HIERARCHY_ELEMENT = {level: level for level in HIERARCHY_ORDER}
 
 EID_PREFIX = {
-    "part": "part", "division": "div", "subdivision": "subdiv",
+    "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
     "section": "sec", "subsection": "subsec",
     "paragraph": "para", "subparagraph": "subpara",
 }
@@ -97,7 +98,7 @@ def _sanitize_token(s: str | None) -> str:
 # XML needs but the JSON form deliberately doesn't carry.
 # ---------------------------------------------------------------------------
 
-def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
+def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
     """Reconstructs real nesting from the flat, ordered node list. eId
     collisions are possible and not actually a bug in this function: e.g. a
     "Definitions" section can contain several independent defined terms,
@@ -108,6 +109,7 @@ def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
     document-wide, so collisions here get a disambiguating numeric suffix;
     this is flagged by the caller as worth a human look, not silently
     resolved as if it were unambiguous."""
+    rank = make_ranks(hierarchy_order)
     root = {"node": None, "eid": None, "children": []}
     level_stack = [(-1, root)]
     used_eids: set[str] = set()
@@ -126,8 +128,8 @@ def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
 
     for node in nodes:
         t = node["type"]
-        if t in HIERARCHY_RANK:
-            idx = HIERARCHY_RANK[t]
+        if t in rank:
+            idx = rank[t]
             while level_stack and level_stack[-1][0] >= idx:
                 level_stack.pop()
             parent_level, parent = level_stack[-1]
@@ -148,7 +150,7 @@ def build_hierarchy_tree(nodes: list[dict]) -> list[dict]:
                 # opening would, so it attaches as a sibling of sections
                 # under the enclosing Division/Part instead of getting
                 # buried inside whatever subsection happened to be open.
-                section_idx = HIERARCHY_RANK["section"]
+                section_idx = rank["section"]
                 while level_stack and level_stack[-1][0] >= section_idx:
                     level_stack.pop()
             parent_level, parent = level_stack[-1]
@@ -165,12 +167,12 @@ def _render_p(parent_el, text: str) -> None:
     p.text = text
 
 
-def render_tree_node(tree_node: dict, top_level: bool = False) -> ET.Element:
+def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: list[str] = HIERARCHY_ORDER) -> ET.Element:
     node = tree_node["node"]
     t = node["type"]
 
-    if t in HIERARCHY_ORDER:
-        el = ET.Element(_q(HIERARCHY_ELEMENT[t]), {"eId": tree_node["eid"]})
+    if t in hierarchy_order:
+        el = ET.Element(_q(HIERARCHY_ELEMENT.get(t, t)), {"eId": tree_node["eid"]})
     elif t == "heading_group" and not top_level:
         # <crossHeading> ("a heading placed side by side with hierarchical
         # containers") is only valid nested inside a hierarchy element's own
@@ -194,7 +196,7 @@ def render_tree_node(tree_node: dict, top_level: bool = False) -> ET.Element:
             intro = ET.SubElement(el, _q("intro"))
             _render_p(intro, node["text"])
         for child in tree_node["children"]:
-            el.append(render_tree_node(child))
+            el.append(render_tree_node(child, hierarchy_order=hierarchy_order))
     else:
         content = ET.SubElement(el, _q("content"))
         _render_p(content, node.get("text") or "")
@@ -322,11 +324,12 @@ def _detect_act_citation(source_pdf: str | None) -> dict:
 def export_to_akn(parsed: dict, source_pdf: str | None = None) -> ET.ElementTree:
     nodes = parsed["nodes"]
     act_slug = parsed.get("act", "act")
+    hierarchy_order = parsed.get("hierarchy") or HIERARCHY_ORDER
     citation = _detect_act_citation(source_pdf or parsed.get("source"))
     work_year = citation["year"] or "unknown-year"
     work_no = citation["act_no"] or act_slug
 
-    tree_roots, eid_collisions = build_hierarchy_tree(nodes)
+    tree_roots, eid_collisions = build_hierarchy_tree(nodes, hierarchy_order)
     if eid_collisions:
         print(
             f"  {len(eid_collisions)} eId collision(s) auto-disambiguated with a numeric suffix "
@@ -397,7 +400,7 @@ def export_to_akn(parsed: dict, source_pdf: str | None = None) -> ET.ElementTree
 
     body = ET.SubElement(act, _q("body"))
     for root_node in tree_roots:
-        body.append(render_tree_node(root_node, top_level=True))
+        body.append(render_tree_node(root_node, top_level=True, hierarchy_order=hierarchy_order))
 
     return ET.ElementTree(akn)
 

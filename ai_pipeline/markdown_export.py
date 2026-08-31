@@ -42,16 +42,25 @@ from pathlib import Path
 import yaml
 
 from .akn_export import _format_num, build_hierarchy_tree
-from .hierarchy import HIERARCHY_RANK
 from .definitions import (
     extract_section_ref_terms,
     extract_terms,
     looks_like_definitions_section,
     split_definition_clauses,
 )
+from .hierarchy import HIERARCHY_ORDER, make_ranks
 
 SECTIONS_DIR = "sections"
-NON_LEAF_TYPES = set(HIERARCHY_RANK) | {"heading_group"}
+
+
+def _structural_types(hierarchy_order: list[str]) -> tuple[str, ...]:
+    """The container levels above Section -- chapter/part/division/
+    subdivision by default -- in hierarchy order. These are the ones that
+    get their own heading in index.md and appear in a Section's breadcrumb;
+    Section itself is a link, and the bracket levels live on a Section's
+    own page."""
+    rank = make_ranks(hierarchy_order)
+    return tuple(l for l in hierarchy_order if rank[l] < rank["section"])
 
 
 def _section_filename(number: str | None) -> str:
@@ -94,7 +103,7 @@ def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str,
 
 
 def _heading_level(node_type: str) -> int:
-    return {"part": 1, "division": 2, "subdivision": 3, "heading_group": 3}.get(node_type, 3)
+    return {"chapter": 1, "part": 1, "division": 2, "subdivision": 3, "heading_group": 3}.get(node_type, 3)
 
 
 # ---------------------------------------------------------------------------
@@ -190,10 +199,11 @@ def compute_section_slugs(tree_node: dict) -> dict[tuple[str, int], str | None]:
     return slugs
 
 
-def compute_index_slugs(tree_roots: list[dict], act_title: str) -> dict[str, str]:
-    """node_eid -> header slug for every Part/Division/Subdivision/
+def compute_index_slugs(tree_roots: list[dict], act_title: str, structural_types: tuple[str, ...]) -> dict[str, str]:
+    """node_eid -> header slug for every Chapter/Part/Division/Subdivision/
     heading_group that will appear in index.md (all one page, so one shared
     counts table, seeded with the page's own H1 first to match real order)."""
+    header_types = (*structural_types, "heading_group")
     counts: dict[str, int] = {}
     _github_slug(act_title, counts)
     slugs: dict[str, str] = {}
@@ -201,7 +211,7 @@ def compute_index_slugs(tree_roots: list[dict], act_title: str) -> dict[str, str
     def walk(tree_node):
         node = tree_node["node"]
         t = node["type"]
-        if t in ("part", "division", "subdivision", "heading_group"):
+        if t in header_types:
             title = _display_title(t, node.get("number"), node.get("heading"))
             slugs[tree_node["eid"]] = _github_slug(title, counts)
         for child in tree_node["children"]:
@@ -279,7 +289,7 @@ def _display_title(node_type: str, number: str | None, heading: str | None) -> s
 # both exports stay consistent with each other.
 # ---------------------------------------------------------------------------
 
-def collect_sections(tree_roots: list[dict]) -> list[tuple[dict, list[dict]]]:
+def collect_sections(tree_roots: list[dict], structural_types: tuple[str, ...]) -> list[tuple[dict, list[dict]]]:
     """[(section_tree_node, breadcrumb_of_ancestor_tree_nodes), ...] in
     document order. Doesn't descend into a section's own children -- those
     belong to that section's own page, not the index."""
@@ -290,7 +300,7 @@ def collect_sections(tree_roots: list[dict]) -> list[tuple[dict, list[dict]]]:
         if node["type"] == "section":
             sections.append((tree_node, breadcrumb))
             return
-        next_breadcrumb = breadcrumb + [tree_node] if node["type"] in ("part", "division", "subdivision") else breadcrumb
+        next_breadcrumb = breadcrumb + [tree_node] if node["type"] in structural_types else breadcrumb
         for child in tree_node["children"]:
             walk(child, next_breadcrumb)
 
@@ -485,7 +495,7 @@ def render_section_page(
     return front_matter + "\n".join(out) + "\n"
 
 
-def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[str, str]) -> str:
+def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[str, str], structural_types: tuple[str, ...]) -> str:
     verification = _collect_verification(tree_roots)
     front_matter = _front_matter(
         {
@@ -507,7 +517,7 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
             filename = f"{SECTIONS_DIR}/{filenames_by_eid[tree_node['eid']]}"
             out.append(f"- [{node['number']} {node.get('heading') or ''}]({filename})".rstrip())
             return
-        if t in ("part", "division", "subdivision", "heading_group"):
+        if t in (*structural_types, "heading_group"):
             level = _heading_level(t)
             title = _display_title(t, node.get("number"), node.get("heading"))
             out.append(f"{'#' * level} {title}")
@@ -528,13 +538,15 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
     """Writes index.md + sections/*.md under out_dir. Returns a small stats
     dict (section count, definitions found) for the caller to report."""
     nodes = parsed["nodes"]
-    tree_roots, _collisions = build_hierarchy_tree(nodes)
-    sections = collect_sections(tree_roots)
+    hierarchy_order = parsed.get("hierarchy") or HIERARCHY_ORDER
+    structural_types = _structural_types(hierarchy_order)
+    tree_roots, _collisions = build_hierarchy_tree(nodes, hierarchy_order)
+    sections = collect_sections(tree_roots, structural_types)
     filenames_by_eid, section_files = assign_filenames(sections)
     definitions = collect_definitions(sections, filenames_by_eid, section_files)
 
     title = act_title or parsed.get("act", "Act")
-    index_slugs = compute_index_slugs(tree_roots, title)
+    index_slugs = compute_index_slugs(tree_roots, title, structural_types)
     # Part/Division eId lookups for prose "Part N" / "Division N" links. One
     # walk over the tree in document order; on a duplicate number (a Schedule
     # reprinting a Part) the later occurrence wins, same as the dict
@@ -562,7 +574,7 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
         page = render_section_page(section_node, breadcrumb, linkify, current_file, prev_link, next_link, title)
         (out_path / SECTIONS_DIR / current_file).write_text(page, encoding="utf-8")
 
-    (out_path / "index.md").write_text(render_index(tree_roots, title, filenames_by_eid), encoding="utf-8")
+    (out_path / "index.md").write_text(render_index(tree_roots, title, filenames_by_eid, structural_types), encoding="utf-8")
 
     return {"sections": len(sections), "definitions": len(definitions)}
 

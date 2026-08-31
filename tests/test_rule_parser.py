@@ -253,6 +253,51 @@ def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     assert paragraph_b["text"].rstrip().endswith("suicide—")
 
 
+def test_chapter_heading_recognised_and_nests_a_part_under_it():
+    """The Criminal Procedure Act / Evidence Act group their Parts under
+    numbered Chapters. "Chapter N—Title" matches the built-in chapter
+    pattern (no profile needed), and a following Part nests inside it."""
+    lines = [
+        line("Chapter 2—Commencing a criminal proceeding", bold=True),
+        line("Part 1—How a criminal proceeding is commenced", bold=True),
+        line("1 Commencement", bold=True),
+        line("A criminal proceeding is commenced by filing a charge-sheet.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    chapter = find(result.nodes, "chapter", "2")
+    assert chapter["heading"] == "Commencing a criminal proceeding"
+    # order: chapter, then part, then section -- nesting is reconstructed
+    # downstream from this flat order (see akn_export.build_hierarchy_tree).
+    types = [n["type"] for n in result.nodes]
+    assert types.index("chapter") < types.index("part") < types.index("section")
+
+
+def test_chapter_title_wrapping_onto_a_second_bold_line_extends_the_heading():
+    lines = [
+        line("Chapter 2—Commencing a", bold=True),
+        line("criminal proceeding", bold=True),
+        line("Part 1—How it starts", bold=True),
+        line("Text.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    chapter = find(result.nodes, "chapter", "2")
+    assert chapter["heading"] == "Commencing a criminal proceeding"
+
+
+def test_act_with_no_chapter_lines_produces_no_chapter_nodes():
+    """Regression guard: "chapter" is in the default hierarchy, but an Act
+    that never prints a "Chapter N—..." line must not sprout one."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("Division 1—Offences against the person", bold=True),
+        line("1 Murder", bold=True),
+        line("(1) A person who commits murder is guilty of an offence.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "chapter" for n in result.nodes)
+    assert result.hierarchy[0] == "chapter"  # available, just unused
+
+
 def test_hanging_list_does_not_fire_on_genuine_nested_wrap():
     """The same mechanism must leave an ordinary multi-line Paragraph
     (no closing clause, just a wrapped sentence within the Paragraph
@@ -330,25 +375,28 @@ def test_bold_year_wrap_mid_citation_not_promoted_to_a_new_section():
 
 def test_section_heading_right_after_a_heading_group_counts_as_fresh_start():
     """Regression (Criminal Procedure Bill 2008): a bare topical
-    heading_group (e.g. a Bill's own "CHAPTER 7-..." caption) isn't
-    pushed onto the parser's stack the way a Part/Division/Section is, so
-    a section/clause heading immediately following one used to be
-    rejected as "not a fresh start" whenever the heading_group's own text
-    didn't end in terminal punctuation (a caption like "REFERENCE TO
-    COURT OF APPEAL" never does) -- silently dropping the section/clause
-    number and folding its heading text into whatever section preceded
-    the heading_group instead."""
+    heading_group (e.g. a caption like "Fraud and blackmail" grouping a
+    run of Sections, with no numbering of its own) isn't pushed onto the
+    parser's stack the way a Part/Division/Section is, so a section/
+    clause heading immediately following one used to be rejected as "not
+    a fresh start" whenever the heading_group's own text didn't end in
+    terminal punctuation (a bare caption never does) -- silently dropping
+    the section/clause number and folding its heading text into whatever
+    section preceded the heading_group instead. (A numbered "CHAPTER
+    N-..." caption doesn't exercise this path any more -- it's recognised
+    as its own "chapter" heading level, pushed onto the stack just like a
+    Part/Division, so it doesn't need this heading_group-specific fix.)"""
     lines = [
         line("Part I—Preliminary", bold=True),
         line("1 Purposes", bold=True),
         line("The purposes of this Act are to consolidate the law.", x0=HEAD_X0),
-        line("CHAPTER 7—REFERENCE TO COURT OF APPEAL", bold=True, size=14.0),
+        line("Reference to court of appeal", bold=True, size=14.0),
         line("327 Reference by Attorney-General", bold=True),
         line("The Attorney-General may refer a case.", x0=HEAD_X0),
     ]
     result = _parse(lines)
     heading_group = find(result.nodes, "heading_group")
-    assert heading_group["heading"] == "CHAPTER 7—REFERENCE TO COURT OF APPEAL"
+    assert heading_group["heading"] == "Reference to court of appeal"
     section_327 = find(result.nodes, "section", "327")
     assert section_327["heading"] == "Reference by Attorney-General"
     assert "refer a case" in section_327["text"]

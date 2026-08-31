@@ -82,6 +82,84 @@ def test_invalid_yaml_syntax_raises(isolated_profiles_dir):
         profiles.load_profile("test-act")
 
 
+def test_chapter_is_a_default_pattern():
+    patterns = profiles.load_profile(None)
+    m = patterns["chapter"].match("Chapter 2—Commencing a criminal proceeding")
+    assert m and m.group(1) == "2" and m.group(2) == "Commencing a criminal proceeding"
+
+
+# --- hierarchy: resolution --------------------------------------------------
+
+def test_load_hierarchy_defaults_when_no_profile():
+    assert profiles.load_hierarchy(None) == profiles.HIERARCHY_ORDER
+    assert profiles.load_hierarchy(None)[0] == "chapter"
+
+
+def test_load_hierarchy_defaults_when_profile_omits_the_key(isolated_profiles_dir):
+    write_profile(isolated_profiles_dir, "test-act", "part: '^Part\\s+(\\S+)\\s*[—–-]\\s*(.+)$'\n")
+    assert profiles.load_hierarchy("test-act") == profiles.HIERARCHY_ORDER
+
+
+def test_hierarchy_override_reorders_levels(isolated_profiles_dir):
+    write_profile(
+        isolated_profiles_dir, "test-act",
+        "hierarchy: [part, division, section, subsection, paragraph, subparagraph]\n",
+    )
+    assert profiles.load_hierarchy("test-act") == ["part", "division", "section", "subsection", "paragraph", "subparagraph"]
+
+
+def test_hierarchy_key_is_not_treated_as_a_pattern(isolated_profiles_dir):
+    write_profile(
+        isolated_profiles_dir, "test-act",
+        "hierarchy: [chapter, part, division, subdivision, section, subsection, paragraph, subparagraph]\n"
+        "part: '^PART\\s+(\\S+)\\s*[—–-]\\s*(.+)$'\n",
+    )
+    patterns = profiles.load_profile("test-act")  # must not raise "unknown pattern key: hierarchy"
+    assert patterns["part"].match("PART 3—Sentencing")
+    rows = {k: is_override for k, _p, is_override in profiles.describe_profile("test-act")}
+    assert rows["part"] is True and rows["division"] is False
+
+
+def test_hierarchy_missing_section_raises(isolated_profiles_dir):
+    write_profile(isolated_profiles_dir, "test-act", "hierarchy: [part, division, subsection, paragraph, subparagraph]\n")
+    with pytest.raises(profiles.ProfileError, match="section"):
+        profiles.load_hierarchy("test-act")
+
+
+def test_hierarchy_missing_bracket_level_raises(isolated_profiles_dir):
+    write_profile(isolated_profiles_dir, "test-act", "hierarchy: [chapter, part, section, subsection, paragraph]\n")
+    with pytest.raises(profiles.ProfileError, match="subparagraph"):
+        profiles.load_hierarchy("test-act")
+
+
+def test_hierarchy_level_without_a_pattern_raises(isolated_profiles_dir):
+    write_profile(
+        isolated_profiles_dir, "test-act",
+        "hierarchy: [book, part, division, subdivision, section, subsection, paragraph, subparagraph]\n",
+    )
+    with pytest.raises(profiles.ProfileError, match="no matching pattern.*book"):
+        profiles.load_hierarchy("test-act")
+
+
+def test_hierarchy_new_level_with_its_own_pattern_is_accepted(isolated_profiles_dir):
+    write_profile(
+        isolated_profiles_dir, "test-act",
+        "hierarchy: [chapter, part, division, subdivision, section, subsection, paragraph, subparagraph]\n"
+        "chapter: '^CHAPTER\\s+(\\d+)\\s*[—–-]\\s*(.+)$'\n",
+    )
+    assert profiles.load_hierarchy("test-act")[0] == "chapter"
+    assert profiles.load_profile("test-act")["chapter"].match("CHAPTER 5—Trial")
+
+
+def test_hierarchy_duplicate_level_raises(isolated_profiles_dir):
+    write_profile(
+        isolated_profiles_dir, "test-act",
+        "hierarchy: [part, part, section, subsection, paragraph, subparagraph]\n",
+    )
+    with pytest.raises(profiles.ProfileError, match="duplicate"):
+        profiles.load_hierarchy("test-act")
+
+
 def test_real_criminal_procedure_act_profile_overrides_part_pattern():
     """The actual committed profile (ai_pipeline/profiles/criminal-procedure-act.yaml)
     fixes a real gap: the default "part" pattern can't match this Act's

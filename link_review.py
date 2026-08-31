@@ -128,7 +128,7 @@ def main():
     args = ap.parse_args()
 
     _act = args.act
-    _nodes, _ = load_parsed(args.act)
+    _nodes, _, _ = load_parsed(args.act)
     _units = group_into_units(_nodes)
     _definition_index = build_definition_index(_nodes)
 

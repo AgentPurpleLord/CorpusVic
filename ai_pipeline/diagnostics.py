@@ -19,6 +19,7 @@ the exact node/page so review.py can jump straight to it.
 """
 from dataclasses import dataclass, field
 
+from .hierarchy import heading_levels
 from .rule_parser import ParseResult
 
 
@@ -77,9 +78,10 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
             page=preamble.get("page_start"),
         ))
 
+    container_types = heading_levels(parse_result.hierarchy)  # chapter/part/division/subdivision/section
     seen: dict[tuple, dict] = {}
     for idx, node in enumerate(nodes):
-        if node["type"] not in {"part", "division", "subdivision", "section", "clause"}:
+        if node["type"] not in container_types:
             continue
         key = (node["type"], tuple(sorted((k, v) for k, v in node["path"].items() if k != node["type"])), node["number"])
         if key in seen:

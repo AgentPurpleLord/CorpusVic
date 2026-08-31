@@ -14,7 +14,8 @@ Usage:
 """
 import argparse
 
-from ai_pipeline.profiles import ProfileError, describe_profile, load_profile
+from ai_pipeline.hierarchy import HIERARCHY_ORDER
+from ai_pipeline.profiles import ProfileError, describe_profile, load_hierarchy, load_profile
 
 
 def main():
@@ -25,10 +26,13 @@ def main():
 
     try:
         rows = describe_profile(args.profile)
+        hierarchy = load_hierarchy(args.profile)
     except ProfileError as e:
         raise SystemExit(f"error: {e}")
 
     print(f"Profile: {args.profile}\n")
+    tag = "override" if hierarchy != HIERARCHY_ORDER else "default "
+    print(f"  [{tag}] {'hierarchy':14s} {' > '.join(hierarchy)}\n")
     for key, pattern, is_override in rows:
         tag = "override" if is_override else "default "
         print(f"  [{tag}] {key:14s} {pattern}")
