@@ -32,16 +32,10 @@ from pathlib import Path
 import yaml
 
 from ai_pipeline.definitions import extract_section_ref_terms, extract_terms, looks_like_definitions_section
+from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES as _UNIT_BOUNDARY_TYPES
+from ai_pipeline.hierarchy import UNIT_ROOT_TYPES as _UNIT_ROOT_TYPES
 
 KNOWN_ACTS_PATH = Path(__file__).parent / "known_acts.yaml"
-
-# Mirrors review.py's _UNIT_BOUNDARY_TYPES: a Section's (or a Bill's own
-# Clause's -- same nesting rank, see hierarchy.py) body runs from itself
-# up to (not including) the next node of one of these types. Duplicated
-# rather than imported to keep ai_pipeline free of a reverse dependency on
-# the top-level review.py CLI.
-_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "clause", "heading_group"}
-_UNIT_ROOT_TYPES = {"section", "clause"}
 
 
 def load_known_acts() -> dict[str, str]:

@@ -41,3 +41,13 @@ HIERARCHY_RANK["clause"] = HIERARCHY_RANK["section"]
 # source PDF (see rule_parser.py's module docstring) -- as opposed to
 # subsection/paragraph/subparagraph, which are never bold.
 HEADING_LEVELS = {"part", "division", "subdivision", "section", "clause"}
+
+# A Section's (or a Bill's own Clause's -- same nesting rank, see
+# HIERARCHY_RANK above) own body runs from itself up to (not including)
+# the next node of one of these types -- the "everything nested under
+# this Section/Clause" grouping review.py's group_into_units,
+# link_targets.py's definition-index builder, and bill_linking.py's full-
+# text reconstruction all need independently. Lives here, not duplicated
+# in each, for the same reason HIERARCHY_ORDER itself does.
+UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "clause", "heading_group"}
+UNIT_ROOT_TYPES = {"section", "clause"}

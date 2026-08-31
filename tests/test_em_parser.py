@@ -120,6 +120,51 @@ def test_front_matter_before_first_clause_is_skipped_not_orphaned():
     assert result.nodes[0]["number"] == "1"
 
 
+def test_a_clause_cross_reference_far_ahead_is_not_mistaken_for_a_new_entry():
+    """Regression, from the real Criminal Procedure Bill 2008 EM: clause
+    2's own commencement note discusses when a much later clause takes
+    effect ("Clause 384 comes into operation on 1 July 2010") as an
+    ordinary sentence within its own explanation. That line has the exact
+    shape of a genuine new entry, but jumping from clause 2 to clause 384
+    with no Chapter/Part/Schedule heading in between is implausible --
+    the OCPC's own guide requires a note for every clause, so real
+    entries proceed close to 1-by-1. Without this check, clause 2's note
+    would be cut short and a bogus, premature "384" entry created,
+    conflicting with the real clause 384 entry that appears far later."""
+    lines = [
+        line("Clause 2"),
+        line("provides for the commencement of the Bill.  Chapter 1 comes"),
+        line("into operation on the day after Royal Assent."),
+        line("Clause 384 comes into operation on 1 July 2010.  This clause"),
+        line("provides for the repeal of sentence indication procedures."),
+        line("Clause 3"),
+        line("defines various words and expressions used in the Bill."),
+    ]
+    result = _parse(lines)
+    entry_2 = find(result.nodes, "em_entry", "2")
+    assert "Clause 384 comes into operation on 1 July 2010." in entry_2["text"]
+    assert not any(n.get("number") == "384" for n in result.nodes)
+    entry_3 = find(result.nodes, "em_entry", "3")
+    assert entry_3["text"] == "defines various words and expressions used in the Bill."
+
+
+def test_a_clause_cross_reference_is_still_accepted_right_after_a_heading():
+    """The plausibility guard resets at every Chapter/Part/Schedule
+    heading, since numbering can legitimately jump or restart there (a
+    Schedule's own items commonly restart from 1) -- the very first entry
+    after one is always accepted, however large the jump."""
+    lines = [
+        line("Clause 5"),
+        line("sets out an earlier matter."),
+        line("SCHEDULE 1—CHARGES ON A CHARGE-SHEET", bold=True),
+        line("Clause 384"),
+        line("is the first item explained in this Schedule."),
+    ]
+    result = _parse(lines)
+    entry_384 = find(result.nodes, "em_entry", "384")
+    assert entry_384["text"] == "is the first item explained in this Schedule."
+
+
 def test_bullet_points_stay_inline_as_continuation_text():
     lines = [
         line("Clause 1"),

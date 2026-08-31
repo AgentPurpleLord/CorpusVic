@@ -42,6 +42,7 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.text import Text
 
 from ai_pipeline.examples_store import add_correction, stats
+from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES
 from ai_pipeline.schema import NODE_TYPES
 
 console = Console()
@@ -148,12 +149,12 @@ def render_node(node: dict, idx: int, total: int, findings: list[dict] | None = 
 # ai_pipeline/rule_parser.py's HIERARCHY_ORDER -- without needing to
 # reconstruct the full tree (build_hierarchy_tree in akn_export.py) just to
 # find "everything under this Section": the flat node list is already in
-# document order, so a single pass is enough.
-_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "clause", "heading_group"}
-# "clause" is a Bill's pre-enactment name for the same top-level provision
-# an Act calls a "section" -- same nesting rank (see hierarchy.py), so it
-# starts a review unit the exact same way.
-_UNIT_ROOT_TYPES = {"section", "clause"}
+# document order, so a single pass is enough. UNIT_ROOT_TYPES also
+# includes "clause" -- a Bill's pre-enactment name for the same top-level
+# provision an Act calls a "section" (same nesting rank, see
+# hierarchy.py) -- so it starts a review unit the exact same way.
+_UNIT_BOUNDARY_TYPES = UNIT_BOUNDARY_TYPES
+_UNIT_ROOT_TYPES = UNIT_ROOT_TYPES
 
 
 def group_into_units(nodes: list[dict]) -> list[list[int]]:

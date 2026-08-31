@@ -27,6 +27,19 @@ clause's own explanation ends and the pinpoint's begins. Normalising
 "6(4)" down to base clause "6" for matching against the Bill's own clause
 numbers is bill_linking.py's job at link-resolution time, not this
 module's.
+
+A genuine entry-opening line and an incidental cross-reference are the
+*same* shape, though, which "starts with Clause" alone can't tell apart:
+"Clause 384 comes into operation on 1 July 2010" reads exactly like a
+real entry, but can just as easily be one sentence inside clause 2's own
+commencement note, discussing when a much later clause takes effect. The
+OCPC's own drafting guide requires a note for *every* clause of the Bill,
+so a genuine new entry's number is essentially always the very next one
+in sequence (or the first entry after a Chapter/Part/Schedule heading,
+where numbering can legitimately jump or restart) -- a huge jump forward
+with no such heading in between is a cross-reference, not a new entry,
+and is left as continuation text of whatever's currently open instead
+(see _is_plausible_next_clause).
 """
 import re
 from collections import Counter
@@ -36,7 +49,30 @@ from .extract import BodyLine, PageText
 
 _CHAPTER_RE = re.compile(r"^Chapter\s+(\d+[A-Za-z]*)\s*[—–-]\s*(.+)$", re.IGNORECASE)
 _PART_RE = re.compile(r"^Part\s+([\dA-Za-z.]+)\s*[—–-]\s*(.+)$", re.IGNORECASE)
+_SCHEDULE_RE = re.compile(r"^Schedule\s+(\d+[A-Za-z]*)\s*[—–-]\s*(.+)$", re.IGNORECASE)
 _CLAUSE_RE = re.compile(r"^Clause\s+(\d+[A-Za-z]*(?:\(\w+\))?)\s*(.*)$")
+
+# How far forward a clause number may plausibly jump between one
+# confirmed entry and the next real one, absent an intervening Chapter/
+# Part/Schedule heading -- generous enough for the occasional skipped or
+# consolidated clause, small enough that a jump of dozens (a cross-
+# reference to a much later clause, not that clause's own note) still
+# gets caught. See _is_plausible_next_clause.
+_MAX_FORWARD_GAP = 30
+
+
+def _base_number(number: str | None) -> int | None:
+    m = re.match(r"\d+", number or "")
+    return int(m.group(0)) if m else None
+
+
+def _is_plausible_next_clause(candidate_number: str, last_base: int | None, current: dict | None) -> bool:
+    candidate_base = _base_number(candidate_number)
+    if last_base is None:
+        return True  # first entry, or the first since a heading reset -- anything is plausible
+    if current is not None and candidate_base is not None and candidate_base == _base_number(current.get("number")):
+        return True  # a pinpoint continuing the currently-open entry's own base clause, e.g. "6" then "6(4)"
+    return candidate_base is not None and 0 <= candidate_base - last_base <= _MAX_FORWARD_GAP
 
 
 @dataclass
@@ -69,7 +105,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
     start = 0
     for i, line in enumerate(lines):
         text = line.text.strip()
-        if _CLAUSE_RE.match(text) or ((_CHAPTER_RE.match(text) or _PART_RE.match(text)) and line.bold):
+        if _CLAUSE_RE.match(text) or ((_CHAPTER_RE.match(text) or _PART_RE.match(text) or _SCHEDULE_RE.match(text)) and line.bold):
             start = i
             break
     else:
@@ -81,6 +117,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
     nodes: list[dict] = []
     current: dict | None = None
     open_heading: dict | None = None
+    last_base: int | None = None
     cursor = 0
     lines_consumed = 0
 
@@ -97,12 +134,22 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
         if not text:
             continue
 
-        heading_m = (_CHAPTER_RE.match(text) or _PART_RE.match(text)) if line.bold else None
+        heading_m = (_CHAPTER_RE.match(text) or _PART_RE.match(text) or _SCHEDULE_RE.match(text)) if line.bold else None
         clause_m = _CLAUSE_RE.match(text)
+        if clause_m and not _is_plausible_next_clause(clause_m.group(1), last_base, current):
+            # Same shape as a genuine entry opener, but an implausible
+            # jump with no heading in between -- a cross-reference inside
+            # the currently-open entry's own text, not a new entry (see
+            # the module docstring). Treated as an ordinary non-match so
+            # it falls through to the continuation branch below, keeping
+            # the full line -- "Clause 384" included -- as part of the
+            # flowing sentence it actually belongs to.
+            clause_m = None
 
         if heading_m:
             close_current()
             current = None
+            last_base = None
             open_heading = {
                 "type": "heading_group", "number": None, "heading": text, "text": text,
                 "page_start": line.page_no, "page_end": line.page_no,
@@ -113,6 +160,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             close_current()
             open_heading = None
             number, rest = clause_m.group(1), clause_m.group(2).strip()
+            last_base = _base_number(number)
             current = {
                 "type": "em_entry", "number": number, "heading": None, "text": rest,
                 "page_start": line.page_no, "page_end": line.page_no,
