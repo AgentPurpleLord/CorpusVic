@@ -3,3 +3,7 @@
 -r requirements.txt
 fastapi
 uvicorn
+# fastapi already pulls this in transitively, but link_review.py imports
+# it directly (BaseModel) -- pinned here explicitly rather than relying
+# on fastapi's own dependency bounds to keep providing it.
+pydantic
