@@ -35,6 +35,26 @@ def test_resolve_act_citation_unknown_act_is_unresolved():
     assert resolve_act_citation("Some Made Up Act 2099") is None
 
 
+def test_resolve_act_citation_falls_back_to_the_comprehensive_act_registry():
+    """A real Act this pipeline hasn't parsed itself (not in
+    known_acts.yaml) still resolves via the comprehensive registry (see
+    ai_pipeline/act_registry.py) -- no slug to link into, but confirmed
+    real, with its current in-force status."""
+    result = resolve_act_citation("Sentencing Act 1991")
+    assert result["kind"] == "act"
+    assert result["act_slug"] is None
+    assert result["act_title"] == "Sentencing Act 1991"
+    assert "in_force" in result
+
+
+def test_resolve_act_citation_prefers_known_acts_over_the_registry():
+    # Crimes Act 1958 is in both known_acts.yaml (with a real slug) and
+    # the comprehensive registry -- the parsed one wins, since it's the
+    # one an eventual link can actually point into.
+    result = resolve_act_citation("Crimes Act 1958")
+    assert result == {"kind": "act", "act_slug": "crimes-act", "act_title": "Crimes Act 1958"}
+
+
 def test_build_definition_index_finds_terms_in_a_definitions_section():
     nodes = [
         make_node("section", "3", "Definitions"),

@@ -25,6 +25,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from ai_pipeline.act_registry import load_act_registry
 from ai_pipeline.bill_linking import match_bill_to_act, resolve_em_links
 from ai_pipeline.link_targets import load_known_acts
 
@@ -59,21 +60,28 @@ def main():
     if args.em:
         em_nodes = load_nodes(args.em)
         known_acts = load_known_acts()
-        em_links = resolve_em_links(em_nodes, args.bill_slug, args.act_slug, bill_links, known_acts)
+        act_registry = load_act_registry()
+        em_links = resolve_em_links(em_nodes, args.bill_slug, args.act_slug, bill_links, known_acts, act_registry)
         em_out = out_dir / f"{args.em}-links.json"
         em_out.write_text(json.dumps(em_links, indent=2), encoding="utf-8")
 
         kind_counts = Counter((link["target"]["kind"] if link["target"] else "unresolved") for link in em_links)
         print(f"[{args.em}] {len(em_links)} entry link(s): {dict(kind_counts)}")
 
-        unresolved_acts = sorted({
-            link["target"]["act_title"]
+        unresolved_targets = [
+            link["target"]
             for link in em_links
             if link["target"] and link["target"]["kind"] == "act_section" and link["target"]["act_slug"] is None and link["target"]["act_title"]
-        })
-        if unresolved_acts:
-            print(f"  {len(unresolved_acts)} Act name(s) found but not in ai_pipeline/known_acts.yaml -- add them to resolve fully:")
-            for title in unresolved_acts:
+        ]
+        confirmed_but_unparsed = sorted({t["act_title"] for t in unresolved_targets if "in_force" in t})
+        wholly_unrecognised = sorted({t["act_title"] for t in unresolved_targets if "in_force" not in t})
+        if confirmed_but_unparsed:
+            print(f"  {len(confirmed_but_unparsed)} Act name(s) confirmed real (via act_registry.json) but not in ai_pipeline/known_acts.yaml -- add them to link into their content:")
+            for title in confirmed_but_unparsed:
+                print(f"    - {title}")
+        if wholly_unrecognised:
+            print(f"  {len(wholly_unrecognised)} Act name(s) not found in known_acts.yaml OR act_registry.json -- check spelling/extraction:")
+            for title in wholly_unrecognised:
                 print(f"    - {title}")
         print(f"Wrote {em_out}")
 

@@ -10,11 +10,17 @@ what resolution needs and doesn't need to be reconstructed later.
 Only act_citation and defined_term have a resolvable data source right
 now:
 
-  - act_citation resolves against ai_pipeline/known_acts.yaml -- the
-    other Acts this pipeline has actually parsed. Exact-or-suffix text
-    match only, never fuzzy: linking to the wrong Act is worse than
-    leaving a citation unresolved, and there's no ambiguity to arbitrate
-    once the year is part of the match.
+  - act_citation resolves first against ai_pipeline/known_acts.yaml --
+    the other Acts this pipeline has actually parsed, so the result
+    carries a slug and can be linked *into*. Failing that, it falls back
+    to ai_pipeline/act_registry.py's comprehensive-but-shallow Act
+    registry (extracted from the OCPC's own "List of Acts in
+    chronological order" -- see extract_act_registry.py): no parsed
+    content behind it, so act_slug stays None, but it confirms the
+    citation names a real Act and reports its current in-force status.
+    Both paths are exact-or-suffix text match only, never fuzzy: linking
+    to the wrong Act is worse than leaving a citation unresolved, and
+    there's no ambiguity to arbitrate once the year is part of the match.
 
   - defined_term resolves against this same Act's own "term means ..."
     clauses, reusing definitions.py's extraction -- the same convention
@@ -31,6 +37,7 @@ from pathlib import Path
 
 import yaml
 
+from ai_pipeline.act_registry import load_act_registry
 from ai_pipeline.definitions import extract_section_ref_terms, extract_terms, looks_like_definitions_section
 from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES as _UNIT_BOUNDARY_TYPES
 from ai_pipeline.hierarchy import UNIT_ROOT_TYPES as _UNIT_ROOT_TYPES
@@ -46,14 +53,18 @@ def load_known_acts() -> dict[str, str]:
 
 
 def resolve_act_citation(text: str) -> dict | None:
-    """Matches a citation span's raw text against the known-Acts registry.
-    Allows the span to have included a leading "the " or wrapping quotes
-    (both common in how a reviewer might drag-select a citation) but
-    otherwise requires the full title, year included."""
+    """Matches a citation span's raw text against the known-Acts registry
+    first, then the comprehensive Act registry (see the module
+    docstring). Allows the span to have included a leading "the " or
+    wrapping quotes (both common in how a reviewer might drag-select a
+    citation) but otherwise requires the full title, year included."""
     normalized = (text or "").strip().strip('"').rstrip(".,;:")
     for slug, title in load_known_acts().items():
         if normalized == title or normalized.endswith(f" {title}"):
             return {"kind": "act", "act_slug": slug, "act_title": title}
+    for title, meta in load_act_registry().items():
+        if normalized == title or normalized.endswith(f" {title}"):
+            return {"kind": "act", "act_slug": None, "act_title": title, **meta}
     return None
 
 

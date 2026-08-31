@@ -163,6 +163,28 @@ def test_resolve_em_links_resolves_a_named_act_and_tracks_it_as_current_scope():
     }
 
 
+def test_resolve_em_links_enriches_with_in_force_status_from_the_act_registry():
+    """An Act named in the EM but not in known_acts.yaml (no slug to link
+    into) still gets its current in-force status from the comprehensive
+    Act registry, when it's found there."""
+    act_registry = {"Sentencing Act 1991": {"year": "1991", "act_no": "49", "repealed_by": None, "repealed_provision": None, "in_force": True}}
+    em_nodes = [make_node("em_entry", "380", None, "inserts a new section 112A into the Sentencing Act 1991 which sets a maximum fine.")]
+    links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts={}, act_registry=act_registry)
+    assert links[0]["target"] == {
+        "kind": "act_section",
+        "act_slug": None,
+        "act_title": "Sentencing Act 1991",
+        "section_ref": "112A",
+        "in_force": True,
+    }
+
+
+def test_resolve_em_links_omits_in_force_when_the_act_is_in_neither_registry():
+    em_nodes = [make_node("em_entry", "5", None, "amends section 1 of the Obscure Made Up Act 2099 to clarify a term.")]
+    links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts={}, act_registry={})
+    assert "in_force" not in links[0]["target"]
+
+
 def test_resolve_em_links_defaults_to_the_bills_own_act_before_any_act_is_named():
     bill_to_act = [{"clause_number": "1"}]
     em_nodes = [make_node("em_entry", "1", None, "sets out the purposes of this Act, which are to consolidate the law.")]

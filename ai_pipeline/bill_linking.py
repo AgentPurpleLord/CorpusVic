@@ -191,15 +191,19 @@ def resolve_em_links(
     act_slug: str,
     bill_to_act: list[dict],
     known_acts: dict[str, str] | None = None,
+    act_registry: dict[str, dict] | None = None,
 ) -> list[dict]:
     """[{"em_node_index", "clause_number", "target", "verified_at"}, ...]
     for every em_entry, in document order. `target` is one of:
 
-      - {"kind": "act_section", "act_slug", "act_title", "section_ref"} --
-        an explicitly-named Act (found in `known_acts`, slug -> title) or
-        the currently-in-scope alias ("the Principal Act"/"this Act"),
-        tracked across entries in order: whichever Act was most recently
-        named explicitly stays in scope until a different one is named.
+      - {"kind": "act_section", "act_slug", "act_title", "section_ref",
+        "in_force"} -- an explicitly-named Act (found in `known_acts`,
+        slug -> title) or the currently-in-scope alias ("the Principal
+        Act"/"this Act"), tracked across entries in order: whichever Act
+        was most recently named explicitly stays in scope until a
+        different one is named. "in_force" is only present when the name
+        was also found in `act_registry` (see below) -- not every real
+        Act citation will be.
       - {"kind": "bill_clause", "act_slug", "clause_number"} -- no Act
         name and no alias were found, so this entry is explaining one of
         the Bill's own provisions; resolved to the Act this Bill itself
@@ -208,13 +212,26 @@ def resolve_em_links(
         (a general/overview note, for instance).
 
     known_acts (slug -> title, e.g. ai_pipeline.link_targets.
-    load_known_acts()) resolves a *named* Act to a slug; an unrecognised
-    name is kept as act_slug=None with the raw title still recorded,
+    load_known_acts()) resolves a *named* Act to a slug an eventual link
+    can point *into* (this pipeline has actually parsed that Act).
+    act_registry (title -> metadata, e.g. ai_pipeline.act_registry.
+    load_act_registry()) is the fallback for a real Act this pipeline
+    hasn't parsed -- confirms the citation names a genuine Act and its
+    current in-force status, still with no slug to link into. A name in
+    neither is kept as act_slug=None with the raw title still recorded
     rather than silently discarded, so a reviewer can see what needs
-    adding to the registry."""
+    adding to one registry or the other."""
     known_acts = known_acts or {}
+    act_registry = act_registry or {}
     title_to_slug = {title: slug for slug, title in known_acts.items()}
     bill_clause_numbers = {link["clause_number"] for link in bill_to_act}
+
+    def act_section_target(slug: str | None, title: str | None, section_ref: str | None) -> dict:
+        target = {"kind": "act_section", "act_slug": slug, "act_title": title, "section_ref": section_ref}
+        registry_entry = act_registry.get(title) if title else None
+        if registry_entry is not None:
+            target["in_force"] = registry_entry["in_force"]
+        return target
 
     links = []
     # Starts as the Bill's own eventual Act -- see the module docstring:
@@ -233,22 +250,12 @@ def resolve_em_links(
         if found["act_name"]:
             current_act_title = found["act_name"]
             current_act_slug = title_to_slug.get(found["act_name"])
-            target = {
-                "kind": "act_section",
-                "act_slug": current_act_slug,
-                "act_title": current_act_title,
-                "section_ref": found["section_ref"],
-            }
+            target = act_section_target(current_act_slug, current_act_title, found["section_ref"])
         elif found["act_is_self_alias"] or found["section_ref"]:
             # "the Principal Act"/"this Act", or a bare "section N" with
             # no Act named at all -- both mean whichever Act is currently
             # in scope.
-            target = {
-                "kind": "act_section",
-                "act_slug": current_act_slug,
-                "act_title": current_act_title,
-                "section_ref": found["section_ref"],
-            }
+            target = act_section_target(current_act_slug, current_act_title, found["section_ref"])
         elif node.get("number") in bill_clause_numbers:
             # No Act named, no section referenced, but this entry's own
             # number matches a real Bill clause -- it's explaining the
