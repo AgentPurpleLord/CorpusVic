@@ -9,11 +9,15 @@ plus every Subsection/Paragraph/Subparagraph/Note nested under it are shown
 together in one colour-coded panel (colour by type), since a Section and
 its own components are what a reviewer actually needs to see side by side
 to judge whether the parser attached each piece to the right place. Accept
-the whole Section in one go, or drill into a specific piece by its own
-legislative label ("(1)", "(1)(a)", "(1)(a)(iii)") to edit or split it.
-Standalone structural nodes that aren't a Section's own content (Part/
-Division/Subdivision headings, bare topical headings) are still reviewed
-one at a time, same as before.
+the whole Section in one go, or drill into a specific piece via a numbered
+menu (see _prompt_piece) to edit, split, or merge it -- picking a piece's
+own legislative label off the panel above and typing it used to be the
+only way in, but a nested piece's real label is its full chain ("(1)(a)"),
+not the bare bracket its own number alone suggests, so it was easy to type
+something that looked right and get "no matching piece"; a plain menu
+number is never ambiguous. Standalone structural nodes that aren't a
+Section's own content (Part/Division/Subdivision headings, bare topical
+headings) are still reviewed one at a time, same as before.
 
     python review.py crimes-act --flat     reviews every node one at a time
                                             instead (the original behaviour)
@@ -221,25 +225,21 @@ def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
     return boundary_units
 
 
-def _own_label(node: dict) -> str | None:
-    num = node.get("number")
-    return f"({num})" if num else None
-
-
 def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     """One label per node in the unit (index 0 is the Section itself,
-    labelled "SECTION"), used both for display and for _find_in_unit's
-    selection. A Subsection/Paragraph/Subparagraph's own legislative
+    labelled "SECTION"), shown alongside each piece for the reviewer's own
+    reference in both the rendered panel and _prompt_piece/_prompt_target's
+    numbered menus. A Subsection/Paragraph/Subparagraph's own legislative
     numbering is unique by construction, so its path-derived chain
     ("(1)(a)") is used directly; anything else (Note, Definition, a stray
     heading_group) has no numbering of its own -- these commonly share
     the exact same inherited path context (several repealed-text
     "* * * *" markers in a row all sitting right after the same last-
     numbered piece), so a naive path-based label would collide between
-    them and even with the real numbered piece they're attached to,
-    making that piece impossible to select. These get a running per-type
-    counter instead. A final de-duplication pass guards against a genuine
-    collision anyway (e.g. a mis-parsed repeated number)."""
+    them and even with the real numbered piece they're attached to. These
+    get a running per-type counter instead. A final de-duplication pass
+    guards against a genuine collision anyway (e.g. a mis-parsed repeated
+    number)."""
     labels = ["SECTION"]
     counters: dict[str, int] = {}
     for node in unit_nodes[1:]:
@@ -258,29 +258,89 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     return labels
 
 
-def _find_in_unit(labels: list[str], unit_nodes: list[dict], raw: str) -> tuple[int | None, list[int]]:
-    """Resolves a typed label to an index into unit_nodes (index 0 is
-    always the Section itself, selected by typing "SECTION"). Returns
-    (index, []) on a unique match, or (None, candidate_indices) when the
-    input is ambiguous or matches nothing -- candidates let the caller show
-    the reviewer what else to try."""
-    norm = raw.strip()
-    if not norm:
-        return None, []
-    if norm.upper() == "SECTION":
-        return 0, []
-    exact = [i for i in range(1, len(labels)) if labels[i] == norm]
-    if len(exact) == 1:
-        return exact[0], []
-    if len(exact) > 1:
-        return None, exact
-    # Fall back to the piece's own bracket alone (e.g. "(a)" instead of the
-    # full "(1)(a)"), when that's unambiguous within this Section -- most
-    # Sections only nest one level deep, so this is the common case.
-    own_matches = [i for i in range(1, len(unit_nodes)) if _own_label(unit_nodes[i]) == norm]
-    if len(own_matches) == 1:
-        return own_matches[0], []
-    return None, own_matches
+def _prompt_piece(unit_nodes: list[dict], labels: list[str], heading: str, exclude: int | None = None) -> int | None:
+    """Numbered-menu piece picker for edit_piece/split_piece/merge_piece,
+    replacing an earlier version that asked the reviewer to *type* a
+    piece's own legislative label. That broke down constantly in
+    practice: a paragraph nested under a subsection is labelled by its
+    full chain ("(1)(k)"), not the bare "(k)" its own bracket alone
+    suggests, and a bare-bracket fallback silently failed the moment more
+    than one piece in the Section happened to share that same letter --
+    both easy to get wrong from memory, with no feedback but "no matching
+    piece". A plain 1-based menu number is never ambiguous and needs no
+    guessing, so this replaces typed-label lookup entirely; `labels` is
+    still shown alongside each entry purely so the reviewer can see which
+    piece is which. Returns None (having already told the reviewer why)
+    on a blank or invalid answer."""
+    indices = [i for i in range(len(unit_nodes)) if i != exclude]
+    console.print(f"  {heading}")
+    for n, i in enumerate(indices, start=1):
+        preview = escape(_reflow(unit_nodes[i].get("text") or "")[:60]) or "(no text)"
+        console.print(f"    {n}. {escape(labels[i])} — {preview}")
+    raw = Prompt.ask("  Number (blank to cancel)", default="")
+    if not raw:
+        console.print("  [yellow]Cancelled.[/]")
+        return None
+    try:
+        n = int(raw)
+        if not (1 <= n <= len(indices)):
+            raise ValueError
+    except ValueError:
+        console.print("  [red]Invalid choice -- cancelled.[/]")
+        return None
+    return indices[n - 1]
+
+
+def _prompt_target(
+    unit_nodes: list[dict], labels: list[str], verified: list[dict], heading: str, exclude: int | None = None, recent_limit: int = 8
+) -> tuple[str, int] | None:
+    """One combined numbered menu for split_piece/merge_piece's "reassign
+    the tail/merge this piece onto..." step -- every other piece still in
+    the current unit, plus a handful of the most recently verified pieces
+    from earlier units (most recent last, so "put it back on the very
+    last thing I accepted" is always the bottom entry), all in one list
+    instead of asking the reviewer to type a label for one pool or leave
+    the prompt blank to switch to the other. Returns ("unit", index) for
+    a piece still in unit_nodes, ("verified", index) for an entry in
+    `verified`, or None (having already told the reviewer why) on a
+    blank/invalid answer or when there's nothing to choose from at all."""
+    entries: list[tuple[str, int, str]] = []
+    for i, n in enumerate(unit_nodes):
+        if i == exclude:
+            continue
+        preview = escape(_reflow(n.get("text") or "")[:60]) or "(no text)"
+        entries.append(("unit", i, f"{escape(labels[i])} — {preview}"))
+    recent = verified[-recent_limit:]
+    offset = len(verified) - len(recent)
+    for i, v in enumerate(recent):
+        preview = escape(_reflow(v.get("text") or "")[:60]) or "(no text)"
+        vlabel = f"{v['type'].upper()} {v.get('number') or ''}".strip()
+        # Parentheses, not square brackets -- a literal "[...]" here would
+        # be swallowed as an (invalid, silently-dropped) Rich markup style
+        # tag rather than printed, the same pitfall the escape() calls
+        # throughout this module exist to avoid (see the top-of-file note).
+        entries.append(("verified", offset + i, f"[dim](from an earlier section)[/] {escape(vlabel)} — {preview}"))
+
+    if not entries:
+        console.print("  [yellow]Nothing to choose from -- cancelled.[/]")
+        return None
+
+    console.print(f"  {heading}")
+    for n, (_, _, line) in enumerate(entries, start=1):
+        console.print(f"    {n}. {line}")
+    raw = Prompt.ask("  Number (blank to cancel)", default="")
+    if not raw:
+        console.print("  [yellow]Cancelled.[/]")
+        return None
+    try:
+        n = int(raw)
+        if not (1 <= n <= len(entries)):
+            raise ValueError
+    except ValueError:
+        console.print("  [red]Invalid choice -- cancelled.[/]")
+        return None
+    kind, idx, _ = entries[n - 1]
+    return kind, idx
 
 
 def render_unit(
@@ -317,14 +377,8 @@ def render_unit(
 
 
 def edit_piece(unit_nodes: list[dict], labels: list[str]) -> None:
-    raw = Prompt.ask("  Which piece? (SECTION, or a label like (1) or (1)(a) shown above)")
-    idx, candidates = _find_in_unit(labels, unit_nodes, raw)
+    idx = _prompt_piece(unit_nodes, labels, "Which piece?")
     if idx is None:
-        if candidates:
-            shown = ", ".join(escape(labels[i]) for i in candidates)
-            console.print(f"  [red]Ambiguous -- matches: {shown}. Type the full label shown above.[/]")
-        else:
-            console.print("  [red]No matching piece -- nothing changed.[/]")
         return
     unit_nodes[idx] = edit_node(unit_nodes[idx])
     console.print(f"  Updated {escape(labels[idx])}.")
@@ -335,15 +389,10 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
     tail -- most often onto another piece in this same Section (the common
     "(1) A person who -- (a) does X; or (b) does Y -- is guilty of an
     offence" run-on, where the closing clause resumes the lead-in's
-    sentence, not the last list item's), or, if left blank, onto an
-    already-verified node from an earlier Section."""
-    raw = Prompt.ask("  Split which piece? (a label like (1) or (1)(a) shown above)")
-    idx, candidates = _find_in_unit(labels, unit_nodes, raw)
+    sentence, not the last list item's), or onto an already-verified node
+    from an earlier Section (see _prompt_target)."""
+    idx = _prompt_piece(unit_nodes, labels, "Split which piece?")
     if idx is None:
-        if candidates:
-            console.print(f"  [red]Ambiguous -- matches: {', '.join(escape(labels[i]) for i in candidates)}.[/]")
-        else:
-            console.print("  [red]No matching piece.[/]")
         return
 
     node = unit_nodes[idx]
@@ -361,45 +410,19 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
             console.print("  [yellow]Not a valid split point -- cancelled.[/]")
         return
 
-    console.print("  Reassign the tail to another piece in this Section:")
-    for i, n in enumerate(unit_nodes):
-        if i == idx:
-            continue
-        console.print(f"    {escape(labels[i])}: {escape(_reflow(n.get('text') or '')[:60])}")
-    target_raw = Prompt.ask("  Label (blank to instead reassign to an earlier already-reviewed Section)", default="")
+    picked = _prompt_target(unit_nodes, labels, verified, "Reassign the tail to:", exclude=idx)
+    if picked is None:
+        return
+    kind, target_idx = picked
+    tail_text = "\n".join(lines[split_at - 1 :]).strip()
 
-    logged_immediately = False
-    if target_raw:
-        target_idx, candidates = _find_in_unit(labels, unit_nodes, target_raw)
-        if target_idx is None or target_idx == idx:
-            if candidates:
-                console.print(f"  [red]Ambiguous -- matches: {', '.join(escape(labels[i]) for i in candidates)}.[/]")
-            else:
-                console.print("  [red]No matching piece -- cancelled.[/]")
-            return
+    if kind == "unit":
         target = unit_nodes[target_idx]
         target_label = labels[target_idx]
+        original_target_text = target.get("text") or ""
+        target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
     else:
-        if not verified:
-            console.print("  [yellow]Nothing verified yet to reassign to -- cancelled.[/]")
-            return
-        recent = verified[-8:]
-        offset = len(verified) - len(recent)
-        for i, v in enumerate(recent):
-            preview = escape(_reflow(v.get("text") or "")[:60])
-            console.print(f"    {offset + i + 1}: {v['type'].upper()} {escape(v.get('number') or '')} — {preview}")
-        choice = Prompt.ask("  Verified-list number (blank to cancel)", default="")
-        if not choice:
-            console.print("  [yellow]Cancelled.[/]")
-            return
-        try:
-            v_idx = int(choice) - 1
-            if not (0 <= v_idx < len(verified)):
-                raise ValueError
-        except ValueError:
-            console.print("  [red]Invalid choice -- cancelled.[/]")
-            return
-        target = verified[v_idx]
+        target = verified[target_idx]
         target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
         # This node was already committed (and logged) by an earlier
         # Section's own accept -- log this extra edit against it now, since
@@ -407,7 +430,6 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
         # changing again right now, under direct human review, so its
         # verification timestamp is refreshed too.
         original_target_text = target.get("text") or ""
-        tail_text = "\n".join(lines[split_at - 1 :]).strip()
         target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
         target["verified_at"] = _now_iso()
         add_correction(
@@ -416,12 +438,6 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
             human_output=target,
             changed=True,
         )
-        logged_immediately = True
-
-    if not logged_immediately:
-        tail_text = "\n".join(lines[split_at - 1 :]).strip()
-        original_target_text = target.get("text") or ""
-        target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
 
     node["text"] = "\n".join(lines[: split_at - 1]).strip()
     console.print(f"  Moved the tail to {escape(target_label)}.")
@@ -445,12 +461,9 @@ def merge_piece(
     onto the piece before it is very often the *entire, sole* content of
     this unit (a standalone heading_group with nothing else beside it),
     and the piece it belongs on is in the *previous*, already-committed
-    unit, not this one. So, mirroring split_piece's own two-path design: a
-    typed label merges into another piece still in this unit; left blank,
-    it merges into an already-verified piece from an earlier unit instead
-    (offered as a numbered list, most recent last -- the common case, "put
-    it back on the very last thing I accepted", is always the bottom
-    entry).
+    unit, not this one. See _prompt_target for the combined "another piece
+    still in this unit, or an already-verified piece from an earlier one"
+    menu this offers for the merge destination.
 
     unit_nodes/unit_orig/indices are the three positionally-aligned lists
     run_section_review holds for this unit (see its own docstring); the
@@ -464,61 +477,28 @@ def merge_piece(
     empties unit_nodes altogether, the cross-unit target is tagged as
     though it had ended this unit, so run_section_review and _resume_point
     both treat this now-nodeless unit as fully handled."""
-    raw = Prompt.ask("  Merge which piece away? (a label like (1) or (1)(a) shown above)")
-    idx, candidates = _find_in_unit(labels, unit_nodes, raw)
+    idx = _prompt_piece(unit_nodes, labels, "Merge which piece away?")
     if idx is None:
-        if candidates:
-            console.print(f"  [red]Ambiguous -- matches: {', '.join(escape(labels[i]) for i in candidates)}.[/]")
-        else:
-            console.print("  [red]No matching piece.[/]")
         return
     if idx == 0 and len(unit_nodes) > 1:
         console.print("  [red]Can't merge SECTION itself away while it still has pieces nested under it.[/]")
         return
 
-    console.print("  Merge its text into another piece in this Section:")
-    for i, n in enumerate(unit_nodes):
-        if i == idx:
-            continue
-        console.print(f"    {escape(labels[i])}: {escape(_reflow(n.get('text') or '')[:60])}")
-    target_raw = Prompt.ask("  Label (blank to instead merge into an earlier already-reviewed piece)", default="")
-
     source = unit_nodes[idx]
     source_text = (source.get("text") or "").strip()
 
-    if target_raw:
-        target_idx, candidates = _find_in_unit(labels, unit_nodes, target_raw)
-        if target_idx is None or target_idx == idx:
-            if candidates:
-                console.print(f"  [red]Ambiguous -- matches: {', '.join(escape(labels[i]) for i in candidates)}.[/]")
-            else:
-                console.print("  [red]No matching piece -- cancelled.[/]")
-            return
+    picked = _prompt_target(unit_nodes, labels, verified, "Merge its text into:", exclude=idx)
+    if picked is None:
+        return
+    kind, target_idx = picked
+
+    if kind == "unit":
         target = unit_nodes[target_idx]
         target_label = labels[target_idx]
         target_text = (target.get("text") or "").strip()
         target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
     else:
-        if not verified:
-            console.print("  [yellow]Nothing verified yet to merge into -- cancelled.[/]")
-            return
-        recent = verified[-8:]
-        offset = len(verified) - len(recent)
-        for i, v in enumerate(recent):
-            preview = escape(_reflow(v.get("text") or "")[:60])
-            console.print(f"    {offset + i + 1}: {v['type'].upper()} {escape(v.get('number') or '')} — {preview}")
-        choice = Prompt.ask("  Verified-list number (blank to cancel)", default="")
-        if not choice:
-            console.print("  [yellow]Cancelled.[/]")
-            return
-        try:
-            v_idx = int(choice) - 1
-            if not (0 <= v_idx < len(verified)):
-                raise ValueError
-        except ValueError:
-            console.print("  [red]Invalid choice -- cancelled.[/]")
-            return
-        target = verified[v_idx]
+        target = verified[target_idx]
         target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
         original_target_text = target.get("text") or ""
         target_text = original_target_text.strip()
