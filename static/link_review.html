@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Link review</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --border: #d7d7d7;
+    --muted: #6b6b6b;
+    --accent: #2b6cb0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    background: #f5f5f4;
+    color: var(--fg);
+  }
+  header {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 15px;
+    margin: 0;
+    font-weight: 600;
+  }
+  header .spacer { flex: 1; }
+  header button {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  header button:hover { background: #f0f0f0; }
+  header input[type="number"] {
+    width: 60px;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  #legend {
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  #legend .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: -1px;
+  }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 80px;
+  }
+  .piece {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .piece-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .piece-heading {
+    font-weight: 600;
+    margin-bottom: 6px;
+    text-transform: none;
+    color: var(--fg);
+  }
+  .piece-text {
+    white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    cursor: text;
+    user-select: text;
+  }
+  .piece-text mark {
+    border-radius: 3px;
+    padding: 0 1px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  mark.label-act_citation { background: #bfdbfe; }
+  mark.label-defined_term { background: #bbf7d0; }
+  mark.label-bill_reference { background: #ddd6fe; }
+  mark.label-em_reference { background: #fed7aa; }
+  mark.label-other { background: #e5e7eb; }
+  /* Resolved (has a target) gets a solid underline; unresolved (saved,
+     but nothing matched yet) gets a dashed one -- same idea as a spell-
+     checker's squiggle, a quiet cue rather than a blocking error. */
+  mark.resolved { border-bottom-color: #16a34a; }
+  mark.unresolved { border-bottom: 2px dashed #9ca3af; }
+
+  #menu {
+    position: absolute;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    padding: 6px;
+    z-index: 100;
+    display: none;
+    min-width: 180px;
+  }
+  #menu .preview {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 8px 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    max-width: 260px;
+    overflow-wrap: break-word;
+  }
+  #menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: 6px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  #menu button:hover { background: #f0f0f0; }
+  #menu button.remove { color: #b91c1c; }
+  #empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="act-title">Link review</h1>
+  <button id="prev">&larr; Prev</button>
+  <span>Unit <input type="number" id="unit-input" min="0" value="0"> / <span id="unit-count">?</span></span>
+  <button id="next">Next &rarr;</button>
+  <div class="spacer"></div>
+  <span style="font-size:12px;color:var(--muted)">Drag-select text to label it &middot; click a highlight to remove it</span>
+</header>
+<div id="legend"></div>
+<main id="pieces"><div id="empty">Loading&hellip;</div></main>
+<div id="menu"></div>
+
+<script>
+const LABEL_TITLES = {
+  act_citation: "Act citation",
+  defined_term: "Defined term",
+  bill_reference: "Bill reference",
+  em_reference: "Explanatory Memorandum reference",
+  other: "Other",
+};
+
+let META = null;
+let currentUnit = 0;
+let linksByNode = {};
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `${res.status} ${res.statusText}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function loadMeta() {
+  META = await api("/api/meta");
+  document.getElementById("act-title").textContent = `Link review — ${META.act}`;
+  document.getElementById("unit-count").textContent = META.unit_count;
+  document.getElementById("unit-input").max = META.unit_count - 1;
+  const legend = document.getElementById("legend");
+  legend.innerHTML = META.labels
+    .map((l) => `<span><span class="swatch label-${l}" style="background:var(--sw-${l},#ccc)"></span>${escapeHtml(LABEL_TITLES[l] || l)}</span>`)
+    .join("");
+  // Swatches reuse the same mark.label-* colours -- read them back from a
+  // throwaway element instead of duplicating the palette in JS.
+  for (const l of META.labels) {
+    const probe = document.createElement("mark");
+    probe.className = `label-${l}`;
+    document.body.appendChild(probe);
+    const bg = getComputedStyle(probe).backgroundColor;
+    document.body.removeChild(probe);
+    legend.querySelectorAll(".swatch").forEach((el, i) => {
+      if (META.labels[i] === l) el.style.background = bg;
+    });
+  }
+}
+
+async function refreshLinks() {
+  const links = await api("/api/links");
+  linksByNode = {};
+  for (const link of links) {
+    (linksByNode[link.node_index] = linksByNode[link.node_index] || []).push(link);
+  }
+}
+
+function describeTarget(link) {
+  const t = link.target;
+  if (!t) return "unresolved -- no matching target yet";
+  if (t.kind === "act") return `resolved -- links to ${t.act_title} (${t.act_slug})`;
+  if (t.kind === "definition") {
+    const where = t.number ? `(${t.number})` : t.heading || `node ${t.node_index}`;
+    return `resolved -- defined at ${where}`;
+  }
+  return "resolved";
+}
+
+function renderPieceText(text, links) {
+  const sorted = [...links].sort((a, b) => a.start - b.start);
+  let html = "";
+  let cursor = 0;
+  for (const l of sorted) {
+    if (l.start < cursor) continue; // defensively skip overlaps
+    html += escapeHtml(text.slice(cursor, l.start));
+    const resolvedClass = l.target ? "resolved" : "unresolved";
+    const title = `${LABEL_TITLES[l.label] || l.label} -- ${describeTarget(l)}`;
+    html += `<mark class="label-${l.label} ${resolvedClass}" data-link-id="${l.id}" title="${escapeHtml(title)}">${escapeHtml(text.slice(l.start, l.end))}</mark>`;
+    cursor = l.end;
+  }
+  html += escapeHtml(text.slice(cursor));
+  return html;
+}
+
+function pieceLabel(piece) {
+  const bits = [piece.type.toUpperCase()];
+  if (piece.number) bits.push(piece.number);
+  return bits.join(" ");
+}
+
+async function loadUnit(n) {
+  const unit = await api(`/api/units/${n}`);
+  currentUnit = n;
+  document.getElementById("unit-input").value = n;
+  location.hash = `unit=${n}`;
+  await refreshLinks();
+  renderUnit(unit);
+}
+
+function renderUnit(unit) {
+  const container = document.getElementById("pieces");
+  container.innerHTML = "";
+  for (const piece of unit.pieces) {
+    const div = document.createElement("div");
+    div.className = "piece";
+    const heading = piece.heading ? `<div class="piece-heading">${escapeHtml(piece.heading)}</div>` : "";
+    div.innerHTML = `
+      <div class="piece-header">${escapeHtml(pieceLabel(piece))}</div>
+      ${heading}
+      <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece.text, linksByNode[piece.node_index] || [])}</div>
+    `;
+    container.appendChild(div);
+  }
+  if (!unit.pieces.length) {
+    container.innerHTML = '<div id="empty">(no text in this unit)</div>';
+  }
+}
+
+function offsetWithin(container, node, offset) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+  let total = 0;
+  let current;
+  while ((current = walker.nextNode())) {
+    if (current === node) return total + offset;
+    total += current.textContent.length;
+  }
+  // Boundary point wasn't inside a text node (right at an element edge) --
+  // sum the text of however many children precede it instead.
+  const children = Array.from((node === container ? container : node).childNodes);
+  total = 0;
+  for (let i = 0; i < offset && i < children.length; i++) total += children[i].textContent.length;
+  return total;
+}
+
+const menu = document.getElementById("menu");
+
+function hideMenu() {
+  menu.style.display = "none";
+}
+
+function showMenuAt(x, y) {
+  menu.style.left = `${x + window.scrollX}px`;
+  menu.style.top = `${y + window.scrollY}px`;
+  menu.style.display = "block";
+}
+
+function showAddMenu(x, y, nodeIndex, start, end, preview) {
+  menu.innerHTML = `<div class="preview">${escapeHtml(preview)}</div>`;
+  for (const label of META.labels) {
+    const btn = document.createElement("button");
+    btn.textContent = LABEL_TITLES[label] || label;
+    btn.onclick = async () => {
+      hideMenu();
+      try {
+        await api("/api/links", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ node_index: Number(nodeIndex), start, end, label }),
+        });
+        await loadUnit(currentUnit);
+      } catch (e) {
+        alert(`Couldn't save: ${e.message}`);
+      }
+    };
+    menu.appendChild(btn);
+  }
+  showMenuAt(x, y);
+}
+
+function showRemoveMenu(x, y, linkId) {
+  menu.innerHTML = "";
+  const btn = document.createElement("button");
+  btn.className = "remove";
+  btn.textContent = "Remove label";
+  btn.onclick = async () => {
+    hideMenu();
+    try {
+      await api(`/api/links/${linkId}`, { method: "DELETE" });
+      await loadUnit(currentUnit);
+    } catch (e) {
+      alert(`Couldn't remove: ${e.message}`);
+    }
+  };
+  menu.appendChild(btn);
+  showMenuAt(x, y);
+}
+
+document.getElementById("pieces").addEventListener("mouseup", (e) => {
+  const pieceEl = e.target.closest(".piece-text");
+  if (!pieceEl) return;
+
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed && sel.rangeCount && pieceEl.contains(sel.anchorNode) && pieceEl.contains(sel.focusNode)) {
+    const range = sel.getRangeAt(0);
+    const start = offsetWithin(pieceEl, range.startContainer, range.startOffset);
+    const end = offsetWithin(pieceEl, range.endContainer, range.endOffset);
+    if (end > start) {
+      const preview = pieceEl.textContent.slice(start, end).slice(0, 80);
+      showAddMenu(e.clientX, e.clientY, pieceEl.dataset.nodeIndex, start, end, preview);
+      return;
+    }
+  }
+
+  const markEl = e.target.closest("mark");
+  if (markEl) {
+    showRemoveMenu(e.clientX, e.clientY, markEl.dataset.linkId);
+  } else {
+    hideMenu();
+  }
+});
+
+document.addEventListener("mousedown", (e) => {
+  if (!menu.contains(e.target)) hideMenu();
+});
+
+document.getElementById("prev").onclick = () => loadUnit(Math.max(0, currentUnit - 1));
+document.getElementById("next").onclick = () => loadUnit(Math.min(META.unit_count - 1, currentUnit + 1));
+document.getElementById("unit-input").addEventListener("change", (e) => {
+  const n = Math.max(0, Math.min(META.unit_count - 1, Number(e.target.value) || 0));
+  loadUnit(n);
+});
+
+(async function init() {
+  await loadMeta();
+  const hashMatch = location.hash.match(/unit=(\d+)/);
+  const startUnit = hashMatch ? Math.min(Number(hashMatch[1]), META.unit_count - 1) : 0;
+  await loadUnit(startUnit);
+})();
+</script>
+</body>
+</html>

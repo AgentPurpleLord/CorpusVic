@@ -269,3 +269,178 @@ def test_hanging_list_does_not_fire_on_genuine_nested_wrap():
     result = _parse(lines)
     paragraph_b = find(result.nodes, "paragraph", "b")
     assert "that child within the preceding 2 years" in paragraph_b["text"]
+
+
+def test_multiline_bold_act_citation_is_not_split_into_heading_groups():
+    """Regression: a Paragraph listing several Act names being amended can
+    wrap across many *consecutive* bold lines ("... the Crimes\n(Mental
+    Impairment and Unfitness to be\nTried) Act 1997, the Magistrates'
+    Court\nAct 1989, ...") -- an earlier fix let a bold previous line
+    count as a "fresh start" for heading detection (to recognise a
+    Subdivision opening right after its Division's own bold heading
+    line), but that wrongly treated every wrapped line of a multi-line
+    bold citation as its own fresh start too, splitting the citation into
+    a string of spurious heading_group nodes instead of keeping it as one
+    Paragraph's continuing text."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+        line("(k) to amend the Crimes Act 1958, the Crimes", x0=PARA_X0),
+        line("(Mental Impairment and Unfitness to be", x0=PARA_WRAP_X0, bold=True),
+        line("Tried) Act 1997, the Magistrates' Court", x0=PARA_WRAP_X0, bold=True),
+        line("Act 1989, the Children, Youth and", x0=PARA_WRAP_X0, bold=True),
+        line("Families Act 2005 and the Appeal Costs", x0=PARA_WRAP_X0, bold=True),
+        line("Act 1998;", x0=PARA_WRAP_X0, bold=True),
+        line("(l) to repeal the Crimes (Criminal Trials)", x0=PARA_X0, bold=True),
+        line("Act 1999;", x0=PARA_WRAP_X0, bold=True),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "heading_group" for n in result.nodes)
+    paragraph_k = find(result.nodes, "paragraph", "k")
+    assert "Families Act 2005 and the Appeal Costs" in paragraph_k["text"]
+    assert "Act 1998;" in paragraph_k["text"]
+    paragraph_l = find(result.nodes, "paragraph", "l")
+    assert "Act 1999;" in paragraph_l["text"]
+
+
+def test_bold_year_wrap_mid_citation_not_promoted_to_a_new_section():
+    """Regression (Criminal Procedure Bill 2008): a Schedule-style
+    consequential amendment's own lead-in wraps an Act name's year onto
+    its own bold line ("... Act\\n1997 insert-", the citation's year --
+    "Crimes (Mental Impairment and Unfitness to be Tried) Act 1997" --
+    landing alone on a line together with the next word). "1997 insert-"
+    has exactly the same shape as a genuine section heading ("(\\d+)\\s+
+    (.+)"), and is bold like one, but it doesn't open right after a clean
+    sentence break -- a real section/clause heading always does."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("370 New section 14A inserted", bold=True),
+        line("After section 14 of the Crimes (Mental", x0=HEAD_X0),
+        line("Impairment and Unfitness to be Tried) Act", x0=HEAD_X0, bold=True),
+        line("1997 insert—", x0=HEAD_X0, bold=True),
+        line('"14A Appeal in relation to fitness to plead', x0=HEAD_X0, bold=True),
+    ]
+    result = _parse(lines)
+    assert not any(n.get("number") == "1997" for n in result.nodes)
+    section_370 = find(result.nodes, "section", "370")
+    assert "1997 insert—" in section_370["text"]
+    assert "14A Appeal in relation to fitness to plead" in section_370["text"]
+
+
+def test_section_heading_right_after_a_heading_group_counts_as_fresh_start():
+    """Regression (Criminal Procedure Bill 2008): a bare topical
+    heading_group (e.g. a Bill's own "CHAPTER 7-..." caption) isn't
+    pushed onto the parser's stack the way a Part/Division/Section is, so
+    a section/clause heading immediately following one used to be
+    rejected as "not a fresh start" whenever the heading_group's own text
+    didn't end in terminal punctuation (a caption like "REFERENCE TO
+    COURT OF APPEAL" never does) -- silently dropping the section/clause
+    number and folding its heading text into whatever section preceded
+    the heading_group instead."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are to consolidate the law.", x0=HEAD_X0),
+        line("CHAPTER 7—REFERENCE TO COURT OF APPEAL", bold=True, size=14.0),
+        line("327 Reference by Attorney-General", bold=True),
+        line("The Attorney-General may refer a case.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    heading_group = find(result.nodes, "heading_group")
+    assert heading_group["heading"] == "CHAPTER 7—REFERENCE TO COURT OF APPEAL"
+    section_327 = find(result.nodes, "section", "327")
+    assert section_327["heading"] == "Reference by Attorney-General"
+    assert "refer a case" in section_327["text"]
+
+
+def test_bold_section_heading_ends_a_notes_block_instead_of_becoming_a_note_item():
+    """Regression (Criminal Procedure Bill 2008): an amendment-history
+    Notes block's own numbered entries ("1 If the Magistrates' Court...",
+    "2 See section 86...") are always plain body text, never bold -- but
+    share the exact "digit(s) then text" shape a genuine section/clause
+    heading has. A bold line with that same shape immediately following
+    a Notes block is the next section, not one more note, and should end
+    notes_mode instead of being swallowed as note "38"."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("37 Contents of preliminary brief", bold=True),
+        line("A preliminary brief must include the following.", x0=HEAD_X0),
+        line("Notes", bold=True),
+        line("1 See section 84 as to service on the accused.", x0=HEAD_X0),
+        line("2 See section 86 as to proof of criminal record.", x0=HEAD_X0),
+        line("38 Requirements for informant's statement", bold=True),
+        line("A statement by the informant must be signed.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "note" and n.get("number") == "38" for n in result.nodes)
+    section_38 = find(result.nodes, "section", "38")
+    assert section_38["heading"] == "Requirements for informant's statement"
+    note_1 = find(result.nodes, "note", "1")
+    assert "service on the accused" in note_1["text"]
+
+
+def test_top_level_type_clause_parses_a_bill_the_same_way_as_an_act():
+    """A Bill's own top-level numbered provision is called a "clause", not
+    a "section" -- same drafting shape, same nesting rank (subsection/
+    paragraph/subparagraph nest under either identically), just the pre-
+    enactment name (see hierarchy.py's HIERARCHY_RANK entry for it)."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+        line("(a) to clarify the law.", x0=PARA_X0),
+    ]
+    result = parse_act([page(lines)], top_level_type="clause")
+    assert result.lines_total == result.lines_consumed
+    clause = find(result.nodes, "clause", "1")
+    assert clause["heading"] == "Purposes"
+    paragraph = find(result.nodes, "paragraph", "a")
+    assert paragraph["text"] == "to clarify the law."
+    assert not any(n["type"] == "section" for n in result.nodes)
+
+
+def test_skip_front_matter_discards_bills_table_of_provisions():
+    """A Bill's introduction print opens with a title page and a multi-
+    page Table of Provisions whose rows repeat real Part/clause headings
+    closely enough to fool the heading classifiers -- skip_front_matter
+    discards everything up to the fixed enacting words every Bill's real
+    text opens with, rather than trying to parse the TOC as structure."""
+    lines = [
+        line("TABLE OF PROVISIONS", bold=True, size=14.0),
+        line("PART 2.1—WAYS IN WHICH A CRIMINAL PROCEEDING IS", bold=True),
+        line("COMMENCED", bold=True),
+        line("12", x0=HEAD_X0),
+        line("How a criminal proceeding is commenced", x0=HEAD_X0),
+        line("13", x0=HEAD_X0),
+        line("A Bill for an Act to provide for procedures.", x0=HEAD_X0),
+        line("The Parliament of Victoria enacts:", bold=True, size=12.0),
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+        line("(a) to clarify the law.", x0=PARA_X0),
+    ]
+    result = parse_act([page(lines)], top_level_type="clause", skip_front_matter=True)
+    assert result.lines_total == result.lines_consumed
+    assert any("skipped 8 front-matter line" in w for w in result.warnings)
+    clause = find(result.nodes, "clause", "1")
+    assert clause["heading"] == "Purposes"
+    # None of the TOC's own row content ("PART 2.1—...", "How a criminal
+    # proceeding is commenced") should have leaked into any real node.
+    assert not any("2.1" in (n.get("heading") or "") for n in result.nodes)
+    assert not any("How a criminal proceeding" in (n.get("text") or "") for n in result.nodes)
+
+
+def test_skip_front_matter_leaves_act_parsing_unaffected():
+    """skip_front_matter defaults to False -- an enacted Act's own PDF has
+    no equivalent front matter to skip, and must parse exactly as before."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+    ]
+    result = parse_act([page(lines)])
+    assert result.lines_total == result.lines_consumed
+    assert not result.warnings
+    section = find(result.nodes, "section", "1")
+    assert section["heading"] == "Purposes"

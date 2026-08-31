@@ -42,6 +42,7 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.text import Text
 
 from ai_pipeline.examples_store import add_correction, stats
+from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES
 from ai_pipeline.schema import NODE_TYPES
 
 console = Console()
@@ -61,8 +62,8 @@ console = Console()
 ACTION_PROMPT = "(a)ccept / (e)dit / (s)plit-and-reassign / (f)lag-and-continue / (q)uit"
 ACTION_CHOICES = ["a", "e", "s", "f", "q"]
 
-UNIT_ACTION_PROMPT = "(a)ccept section / (e)dit a piece / (s)plit a piece / (f)lag section / (q)uit"
-UNIT_ACTION_CHOICES = ["a", "e", "s", "f", "q"]
+UNIT_ACTION_PROMPT = "(a)ccept section / (e)dit a piece / (s)plit a piece / (m)erge a piece / (f)lag section / (q)uit"
+UNIT_ACTION_CHOICES = ["a", "e", "s", "m", "f", "q"]
 
 # Colour by type, not by depth -- depth is already shown by indentation, but
 # colour is what lets a reviewer's eye jump straight to "is this line a
@@ -148,8 +149,12 @@ def render_node(node: dict, idx: int, total: int, findings: list[dict] | None = 
 # ai_pipeline/rule_parser.py's HIERARCHY_ORDER -- without needing to
 # reconstruct the full tree (build_hierarchy_tree in akn_export.py) just to
 # find "everything under this Section": the flat node list is already in
-# document order, so a single pass is enough.
-_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "heading_group"}
+# document order, so a single pass is enough. UNIT_ROOT_TYPES also
+# includes "clause" -- a Bill's pre-enactment name for the same top-level
+# provision an Act calls a "section" (same nesting rank, see
+# hierarchy.py) -- so it starts a review unit the exact same way.
+_UNIT_BOUNDARY_TYPES = UNIT_BOUNDARY_TYPES
+_UNIT_ROOT_TYPES = UNIT_ROOT_TYPES
 
 
 def group_into_units(nodes: list[dict]) -> list[list[int]]:
@@ -157,7 +162,7 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
     current: list[int] | None = None
     for i, node in enumerate(nodes):
         t = node["type"]
-        if t == "section":
+        if t in _UNIT_ROOT_TYPES:
             current = [i]
             units.append(current)
         elif t in _UNIT_BOUNDARY_TYPES:
@@ -171,11 +176,26 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
 
 
 def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
-    """Which unit to resume at, given `verified` already holds `len(verified)`
-    nodes' worth of decisions. Normally that count lands exactly on a unit
-    boundary (units are always committed whole -- see commit_unit), but a
-    prior --flat run can leave it mid-unit; trim back to the last complete
-    unit in that case rather than risk duplicating a partially-reviewed one."""
+    """Which unit to resume at. commit_unit tags the last node it appends
+    for a unit with that unit's own index (`_unit_end_index`); when any
+    such marker is present, the highest one is trusted directly -- this is
+    the only reliable signal once merge_piece has been used, since merging
+    a wrongly-split-off piece away means commit_unit can append *fewer*
+    nodes than that unit's original size, and the plain node count below
+    can no longer tell "unit N committed short because of a merge" apart
+    from "review stopped partway through unit N".
+
+    Absent any marker (verified data written by --flat/--triage, or by a
+    version of this tool from before merge_piece existed), fall back to
+    the original approach: `verified` should hold exactly `len(verified)`
+    nodes' worth of *whole* units, since a marker-free run always commits
+    a unit at its full original size; a prior --flat run can still leave
+    it mid-unit, so trim back to the last complete unit in that case
+    rather than risk duplicating a partially-reviewed one."""
+    marked = [n["_unit_end_index"] for n in verified if "_unit_end_index" in n]
+    if marked:
+        return max(marked) + 1
+
     cumulative = 0
     boundary_units = 0
     for u in units:
@@ -263,11 +283,11 @@ def render_unit(
     findings_by_node: dict[int, list[dict]],
 ) -> None:
     root = unit_nodes[0]
-    if root["type"] != "section":
+    if root["type"] not in _UNIT_ROOT_TYPES:
         render_node(root, unit_no - 1, total_units, findings_by_node.get(unit_indices[0]))
         return
 
-    header = f"[{unit_no}/{total_units}] SECTION {escape(root.get('number') or '')} — {escape(root.get('heading') or '')}".strip()
+    header = f"[{unit_no}/{total_units}] {root['type'].upper()} {escape(root.get('number') or '')} — {escape(root.get('heading') or '')}".strip()
     pages = f"pages {root.get('page_start')}-{root.get('page_end')}"
 
     body = Text()
@@ -398,7 +418,128 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
     console.print(f"  Moved the tail to {escape(target_label)}.")
 
 
-def commit_unit(unit_nodes: list[dict], unit_orig: list[dict], act: str, verified: list[dict], flagged: bool = False) -> None:
+def merge_piece(
+    unit_nodes: list[dict], unit_orig: list[dict], indices: list[int], labels: list[str], act: str, verified: list[dict], unit_index: int
+) -> None:
+    """The other direction from split_piece: appends one piece's whole text
+    onto an adjacent piece and discards the now-empty source, for when the
+    parser wrongly broke a paragraph into extra fragments -- most often a
+    stray heading_group/section/etc. that the parser mistook for a new
+    heading partway through a paragraph's wrapped text (e.g. a multi-line
+    bold Act-name citation). Rather than hand-editing each fragment's text
+    and blanking the rest out one at a time, merge puts a fragment back
+    where it belongs in one step.
+
+    Critically, a spurious heading_group/section/etc. is itself a *unit
+    boundary* (see _UNIT_BOUNDARY_TYPES) -- it splits what should be one
+    Section's review unit into several, so the fragment needing to go back
+    onto the piece before it is very often the *entire, sole* content of
+    this unit (a standalone heading_group with nothing else beside it),
+    and the piece it belongs on is in the *previous*, already-committed
+    unit, not this one. So, mirroring split_piece's own two-path design: a
+    typed label merges into another piece still in this unit; left blank,
+    it merges into an already-verified piece from an earlier unit instead
+    (offered as a numbered list, most recent last -- the common case, "put
+    it back on the very last thing I accepted", is always the bottom
+    entry).
+
+    unit_nodes/unit_orig/indices are the three positionally-aligned lists
+    run_section_review holds for this unit (see its own docstring); the
+    source piece is deleted from all three in lockstep so commit_unit's
+    zip(unit_orig, unit_nodes) stays aligned afterwards and the discarded
+    piece is simply never committed to `verified` at all. Discarding index
+    0 is only blocked when it's a real Section others in this unit are
+    nested under (len(unit_nodes) > 1) -- for a standalone single-node
+    unit, index 0 *is* the whole unit, and merging it away entirely (into
+    an earlier already-verified piece) is exactly the point. When that
+    empties unit_nodes altogether, the cross-unit target is tagged as
+    though it had ended this unit, so run_section_review and _resume_point
+    both treat this now-nodeless unit as fully handled."""
+    raw = Prompt.ask("  Merge which piece away? (a label like (1) or (1)(a) shown above)")
+    idx, candidates = _find_in_unit(labels, unit_nodes, raw)
+    if idx is None:
+        if candidates:
+            console.print(f"  [red]Ambiguous -- matches: {', '.join(escape(labels[i]) for i in candidates)}.[/]")
+        else:
+            console.print("  [red]No matching piece.[/]")
+        return
+    if idx == 0 and len(unit_nodes) > 1:
+        console.print("  [red]Can't merge SECTION itself away while it still has pieces nested under it.[/]")
+        return
+
+    console.print("  Merge its text into another piece in this Section:")
+    for i, n in enumerate(unit_nodes):
+        if i == idx:
+            continue
+        console.print(f"    {escape(labels[i])}: {escape(_reflow(n.get('text') or '')[:60])}")
+    target_raw = Prompt.ask("  Label (blank to instead merge into an earlier already-reviewed piece)", default="")
+
+    source = unit_nodes[idx]
+    source_text = (source.get("text") or "").strip()
+
+    if target_raw:
+        target_idx, candidates = _find_in_unit(labels, unit_nodes, target_raw)
+        if target_idx is None or target_idx == idx:
+            if candidates:
+                console.print(f"  [red]Ambiguous -- matches: {', '.join(escape(labels[i]) for i in candidates)}.[/]")
+            else:
+                console.print("  [red]No matching piece -- cancelled.[/]")
+            return
+        target = unit_nodes[target_idx]
+        target_label = labels[target_idx]
+        target_text = (target.get("text") or "").strip()
+        target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
+    else:
+        if not verified:
+            console.print("  [yellow]Nothing verified yet to merge into -- cancelled.[/]")
+            return
+        recent = verified[-8:]
+        offset = len(verified) - len(recent)
+        for i, v in enumerate(recent):
+            preview = escape(_reflow(v.get("text") or "")[:60])
+            console.print(f"    {offset + i + 1}: {v['type'].upper()} {escape(v.get('number') or '')} — {preview}")
+        choice = Prompt.ask("  Verified-list number (blank to cancel)", default="")
+        if not choice:
+            console.print("  [yellow]Cancelled.[/]")
+            return
+        try:
+            v_idx = int(choice) - 1
+            if not (0 <= v_idx < len(verified)):
+                raise ValueError
+        except ValueError:
+            console.print("  [red]Invalid choice -- cancelled.[/]")
+            return
+        target = verified[v_idx]
+        target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
+        original_target_text = target.get("text") or ""
+        target_text = original_target_text.strip()
+        target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
+        target["verified_at"] = _now_iso()
+        add_correction(
+            act,
+            ai_output={"type": target["type"], "number": target.get("number"), "heading": target.get("heading"), "text": original_target_text},
+            human_output=target,
+            changed=True,
+        )
+        if len(unit_nodes) == 1:
+            # This was the unit's sole node -- deleting it below empties
+            # unit_nodes altogether, so there's nothing left here for
+            # commit_unit to ever tag with _unit_end_index. Tag the
+            # cross-unit target instead (already-committed, so this is
+            # safe): _resume_point only ever needs the *highest* tagged
+            # index, so marking this now-fully-handled unit here, on
+            # whatever entry, is exactly as good as tagging one of our own.
+            target["_unit_end_index"] = unit_index
+
+    console.print(f"  Merged {escape(labels[idx])} into {escape(target_label)} and discarded {escape(labels[idx])}.")
+    del unit_nodes[idx]
+    del unit_orig[idx]
+    del indices[idx]
+
+
+def commit_unit(
+    unit_nodes: list[dict], unit_orig: list[dict], act: str, verified: list[dict], flagged: bool = False, unit_index: int | None = None
+) -> None:
     """Appends every node in the unit to `verified` and logs one correction
     per node -- same per-node granularity data/corrections.jsonl has always
     had, just decided on in one batch instead of one prompt per node.
@@ -407,7 +548,14 @@ def commit_unit(unit_nodes: list[dict], unit_orig: list[dict], act: str, verifie
     markdown_export.py reads this back to flag human-verified content in
     each page's front matter. A flagged node explicitly isn't confirmed
     (that's what flagging means -- "not sure, revisit this"), so it's kept
-    unstamped even though the reviewer looked at it."""
+    unstamped even though the reviewer looked at it.
+
+    unit_index, when given, is this unit's own position in run_section_
+    review's `units` list -- tagged onto the last node appended here so
+    _resume_point can find exactly where review left off even when
+    merge_piece has made this commit shorter than the unit's original
+    size (unit_nodes/unit_orig can have had pieces merged away by the time
+    commit_unit is called -- see merge_piece's docstring)."""
     for original, current in zip(unit_orig, unit_nodes):
         node = dict(current)
         if flagged:
@@ -417,6 +565,8 @@ def commit_unit(unit_nodes: list[dict], unit_orig: list[dict], act: str, verifie
         verified.append(node)
         changed = any(node.get(k) != original.get(k) for k in ("type", "number", "heading", "text"))
         add_correction(act, ai_output=original, human_output=node, changed=changed)
+    if unit_index is not None and verified:
+        verified[-1]["_unit_end_index"] = unit_index
 
 
 def run_section_review(act: str, nodes: list[dict], verified: list[dict], findings_by_node: dict[int, list[dict]]) -> None:
@@ -434,7 +584,7 @@ def run_section_review(act: str, nodes: list[dict], verified: list[dict], findin
             render_unit(unit_nodes, indices, labels, u + 1, len(units), findings_by_node)
             action = Prompt.ask(UNIT_ACTION_PROMPT, choices=UNIT_ACTION_CHOICES, default="a")
             if action == "a":
-                commit_unit(unit_nodes, unit_orig, act, verified)
+                commit_unit(unit_nodes, unit_orig, act, verified, unit_index=u)
                 break
             if action == "e":
                 edit_piece(unit_nodes, labels)
@@ -442,8 +592,17 @@ def run_section_review(act: str, nodes: list[dict], verified: list[dict], findin
             if action == "s":
                 split_piece(unit_nodes, labels, act, verified)
                 continue
+            if action == "m":
+                merge_piece(unit_nodes, unit_orig, indices, labels, act, verified, u)
+                if not unit_nodes:
+                    # The unit's sole node was just merged away entirely --
+                    # nothing left to render or commit for it (merge_piece
+                    # already tagged the cross-unit target so resume skips
+                    # this unit correctly); move straight to the next one.
+                    break
+                continue
             if action == "f":
-                commit_unit(unit_nodes, unit_orig, act, verified, flagged=True)
+                commit_unit(unit_nodes, unit_orig, act, verified, flagged=True, unit_index=u)
                 console.print("  [yellow]Flagged for follow-up; kept current version.[/]")
                 break
             if action == "q":

@@ -5,8 +5,9 @@ data/diagnostics/
 data/akn/
 data/markdown/
 
-# Keep data/verified/ and data/corrections.jsonl tracked -- that's the
-# accumulated human-verified ground truth / few-shot learning data.
+# Keep data/verified/, data/links/, and data/corrections.jsonl tracked --
+# that's the accumulated human-verified ground truth / few-shot learning
+# data / link annotations (see link_review.py).
 
 __pycache__/
 *.pyc
