@@ -1,11 +1,11 @@
 """Tests for review.py's pure, non-interactive logic: unit grouping, label
 computation, and verification stamping. The interactive prompt-driven
-flows (edit_piece, split_piece, run_section_review) are deliberately not
-covered here -- they're thin wrappers around these functions plus
-Prompt.ask calls, and were verified this project by scripted stdin
-sessions during development rather than mocked-Prompt unit tests."""
+flows (edit_piece, split_piece, merge_piece, _prompt_piece, _prompt_target,
+run_section_review) are deliberately not covered here -- they're thin
+wrappers around these functions plus Prompt.ask calls, and were verified
+this project by scripted stdin sessions during development rather than
+mocked-Prompt unit tests."""
 from review import (
-    _find_in_unit,
     _now_iso,
     _resume_point,
     commit_unit,
@@ -61,41 +61,6 @@ def test_compute_unit_labels_are_unique_even_with_repeated_note_markers():
     assert labels[0] == "SECTION"
     assert labels[1] == "(1)"  # the real Subsection keeps its own citation label
     assert labels[2:] == ["[note 1]", "[note 2]", "[note 3]"]
-
-
-def test_find_in_unit_resolves_full_chain_and_bare_bracket_fallback():
-    section = make_node("section", "1", "Murder")
-    sub1 = make_node("subsection", "1", None, "text")
-    sub1["path"] = {"subsection": "1", "paragraph": None, "subparagraph": None}
-    para_a = make_node("paragraph", "a", None, "text")
-    para_a["path"] = {"subsection": "1", "paragraph": "a", "subparagraph": None}
-    unit_nodes = [section, sub1, para_a]
-    labels = compute_unit_labels(unit_nodes)
-
-    assert _find_in_unit(labels, unit_nodes, "SECTION") == (0, [])
-    assert _find_in_unit(labels, unit_nodes, "section") == (0, [])  # case-insensitive
-    assert _find_in_unit(labels, unit_nodes, "(1)") == (1, [])
-    assert _find_in_unit(labels, unit_nodes, "(1)(a)") == (2, [])
-    assert _find_in_unit(labels, unit_nodes, "(a)") == (2, [])  # bare-bracket fallback, unambiguous here
-    idx, candidates = _find_in_unit(labels, unit_nodes, "(z)")
-    assert idx is None and candidates == []
-
-
-def test_find_in_unit_ambiguous_bare_bracket_is_reported_not_guessed():
-    sub1 = make_node("subsection", "1", None, "text")
-    sub1["path"] = {"subsection": "1", "paragraph": None, "subparagraph": None}
-    para_a_under_1 = make_node("paragraph", "a", None, "text")
-    para_a_under_1["path"] = {"subsection": "1", "paragraph": "a", "subparagraph": None}
-    sub2 = make_node("subsection", "2", None, "text")
-    sub2["path"] = {"subsection": "2", "paragraph": None, "subparagraph": None}
-    para_a_under_2 = make_node("paragraph", "a", None, "text")
-    para_a_under_2["path"] = {"subsection": "2", "paragraph": "a", "subparagraph": None}
-    unit_nodes = [make_node("section", "1"), sub1, para_a_under_1, sub2, para_a_under_2]
-    labels = compute_unit_labels(unit_nodes)
-
-    idx, candidates = _find_in_unit(labels, unit_nodes, "(a)")
-    assert idx is None
-    assert sorted(candidates) == [2, 4]  # both "(a)" paragraphs -- caller must ask for the full chain
 
 
 def test_commit_unit_stamps_verified_at_unless_flagged(isolate_corrections):
