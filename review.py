@@ -231,15 +231,21 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     reference in both the rendered panel and _prompt_piece/_prompt_target's
     numbered menus. A Subsection/Paragraph/Subparagraph's own legislative
     numbering is unique by construction, so its path-derived chain
-    ("(1)(a)") is used directly; anything else (Note, Definition, a stray
-    heading_group) has no numbering of its own -- these commonly share
-    the exact same inherited path context (several repealed-text
-    "* * * *" markers in a row all sitting right after the same last-
-    numbered piece), so a naive path-based label would collide between
-    them and even with the real numbered piece they're attached to. These
-    get a running per-type counter instead. A final de-duplication pass
-    guards against a genuine collision anyway (e.g. a mis-parsed repeated
-    number)."""
+    ("(1)(a)") is used directly. A Definition has no numbering of its own
+    either, but does carry its own defined term as its heading (see
+    rule_parser.py's _try_definition_start) -- shown bare, since the term
+    itself is exactly what a reviewer needs to pick it out by, and
+    "Definitions" sections name each of theirs uniquely by construction
+    (the same term can't be defined twice). Anything else (Note, a stray
+    heading_group) has no numbering *or* a useful heading of its own --
+    these commonly share the exact same inherited path context (several
+    repealed-text "* * * *" markers in a row all sitting right after the
+    same last-numbered piece), so a naive path-based label would collide
+    between them and even with the real numbered piece they're attached
+    to. These get a running per-type counter instead. A final
+    de-duplication pass guards against a genuine collision anyway (e.g. a
+    mis-parsed repeated number, or two same-named terms redefined in
+    separate Definitions sections that both landed in one review unit)."""
     labels = ["SECTION"]
     counters: dict[str, int] = {}
     for node in unit_nodes[1:]:
@@ -247,6 +253,8 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
             path = node.get("path") or {}
             chain = "".join(f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph") if path.get(level))
             labels.append(chain or f"({node['number']})")
+        elif node["type"] == "definition" and node.get("heading"):
+            labels.append(node["heading"])
         else:
             counters[node["type"]] = counters.get(node["type"], 0) + 1
             labels.append(f"[{node['type']} {counters[node['type']]}]")
@@ -341,6 +349,38 @@ def _prompt_target(
         return None
     kind, idx, _ = entries[n - 1]
     return kind, idx
+
+
+def _prompt_pieces_multi(unit_nodes: list[dict], labels: list[str], heading: str, exclude: int | None = None) -> list[int] | None:
+    """Like _prompt_piece, but lets the reviewer pick more than one piece
+    in a single answer (comma- or space-separated menu numbers) -- merge
+    often needs to fold several wrongly-split fragments into one
+    destination piece at once ("merge everything into (k)"), not just one
+    at a time. Returns the picked indices in their original document
+    order (so concatenating their text back together stays coherent
+    regardless of what order they were typed in), or None (having already
+    told the reviewer why) on a blank or invalid answer."""
+    indices = [i for i in range(len(unit_nodes)) if i != exclude]
+    console.print(f"  {heading}")
+    for n, i in enumerate(indices, start=1):
+        preview = escape(_reflow(unit_nodes[i].get("text") or "")[:60]) or "(no text)"
+        console.print(f"    {n}. {escape(labels[i])} — {preview}")
+    raw = Prompt.ask("  Number(s), comma- or space-separated (blank to cancel)", default="")
+    if not raw:
+        console.print("  [yellow]Cancelled.[/]")
+        return None
+    tokens = [t for t in re.split(r"[,\s]+", raw.strip()) if t]
+    picked: set[int] = set()
+    for t in tokens:
+        try:
+            n = int(t)
+            if not (1 <= n <= len(indices)):
+                raise ValueError
+        except ValueError:
+            console.print(f"  [red]{escape(t)!r} isn't a valid choice -- cancelled.[/]")
+            return None
+        picked.add(indices[n - 1])
+    return sorted(picked)
 
 
 def render_unit(
@@ -446,63 +486,73 @@ def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: l
 def merge_piece(
     unit_nodes: list[dict], unit_orig: list[dict], indices: list[int], labels: list[str], act: str, verified: list[dict], unit_index: int
 ) -> None:
-    """The other direction from split_piece: appends one piece's whole text
-    onto an adjacent piece and discards the now-empty source, for when the
-    parser wrongly broke a paragraph into extra fragments -- most often a
-    stray heading_group/section/etc. that the parser mistook for a new
-    heading partway through a paragraph's wrapped text (e.g. a multi-line
-    bold Act-name citation). Rather than hand-editing each fragment's text
-    and blanking the rest out one at a time, merge puts a fragment back
-    where it belongs in one step.
+    """Appends one or more pieces' whole text onto a single destination
+    piece and discards the now-empty source(s), for when the parser
+    wrongly broke a paragraph into extra fragments -- most often a stray
+    heading_group/section/etc. that the parser mistook for a new heading
+    partway through a paragraph's wrapped text (e.g. a multi-line bold
+    Act-name citation), sometimes several in a row. Asks for the
+    *destination* first (the piece that survives, keeping the combined
+    text), then which piece(s) feed into it -- "merge into (k)" rather
+    than "merge (k) away", since a reviewer thinks of where a scattered
+    fragment actually belongs first, not which piece is about to vanish,
+    and can fold several fragments in at once instead of repeating the
+    whole action per fragment.
 
     Critically, a spurious heading_group/section/etc. is itself a *unit
     boundary* (see _UNIT_BOUNDARY_TYPES) -- it splits what should be one
-    Section's review unit into several, so the fragment needing to go back
-    onto the piece before it is very often the *entire, sole* content of
-    this unit (a standalone heading_group with nothing else beside it),
-    and the piece it belongs on is in the *previous*, already-committed
-    unit, not this one. See _prompt_target for the combined "another piece
-    still in this unit, or an already-verified piece from an earlier one"
-    menu this offers for the merge destination.
+    Section's review unit into several, so the fragment(s) needing to go
+    back onto the piece before it are very often the *entire, sole*
+    content of this unit (a standalone heading_group with nothing else
+    beside it), and the piece they belong on is in the *previous*,
+    already-committed unit, not this one. See _prompt_target for the
+    combined "another piece still in this unit, or an already-verified
+    piece from an earlier one" menu this offers for the destination.
 
     unit_nodes/unit_orig/indices are the three positionally-aligned lists
-    run_section_review holds for this unit (see its own docstring); the
+    run_section_review holds for this unit (see its own docstring); each
     source piece is deleted from all three in lockstep so commit_unit's
-    zip(unit_orig, unit_nodes) stays aligned afterwards and the discarded
-    piece is simply never committed to `verified` at all. Discarding index
-    0 is only blocked when it's a real Section others in this unit are
-    nested under (len(unit_nodes) > 1) -- for a standalone single-node
-    unit, index 0 *is* the whole unit, and merging it away entirely (into
-    an earlier already-verified piece) is exactly the point. When that
-    empties unit_nodes altogether, the cross-unit target is tagged as
-    though it had ended this unit, so run_section_review and _resume_point
-    both treat this now-nodeless unit as fully handled."""
-    idx = _prompt_piece(unit_nodes, labels, "Merge which piece away?")
-    if idx is None:
+    zip(unit_orig, unit_nodes) stays aligned afterwards and a discarded
+    piece is simply never committed to `verified` at all. Discarding the
+    unit's own Section root (index 0) as a source is only allowed when
+    nothing else in the unit would be left stranded by it -- either every
+    remaining piece is also being merged away in this same action, or the
+    unit only had the one node to begin with; a Section root can't vanish
+    while some other piece is still nested under it, whether that piece
+    is the destination or just wasn't picked. When every node in the unit
+    ends up merged away, the destination (necessarily an already-verified
+    piece at that point) is tagged as though it had ended this unit, so
+    run_section_review and _resume_point both treat this now-nodeless
+    unit as fully handled."""
+    picked_target = _prompt_target(unit_nodes, labels, verified, "Merge into which piece? (it keeps the combined text)")
+    if picked_target is None:
         return
-    if idx == 0 and len(unit_nodes) > 1:
+    kind, target_idx = picked_target
+
+    exclude = target_idx if kind == "unit" else None
+    source_indices = _prompt_pieces_multi(unit_nodes, labels, "Merge which piece(s) into it?", exclude=exclude)
+    if not source_indices:
+        return
+    if 0 in source_indices and len(unit_nodes) - len(source_indices) > 0:
         console.print("  [red]Can't merge SECTION itself away while it still has pieces nested under it.[/]")
         return
 
-    source = unit_nodes[idx]
-    source_text = (source.get("text") or "").strip()
-
-    picked = _prompt_target(unit_nodes, labels, verified, "Merge its text into:", exclude=idx)
-    if picked is None:
-        return
-    kind, target_idx = picked
+    combined_text = "\n".join(
+        (unit_nodes[i].get("text") or "").strip() for i in source_indices if (unit_nodes[i].get("text") or "").strip()
+    )
+    source_labels = ", ".join(escape(labels[i]) for i in source_indices)
 
     if kind == "unit":
         target = unit_nodes[target_idx]
         target_label = labels[target_idx]
         target_text = (target.get("text") or "").strip()
-        target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
+        target["text"] = f"{target_text}\n{combined_text}" if target_text else combined_text
     else:
         target = verified[target_idx]
         target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
         original_target_text = target.get("text") or ""
         target_text = original_target_text.strip()
-        target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
+        target["text"] = f"{target_text}\n{combined_text}" if target_text else combined_text
         target["verified_at"] = _now_iso()
         add_correction(
             act,
@@ -510,20 +560,21 @@ def merge_piece(
             human_output=target,
             changed=True,
         )
-        if len(unit_nodes) == 1:
-            # This was the unit's sole node -- deleting it below empties
-            # unit_nodes altogether, so there's nothing left here for
-            # commit_unit to ever tag with _unit_end_index. Tag the
-            # cross-unit target instead (already-committed, so this is
-            # safe): _resume_point only ever needs the *highest* tagged
-            # index, so marking this now-fully-handled unit here, on
-            # whatever entry, is exactly as good as tagging one of our own.
+        if len(unit_nodes) == len(source_indices):
+            # Every remaining node in the unit was just merged away --
+            # nothing left here for commit_unit to ever tag with
+            # _unit_end_index. Tag the cross-unit target instead
+            # (already-committed, so this is safe): _resume_point only
+            # ever needs the *highest* tagged index, so marking this
+            # now-fully-handled unit here, on whatever entry, is exactly
+            # as good as tagging one of our own.
             target["_unit_end_index"] = unit_index
 
-    console.print(f"  Merged {escape(labels[idx])} into {escape(target_label)} and discarded {escape(labels[idx])}.")
-    del unit_nodes[idx]
-    del unit_orig[idx]
-    del indices[idx]
+    console.print(f"  Merged {source_labels} into {escape(target_label)} and discarded {source_labels}.")
+    for i in sorted(source_indices, reverse=True):
+        del unit_nodes[i]
+        del unit_orig[i]
+        del indices[i]
 
 
 def commit_unit(
