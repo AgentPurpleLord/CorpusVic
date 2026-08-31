@@ -47,6 +47,11 @@ class BodyLine:
     page_no: int
     size: float = 0.0
     bold: bool = False
+    # The text of this line's own leading run of consecutive bold+italic
+    # spans, or None if the line doesn't open with one -- see
+    # _leading_bold_italic's own docstring for why this needs its own
+    # field rather than reusing `bold` above.
+    leading_bold_italic: str | None = None
 
 
 @dataclass
@@ -120,6 +125,35 @@ def _line_font(line) -> tuple[float, bool]:
     return dominant["size"], is_bold
 
 
+def _leading_bold_italic(line) -> str | None:
+    """The text of a line's own leading run of consecutive bold+italic
+    spans, or None if the line doesn't open with one -- the reliable
+    typesetting signal Victorian drafting uses for a defined term's own
+    introduction inside a Definitions/Interpretation section (see
+    ai_pipeline/definitions.py's module docstring): "accused means a
+    person who—" sets "accused" bold+italic and the rest of the line
+    plain, distinct from the bold-only emphasis used for Act-name
+    citations elsewhere and the italic-only case citations that also
+    appear in body text.
+
+    This can't reuse _line_font's dominant-span approach: a definition's
+    own term and its "means ..." continuation almost always share one
+    physical line, so the *line's* dominant span by character count is
+    nearly always the longer plain continuation text, never the short
+    bold+italic term at its head -- exactly the opposite of what's needed
+    here. PyMuPDF's span flags: bit 4 (16) is bold, bit 1 (2) is italic."""
+    lead = []
+    for s in line["spans"]:
+        if not s["text"]:
+            continue
+        if s["flags"] & 16 and s["flags"] & 2:
+            lead.append(s["text"])
+        else:
+            break
+    joined = "".join(lead).strip()
+    return joined or None
+
+
 BOILERPLATE_MIN_LENGTH = 8
 
 
@@ -147,7 +181,11 @@ def extract_pages(pdf_path: str) -> list[PageText]:
                 text = _line_text(line)
                 if text:
                     size, bold = _line_font(line)
-                    block_lines.append({"bbox": line["bbox"], "text": text, "size": size, "bold": bold})
+                    leading_bold_italic = _leading_bold_italic(line)
+                    block_lines.append({
+                        "bbox": line["bbox"], "text": text, "size": size, "bold": bold,
+                        "leading_bold_italic": leading_bold_italic,
+                    })
 
             # Drop any margin line-number stray(s) before they can influence
             # this block's bbox -- see _drop_margin_line_numbers's docstring.
@@ -226,14 +264,14 @@ def extract_pages(pdf_path: str) -> list[PageText]:
             else:
                 for l in blk["lines"]:
                     lx0, ly0, lx1, ly1 = l["bbox"]
-                    body.append((lx0, ly0, lx1, ly1, l["text"], l["size"], l["bold"]))
+                    body.append((lx0, ly0, lx1, ly1, l["text"], l["size"], l["bold"], l["leading_bold_italic"]))
         margin.sort(key=lambda t: t[0])
         header.sort(key=lambda t: t[0])
         footer.sort(key=lambda t: t[0])
         body.sort(key=lambda t: t[1])
         body_lines = [
-            BodyLine(text=text, x0=x0, x1=x1, y0=y0, y1=y1, page_no=page_no, size=size, bold=bold)
-            for x0, y0, x1, y1, text, size, bold in body
+            BodyLine(text=text, x0=x0, x1=x1, y0=y0, y1=y1, page_no=page_no, size=size, bold=bold, leading_bold_italic=lbi)
+            for x0, y0, x1, y1, text, size, bold, lbi in body
         ]
         pages.append(
             PageText(

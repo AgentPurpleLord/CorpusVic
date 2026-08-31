@@ -32,8 +32,14 @@ SUBPARA_X0 = 237.2  # Subparagraph-level opening indent
 SUBPARA_WRAP_X0 = 260.8  # Subparagraph-level wrap indent
 
 
-def line(text: str, x0: float = HEAD_X0, bold: bool = False, size: float = BODY_SIZE, page_no: int = 1) -> BodyLine:
-    return BodyLine(text=text, x0=x0, x1=x0 + 200.0, y0=0.0, y1=10.0, page_no=page_no, size=size, bold=bold)
+def line(
+    text: str, x0: float = HEAD_X0, bold: bool = False, size: float = BODY_SIZE, page_no: int = 1,
+    leading_bold_italic: str | None = None,
+) -> BodyLine:
+    return BodyLine(
+        text=text, x0=x0, x1=x0 + 200.0, y0=0.0, y1=10.0, page_no=page_no, size=size, bold=bold,
+        leading_bold_italic=leading_bold_italic,
+    )
 
 
 def page(lines: list[BodyLine], page_no: int = 1) -> PageText:

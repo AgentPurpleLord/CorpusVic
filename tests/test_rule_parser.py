@@ -226,6 +226,118 @@ def test_defined_term_opener_not_misread_as_topic_heading():
     assert not any(n["type"] == "heading_group" for n in result.nodes)
 
 
+def test_bold_italic_leading_run_opens_its_own_definition_node():
+    """Inside a Definitions section, a line whose own leading run is set
+    bold+italic (see extract.py's _leading_bold_italic -- the reliable
+    typesetting signal for where a defined term is introduced) opens its
+    own "definition" node instead of piling onto whatever came before,
+    so a reviewer can see and work through each term individually rather
+    than one unbroken block of dozens of definitions concatenated
+    together (the real-world shape: a Criminal Procedure Act-style
+    Definitions section runs to 50+ terms in one Section)."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("3 Definitions", bold=True),
+        line("In this Act—", x0=HEAD_X0),
+        line("accused means a person who—", x0=HEAD_X0, leading_bold_italic="accused"),
+        line("(a) is charged with an offence; or", x0=PARA_X0),
+        line("appeal includes application for leave to appeal;", x0=HEAD_X0, leading_bold_italic="appeal"),
+    ]
+    result = _parse(lines)
+    accused = find(result.nodes, "definition", None)
+    assert accused["heading"] == "accused"
+    assert accused["text"] == "means a person who—"
+    paragraph_a = find(result.nodes, "paragraph", "a")
+    assert paragraph_a["text"] == "is charged with an offence; or"
+    appeal = [n for n in result.nodes if n["type"] == "definition" and n["heading"] == "appeal"][0]
+    assert appeal["text"] == "includes application for leave to appeal;"
+    # Two separate definitions, not one node holding both.
+    assert sum(1 for n in result.nodes if n["type"] == "definition") == 2
+
+
+def test_definitions_nested_paragraph_list_closes_when_the_next_definition_opens():
+    """A definition's own (a)/(b) list must attach *to that definition*,
+    not leak into the next one -- mirroring how a numbered subsection's
+    own list closes when a fresh subsection opens."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("3 Definitions", bold=True),
+        line("In this Act—", x0=HEAD_X0),
+        line("appropriate registrar means—", x0=HEAD_X0, leading_bold_italic="appropriate registrar"),
+        line("(a) the registrar at the venue; or", x0=PARA_X0),
+        line("(b) if an order is made, the other registrar;", x0=PARA_X0),
+        line("arraignment has the meaning given in section 215;", x0=HEAD_X0, leading_bold_italic="arraignment"),
+    ]
+    result = _parse(lines)
+    definitions = [n for n in result.nodes if n["type"] == "definition"]
+    assert [d["heading"] for d in definitions] == ["appropriate registrar", "arraignment"]
+    paragraphs = [n for n in result.nodes if n["type"] == "paragraph"]
+    assert [p["number"] for p in paragraphs] == ["a", "b"]
+    arraignment = definitions[1]
+    assert "meaning given in section 215" in arraignment["text"]
+    assert "registrar" not in arraignment["text"]
+
+
+def test_definition_continuation_line_stays_attached_without_its_own_lead():
+    """A definition's own text commonly wraps onto a second physical
+    line with no bold+italic lead of its own -- that line is this same
+    definition's continuation, not a fresh one."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("3 Definitions", bold=True),
+        line("In this Act—", x0=HEAD_X0),
+        line("appeal period means the period permitted by or", x0=HEAD_X0, leading_bold_italic="appeal period"),
+        line("under this Act for commencing an appeal;", x0=WRAP_X0),
+    ]
+    result = _parse(lines)
+    assert sum(1 for n in result.nodes if n["type"] == "definition") == 1
+    definition = find(result.nodes, "definition", None)
+    assert definition["text"] == "means the period permitted by or\nunder this Act for commencing an appeal;"
+
+
+def test_a_long_defined_terms_own_wrap_extends_the_heading_not_a_new_definition():
+    """Regression (Criminal Procedure Act): a long defined term can wrap
+    across two physical lines ("indictable offence that may be heard
+    and" / "determined summarily means an offence to..."), both entirely
+    or partly bold+italic -- the second line must extend the first
+    definition's own heading, not be mistaken for its own separate
+    definition with an empty, truncated first entry and a second entry
+    misnamed after only the wrapped tail of the real term."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("3 Definitions", bold=True),
+        line("In this Act—", x0=HEAD_X0),
+        line("indictable offence that may be heard and", x0=HEAD_X0, leading_bold_italic="indictable offence that may be heard and"),
+        line(
+            "determined summarily means an offence to which section 28(1) applies;",
+            x0=HEAD_X0, leading_bold_italic="determined summarily",
+        ),
+        line("informant means a person who commences a proceeding;", x0=HEAD_X0, leading_bold_italic="informant"),
+    ]
+    result = _parse(lines)
+    definitions = [n for n in result.nodes if n["type"] == "definition"]
+    assert [d["heading"] for d in definitions] == [
+        "indictable offence that may be heard and determined summarily",
+        "informant",
+    ]
+    assert definitions[0]["text"] == "means an offence to which section 28(1) applies;"
+
+
+def test_bold_italic_leading_run_outside_a_definitions_section_is_not_promoted():
+    """The bold+italic signal is only trusted inside a section that
+    actually looks like it's introducing defined terms (by heading) --
+    gated the same way the rest of definitions.py's own heuristics are,
+    so it can't misfire on some other section that happens to carry the
+    same styling for an unrelated reason."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("5 Murder", bold=True),
+        line("A person who commits murder is guilty of an offence.", x0=HEAD_X0, leading_bold_italic="murder"),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "definition" for n in result.nodes)
+
+
 def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     """The headline case this project was built to fix: "(1) A person
     who -- (a) does X; or (b) does Y -- is guilty of an offence." The
@@ -426,6 +538,58 @@ def test_bold_section_heading_ends_a_notes_block_instead_of_becoming_a_note_item
     assert section_38["heading"] == "Requirements for informant's statement"
     note_1 = find(result.nodes, "note", "1")
     assert "service on the accused" in note_1["text"]
+
+
+def test_singular_unnumbered_note_becomes_its_own_note_node():
+    """Regression (Criminal Procedure Act): a singular "Note" (as opposed
+    to "Notes" with its own numbered "1 ...", "2 ..." items) is the
+    standard drafting convention for one explanatory remark under a
+    single provision -- its own first line has no leading number to open
+    a numbered note with, so it used to fall straight through to ending
+    notes_mode immediately, silently gluing the whole note onto whatever
+    text was already open (here, section 278's own lead-in) instead of
+    ever becoming its own "note" node."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("278 Right of appeal against sentence", bold=True),
+        line("A person sentenced for an offence may appeal.", x0=HEAD_X0),
+        line("Note", bold=True),
+        line("See the definitions of originating court and original", x0=HEAD_X0),
+        line("jurisdiction in section 3.", x0=HEAD_X0),
+        line("279 How appeal is commenced", bold=True),
+        line("An application is commenced by filing a notice.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    section_278 = find(result.nodes, "section", "278")
+    assert section_278["text"] == "A person sentenced for an offence may appeal."
+    note = find(result.nodes, "note", None)
+    assert note["text"] == "See the definitions of originating court and original\njurisdiction in section 3."
+    section_279 = find(result.nodes, "section", "279")
+    assert "notice" in section_279["text"]
+    assert "definitions of originating court" not in section_279["text"]
+
+
+def test_singular_unnumbered_note_ends_at_a_fresh_definition_start():
+    """The same unnumbered-Note gap, but ending at a boundary
+    _looks_like_boundary can't see on its own (no pattern shape at all,
+    only typesetting) -- a fresh defined term opening right after the
+    Note, inside a Definitions section."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("3 Definitions", bold=True),
+        line("In this Act—", x0=HEAD_X0),
+        line("sentence includes—", x0=HEAD_X0, leading_bold_italic="sentence"),
+        line("(a) the recording of a conviction; and", x0=PARA_X0),
+        line("Note", bold=True),
+        line("Section 586 of another Act also applies.", x0=HEAD_X0),
+        line("sexual offence has the meaning given by section 4;", x0=HEAD_X0, leading_bold_italic="sexual offence"),
+    ]
+    result = _parse(lines)
+    note = find(result.nodes, "note", None)
+    assert note["text"] == "Section 586 of another Act also applies."
+    sexual_offence = [n for n in result.nodes if n["type"] == "definition" and n["heading"] == "sexual offence"][0]
+    assert sexual_offence["text"] == "has the meaning given by section 4;"
+    assert "Section 586" not in sexual_offence["text"]
 
 
 def test_top_level_type_clause_parses_a_bill_the_same_way_as_an_act():

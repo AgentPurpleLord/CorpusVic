@@ -81,7 +81,17 @@ def build_definition_index(nodes: list[dict]) -> dict[str, int]:
     next boundary-type node) looking for "term means ..." clauses, then a
     second pass for "term has the same meaning as in section N" pointers
     anywhere at all -- same two-condition approach as markdown_export.py's
-    collect_definitions, just flat instead of tree/fragment-based."""
+    collect_definitions, just flat instead of tree/fragment-based.
+
+    A node the rules engine already split into its own "definition" type
+    (see rule_parser.py's _try_definition_start, gated on the same
+    looks_like_definitions_section check as this function) carries its
+    own term as `heading` directly -- used as-is rather than re-derived
+    from body text, since a split definition's own text starts straight
+    at "means ..."/"includes ..." with the term itself no longer inline
+    for extract_terms's own pattern to find. Anything not already split
+    this way (the AI-engine path, or a node whose typesetting didn't
+    carry the bold+italic signal) still falls back to extract_terms."""
     index: dict[str, int] = {}
 
     i = 0
@@ -90,8 +100,11 @@ def build_definition_index(nodes: list[dict]) -> dict[str, int]:
         if node["type"] in _UNIT_ROOT_TYPES and looks_like_definitions_section(node.get("heading")):
             j = i
             while j < len(nodes) and (j == i or nodes[j]["type"] not in _UNIT_BOUNDARY_TYPES):
-                for term in extract_terms(nodes[j].get("text") or ""):
-                    index.setdefault(term, j)
+                if nodes[j]["type"] == "definition" and nodes[j].get("heading"):
+                    index.setdefault(nodes[j]["heading"].strip().lower(), j)
+                else:
+                    for term in extract_terms(nodes[j].get("text") or ""):
+                        index.setdefault(term, j)
                 j += 1
             i = j
             continue

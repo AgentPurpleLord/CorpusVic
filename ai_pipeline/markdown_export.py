@@ -161,7 +161,18 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     heading = node.get("heading")
     level = min(depth + 2, 6)
 
-    if heading and t != "section":
+    if t == "definition" and heading:
+        # Already split into its own node by the rules engine (see
+        # rule_parser.py's _try_definition_start) -- the term itself is
+        # this node's own heading, with its defining text (if any)
+        # sitting right below it, unlike the other heading+text
+        # combinations below which are pure headers with no body of
+        # their own. collect_definitions reads this same node["heading"]
+        # directly rather than re-deriving the term from `text` --
+        # nothing here is left for extract_terms to find any more, since
+        # the term is no longer inline at the text's own start.
+        yield {"tree_node": tree_node, "clause_index": 0, "text": text or None, "header_text": heading, "level": level}
+    elif heading and t != "section":
         header_text = f"{label} {heading}".strip() if label else heading
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level}
     elif text:
@@ -328,8 +339,21 @@ def collect_definitions(
     def walk_definitions_section(tree_node, filename):
         slugs = compute_section_slugs(tree_node)
         for unit in _iter_body_units(tree_node):
+            key = (unit["tree_node"]["eid"], unit["clause_index"])
+            node = unit["tree_node"]["node"]
+            if node.get("type") == "definition" and node.get("heading"):
+                # Already split into its own node by the rules engine
+                # (see rule_parser.py's _try_definition_start) -- its
+                # term is this node's own heading, used directly rather
+                # than re-derived from `text` via extract_terms, which
+                # can't find it any more (a split definition's own text
+                # starts straight at "means ..."/"includes ...", with
+                # the term no longer inline at its start).
+                term = node["heading"].strip().lower()
+                if term:
+                    definitions.setdefault(term, {"fragment": slugs.get(key), "file": filename, "display": term})
+                continue
             for term in extract_terms(unit["text"] or ""):
-                key = (unit["tree_node"]["eid"], unit["clause_index"])
                 definitions.setdefault(term, {"fragment": slugs.get(key), "file": filename, "display": term})
 
     def walk_section_refs(tree_node):

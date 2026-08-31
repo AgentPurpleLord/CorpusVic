@@ -90,6 +90,24 @@ def test_build_definition_index_follows_a_same_meaning_as_in_section_pointer():
     assert index["firearm"] == 2  # the section itself, not the definitions clause pointing at it
 
 
+def test_build_definition_index_uses_a_font_split_definition_nodes_own_heading():
+    """Regression: rule_parser.py's _try_definition_start splits a
+    Definitions section's own bold+italic-led terms into dedicated
+    "definition" nodes, with the term as that node's own heading and the
+    body text starting straight at "means ..." -- no term left inline for
+    extract_terms's text-pattern scan to find any more. The term must
+    still resolve via the node's own heading instead."""
+    nodes = [
+        make_node("section", "3", "Definitions"),
+        make_node("definition", None, "court", "means the Magistrates' Court of Victoria;"),
+        make_node("definition", None, "vehicle", "means a motor vehicle."),
+        make_node("section", "4", "Application"),
+    ]
+    index = build_definition_index(nodes)
+    assert index["court"] == 1
+    assert index["vehicle"] == 2
+
+
 def test_resolve_defined_term_uses_a_precomputed_index():
     nodes = [make_node("section", "3", "Definitions"), make_node("subsection", "1", None, "court means the relevant court.")]
     index = build_definition_index(nodes)

@@ -183,3 +183,28 @@ def test_defined_term_cross_links_to_its_definitions_section(tmp_path):
     s3_text = (tmp_path / "sections" / "s3.md").read_text(encoding="utf-8")
     assert "[weapon](s2.md" in s3_text
     check_all_links_resolve(tmp_path)
+
+
+def test_a_font_split_definition_node_still_cross_links_by_its_own_heading(tmp_path):
+    """Regression: rule_parser.py's _try_definition_start splits a
+    Definitions section's own bold+italic-led terms into dedicated
+    "definition" nodes, with the term as that node's own heading and the
+    body text starting straight at "means ..." -- no term left inline
+    for extract_terms's text-pattern scan to find any more. The term
+    must still resolve via the node's own heading instead."""
+    nodes = [
+        make_node("part", "I", "Offences"),
+        make_node("section", "2", "Definitions", ""),
+        make_node("definition", None, "weapon", "means any object capable of causing injury."),
+        make_node("section", "3", "Assault", ""),
+        make_node("subsection", "1", None, "A person must not assault another person with a weapon."),
+    ]
+    parsed = {"nodes": nodes, "act": "test-act"}
+    export_to_markdown(parsed, str(tmp_path), act_title="Test Act 2026")
+
+    s2_text = (tmp_path / "sections" / "s2.md").read_text(encoding="utf-8")
+    assert "## weapon" in s2_text
+    assert "means any object capable of causing injury." in s2_text
+    s3_text = (tmp_path / "sections" / "s3.md").read_text(encoding="utf-8")
+    assert "[weapon](s2.md" in s3_text
+    check_all_links_resolve(tmp_path)
