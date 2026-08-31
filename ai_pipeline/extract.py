@@ -18,6 +18,15 @@ import fitz
 
 TOP_MASTHEAD_FRACTION = 0.17
 BOTTOM_FOOTER_FRACTION = 0.83
+# A running header occasionally wraps onto a second line (a long Part/
+# Division title doesn't fit on one), and that second line can sit just
+# below the TOP_MASTHEAD_FRACTION cutoff -- close enough behind the first
+# header line that no real body paragraph would ever open with this little
+# a gap (a genuine section/clause heading always follows the previous
+# block by a full body-text line height or more). Catches the wrap without
+# needing to just push the cutoff fraction down, which would risk eating
+# real body content on pages with an unusually tall masthead.
+HEADER_WRAP_GAP = 6.0
 # Amendment-history notes sit in the outer margin, which alternates sides
 # page to page (right margin on odd/recto pages, left margin on even/verso
 # pages) -- standard book-style typesetting. Catch both sides by x0; body
@@ -198,13 +207,18 @@ def extract_pages(pdf_path: str) -> list[PageText]:
     pages = []
     for page_no, w, h, blocks in raw_pages:
         body, margin, header, footer = [], [], [], []
+        last_header_y1 = None
         for blk in blocks:
             x0, y0, x1, y1 = blk["bbox"]
             text = blk["text"]
             if _normalize_for_frequency(text) in boilerplate:
                 header.append((y0, text))
-            elif y1 <= h * TOP_MASTHEAD_FRACTION:
+                last_header_y1 = y1 if last_header_y1 is None else max(last_header_y1, y1)
+            elif y1 <= h * TOP_MASTHEAD_FRACTION or (
+                last_header_y1 is not None and 0 <= y0 - last_header_y1 < HEADER_WRAP_GAP
+            ):
                 header.append((y0, text))
+                last_header_y1 = max(last_header_y1, y1) if last_header_y1 is not None else y1
             elif y0 >= h * BOTTOM_FOOTER_FRACTION:
                 footer.append((y0, text))
             elif x0 >= w * MARGIN_RIGHT_X0_FRACTION or x0 <= w * MARGIN_LEFT_X0_FRACTION:

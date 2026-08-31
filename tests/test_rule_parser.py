@@ -304,6 +304,82 @@ def test_multiline_bold_act_citation_is_not_split_into_heading_groups():
     assert "Act 1999;" in paragraph_l["text"]
 
 
+def test_bold_year_wrap_mid_citation_not_promoted_to_a_new_section():
+    """Regression (Criminal Procedure Bill 2008): a Schedule-style
+    consequential amendment's own lead-in wraps an Act name's year onto
+    its own bold line ("... Act\\n1997 insert-", the citation's year --
+    "Crimes (Mental Impairment and Unfitness to be Tried) Act 1997" --
+    landing alone on a line together with the next word). "1997 insert-"
+    has exactly the same shape as a genuine section heading ("(\\d+)\\s+
+    (.+)"), and is bold like one, but it doesn't open right after a clean
+    sentence break -- a real section/clause heading always does."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("370 New section 14A inserted", bold=True),
+        line("After section 14 of the Crimes (Mental", x0=HEAD_X0),
+        line("Impairment and Unfitness to be Tried) Act", x0=HEAD_X0, bold=True),
+        line("1997 insert—", x0=HEAD_X0, bold=True),
+        line('"14A Appeal in relation to fitness to plead', x0=HEAD_X0, bold=True),
+    ]
+    result = _parse(lines)
+    assert not any(n.get("number") == "1997" for n in result.nodes)
+    section_370 = find(result.nodes, "section", "370")
+    assert "1997 insert—" in section_370["text"]
+    assert "14A Appeal in relation to fitness to plead" in section_370["text"]
+
+
+def test_section_heading_right_after_a_heading_group_counts_as_fresh_start():
+    """Regression (Criminal Procedure Bill 2008): a bare topical
+    heading_group (e.g. a Bill's own "CHAPTER 7-..." caption) isn't
+    pushed onto the parser's stack the way a Part/Division/Section is, so
+    a section/clause heading immediately following one used to be
+    rejected as "not a fresh start" whenever the heading_group's own text
+    didn't end in terminal punctuation (a caption like "REFERENCE TO
+    COURT OF APPEAL" never does) -- silently dropping the section/clause
+    number and folding its heading text into whatever section preceded
+    the heading_group instead."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are to consolidate the law.", x0=HEAD_X0),
+        line("CHAPTER 7—REFERENCE TO COURT OF APPEAL", bold=True, size=14.0),
+        line("327 Reference by Attorney-General", bold=True),
+        line("The Attorney-General may refer a case.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    heading_group = find(result.nodes, "heading_group")
+    assert heading_group["heading"] == "CHAPTER 7—REFERENCE TO COURT OF APPEAL"
+    section_327 = find(result.nodes, "section", "327")
+    assert section_327["heading"] == "Reference by Attorney-General"
+    assert "refer a case" in section_327["text"]
+
+
+def test_bold_section_heading_ends_a_notes_block_instead_of_becoming_a_note_item():
+    """Regression (Criminal Procedure Bill 2008): an amendment-history
+    Notes block's own numbered entries ("1 If the Magistrates' Court...",
+    "2 See section 86...") are always plain body text, never bold -- but
+    share the exact "digit(s) then text" shape a genuine section/clause
+    heading has. A bold line with that same shape immediately following
+    a Notes block is the next section, not one more note, and should end
+    notes_mode instead of being swallowed as note "38"."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("37 Contents of preliminary brief", bold=True),
+        line("A preliminary brief must include the following.", x0=HEAD_X0),
+        line("Notes", bold=True),
+        line("1 See section 84 as to service on the accused.", x0=HEAD_X0),
+        line("2 See section 86 as to proof of criminal record.", x0=HEAD_X0),
+        line("38 Requirements for informant's statement", bold=True),
+        line("A statement by the informant must be signed.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    assert not any(n["type"] == "note" and n.get("number") == "38" for n in result.nodes)
+    section_38 = find(result.nodes, "section", "38")
+    assert section_38["heading"] == "Requirements for informant's statement"
+    note_1 = find(result.nodes, "note", "1")
+    assert "service on the accused" in note_1["text"]
+
+
 def test_top_level_type_clause_parses_a_bill_the_same_way_as_an_act():
     """A Bill's own top-level numbered provision is called a "clause", not
     a "section" -- same drafting shape, same nesting rank (subsection/

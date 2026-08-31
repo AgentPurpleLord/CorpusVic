@@ -315,6 +315,15 @@ class _LineParser:
         self.lines_total = 0
         self.lines_consumed = 0
         self.prev_text = ""
+        # A bare topical heading_group (e.g. a Bill's "CHAPTER 7--..."
+        # caption) isn't pushed onto self.stack the way a Part/Division/
+        # Section is -- it's appended straight to self.nodes instead (see
+        # _try_bold_emphasis) -- so _prev_line_was_heading's own stack
+        # inspection can't see it. Tracked separately here so a fresh
+        # section/clause heading right after one of these still counts as
+        # a clean structural boundary for _is_fresh_start, the same as
+        # right after a Part/Division heading.
+        self.prev_was_heading_group = False
 
     # -- stack bookkeeping ---------------------------------------------------
 
@@ -412,9 +421,11 @@ class _LineParser:
             if self.notes_mode and self._handle_notes_mode(line, text, char_start, char_end):
                 continue
 
+            was_heading_group = self.prev_was_heading_group
+            self.prev_was_heading_group = False
             if not (
-                self._try_bold_heading(line, text, char_start)
-                or self._try_bracket_item(line, text, char_start, char_end)
+                self._try_bold_heading(line, text, char_start, was_heading_group)
+                or self._try_bracket_item(line, text, char_start, char_end, was_heading_group)
                 or self._try_bold_emphasis(line, text, char_start, char_end, next_text)
             ):
                 self._consume_as_continuation(line, text, char_start, char_end)
@@ -446,8 +457,14 @@ class _LineParser:
         # A hanging-indent note number ("1") can land as its own line,
         # separate from its text, if the PDF laid it out with a tab stop
         # rather than inline -- don't let that split fool us into thinking
-        # the notes block ended.
-        if m or (text.isdigit() and len(text) <= 3):
+        # the notes block ended. Gated on the line not being bold: a note
+        # item is always set in plain body text, so a *bold* line with
+        # this same "digit(s) then text" shape is actually the next
+        # section/clause heading immediately following the Notes block
+        # (e.g. "38 Requirements for informant's statement in..."), not
+        # a new note -- falls through to the boundary check below, which
+        # ends notes_mode and lets it be reclassified normally.
+        if (m or (text.isdigit() and len(text) <= 3)) and not line.bold:
             self._close_note()
             self.current_note = {
                 "type": "note", "number": m.group(1) if m else text, "heading": None,
@@ -464,7 +481,7 @@ class _LineParser:
         self.notes_mode = False
         return False
 
-    def _try_bold_heading(self, line: BodyLine, text: str, char_start: int) -> bool:
+    def _try_bold_heading(self, line: BodyLine, text: str, char_start: int, was_heading_group: bool) -> bool:
         """Part/Division/Section headings, then the two bare-number wrap
         cases (Subdivision, Section) -- all bold-only."""
         if not line.bold:
@@ -472,9 +489,21 @@ class _LineParser:
 
         for pattern_key, node_type in (("part", "part"), ("division", "division"), ("section", self.top_level_type)):
             m = self.patterns[pattern_key].match(text)
-            if m:
-                self._open_node(node_type, m.group(1), m.group(2).strip(), line, char_start)
-                return True
+            if not m:
+                continue
+            if pattern_key == "section" and not _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack) or was_heading_group):
+                # A bold line that happens to start with a bare number
+                # mid-paragraph, not a genuine new section/clause -- e.g.
+                # an Act-name citation that wraps its year onto its own
+                # line ("... Act\n1997 insert—", the "1997" being the
+                # citation's year, not a section number). A real
+                # section/clause always opens right after the previous
+                # one's body reached a clean sentence break (or right
+                # after a Part/Division/heading line), same freshness
+                # test already used for a numbered Subdivision below.
+                continue
+            self._open_node(node_type, m.group(1), m.group(2).strip(), line, char_start)
+            return True
 
         # A Subdivision heading is a bracketed number plus a short bold
         # title ("(1) Homicide", "(8G) Abrogation of obsolete rules of
@@ -505,7 +534,7 @@ class _LineParser:
                 heading = m.group(2).strip()
                 if (
                     re.match(r"^\d", m.group(1))
-                    and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack))
+                    and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack) or was_heading_group)
                     and _looks_like_subdivision_title(heading)
                 ):
                     self._open_node("subdivision", m.group(1), heading, line, char_start)
@@ -519,13 +548,13 @@ class _LineParser:
         # pattern as the bare Subdivision case above), e.g. "465AAAA"
         # alone followed by "Police may use assistants and equipment"
         # as a separate bold line.
-        if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack)):
+        if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack) or was_heading_group):
             self._open_node(self.top_level_type, text, None, line, char_start)
             return True
 
         return False
 
-    def _try_bracket_item(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+    def _try_bracket_item(self, line: BodyLine, text: str, char_start: int, char_end: int, was_heading_group: bool) -> bool:
         """Bracket items (subsection/paragraph/subparagraph) are classified
         by content shape + sequence context, not boldness -- Act-name
         citations are commonly bolded throughout these Acts."""
@@ -545,7 +574,7 @@ class _LineParser:
             level == "subsection"
             and line.bold
             and remainder is None
-            and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack))
+            and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack) or was_heading_group)
         ):
             # A bare bold "(N)" with nothing else on the line -- the
             # Subdivision's title wraps onto the next bold line instead
@@ -595,6 +624,7 @@ class _LineParser:
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             })
+            self.prev_was_heading_group = True
         else:
             # Bold at body size with no structural pattern -- inline
             # emphasis (e.g. a defined term or, as above, an Act-name
