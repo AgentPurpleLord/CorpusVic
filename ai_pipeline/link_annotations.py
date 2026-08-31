@@ -51,13 +51,22 @@ def save_links(act: str, links: list[dict]) -> None:
     path.write_text(json.dumps(links, indent=2), encoding="utf-8")
 
 
-def add_link(act: str, node_index: int, start: int, end: int, label: str, node_text: str) -> dict:
+def add_link(act: str, node_index: int, start: int, end: int, label: str, node_text: str, target: dict | None = None) -> dict:
     """Validates and appends one span annotation, returning the saved
     record (with a fresh id and timestamp). `node_text` is the exact
     stored text of the node being annotated, passed in by the caller
     (which already has the parsed nodes loaded) rather than reloaded here
     -- keeps this a pure function callers can unit-test without touching
-    data/ai_parsed/*.json at all."""
+    data/ai_parsed/*.json at all.
+
+    `target` is an optional pre-resolved destination (see
+    ai_pipeline/link_targets.py's resolve_link) -- which Act, which
+    definition node, etc. this span points to. Resolution is the caller's
+    job, not this module's: this stays a plain storage/validation layer,
+    with no opinion on what counts as a valid target beyond "whatever the
+    caller decided." None means unresolved (most bill_reference/
+    em_reference spans, or any span whose text didn't match anything),
+    not an error."""
     if label not in LABELS:
         raise LinkError(f"Unknown label {label!r} -- must be one of {LABELS}")
     if not (0 <= start < end <= len(node_text)):
@@ -69,6 +78,7 @@ def add_link(act: str, node_index: int, start: int, end: int, label: str, node_t
         "end": end,
         "text": node_text[start:end],
         "label": label,
+        "target": target,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     links = load_links(act)

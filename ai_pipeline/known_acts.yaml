@@ -1,0 +1,19 @@
+# Registry of Acts this pipeline has actually parsed, keyed by the slug
+# run_pipeline.py/link_review.py use (derived from the PDF filename, e.g.
+# "crimes-act" for acts/crimes-act.pdf) -- value is the Act's exact
+# official short title as it appears in its own citation clause or title
+# page ("This Act may be cited as the Crimes Act 1958", or the bare title
+# on a modern Act's cover page).
+#
+# ai_pipeline/link_targets.py's resolve_act_citation() only ever matches
+# an act_citation-labelled span against what's listed here -- an Act not
+# in this file simply resolves to nothing yet (not a wrong guess), so add
+# a line here whenever a newly-parsed Act should become linkable from
+# other Acts' citations. Get the title exactly right (including the
+# year): matching is exact/suffix, not fuzzy, on purpose -- a wrong guess
+# (linking to the wrong Act) is worse than leaving a citation unresolved.
+
+crimes-act: "Crimes Act 1958"
+interpretation: "Interpretation of Legislation Act 1984"
+evidence-act: "Evidence Act 2008"
+criminal-procedure-act: "Criminal Procedure Act 2009"

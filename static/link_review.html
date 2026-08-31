@@ -106,12 +106,18 @@
     border-radius: 3px;
     padding: 0 1px;
     cursor: pointer;
+    border-bottom: 2px solid transparent;
   }
   mark.label-act_citation { background: #bfdbfe; }
   mark.label-defined_term { background: #bbf7d0; }
   mark.label-bill_reference { background: #ddd6fe; }
   mark.label-em_reference { background: #fed7aa; }
   mark.label-other { background: #e5e7eb; }
+  /* Resolved (has a target) gets a solid underline; unresolved (saved,
+     but nothing matched yet) gets a dashed one -- same idea as a spell-
+     checker's squiggle, a quiet cue rather than a blocking error. */
+  mark.resolved { border-bottom-color: #16a34a; }
+  mark.unresolved { border-bottom: 2px dashed #9ca3af; }
 
   #menu {
     position: absolute;
@@ -226,6 +232,17 @@ async function refreshLinks() {
   }
 }
 
+function describeTarget(link) {
+  const t = link.target;
+  if (!t) return "unresolved -- no matching target yet";
+  if (t.kind === "act") return `resolved -- links to ${t.act_title} (${t.act_slug})`;
+  if (t.kind === "definition") {
+    const where = t.number ? `(${t.number})` : t.heading || `node ${t.node_index}`;
+    return `resolved -- defined at ${where}`;
+  }
+  return "resolved";
+}
+
 function renderPieceText(text, links) {
   const sorted = [...links].sort((a, b) => a.start - b.start);
   let html = "";
@@ -233,7 +250,9 @@ function renderPieceText(text, links) {
   for (const l of sorted) {
     if (l.start < cursor) continue; // defensively skip overlaps
     html += escapeHtml(text.slice(cursor, l.start));
-    html += `<mark class="label-${l.label}" data-link-id="${l.id}" title="${escapeHtml(LABEL_TITLES[l.label] || l.label)}">${escapeHtml(text.slice(l.start, l.end))}</mark>`;
+    const resolvedClass = l.target ? "resolved" : "unresolved";
+    const title = `${LABEL_TITLES[l.label] || l.label} -- ${describeTarget(l)}`;
+    html += `<mark class="label-${l.label} ${resolvedClass}" data-link-id="${l.id}" title="${escapeHtml(title)}">${escapeHtml(text.slice(l.start, l.end))}</mark>`;
     cursor = l.end;
   }
   html += escapeHtml(text.slice(cursor));
