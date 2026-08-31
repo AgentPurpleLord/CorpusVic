@@ -11,10 +11,11 @@ Writes:
     data/extracted/<em-slug>.json     -- cleaned per-page text
     data/ai_parsed/<em-slug>.json     -- the structured node list
 
-Next step: python review.py <em-slug> --flat
-    (the default section-grouped review mode has nothing to group an
-    em_entry's own children under -- an EM has none -- so review it node-
-    by-node instead; see review.py's own docstring for --flat.)
+Next step: python review.py <em-slug>
+    (an em_entry has no children of its own -- an EM's structure is flat
+    -- so group_into_units naturally gives each entry its own single-
+    piece review unit, same as review.py already does for any other
+    non-nesting node type.)
 """
 import argparse
 import json
@@ -62,7 +63,7 @@ def main():
         print(f"ERROR: {em_slug} -- completeness invariant violated, aborting.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Next: python review.py {em_slug} --flat")
+    print(f"Next: python review.py {em_slug}")
 
 
 if __name__ == "__main__":

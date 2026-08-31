@@ -1,9 +1,9 @@
-# Only needed to run link_review.py (the span-highlighting web GUI), not
-# the pipeline or the review.py CLI.
+# Only needed to run review.py (the web GUI for structural review and
+# link tagging), not the rest of the pipeline.
 -r requirements.txt
 fastapi
 uvicorn
-# fastapi already pulls this in transitively, but link_review.py imports
-# it directly (BaseModel) -- pinned here explicitly rather than relying
-# on fastapi's own dependency bounds to keep providing it.
+# fastapi already pulls this in transitively, but review.py imports it
+# directly (BaseModel) -- pinned here explicitly rather than relying on
+# fastapi's own dependency bounds to keep providing it.
 pydantic

@@ -1,16 +1,16 @@
 """Tests for review.py's pure, non-interactive logic: unit grouping, label
-computation, and verification stamping. The interactive prompt-driven
-flows (edit_piece, split_piece, merge_piece, _prompt_piece, _prompt_target,
-run_section_review) are deliberately not covered here -- they're thin
-wrappers around these functions plus Prompt.ask calls, and were verified
-this project by scripted stdin sessions during development rather than
-mocked-Prompt unit tests."""
+computation, reflow/offset mapping, and verification stamping. The
+FastAPI endpoints themselves (edit/split/merge/accept, all thin wrappers
+around this same logic plus in-memory server state) are deliberately not
+covered here -- they were exercised end to end against real parsed Act
+data and a real browser session instead (see the module docstring)."""
 from review import (
     _now_iso,
     _resume_point,
     commit_unit,
     compute_unit_labels,
     group_into_units,
+    reflow_with_map,
 )
 
 from conftest import make_node
@@ -138,3 +138,46 @@ def test_now_iso_is_utc_and_sorts_chronologically():
     b = _now_iso()
     assert a.endswith("+00:00")
     assert a <= b  # lexicographic order matches chronological order
+
+
+def test_reflow_with_map_collapses_a_single_wrap_to_one_space():
+    reflowed, offsets = reflow_with_map("accused\nmeans a person")
+    assert reflowed == "accused means a person"
+    assert len(offsets) == len(reflowed) + 1
+
+
+def test_reflow_with_map_strips_leading_and_trailing_whitespace():
+    reflowed, offsets = reflow_with_map("\n  hello world  \n")
+    assert reflowed == "hello world"
+    assert len(offsets) == len(reflowed) + 1
+
+
+def test_reflow_with_map_handles_empty_text():
+    reflowed, offsets = reflow_with_map("")
+    assert reflowed == ""
+    assert offsets == [0]
+    reflowed, offsets = reflow_with_map(None)
+    assert reflowed == ""
+    assert offsets == [0]
+
+
+def test_reflow_with_map_offsets_round_trip_a_real_content_span():
+    """A reflowed-text selection, sliced back out of the *raw* text using
+    the offset map, must recover exactly the same characters -- this is
+    the whole point of the map: a browser selection is always made
+    against the displayed (reflowed) string, but a link/split action
+    needs to index into the stored (raw) one."""
+    raw = "Appeal Costs\nAct 1998 applies to this matter."
+    reflowed, offsets = reflow_with_map(raw)
+    assert reflowed == "Appeal Costs Act 1998 applies to this matter."
+    start_r, end_r = reflowed.index("Appeal Costs Act 1998"), reflowed.index("Appeal Costs Act 1998") + len("Appeal Costs Act 1998")
+    start_raw, end_raw = offsets[start_r], offsets[end_r]
+    assert raw[start_raw:end_raw] == "Appeal Costs\nAct 1998"
+
+
+def test_reflow_with_map_preserves_multiple_internal_spaces():
+    """Only whitespace runs that contain a newline collapse to one space
+    -- an ordinary multi-space run mid-line (not a PDF wrap point) is left
+    exactly as it is."""
+    reflowed, _ = reflow_with_map("some  text")
+    assert reflowed == "some  text"
