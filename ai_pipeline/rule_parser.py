@@ -61,6 +61,33 @@ def _body_font_size(lines: list[BodyLine]) -> float:
     return sizes.most_common(1)[0][0] if sizes else 12.0
 
 
+# Every Victorian Bill's actual operative text opens with this exact,
+# fixed formula -- a reliable anchor for skipping a Bill's own front
+# matter (see _skip_bill_front_matter).
+_ENACTING_WORDS_RE = re.compile(r"^The Parliament of Victoria enacts:?\s*$")
+
+
+def _skip_bill_front_matter(lines: list[BodyLine]) -> list[BodyLine]:
+    """A Bill's introduction print opens with a title page and a multi-
+    page Table of Provisions -- a table of contents whose rows repeat
+    every real Part/clause heading's own text closely enough (same
+    numbering, similar bold/size choices) to fool the heading classifiers
+    below into treating the TOC itself as structure. An enacted Act's own
+    PDF never carries this front matter at all (a Bill-only artifact of
+    the introduction print, gone by the time it's reprinted as an
+    Authorised Version), so there's nothing equivalent to guard against
+    when parsing an Act -- this is only ever called for a Bill (see
+    parse_act's skip_front_matter parameter). Skips everything up to and
+    including the fixed enacting formula every Bill's real text opens
+    with; returns the lines unchanged if that formula isn't found, rather
+    than silently discarding the whole document on a layout it doesn't
+    recognise."""
+    for i, line in enumerate(lines):
+        if _ENACTING_WORDS_RE.match(line.text.strip()):
+            return lines[i + 1 :]
+    return lines
+
+
 def _next_letter(s: str) -> str:
     """a -> b, z -> aa, aa -> ab (base-26 increment over lowercase letters)."""
     chars = list(s)
@@ -262,9 +289,17 @@ class _LineParser:
     the classifier priority order; each `_try_*`/`_handle_*` method returns
     True once it has consumed the current line."""
 
-    def __init__(self, patterns: dict, body_size: float):
+    def __init__(self, patterns: dict, body_size: float, top_level_type: str = "section"):
         self.patterns = patterns
         self.body_size = body_size
+        # The node type emitted for the top-level numbered provision this
+        # drafting convention calls a "section" pattern-wise -- "section"
+        # itself for an Act, "clause" for a Bill (see hierarchy.py's
+        # HIERARCHY_RANK entry for "clause" and schema.py's NODE_TYPES).
+        # The *pattern* lookup key is always "section" regardless -- a
+        # profile's regex for this level doesn't change between the two,
+        # only what the resulting node gets called.
+        self.top_level_type = top_level_type
 
         self.nodes: list[dict] = []
         self.stack: list[dict] = []
@@ -435,10 +470,10 @@ class _LineParser:
         if not line.bold:
             return False
 
-        for level in ("part", "division", "section"):
-            m = self.patterns[level].match(text)
+        for pattern_key, node_type in (("part", "part"), ("division", "division"), ("section", self.top_level_type)):
+            m = self.patterns[pattern_key].match(text)
             if m:
-                self._open_node(level, m.group(1), m.group(2).strip(), line, char_start)
+                self._open_node(node_type, m.group(1), m.group(2).strip(), line, char_start)
                 return True
 
         # A Subdivision heading is a bracketed number plus a short bold
@@ -485,7 +520,7 @@ class _LineParser:
         # alone followed by "Police may use assistants and equipment"
         # as a separate bold line.
         if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack)):
-            self._open_node("section", text, None, line, char_start)
+            self._open_node(self.top_level_type, text, None, line, char_start)
             return True
 
         return False
@@ -583,9 +618,35 @@ class _LineParser:
         _append_text(self.stack[-1], text, line, char_end)
 
 
-def parse_act(pages: list[PageText], profile_name: str | None = None) -> ParseResult:
+def parse_act(
+    pages: list[PageText],
+    profile_name: str | None = None,
+    top_level_type: str = "section",
+    skip_front_matter: bool = False,
+) -> ParseResult:
+    """top_level_type: "section" for an enacted Act (the default), "clause"
+    to parse a Bill instead -- same drafting shape and the same profile
+    patterns apply either way (see _LineParser's own docstring on this
+    parameter), just the resulting node type differs.
+
+    skip_front_matter: True for a Bill (see _skip_bill_front_matter) --
+    an enacted Act's PDF has nothing equivalent to skip, so this defaults
+    to False and leaves Act parsing completely unaffected. The skipped
+    lines are recorded as a warning (not silently dropped) so the
+    completeness count in the result stays an honest, auditable reflection
+    of what was deliberately excluded and why -- see the module
+    docstring's own completeness guarantee."""
     patterns = load_profile(profile_name)
     lines = _flatten_lines(pages)
-    parser = _LineParser(patterns, _body_font_size(lines))
+    warnings: list[str] = []
+    if skip_front_matter:
+        remaining = _skip_bill_front_matter(lines)
+        skipped = len(lines) - len(remaining)
+        if skipped:
+            warnings.append(f"skipped {skipped} front-matter line(s) (title page + Table of Provisions) before the enacting words")
+        lines = remaining
+    parser = _LineParser(patterns, _body_font_size(lines), top_level_type=top_level_type)
     parser.feed(lines)
-    return parser.result()
+    result = parser.result()
+    result.warnings = warnings + result.warnings
+    return result

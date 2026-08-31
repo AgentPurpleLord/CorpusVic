@@ -13,7 +13,7 @@ def annotate_paths(nodes: list[dict]) -> list[dict]:
     "section": "3", "subsection": "(2)", ...}) to every node, by tracking the
     most recent number seen at each hierarchy level and resetting deeper
     levels whenever a shallower one changes."""
-    current = {level: None for level in HIERARCHY_ORDER}
+    current = {level: None for level in HIERARCHY_RANK}
     for node in nodes:
         t = node.get("type")
         if t in HIERARCHY_RANK:

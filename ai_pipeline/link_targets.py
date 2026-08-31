@@ -35,11 +35,13 @@ from ai_pipeline.definitions import extract_section_ref_terms, extract_terms, lo
 
 KNOWN_ACTS_PATH = Path(__file__).parent / "known_acts.yaml"
 
-# Mirrors review.py's _UNIT_BOUNDARY_TYPES: a Section's own body runs from
-# itself up to (not including) the next node of one of these types.
-# Duplicated rather than imported to keep ai_pipeline free of a reverse
-# dependency on the top-level review.py CLI.
-_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "heading_group"}
+# Mirrors review.py's _UNIT_BOUNDARY_TYPES: a Section's (or a Bill's own
+# Clause's -- same nesting rank, see hierarchy.py) body runs from itself
+# up to (not including) the next node of one of these types. Duplicated
+# rather than imported to keep ai_pipeline free of a reverse dependency on
+# the top-level review.py CLI.
+_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "clause", "heading_group"}
+_UNIT_ROOT_TYPES = {"section", "clause"}
 
 
 def load_known_acts() -> dict[str, str]:
@@ -63,7 +65,7 @@ def resolve_act_citation(text: str) -> dict | None:
 
 def _find_section_by_number(nodes: list[dict], number: str) -> int | None:
     for idx, node in enumerate(nodes):
-        if node["type"] == "section" and (node.get("number") or "").lower() == number.lower():
+        if node["type"] in _UNIT_ROOT_TYPES and (node.get("number") or "").lower() == number.lower():
             return idx
     return None
 
@@ -80,7 +82,7 @@ def build_definition_index(nodes: list[dict]) -> dict[str, int]:
     i = 0
     while i < len(nodes):
         node = nodes[i]
-        if node["type"] == "section" and looks_like_definitions_section(node.get("heading")):
+        if node["type"] in _UNIT_ROOT_TYPES and looks_like_definitions_section(node.get("heading")):
             j = i
             while j < len(nodes) and (j == i or nodes[j]["type"] not in _UNIT_BOUNDARY_TYPES):
                 for term in extract_terms(nodes[j].get("text") or ""):

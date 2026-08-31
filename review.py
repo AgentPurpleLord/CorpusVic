@@ -149,7 +149,11 @@ def render_node(node: dict, idx: int, total: int, findings: list[dict] | None = 
 # reconstruct the full tree (build_hierarchy_tree in akn_export.py) just to
 # find "everything under this Section": the flat node list is already in
 # document order, so a single pass is enough.
-_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "heading_group"}
+_UNIT_BOUNDARY_TYPES = {"part", "division", "subdivision", "section", "clause", "heading_group"}
+# "clause" is a Bill's pre-enactment name for the same top-level provision
+# an Act calls a "section" -- same nesting rank (see hierarchy.py), so it
+# starts a review unit the exact same way.
+_UNIT_ROOT_TYPES = {"section", "clause"}
 
 
 def group_into_units(nodes: list[dict]) -> list[list[int]]:
@@ -157,7 +161,7 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
     current: list[int] | None = None
     for i, node in enumerate(nodes):
         t = node["type"]
-        if t == "section":
+        if t in _UNIT_ROOT_TYPES:
             current = [i]
             units.append(current)
         elif t in _UNIT_BOUNDARY_TYPES:
@@ -278,11 +282,11 @@ def render_unit(
     findings_by_node: dict[int, list[dict]],
 ) -> None:
     root = unit_nodes[0]
-    if root["type"] != "section":
+    if root["type"] not in _UNIT_ROOT_TYPES:
         render_node(root, unit_no - 1, total_units, findings_by_node.get(unit_indices[0]))
         return
 
-    header = f"[{unit_no}/{total_units}] SECTION {escape(root.get('number') or '')} — {escape(root.get('heading') or '')}".strip()
+    header = f"[{unit_no}/{total_units}] {root['type'].upper()} {escape(root.get('number') or '')} — {escape(root.get('heading') or '')}".strip()
     pages = f"pages {root.get('page_start')}-{root.get('page_end')}"
 
     body = Text()

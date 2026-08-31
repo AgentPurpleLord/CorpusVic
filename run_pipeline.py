@@ -20,6 +20,20 @@ Usage:
     python run_pipeline.py acts/crimes-act.pdf --start-page 29
     python run_pipeline.py acts/crimes-act.pdf --engine ai --backend ollama
     python run_pipeline.py acts/crimes-act.pdf --profile my-other-act
+    python run_pipeline.py acts/criminal-procedure-bill-2008.pdf \
+        --document-type bill --profile criminal-procedure-act
+
+--document-type bill parses a Bill instead of an enacted Act (rules
+engine only): its own top-level numbered provisions come out typed
+"clause" rather than "section" (same nesting rank -- see hierarchy.py --
+just the pre-enactment name), and its front matter (title page + Table of
+Provisions, which visually mimics real headings closely enough to
+otherwise fool the heading classifiers) is skipped up to the fixed
+enacting words every Bill's real text opens with (see rule_parser.py's
+_skip_bill_front_matter). A Bill shares its originating Act's own
+drafting conventions, so pass that Act's --profile too where one exists
+(as above) rather than duplicating the same overrides under a new name --
+nothing here ties a profile's filename to the PDF slug it's used with.
 
 Writes:
     data/extracted/<act-slug>.json     -- cleaned per-page text
@@ -40,8 +54,9 @@ from ai_pipeline.toc import detect_body_start
 from ai_pipeline.tree import attach_history
 
 
-def run_rules_engine(pages, act_slug: str, profile_name: str | None):
-    result = parse_act(pages, profile_name=profile_name)
+def run_rules_engine(pages, act_slug: str, profile_name: str | None, document_type: str = "act"):
+    top_level_type = "clause" if document_type == "bill" else "section"
+    result = parse_act(pages, profile_name=profile_name, top_level_type=top_level_type, skip_front_matter=(document_type == "bill"))
     print(f"[{act_slug}] rules engine -> {len(result.nodes)} nodes, {result.lines_consumed}/{result.lines_total} lines consumed")
     for w in result.warnings:
         print(f"  ! {w}")
@@ -62,6 +77,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pdf_path")
     ap.add_argument("--engine", choices=["rules", "ai"], default="rules")
+    ap.add_argument(
+        "--document-type", choices=["act", "bill"], default="act",
+        help="rules engine only: \"bill\" parses a Bill instead of an enacted Act (see the module docstring)",
+    )
     ap.add_argument("--profile", default=None, help="rules engine: pattern profile name (ai_pipeline/profiles/<name>.yaml)")
     ap.add_argument("--pages-per-chunk", type=int, default=8, help="AI engine only")
     ap.add_argument("--start-page", type=int, default=None, help="1-indexed; default: auto-detect end of Table of Provisions")
@@ -94,8 +113,8 @@ def main():
 
     parse_result = None
     if args.engine == "rules":
-        nodes, parse_result = run_rules_engine(pages, act_slug, args.profile)
-        engine_meta = {"engine": "rules", "profile": args.profile}
+        nodes, parse_result = run_rules_engine(pages, act_slug, args.profile, document_type=args.document_type)
+        engine_meta = {"engine": "rules", "profile": args.profile, "document_type": args.document_type}
     else:
         nodes, backend = run_ai_engine(pages, act_slug, args.backend, args.model, args.pages_per_chunk)
         engine_meta = {"engine": "ai", "backend": args.backend, "model": backend.model}

@@ -42,7 +42,7 @@ from pathlib import Path
 import yaml
 
 from .akn_export import _format_num, build_hierarchy_tree
-from .hierarchy import HIERARCHY_ORDER
+from .hierarchy import HIERARCHY_RANK
 from .definitions import (
     extract_section_ref_terms,
     extract_terms,
@@ -51,7 +51,7 @@ from .definitions import (
 )
 
 SECTIONS_DIR = "sections"
-NON_LEAF_TYPES = set(HIERARCHY_ORDER) | {"heading_group"}
+NON_LEAF_TYPES = set(HIERARCHY_RANK) | {"heading_group"}
 
 
 def _section_filename(number: str | None) -> str:

@@ -55,6 +55,45 @@ def slugify(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]+", "-", name).strip("-").lower()
 
 
+# A Bill's introduction/reprint pages carry a small numeral in the left
+# margin every 5th line, purely for parliamentary debate reference (this
+# has no equivalent in an enacted Act's own PDF). PyMuPDF's own block-
+# grouping sometimes folds that stray numeral into the *same block* as
+# nearby body text it happens to sit beside vertically, which drags the
+# whole block's bounding box left enough to get misclassified as a left-
+# margin note in extract_pages below -- silently dropping real clause
+# text, not just the line number. Detected structurally (short, purely
+# numeric, sitting well left of whatever else shares its block) rather
+# than by a specific font name, so this holds for any similarly-
+# formatted Bill print, not just one particular font choice.
+_MARGIN_LINE_NUMBER_X0_GAP = 50.0
+
+
+def _is_margin_line_number_candidate(text: str) -> bool:
+    return text.isdigit() and len(text) <= 3
+
+
+def _drop_margin_line_numbers(block_lines: list[dict]) -> list[dict]:
+    """A paragraph spanning several of the every-5th-line markers has more
+    than one candidate in the same block -- comparing each candidate only
+    against its *other* siblings (which, for a block with two or more
+    line-number stragglers, includes another line-number straggler) lets
+    them mask each other: candidate A's nearest "sibling" becomes
+    candidate B, a few points away, never the real body text far to the
+    right, so the gap check never fires for either. Splitting into real
+    content vs. candidates first, then comparing every candidate against
+    only the real content's own x0, avoids that -- one stray numeral
+    can't hide another."""
+    content = [l for l in block_lines if not _is_margin_line_number_candidate(l["text"])]
+    if not content:
+        return block_lines
+    content_min_x0 = min(l["bbox"][0] for l in content)
+    return [
+        l for l in block_lines
+        if not (_is_margin_line_number_candidate(l["text"]) and l["bbox"][0] < content_min_x0 - _MARGIN_LINE_NUMBER_X0_GAP)
+    ]
+
+
 def _line_text(line) -> str:
     return "".join(span["text"] for span in line["spans"]).strip()
 
@@ -100,6 +139,11 @@ def extract_pages(pdf_path: str) -> list[PageText]:
                 if text:
                     size, bold = _line_font(line)
                     block_lines.append({"bbox": line["bbox"], "text": text, "size": size, "bold": bold})
+
+            # Drop any margin line-number stray(s) before they can influence
+            # this block's bbox -- see _drop_margin_line_numbers's docstring.
+            block_lines = _drop_margin_line_numbers(block_lines)
+
             if block_lines:
                 # Margin notes and header/footer boilerplate are typeset as
                 # short wrapped phrases -- classify (and, if it's not body
@@ -107,7 +151,17 @@ def extract_pages(pdf_path: str) -> list[PageText]:
                 # is one coherent note/heading even though it spans several
                 # internal lines. Body text still needs per-line granularity
                 # for its own font-based classification, done below.
-                blocks.append({"bbox": b["bbox"], "text": " ".join(l["text"] for l in block_lines), "lines": block_lines})
+                #
+                # bbox is recomputed from the surviving lines rather than
+                # trusting PyMuPDF's own block bbox verbatim, precisely so a
+                # dropped margin line-number (which could sit well outside
+                # the real content's bounds) can't skew it.
+                xs0 = [l["bbox"][0] for l in block_lines]
+                ys0 = [l["bbox"][1] for l in block_lines]
+                xs1 = [l["bbox"][2] for l in block_lines]
+                ys1 = [l["bbox"][3] for l in block_lines]
+                bbox = (min(xs0), min(ys0), max(xs1), max(ys1))
+                blocks.append({"bbox": bbox, "text": " ".join(l["text"] for l in block_lines), "lines": block_lines})
         raw_pages.append((page.number + 1, w, h, blocks))
 
     # Boilerplate that repeats near-identically on most pages (title lines,
@@ -125,6 +179,20 @@ def extract_pages(pdf_path: str) -> list[PageText]:
     n_pages = max(len(raw_pages), 1)
     boilerplate = {
         key for key, count in freq.items() if count / n_pages >= BOILERPLATE_MIN_FREQUENCY
+    }
+    # A Bill's "introduction print" cover matter -- the Parliament masthead
+    # and which house it was introduced in -- sits once, on the same page
+    # as the actual long title and Chapter 1, rather than repeating on
+    # every page the way a running header does. That means it never clears
+    # BOILERPLATE_MIN_FREQUENCY above (it can appear on as few as one page
+    # out of hundreds), even though it's exactly the same kind of noise --
+    # standard, fixed wording that carries no legislative content of its
+    # own. Listed explicitly since frequency alone can't catch it; matched
+    # after the same digit-collapsing normalisation so it survives a
+    # reprint's different date/stage suffix.
+    boilerplate |= {
+        _normalize_for_frequency(text)
+        for text in ("PARLIAMENT OF VICTORIA", "Introduced in the Assembly", "Introduced in the Council")
     }
 
     pages = []

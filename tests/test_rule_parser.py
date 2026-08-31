@@ -302,3 +302,69 @@ def test_multiline_bold_act_citation_is_not_split_into_heading_groups():
     assert "Act 1998;" in paragraph_k["text"]
     paragraph_l = find(result.nodes, "paragraph", "l")
     assert "Act 1999;" in paragraph_l["text"]
+
+
+def test_top_level_type_clause_parses_a_bill_the_same_way_as_an_act():
+    """A Bill's own top-level numbered provision is called a "clause", not
+    a "section" -- same drafting shape, same nesting rank (subsection/
+    paragraph/subparagraph nest under either identically), just the pre-
+    enactment name (see hierarchy.py's HIERARCHY_RANK entry for it)."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+        line("(a) to clarify the law.", x0=PARA_X0),
+    ]
+    result = parse_act([page(lines)], top_level_type="clause")
+    assert result.lines_total == result.lines_consumed
+    clause = find(result.nodes, "clause", "1")
+    assert clause["heading"] == "Purposes"
+    paragraph = find(result.nodes, "paragraph", "a")
+    assert paragraph["text"] == "to clarify the law."
+    assert not any(n["type"] == "section" for n in result.nodes)
+
+
+def test_skip_front_matter_discards_bills_table_of_provisions():
+    """A Bill's introduction print opens with a title page and a multi-
+    page Table of Provisions whose rows repeat real Part/clause headings
+    closely enough to fool the heading classifiers -- skip_front_matter
+    discards everything up to the fixed enacting words every Bill's real
+    text opens with, rather than trying to parse the TOC as structure."""
+    lines = [
+        line("TABLE OF PROVISIONS", bold=True, size=14.0),
+        line("PART 2.1—WAYS IN WHICH A CRIMINAL PROCEEDING IS", bold=True),
+        line("COMMENCED", bold=True),
+        line("12", x0=HEAD_X0),
+        line("How a criminal proceeding is commenced", x0=HEAD_X0),
+        line("13", x0=HEAD_X0),
+        line("A Bill for an Act to provide for procedures.", x0=HEAD_X0),
+        line("The Parliament of Victoria enacts:", bold=True, size=12.0),
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+        line("(a) to clarify the law.", x0=PARA_X0),
+    ]
+    result = parse_act([page(lines)], top_level_type="clause", skip_front_matter=True)
+    assert result.lines_total == result.lines_consumed
+    assert any("skipped 8 front-matter line" in w for w in result.warnings)
+    clause = find(result.nodes, "clause", "1")
+    assert clause["heading"] == "Purposes"
+    # None of the TOC's own row content ("PART 2.1—...", "How a criminal
+    # proceeding is commenced") should have leaked into any real node.
+    assert not any("2.1" in (n.get("heading") or "") for n in result.nodes)
+    assert not any("How a criminal proceeding" in (n.get("text") or "") for n in result.nodes)
+
+
+def test_skip_front_matter_leaves_act_parsing_unaffected():
+    """skip_front_matter defaults to False -- an enacted Act's own PDF has
+    no equivalent front matter to skip, and must parse exactly as before."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+    ]
+    result = parse_act([page(lines)])
+    assert result.lines_total == result.lines_consumed
+    assert not result.warnings
+    section = find(result.nodes, "section", "1")
+    assert section["heading"] == "Purposes"

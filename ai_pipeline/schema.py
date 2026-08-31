@@ -6,11 +6,13 @@ NODE_TYPES = [
     "subdivision",
     "heading_group",
     "section",
+    "clause",
     "subsection",
     "paragraph",
     "subparagraph",
     "definition",
     "note",
+    "em_entry",
 ]
 
 NODE_FIELDS = ("type", "number", "heading", "text")

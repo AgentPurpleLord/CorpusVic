@@ -51,7 +51,7 @@ class DiagnosticsReport:
         ]
 
 
-_LEAF_TYPES = {"section", "subsection", "paragraph", "subparagraph", "note"}
+_LEAF_TYPES = {"section", "clause", "subsection", "paragraph", "subparagraph", "note"}
 
 
 def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_notes: list[dict]) -> DiagnosticsReport:
@@ -79,7 +79,7 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
 
     seen: dict[tuple, dict] = {}
     for idx, node in enumerate(nodes):
-        if node["type"] not in {"part", "division", "subdivision", "section"}:
+        if node["type"] not in {"part", "division", "subdivision", "section", "clause"}:
             continue
         key = (node["type"], tuple(sorted((k, v) for k, v in node["path"].items() if k != node["type"])), node["number"])
         if key in seen:
