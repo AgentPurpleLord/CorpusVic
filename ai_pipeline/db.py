@@ -94,6 +94,20 @@ CREATE TABLE IF NOT EXISTS corrections (
     human_output_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_corrections_changed ON corrections(changed);
+
+CREATE TABLE IF NOT EXISTS blind_reviews (
+    act TEXT NOT NULL,
+    node_index INTEGER NOT NULL,
+    guessed_type TEXT NOT NULL,
+    guessed_number TEXT,
+    guessed_heading TEXT,
+    reasoning TEXT NOT NULL,
+    matched_type INTEGER NOT NULL,
+    matched_number INTEGER NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_index)
+);
+CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 """
 
 _connections: dict[str, sqlite3.Connection] = {}
@@ -333,3 +347,69 @@ def load_examples(k: int = 6) -> list[dict]:
 def stats() -> dict:
     row = _connect().execute("SELECT COUNT(*) AS total, COALESCE(SUM(changed), 0) AS changed FROM corrections").fetchone()
     return {"total": row["total"], "changed": row["changed"]}
+
+
+# ---------------------------------------------------------------------------
+# Blind reviews -- a reviewer's own, independent classification of an
+# elevated-risk piece (AI-engine-sourced, or carrying a diagnostics
+# finding), recorded *before* review.py's UI reveals what the parser
+# actually produced. New in this project: there's no prior JSON-file
+# equivalent, so it goes straight into the DB rather than following an
+# existing shape.
+# ---------------------------------------------------------------------------
+
+def _blind_review_row_to_dict(row: sqlite3.Row) -> dict:
+    return {
+        "guessed_type": row["guessed_type"], "guessed_number": row["guessed_number"],
+        "guessed_heading": row["guessed_heading"], "reasoning": row["reasoning"],
+        "matched_type": bool(row["matched_type"]), "matched_number": bool(row["matched_number"]),
+        "reviewed_at": row["reviewed_at"],
+    }
+
+
+def get_blind_review(act: str, node_index: int) -> "dict | None":
+    row = _connect().execute(
+        "SELECT * FROM blind_reviews WHERE act = ? AND node_index = ?", (act, node_index)
+    ).fetchone()
+    return _blind_review_row_to_dict(row) if row is not None else None
+
+
+def save_blind_review(
+    act: str, node_index: int, *, guessed_type: str, guessed_number: "str | None", guessed_heading: "str | None",
+    reasoning: str, matched_type: bool, matched_number: bool,
+) -> dict:
+    """One row per (act, node_index): re-submitting overwrites rather than
+    accumulating a history, since the point is a single honest first
+    read, not a record of every attempt at guessing again."""
+    reviewed_at = _now_iso()
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT INTO blind_reviews (act, node_index, guessed_type, guessed_number, guessed_heading, "
+            "reasoning, matched_type, matched_number, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_index) DO UPDATE SET guessed_type=excluded.guessed_type, "
+            "guessed_number=excluded.guessed_number, guessed_heading=excluded.guessed_heading, "
+            "reasoning=excluded.reasoning, matched_type=excluded.matched_type, "
+            "matched_number=excluded.matched_number, reviewed_at=excluded.reviewed_at",
+            (
+                act, node_index, guessed_type, guessed_number, guessed_heading, reasoning,
+                1 if matched_type else 0, 1 if matched_number else 0, reviewed_at,
+            ),
+        )
+    return {
+        "guessed_type": guessed_type, "guessed_number": guessed_number, "guessed_heading": guessed_heading,
+        "reasoning": reasoning, "matched_type": matched_type, "matched_number": matched_number,
+        "reviewed_at": reviewed_at,
+    }
+
+
+def blind_review_stats(act: "str | None" = None) -> dict:
+    """Aggregate agreement rate across every blind review recorded so far
+    (one Act, or every Act when act is None) -- a genuine accuracy signal
+    on the parser itself, not just a review-friction nudge: how often a
+    reviewer's own first, independent read actually matched what the
+    parser produced, before they ever saw it."""
+    conn = _connect()
+    query = "SELECT COUNT(*) AS total, COALESCE(SUM(matched_type), 0) AS type_matched, COALESCE(SUM(matched_number), 0) AS number_matched FROM blind_reviews"
+    row = conn.execute(f"{query} WHERE act = ?", (act,)).fetchone() if act is not None else conn.execute(query).fetchone()
+    return {"total": row["total"], "type_matched": row["type_matched"], "number_matched": row["number_matched"]}

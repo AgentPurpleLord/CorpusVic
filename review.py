@@ -735,6 +735,33 @@ def _links_by_node(act: str) -> dict[int, list[dict]]:
     return by_node
 
 
+def _is_elevated_risk(node_index: int, node: dict) -> bool:
+    """Whether this piece is at elevated risk of automation blindness --
+    a reviewer anchoring on whatever classification is already sitting
+    there instead of actually forming their own view of the text. Two
+    concrete signals, both already computed elsewhere for other reasons:
+    node["source"] == "ai" (the probabilistic model backend, rather than
+    the deterministic rules engine most nodes come from -- see
+    ai_pipeline/structure.py), or a diagnostics finding already attached
+    to this specific node (duplicate numbering, an empty leaf, a
+    low-confidence history match). Deliberately narrow: gating every one
+    of an Act's thousands of unambiguous, cleanly-parsed pieces the same
+    way would just make rote friction reviewers click through without
+    reading, which is the exact failure mode this is meant to prevent."""
+    return node.get("source") == "ai" or bool(_findings_by_node.get(node_index))
+
+
+def _blind_review_gate_indices(indices: list[int]) -> list[int]:
+    """Which of these node indices are elevated-risk and still missing
+    their own recorded independent assessment (see
+    blind_guess_endpoint) -- Accept is refused for any of these until
+    that's done. Never gates Flag: flagging is a reviewer's own honest
+    "I'm not confident, this needs follow-up", which is already the
+    opposite of blindly agreeing -- adding friction to it would only
+    punish exactly the caution this whole mechanism exists to encourage."""
+    return [i for i in indices if _is_elevated_risk(i, _current_node(i)) and db.get_blind_review(_act, i) is None]
+
+
 def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[int, list[dict]]) -> dict:
     raw_text = node.get("text") or ""
     reflowed, offset_map = reflow_with_map(raw_text)
@@ -757,6 +784,9 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "findings": _findings_by_node.get(node_index, []),
         "links": piece_links,
         "history": node.get("history") or [],
+        "source": node.get("source"),
+        "elevated_risk": _is_elevated_risk(node_index, node),
+        "blind_review": db.get_blind_review(_act, node_index),
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),
         "page_start": node.get("page_start"),
@@ -839,6 +869,13 @@ class HistoryDetachRequest(BaseModel):
     history_index: int
 
 
+class BlindGuessRequest(BaseModel):
+    type: str
+    number: str | None = None
+    heading: str | None = None
+    reasoning: str
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "review.html")
@@ -868,6 +905,7 @@ def get_meta():
         "node_types": _relabel_types,
         "corrections": stats(),
         "unattached_notes": len(_currently_unattached_indices()),
+        "blind_review_stats": db.blind_review_stats(_act),
         "units": units_summary,
         "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
         "act_title": _act_title,
@@ -1174,6 +1212,44 @@ def renest_endpoint(req: RenestRequest):
     return {"node_index": i, "type": updated["type"], "path": updated.get("path")}
 
 
+@app.post("/api/nodes/{node_index}/blind-guess")
+def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
+    """Records a reviewer's own classification of an elevated-risk piece,
+    made from its text alone, before the review panel reveals what the
+    parser actually produced (see _is_elevated_risk and the review
+    panel's blind-review gate). This is what unblocks Accept on such a
+    piece -- see _blind_review_gate_indices -- so a reviewer can't just
+    skip past forming their own view and rubber-stamp whatever's already
+    there. Comparison is exact-match on type, and on number normalised
+    the same light way a human would read it (case/bracket-insensitive:
+    "(A)" and "a" count as the same answer) -- this is reported back to
+    the reviewer, not judged; disagreeing with the parser is a fine,
+    useful outcome, not an error."""
+    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    if not req.reasoning.strip():
+        raise HTTPException(400, "A short reason for this assessment is required")
+    if req.type not in _relabel_types:
+        raise HTTPException(400, f"Unknown type {req.type!r}")
+    actual = _current_node(node_index)
+
+    def normalize(s: "str | None") -> str:
+        return (s or "").strip("() ").lower()
+
+    matched_type = req.type == actual["type"]
+    matched_number = normalize(req.number) == normalize(actual.get("number"))
+    record = db.save_blind_review(
+        _act, node_index, guessed_type=req.type, guessed_number=(req.number or None),
+        guessed_heading=(req.heading or None), reasoning=req.reasoning.strip(),
+        matched_type=matched_type, matched_number=matched_number,
+    )
+    return {
+        "node_index": node_index,
+        "review": record,
+        "actual": {"type": actual["type"], "number": actual.get("number"), "heading": actual.get("heading")},
+    }
+
+
 @app.post("/api/nodes/{node_index}/accept")
 def accept_node(node_index: int, req: AcceptRequest):
     """Accepts or flags exactly one piece, independent of the rest of its
@@ -1184,6 +1260,8 @@ def accept_node(node_index: int, req: AcceptRequest):
     time or via that whole-unit endpoint; see _unit_status."""
     if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
         raise HTTPException(404, "No such node")
+    if not req.flagged and _blind_review_gate_indices([node_index]):
+        raise HTTPException(400, "This piece needs your own independent assessment before it can be accepted -- see the form above its text.")
     node = _accept_node(node_index, req.flagged)
     return {
         "node_index": node_index,
@@ -1205,6 +1283,13 @@ def accept_unit(unit_no: int, req: AcceptRequest):
     # in this unit", not "redo the whole unit and overwrite decisions
     # already made piece by piece".
     indices = [i for i in _units[unit_no] if i not in _merged_away and not _is_committed(i)]
+    if not req.flagged:
+        blocked = _blind_review_gate_indices(indices)
+        if blocked:
+            raise HTTPException(
+                400,
+                f"{len(blocked)} piece(s) in this unit need your own independent assessment before the unit can be accepted.",
+            )
     if indices:
         unit_orig = [_nodes[i] for i in indices]
         unit_nodes = [_current_node(i) for i in indices]

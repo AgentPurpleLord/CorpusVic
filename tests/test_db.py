@@ -118,3 +118,59 @@ def test_load_examples_returns_changed_before_unchanged():
 
 def test_stats_with_no_corrections_yet():
     assert db.stats() == {"total": 0, "changed": 0}
+
+
+def test_get_blind_review_is_none_when_nothing_recorded():
+    assert db.get_blind_review("crimes-act", 5) is None
+
+
+def test_save_and_get_blind_review_round_trips():
+    saved = db.save_blind_review(
+        "crimes-act", 5, guessed_type="paragraph", guessed_number="a", guessed_heading=None,
+        reasoning="Looked like a lettered sub-item under (2).", matched_type=True, matched_number=False,
+    )
+    assert saved["reviewed_at"]  # stamped
+
+    loaded = db.get_blind_review("crimes-act", 5)
+    assert loaded["guessed_type"] == "paragraph"
+    assert loaded["guessed_number"] == "a"
+    assert loaded["reasoning"] == "Looked like a lettered sub-item under (2)."
+    assert loaded["matched_type"] is True
+    assert loaded["matched_number"] is False
+
+
+def test_save_blind_review_overwrites_rather_than_accumulating():
+    db.save_blind_review(
+        "crimes-act", 5, guessed_type="paragraph", guessed_number="a", guessed_heading=None,
+        reasoning="first guess", matched_type=False, matched_number=False,
+    )
+    db.save_blind_review(
+        "crimes-act", 5, guessed_type="subparagraph", guessed_number="i", guessed_heading=None,
+        reasoning="reconsidered", matched_type=True, matched_number=True,
+    )
+    loaded = db.get_blind_review("crimes-act", 5)
+    assert loaded["guessed_type"] == "subparagraph"
+    assert loaded["reasoning"] == "reconsidered"
+
+
+def test_blind_review_stats_aggregates_matches_and_narrows_by_act():
+    db.save_blind_review(
+        "crimes-act", 1, guessed_type="paragraph", guessed_number="a", guessed_heading=None,
+        reasoning="r1", matched_type=True, matched_number=True,
+    )
+    db.save_blind_review(
+        "crimes-act", 2, guessed_type="paragraph", guessed_number="b", guessed_heading=None,
+        reasoning="r2", matched_type=True, matched_number=False,
+    )
+    db.save_blind_review(
+        "other-act", 1, guessed_type="section", guessed_number="1", guessed_heading=None,
+        reasoning="r3", matched_type=False, matched_number=False,
+    )
+
+    assert db.blind_review_stats("crimes-act") == {"total": 2, "type_matched": 2, "number_matched": 1}
+    assert db.blind_review_stats("other-act") == {"total": 1, "type_matched": 0, "number_matched": 0}
+    assert db.blind_review_stats() == {"total": 3, "type_matched": 2, "number_matched": 1}
+
+
+def test_blind_review_stats_with_nothing_recorded_yet():
+    assert db.blind_review_stats() == {"total": 0, "type_matched": 0, "number_matched": 0}
