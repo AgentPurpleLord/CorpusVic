@@ -24,13 +24,32 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
     the "wonky" labelling a Definitions section's own paragraphs used to
     get in review.py (several different terms' own "(a)"/"(b)" lists are
     all indistinguishable without this) -- see compute_unit_labels, which
-    reads this same field back to disambiguate them."""
+    reads this same field back to disambiguate them.
+
+    "definition" also needs its *own* reset rule, separate from the
+    hierarchy_order-indexed loop below: because it's aliased onto
+    subsection's own rank (see make_ranks) rather than getting a literal
+    slot in hierarchy_order, that loop's `hierarchy_order[rank[t] + 1:]`
+    slice never actually names "definition" as one of the keys it clears.
+    Left alone, a Definitions section anywhere in the Act would leak its
+    last term into path["definition"] for every following section's own
+    subsections for the rest of the document -- there's no later
+    "definition" node to overwrite it, since a Definitions section is
+    usually the only one. Cleared here instead, explicitly, whenever
+    anything at or shallower than that same rank opens (a new section, or
+    a genuine numbered subsection instead of a defined term)."""
     rank = make_ranks(hierarchy_order)
+    definition_rank = rank.get("definition")
     current = {level: None for level in hierarchy_order}
     for node in nodes:
         t = node.get("type")
         if t in rank:
-            current[t] = node.get("heading") if t == "definition" else node.get("number")
+            if t == "definition":
+                current["definition"] = node.get("heading")
+            else:
+                current[t] = node.get("number")
+                if definition_rank is not None and rank[t] <= definition_rank:
+                    current["definition"] = None
             for deeper in hierarchy_order[rank[t] + 1 :]:
                 current[deeper] = None
         node["path"] = dict(current)

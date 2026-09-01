@@ -11,6 +11,7 @@ from review import (
     _now_iso,
     _resume_point,
     build_current_nodes,
+    can_renest_under,
     commit_unit,
     compute_unit_labels,
     compute_unit_tree_info,
@@ -92,6 +93,35 @@ def test_compute_unit_tree_info_top_level_heading_group_has_no_parent():
     assert info[0] == {"depth": 0, "parent_unit_no": None}
     assert info[1] == {"depth": 0, "parent_unit_no": None}
     assert info[2] == {"depth": 0, "parent_unit_no": None}
+
+
+def test_can_renest_under_allows_nesting_directly_under_the_dragged_onto_piece():
+    # section(0), subsection(1) "(1)", paragraph(2) "(a)" -- renesting a
+    # later stray piece(3) under the subsection is fine, nothing of
+    # subsection-or-shallower rank sits between them.
+    unit_types = ["section", "subsection", "paragraph", "subparagraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=3, hierarchy_order=_DEFAULT_HIERARCHY) is True
+
+
+def test_can_renest_under_rejects_when_a_same_rank_piece_intervenes():
+    # subsection(1) "(1)" ... subsection(2) "(2)" ... piece(3) -- nesting
+    # piece(3) under subsection(1) would be a lie once paths are
+    # recomputed: subsection(2) is what actually precedes it.
+    unit_types = ["section", "subsection", "subsection", "subparagraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=3, hierarchy_order=_DEFAULT_HIERARCHY) is False
+
+
+def test_can_renest_under_rejects_when_a_shallower_piece_intervenes():
+    # A section boundary appearing between the target and the dragged
+    # piece would mean they're not even in the same review unit any more
+    # in spirit -- rejected the same way a same-rank one is.
+    unit_types = ["section", "subsection", "section", "paragraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=3, hierarchy_order=_DEFAULT_HIERARCHY) is False
+
+
+def test_can_renest_under_allows_immediately_adjacent_pieces():
+    unit_types = ["section", "subsection", "paragraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=2, hierarchy_order=_DEFAULT_HIERARCHY) is True
 
 
 def test_compute_unit_labels_are_unique_even_with_repeated_note_markers():

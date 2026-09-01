@@ -229,6 +229,20 @@
   }
   .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
   .piece.merge-source { background: var(--piece-merge-source-bg); }
+  .piece.nest-target { outline: 2px dashed var(--accent); outline-offset: -1px; background: var(--hover-bg); }
+  .piece.dragging { opacity: 0.45; }
+  .nest-handle {
+    cursor: grab;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .nest-handle:hover { color: var(--fg); border-color: var(--accent); }
+  .nest-handle:active { cursor: grabbing; }
   .piece.piece-accepted { background: var(--piece-accepted-bg); border-color: var(--piece-accepted-border); }
   .piece.piece-flagged { background: var(--piece-flagged-bg); border-color: var(--piece-flagged-border); }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
@@ -385,6 +399,7 @@
         <button class="btn" id="merge-open-btn">Merge pieces&hellip;</button>
         <button class="btn primary" id="accept-btn">Accept unit</button>
         <button class="btn" id="flag-btn">Flag for follow-up</button>
+        <span style="margin-left:auto; font-size:11.5px; color:var(--muted);">Drag a piece onto another to merge &middot; drag its &#8676; Nest handle onto another to nest under it</span>
       </div>
       <div id="empty-state">Loading&hellip;</div>
     </div>
@@ -789,12 +804,22 @@ function renderUnit() {
     const pageJumpHtml = META.has_source_pdf && piece.page_start
       ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
       : "";
+    // The Section itself (idx 0) is never a drag *source* -- dragging "the
+    // whole section" onto something else isn't a meaningful gesture, and
+    // merge_endpoint already refuses to merge it away while it still has
+    // pieces nested under it. It stays a perfectly valid *drop target*
+    // for both gestures (merge-into-section, and the nest handle for
+    // "outdent this back to a top-level subsection"), so only the source
+    // side is restricted here.
+    const nestHandleHtml = idx > 0
+      ? `<span class="nest-handle" draggable="true" title="Drag onto another piece to nest this one under it">&#8676; Nest</span>` : "";
     div.innerHTML = `
       <div class="piece-top">
         <span class="piece-label">${escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
         <span class="piece-type">${escapeHtml(piece.type)}</span>
         ${statusBadgeHtml}
         <div class="piece-toolbar">
+          ${nestHandleHtml}
           ${pageJumpHtml}
           ${decisionButtonsHtml}
           <button class="btn small edit-piece-btn">Edit</button>
@@ -812,6 +837,8 @@ function renderUnit() {
     if (acceptBtn) acceptBtn.onclick = () => acceptPiece(piece.node_index, false);
     const flagBtn = div.querySelector(".flag-piece-btn");
     if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
+    if (idx > 0) div.draggable = true;
+    attachPieceDragAndDrop(div, piece.node_index);
     container.appendChild(div);
   });
 
@@ -823,6 +850,87 @@ function renderUnit() {
   actions.style.display = currentUnit.pieces.length ? "flex" : "none";
   document.getElementById("accept-btn").style.display = currentUnit.status === "pending" ? "" : "none";
   document.getElementById("flag-btn").style.display = currentUnit.status === "pending" ? "" : "none";
+}
+
+// ---------------------------------------------------------------------
+// Drag and drop: dragging a piece's body onto another piece merges it in
+// (same call the "Merge pieces..." button/modal above makes); dragging
+// its "Nest" handle onto another piece nests it under that piece instead
+// (see review.py's renest_endpoint -- a type change, never a reorder).
+// Two different draggable elements per piece, rather than one gesture
+// disambiguated some other way (a modifier key, say), so the intent is
+// visible up front and works the same with mouse or trackpad.
+// ---------------------------------------------------------------------
+
+let dragState = null; // { nodeIndex, mode: "merge" | "nest" }
+
+function attachPieceDragAndDrop(div, nodeIndex) {
+  div.addEventListener("dragstart", (e) => {
+    dragState = { nodeIndex, mode: "merge" };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(nodeIndex));
+    div.classList.add("dragging");
+  });
+  div.addEventListener("dragend", () => {
+    div.classList.remove("dragging");
+    dragState = null;
+    clearDragHighlights();
+  });
+  div.addEventListener("dragover", (e) => {
+    if (!dragState || dragState.nodeIndex === nodeIndex) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    div.classList.toggle("nest-target", dragState.mode === "nest");
+    div.classList.toggle("merge-target", dragState.mode === "merge");
+  });
+  div.addEventListener("dragleave", () => {
+    div.classList.remove("nest-target", "merge-target");
+  });
+  div.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    div.classList.remove("nest-target", "merge-target");
+    if (!dragState || dragState.nodeIndex === nodeIndex) return;
+    const { nodeIndex: draggedIndex, mode } = dragState;
+    dragState = null;
+    try {
+      if (mode === "nest") {
+        await api("api/renest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ node_index: draggedIndex, target_node_index: nodeIndex }),
+        });
+        toast("Nested.");
+      } else {
+        await api("api/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target_node_index: nodeIndex, source_node_indices: [draggedIndex] }),
+        });
+        toast("Merged.");
+      }
+      await afterMutation();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  const handle = div.querySelector(".nest-handle");
+  if (!handle) return;
+  handle.addEventListener("dragstart", (e) => {
+    e.stopPropagation(); // otherwise this bubbles into the piece's own dragstart above and gets overwritten to "merge"
+    dragState = { nodeIndex, mode: "nest" };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(nodeIndex));
+  });
+  handle.addEventListener("dragend", (e) => {
+    e.stopPropagation();
+    dragState = null;
+    clearDragHighlights();
+  });
+}
+
+function clearDragHighlights() {
+  document.querySelectorAll(".piece.nest-target, .piece.merge-target").forEach((el) => {
+    el.classList.remove("nest-target", "merge-target");
+  });
 }
 
 document.getElementById("prev-btn").onclick = () => currentUnitNo > 0 && loadUnit(currentUnitNo - 1);

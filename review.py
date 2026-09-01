@@ -295,6 +295,43 @@ def compute_unit_tree_info(unit_root_types: list[str], hierarchy_order: list[str
     return info
 
 
+# Renesting a piece means "make it this other piece's own direct child" --
+# expressed as a type change (the child rank exactly one level deeper than
+# the target), not a position change: see renest_endpoint's own docstring
+# for why document order is left untouched. "subparagraph" and the non-
+# hierarchy types (note/repealed/heading_group) have no entry -- nothing
+# can be renested to become *their* child.
+NEST_CHILD_TYPE = {
+    "section": "subsection",
+    "clause": "subsection",
+    "subsection": "paragraph",
+    "definition": "paragraph",
+    "paragraph": "subparagraph",
+}
+
+
+def can_renest_under(unit_types: list[str], target_pos: int, node_pos: int, hierarchy_order: list[str]) -> bool:
+    """Whether the piece at unit-local position node_pos can be renested
+    to become the direct child of the piece at target_pos, given every
+    piece's type in this unit (root first, in document order).
+
+    Renesting only changes the dragged piece's own type; its new parent
+    is *inferred* afterwards, the same way every path is -- from document
+    order, by _recompute_unit_paths (which reruns tree.py's annotate_paths
+    algorithm for the unit). That inference always resolves to whichever
+    piece of the target's own type -- or anything shallower -- most
+    recently precedes the dragged piece. So this is only unambiguous when
+    nothing of that rank sits between the two: otherwise the piece would
+    silently end up nested under that other, closer piece instead of the
+    one actually dropped onto, which would be a confusing bait-and-switch
+    for whoever just dragged it there."""
+    rank = make_ranks(hierarchy_order)
+    target_rank = rank.get(unit_types[target_pos])
+    if target_rank is None:
+        return False
+    return not any(t in rank and rank[t] <= target_rank for t in unit_types[target_pos + 1 : node_pos])
+
+
 def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
     """Which unit to resume at. commit_unit tags the last node it appends
     for a unit with that unit's own index (`_unit_end_index`); when any
@@ -551,6 +588,54 @@ def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: d
         save_verified(_act, _verified)
 
 
+_NESTABLE_LEVELS = ("subsection", "paragraph", "subparagraph", "definition")
+
+
+def _recompute_unit_paths(unit_no: int) -> None:
+    """Rebuilds path[level] for subsection/paragraph/subparagraph/
+    definition across every (non-merged-away) piece in this unit, in
+    current document order -- the exact algorithm tree.py's annotate_paths
+    runs once for the whole document at parse time, just re-run here for
+    one unit after renest_endpoint changes a piece's type (a type change
+    is exactly the kind of thing annotate_paths needs to see to place a
+    piece -- and everything *after* it in the unit -- under the right
+    parent). The unit's own shallower levels (chapter/part/.../section)
+    never change from a renest, so the root's own already-correct path is
+    carried forward unmodified; only the four nestable levels are reset
+    and replayed.
+
+    "definition" gets its own explicit reset, same as tree.py's
+    annotate_paths does and for the same reason: it's aliased onto
+    subsection's own rank rather than holding a literal slot in
+    _hierarchy, so the deeper-levels loop below never names it as one of
+    the keys it clears. Without this, a Definitions section followed
+    later in the *same* unit by a genuine numbered subsection would leak
+    the last term's own heading into that subsection's path forever."""
+    indices = [i for i in _units[unit_no] if i not in _merged_away]
+    if len(indices) < 2:
+        return
+    rank = make_ranks(_hierarchy)
+    definition_rank = rank.get("definition")
+    current = {**(_current_node(indices[0]).get("path") or {}), **dict.fromkeys(_NESTABLE_LEVELS)}
+    touched_committed = False
+    for i in indices[1:]:
+        node = _current_node(i)
+        t = node.get("type")
+        if t in rank:
+            if t == "definition":
+                current["definition"] = node.get("heading")
+            else:
+                current[t] = node.get("number")
+                if definition_rank is not None and rank[t] <= definition_rank:
+                    current["definition"] = None
+            for deeper in _hierarchy[rank[t] + 1 :]:
+                current[deeper] = None
+        node["path"] = dict(current)
+        touched_committed = touched_committed or i in _verified_by_source_index
+    if touched_committed:
+        save_verified(_act, _verified)
+
+
 def _unit_status(unit_no: int) -> str:
     indices = [i for i in _units[unit_no] if i not in _merged_away]
     if not indices:
@@ -686,6 +771,11 @@ class SplitRequest(BaseModel):
 class MergeRequest(BaseModel):
     target_node_index: int
     source_node_indices: list[int]
+
+
+class RenestRequest(BaseModel):
+    node_index: int
+    target_node_index: int
 
 
 class AcceptRequest(BaseModel):
@@ -888,6 +978,54 @@ def merge_endpoint(req: MergeRequest):
             _verified_by_source_index[target]["_unit_end_index"] = source_unit_no
             save_verified(_act, _verified)
     return {"ok": True}
+
+
+@app.post("/api/renest")
+def renest_endpoint(req: RenestRequest):
+    """Drag-to-nest in the review panel: makes `node_index` the direct
+    child of `target_node_index` by changing only its type (to whatever
+    rank sits one level deeper than the target's own -- see
+    NEST_CHILD_TYPE), never its position. Document order is left alone
+    deliberately: a legislative Act's own text is already in the right
+    reading order, so the actual bug this fixes is almost always "this
+    piece was classified one level too shallow/deep", not "this piece is
+    physically in the wrong place" -- and reordering pieces would mean
+    renumbering node_index everywhere it's used as a stable identifier
+    (verified rows, links, merged_away, the correction log), which a pure
+    type change avoids entirely.
+
+    Restricted to two pieces already in the same review unit: nesting
+    only ever happens among the pieces already grouped together under one
+    Section (see group_into_units) -- renesting across Sections would be
+    a much bigger restructuring this isn't meant to cover."""
+    i, target = req.node_index, req.target_node_index
+    for idx in (i, target):
+        if not (0 <= idx < len(_nodes)) or idx in _merged_away:
+            raise HTTPException(404, f"No such node: {idx}")
+    if i == target:
+        raise HTTPException(400, "A piece can't be nested under itself")
+    unit_no = _unit_of_index.get(i)
+    if unit_no is None or _unit_of_index.get(target) != unit_no:
+        raise HTTPException(400, "Can only nest a piece under another piece in the same review unit")
+
+    unit_indices = [j for j in _units[unit_no] if j not in _merged_away]
+    target_pos, node_pos = unit_indices.index(target), unit_indices.index(i)
+    if target_pos >= node_pos:
+        raise HTTPException(400, "Can only nest a piece under one that already precedes it")
+
+    target_type = _current_node(target)["type"]
+    new_type = NEST_CHILD_TYPE.get(target_type)
+    if new_type is None:
+        raise HTTPException(400, f"A {target_type} can't have nested pieces under it")
+
+    unit_types = [_current_node(j)["type"] for j in unit_indices]
+    if not can_renest_under(unit_types, target_pos, node_pos, _hierarchy):
+        raise HTTPException(400, f"Can't nest here -- another {target_type} (or shallower) opens between them first")
+
+    _mutate_node(i, type=new_type)
+    _recompute_unit_paths(unit_no)
+    updated = _current_node(i)
+    return {"node_index": i, "type": updated["type"], "path": updated.get("path")}
 
 
 @app.post("/api/nodes/{node_index}/accept")
