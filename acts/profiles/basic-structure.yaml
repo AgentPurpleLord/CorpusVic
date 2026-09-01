@@ -30,6 +30,8 @@
 #
 # Sub-subparagraphs are normally avoided, but can appear.
 #
+# Some Acts include Examples or Notes at the end of them. Denotes by a bold 'Note' or 'Example' with text following. 
+#
 # NUMBERING SYSTEM
 #
 # The numbering system has a standard:
@@ -50,3 +52,9 @@
 # contains a section numbered 221ZZZBA.
 # 
 # On the other hand, a repeal may leave a gap in the numbering.
+#
+# DEFINITIONS
+#
+# Definitions and interpretative provisions apply across the Act and are normally located at the beginning of the Act.
+# Sometimes a definition is limited to part of the Act. 
+# Definitions are styled as bold italics. 
