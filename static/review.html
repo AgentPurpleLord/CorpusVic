@@ -164,12 +164,19 @@
   }
   .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
   .piece.merge-source { background: #fff7ed; }
+  .piece.piece-accepted { background: #f0fdf4; border-color: #bbf7d0; }
+  .piece.piece-flagged { background: #fffbeb; border-color: #fde68a; }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .piece-label { font-weight: 700; font-size: 13px; }
   .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .piece-status-badge { font-size: 10.5px; padding: 1px 8px; border-radius: 8px; font-weight: 600; white-space: nowrap; }
+  .piece-status-badge.accepted { background: #dcfce7; color: #166534; }
+  .piece-status-badge.flagged { background: #fef3c7; color: #92400e; }
   .piece-toolbar { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
   .piece:hover .piece-toolbar { opacity: 1; }
   .piece-toolbar button { font-size: 11px; padding: 2px 7px; }
+  .accept-piece-btn { color: #166534 !important; border-color: #bbf7d0 !important; }
+  .flag-piece-btn { color: #92400e !important; border-color: #fde68a !important; }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
   .piece-text {
     white-space: pre-wrap;
@@ -495,6 +502,12 @@ async function loadMeta() {
 }
 
 function unitRowLabel(u) {
+  if (u.type === "heading_group") {
+    const heading = (u.heading || "").trim().replace(/\s+/g, " ");
+    if (/^authorised version\b/i.test(heading)) return "Authorised version";
+    if (META.act_title && heading === META.act_title.trim().replace(/\s+/g, " ")) return "Act title";
+    return "Heading";
+  }
   const bits = [u.type.toUpperCase()];
   if (u.number) bits.push(u.number);
   return bits.join(" ");
@@ -515,7 +528,7 @@ function renderSidebar() {
     row.innerHTML = `
       <span class="status-dot ${u.status}"></span>
       <div style="min-width:0">
-        <div class="unit-title">${u.unit_no + 1}. ${escapeHtml(unitRowLabel(u))}</div>
+        <div class="unit-title">${escapeHtml(unitRowLabel(u))}</div>
         <div class="unit-sub">${escapeHtml(u.heading || "")}</div>
       </div>`;
     row.onclick = () => loadUnit(u.unit_no);
@@ -564,6 +577,7 @@ async function loadUnit(n) {
 
 function pieceLabelText(piece) {
   if (piece.label && piece.label !== "SECTION") return piece.label;
+  if (piece.type === "heading_group") return unitRowLabel({ type: "heading_group", heading: piece.heading });
   const bits = [piece.type.toUpperCase()];
   if (piece.number) bits.push(piece.number);
   return bits.join(" ");
@@ -602,9 +616,21 @@ function describeTarget(link) {
 
 function renderUnit() {
   const root = currentUnit.pieces[0];
-  document.getElementById("unit-title").textContent = root
-    ? `${currentUnit.unit_no + 1}. ${root.type.toUpperCase()} ${root.number || ""} ${root.heading || ""}`.replace(/\s+/g, " ").trim()
-    : `${currentUnit.unit_no + 1}. (empty -- fully merged away)`;
+  const titleEl = document.getElementById("unit-title");
+  if (root && root.type === "heading_group") {
+    // The heading text alone already says what this is ("Criminal
+    // Procedure Act 2009", "Authorised Version No. 114") -- prefixing it
+    // with its own friendly type label would just repeat "Act title
+    // Criminal Procedure Act 2009"-style.
+    titleEl.textContent = (root.heading || "").trim() || unitRowLabel({ type: "heading_group", heading: root.heading });
+  } else if (root) {
+    titleEl.textContent = `${root.type.toUpperCase()} ${root.number || ""} ${root.heading || ""}`.replace(/\s+/g, " ").trim();
+  } else if (currentUnit.merged_into_unit != null) {
+    titleEl.innerHTML = `Merged into <a href="#" id="merged-into-link">unit ${currentUnit.merged_into_unit + 1}</a> -- nothing left to review here`;
+    document.getElementById("merged-into-link").onclick = (e) => { e.preventDefault(); loadUnit(currentUnit.merged_into_unit); };
+  } else {
+    titleEl.textContent = "Merged away entirely -- its content now lives in whichever piece it was merged into (see the sidebar)";
+  }
   const badge = document.getElementById("unit-status-badge");
   badge.textContent = currentUnit.status;
   badge.className = `status-badge ${currentUnit.status}`;
@@ -613,7 +639,9 @@ function renderUnit() {
   container.innerHTML = "";
   currentUnit.pieces.forEach((piece, idx) => {
     const div = document.createElement("div");
-    div.className = "piece";
+    const isAccepted = !!piece.verified_at;
+    const isFlagged = !!piece.needs_followup;
+    div.className = "piece" + (isAccepted ? " piece-accepted" : isFlagged ? " piece-flagged" : "");
     div.dataset.type = piece.type;
     div.dataset.nodeIndex = piece.node_index;
     const isRoot = idx === 0 && currentUnit.root_type === piece.type && piece.label === "SECTION";
@@ -622,8 +650,13 @@ function renderUnit() {
     const findingsHtml = (piece.findings || [])
       .map((f) => `<div>&#9888; (${escapeHtml(f.severity)}) ${escapeHtml(f.message)}</div>`).join("");
     const verifiedHtml = piece.verified_at
-      ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>`
-      : piece.needs_followup ? `<div class="piece-verified">&#9873; Flagged for follow-up</div>` : "";
+      ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>` : "";
+    const statusBadgeHtml = isAccepted
+      ? `<span class="piece-status-badge accepted">&#10003; Accepted</span>`
+      : isFlagged ? `<span class="piece-status-badge flagged">&#9873; Flagged</span>` : "";
+    const decisionButtonsHtml = isAccepted || isFlagged ? "" : `
+          <button class="btn small accept-piece-btn" title="Accept this piece">&#10003; Accept</button>
+          <button class="btn small flag-piece-btn" title="Flag this piece for follow-up">&#9873; Flag</button>`;
     const pageJumpHtml = META.has_source_pdf && piece.page_start
       ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
       : "";
@@ -631,8 +664,10 @@ function renderUnit() {
       <div class="piece-top">
         <span class="piece-label">${escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
         <span class="piece-type">${escapeHtml(piece.type)}</span>
+        ${statusBadgeHtml}
         <div class="piece-toolbar">
           ${pageJumpHtml}
+          ${decisionButtonsHtml}
           <button class="btn small edit-piece-btn">Edit</button>
         </div>
       </div>
@@ -644,8 +679,16 @@ function renderUnit() {
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
     const jumpBtn = div.querySelector(".page-jump-btn");
     if (jumpBtn) jumpBtn.onclick = () => jumpToPiecePage(piece.page_start);
+    const acceptBtn = div.querySelector(".accept-piece-btn");
+    if (acceptBtn) acceptBtn.onclick = () => acceptPiece(piece.node_index, false);
+    const flagBtn = div.querySelector(".flag-piece-btn");
+    if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
     container.appendChild(div);
   });
+
+  const anyPieceDecided = currentUnit.pieces.some((p) => p.verified_at || p.needs_followup);
+  document.getElementById("accept-btn").textContent = anyPieceDecided ? "Accept remaining pieces" : "Accept unit";
+  document.getElementById("flag-btn").textContent = anyPieceDecided ? "Flag remaining as follow-up" : "Flag for follow-up";
 
   const actions = document.getElementById("unit-actions");
   actions.style.display = currentUnit.pieces.length ? "flex" : "none";
@@ -670,6 +713,16 @@ document.getElementById("flag-btn").onclick = async () => {
     await afterMutation();
   } catch (e) { toast(e.message, true); }
 };
+
+async function acceptPiece(nodeIndex, flagged) {
+  try {
+    await api(`api/nodes/${nodeIndex}/accept`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
+    });
+    toast(flagged ? "Piece flagged." : "Piece accepted.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+}
 
 async function afterMutation() {
   await loadMeta();

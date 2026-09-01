@@ -23,7 +23,16 @@ Per piece, the toolbar offers:
     still in this unit, or an already-reviewed piece from an earlier
     one. For when the parser wrongly broke a paragraph into extra
     fragments (most often a stray heading/section boundary mistaken
-    mid-paragraph, e.g. a multi-line bold Act-name citation).
+    mid-paragraph, e.g. a multi-line bold Act-name citation, or a long
+    comma-separated list of bracketed cross-references -- "(8A), (8B),
+    (8C), (8D)..." -- that happens to wrap onto its own PDF line right at
+    "(8C)", which is then indistinguishable by shape alone from a genuine
+    new Subsection (8C)). Merging that piece away also repairs every
+    later sibling's own stored numbering that inherited its bogus number
+    (see _repair_cascaded_path) -- otherwise those pieces keep showing a
+    label like "(8C)(ii)(iii)" even after the offending piece itself is
+    gone, since the rule parser bakes each node's full ancestry into it
+    at parse time and nothing else in this tool ever revisits it.
   - Drag-select a span of a piece's own text to either split it there
     (the tail reassigns to another piece the same way Merge's
     destination picker works) or label it as a link -- an Act citation,
@@ -374,6 +383,7 @@ _verified: list[dict] = []
 _verified_by_source_index: dict[int, dict] = {}
 _pending_edits: dict[int, dict] = {}
 _merged_away: set[int] = set()
+_merged_into_unit: dict[int, int] = {}  # source unit_no -> the unit_no its content ended up in (this session only)
 _definition_index: dict[str, int] = {}
 _findings_by_node: dict[int, list[dict]] = {}
 _unattached_notes: list[dict] = []
@@ -381,6 +391,7 @@ _hierarchy: list[str] = []
 _relabel_types: list[str] = []
 _startup_resume_unit = 0
 _source_pdf_path: str | None = None
+_act_title: str | None = None
 _pdf_doc: "fitz.Document | None" = None
 _page_image_cache: dict[int, bytes] = {}
 _PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible after the browser scales the <img> to fit its panel
@@ -433,6 +444,73 @@ def _append_text_to_node(i: int, addition: str) -> dict:
     return _mutate_node(i, text=new_text)
 
 
+_CASCADING_PATH_LEVELS = ("subsection", "paragraph", "subparagraph")
+
+
+def _patch_path_level(i: int, level: str, value: str | None) -> None:
+    """Updates just one key of node i's own stored `path` dict, in
+    whichever state currently represents it -- deliberately *not* routed
+    through _mutate_node: see _repair_cascaded_path for why this needs to
+    bypass the usual re-stamp-and-log-a-correction behaviour that applies
+    to an actual reviewed change."""
+    if i in _pending_edits:
+        node = _pending_edits[i]
+    elif i in _verified_by_source_index:
+        node = _verified_by_source_index[i]
+    else:
+        node = _nodes[i]
+    node["path"] = {**(node.get("path") or {}), level: value}
+
+
+def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: dict) -> None:
+    """A line the rules engine wrongly classifies as opening a new
+    Subsection/Paragraph/Subparagraph (most often a bracketed citation
+    like "(8C)" that only looks like one because a long comma-separated
+    list happened to wrap onto its own PDF line -- see the "8C" example
+    in this module's own docstring) doesn't just misfile *that* line: the
+    rule parser stores each node's full ancestry as a `path` dict at parse
+    time, and every sibling parsed *after* the bogus boundary inherits its
+    wrong number at that same level in their own stored `path`, all the
+    way until a genuinely different value at that level closes the run --
+    which is exactly what turns into a confusing "(8C)(ii)(iii)"-style
+    label on pieces that come *after* the offending one, not just on it.
+
+    Merging the offending piece away (see merge_endpoint) undoes its own
+    presence but leaves every inheriting sibling's `path` uncorrected on
+    its own -- this walks forward from it, within the same unit, fixing
+    exactly the nodes whose `path[level]` still says the removed piece's
+    own number, restoring what it should be instead (the surviving
+    target's own value at that level). Stops at the first node that
+    doesn't match: that's either a value the rules engine actually got
+    right on its own, or the corrupted run was never there to begin with
+    (an ordinary merge of two already-correctly-labelled pieces, say) --
+    either way, nothing to touch.
+
+    Deliberately not run through _mutate_node/add_correction: this
+    repairs internal bookkeeping a parsing mistake left behind, not a
+    reviewed change to any of these pieces' actual content, so it
+    shouldn't re-stamp verified_at or add noise to corrections.jsonl."""
+    level = removed_node["type"]
+    removed_number = removed_node.get("number")
+    if level not in _CASCADING_PATH_LEVELS or removed_number is None:
+        return
+    restore_value = target_path.get(level)
+    unit_no = _unit_of_index.get(removed_index)
+    if unit_no is None:
+        return
+    touched_committed = False
+    for i in _units[unit_no]:
+        if i <= removed_index or i in _merged_away:
+            continue
+        path = _current_node(i).get("path") or {}
+        if path.get(level) != removed_number:
+            break
+        _patch_path_level(i, level, restore_value)
+        touched_committed = touched_committed or i in _verified_by_source_index
+    if touched_committed:
+        save_verified(_act, _verified)
+
+
 def _unit_status(unit_no: int) -> str:
     indices = [i for i in _units[unit_no] if i not in _merged_away]
     if not indices:
@@ -442,6 +520,54 @@ def _unit_status(unit_no: int) -> str:
     if any(_verified_by_source_index[i].get("needs_followup") for i in indices):
         return "flagged"
     return "done"
+
+
+def _maybe_mark_unit_complete(unit_no: int) -> None:
+    """If every node in this unit (that wasn't merged away) is now
+    committed, stamps _unit_end_index on the last one -- the same marker
+    a whole-unit Accept/Flag stamps via commit_unit, so _resume_point can
+    trust it exactly the same way regardless of whether this unit was
+    finished by one whole-unit action or by a reviewer individually
+    accepting/flagging each of its pieces one at a time (see
+    accept_node/accept_unit) with the last one landing here."""
+    indices = [i for i in _units[unit_no] if i not in _merged_away]
+    if indices and all(_is_committed(i) for i in indices):
+        _verified_by_source_index[indices[-1]]["_unit_end_index"] = unit_no
+
+
+def _accept_node(i: int, flagged: bool) -> dict:
+    """Commits node i's current state (a pending edit if any, else the
+    original parse) as individually reviewed -- the same per-node
+    stamping commit_unit's own loop does, just for one piece at a time so
+    a reviewer isn't forced to accept/flag a whole Section's worth of
+    Subsections in one all-or-nothing action. Safe to call again on an
+    already-committed node (e.g. flagging it after having accepted it, or
+    vice versa): updates its verification status in place rather than
+    appending a duplicate entry to `verified`."""
+    original = _nodes[i]
+    node = dict(_current_node(i))
+    if flagged:
+        node["needs_followup"] = True
+        node.pop("verified_at", None)
+    else:
+        node["verified_at"] = _now_iso()
+        node.pop("needs_followup", None)
+    node["_source_node_index"] = i
+
+    if _is_committed(i):
+        target = _verified_by_source_index[i]
+        target.clear()
+        target.update(node)
+    else:
+        _verified.append(node)
+        _verified_by_source_index[i] = node
+    _pending_edits.pop(i, None)
+
+    changed = any(node.get(k) != original.get(k) for k in ("type", "number", "heading", "text"))
+    add_correction(_act, ai_output=original, human_output=node, changed=changed)
+    _maybe_mark_unit_complete(_unit_of_index[i])
+    save_verified(_act, _verified)
+    return node
 
 
 def _links_by_node(act: str) -> dict[int, list[dict]]:
@@ -490,6 +616,10 @@ def _unit_payload(unit_no: int) -> dict:
         "status": _unit_status(unit_no),
         "root_type": _nodes[_units[unit_no][0]]["type"],
         "pieces": [_build_piece(i, lbl, n, links_by_node) for i, n, lbl in zip(indices, unit_nodes, labels)],
+        # Only known within this same server session -- a merge doesn't
+        # persist "where did this go" anywhere reconstructible from disk,
+        # so this is None (not an error) after a restart. See merge_endpoint.
+        "merged_into_unit": _merged_into_unit.get(unit_no) if not indices else None,
     }
 
 
@@ -557,6 +687,7 @@ def get_meta():
         "unattached_notes": len(_unattached_notes),
         "units": units_summary,
         "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
+        "act_title": _act_title,
     }
 
 
@@ -686,21 +817,53 @@ def merge_endpoint(req: MergeRequest):
         (_current_node(j).get("text") or "").strip() for j in sorted(sources) if (_current_node(j).get("text") or "").strip()
     )
     _append_text_to_node(target, combined)
+    target_path = _current_node(target).get("path") or {}
     for j in sources:
+        # _nodes[j], not _current_node(j): the corruption pattern this
+        # looks for was set by whatever the rule parser originally opened
+        # j as, not whatever j's type/number may since have been edited
+        # to -- see _repair_cascaded_path.
+        _repair_cascaded_path(j, _nodes[j], target_path)
         _merged_away.add(j)
         _pending_edits.pop(j, None)
 
     target_unit_no = _unit_of_index.get(target)
-    if target_unit_no != source_unit_no and _is_committed(target) and all(j in _merged_away for j in _units[source_unit_no]):
-        # Every node in the source unit is now gone and the destination
-        # lives in a different, already-committed unit -- nothing left
-        # here for a later Accept to ever tag with _unit_end_index, so
-        # tag the destination instead (_resume_point only ever needs the
-        # *highest* tagged index, so marking this now-fully-handled unit
-        # here is exactly as good as tagging one of its own nodes).
-        _verified_by_source_index[target]["_unit_end_index"] = source_unit_no
-        save_verified(_act, _verified)
+    source_unit_emptied = all(j in _merged_away for j in _units[source_unit_no])
+    if target_unit_no != source_unit_no and source_unit_emptied:
+        # So the source unit's own (now pieceless) view can point a
+        # reviewer at where its content actually went instead of just
+        # reading "(empty -- fully merged away)" -- see _unit_payload.
+        _merged_into_unit[source_unit_no] = target_unit_no
+        if _is_committed(target):
+            # Every node in the source unit is now gone and the
+            # destination lives in a different, already-committed unit --
+            # nothing left here for a later Accept to ever tag with
+            # _unit_end_index, so tag the destination instead
+            # (_resume_point only ever needs the *highest* tagged index,
+            # so marking this now-fully-handled unit here is exactly as
+            # good as tagging one of its own nodes).
+            _verified_by_source_index[target]["_unit_end_index"] = source_unit_no
+            save_verified(_act, _verified)
     return {"ok": True}
+
+
+@app.post("/api/nodes/{node_index}/accept")
+def accept_node(node_index: int, req: AcceptRequest):
+    """Accepts or flags exactly one piece, independent of the rest of its
+    unit -- unlike /api/units/{unit_no}/accept, this never requires the
+    whole unit to be ready at once. A unit's own status (and its sidebar
+    dot) still only turns done/flagged once *every* one of its pieces has
+    been decided one way or another, whether that happened here one at a
+    time or via that whole-unit endpoint; see _unit_status."""
+    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    node = _accept_node(node_index, req.flagged)
+    return {
+        "node_index": node_index,
+        "verified_at": node.get("verified_at"),
+        "needs_followup": bool(node.get("needs_followup")),
+        "unit_status": _unit_status(_unit_of_index[node_index]),
+    }
 
 
 @app.post("/api/units/{unit_no}/accept")
@@ -710,7 +873,11 @@ def accept_unit(unit_no: int, req: AcceptRequest):
     if _unit_status(unit_no) != "pending":
         raise HTTPException(400, "This unit has already been reviewed -- edit its pieces directly instead.")
 
-    indices = [i for i in _units[unit_no] if i not in _merged_away]
+    # Skip whatever's already been individually accepted/flagged via
+    # accept_node above -- this is "accept everything still outstanding
+    # in this unit", not "redo the whole unit and overwrite decisions
+    # already made piece by piece".
+    indices = [i for i in _units[unit_no] if i not in _merged_away and not _is_committed(i)]
     if indices:
         unit_orig = [_nodes[i] for i in indices]
         unit_nodes = [_current_node(i) for i in indices]
@@ -751,7 +918,8 @@ def remove_link(link_id: str):
 
 def main():
     global _act, _nodes, _units, _unit_of_index, _verified, _definition_index
-    global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit, _source_pdf_path
+    global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
+    global _source_pdf_path, _act_title
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("act")
@@ -762,6 +930,14 @@ def main():
     _act = args.act
     _nodes, _unattached_notes, _hierarchy = load_parsed(args.act)
     _source_pdf_path = load_source_pdf_path(args.act)
+    # Computed once here, not per-request: _detect_act_citation re-reads
+    # and re-extracts the *whole* source PDF via PyMuPDF just to find the
+    # title on its first couple of pages (see dashboard.py's own
+    # _act_title_cache, added after that exact cost showed up per page
+    # view there -- one Act per process here, so once at startup is enough).
+    from ai_pipeline.akn_export import _detect_act_citation
+
+    _act_title = _detect_act_citation(_source_pdf_path).get("title") or args.act
     _units = group_into_units(_nodes)
     for u, indices in enumerate(_units):
         for i in indices:
