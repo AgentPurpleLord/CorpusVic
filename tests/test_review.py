@@ -4,9 +4,13 @@ FastAPI endpoints themselves (edit/split/merge/accept, all thin wrappers
 around this same logic plus in-memory server state) are deliberately not
 covered here -- they were exercised end to end against real parsed Act
 data and a real browser session instead (see the module docstring)."""
+import json
+from pathlib import Path
+
 from review import (
     _now_iso,
     _resume_point,
+    build_current_nodes,
     commit_unit,
     compute_unit_labels,
     group_into_units,
@@ -14,6 +18,18 @@ from review import (
 )
 
 from conftest import make_node
+
+
+def _write_parsed(act: str, nodes: list[dict]) -> None:
+    path = Path("data/ai_parsed") / f"{act}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"nodes": nodes, "unattached_notes": [], "hierarchy": []}), encoding="utf-8")
+
+
+def _write_verified(act: str, verified: list[dict]) -> None:
+    path = Path("data/verified") / f"{act}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(verified), encoding="utf-8")
 
 
 def test_group_into_units_covers_every_node_exactly_once():
@@ -181,3 +197,44 @@ def test_reflow_with_map_preserves_multiple_internal_spaces():
     exactly as it is."""
     reflowed, _ = reflow_with_map("some  text")
     assert reflowed == "some  text"
+
+
+def test_build_current_nodes_falls_back_to_the_original_parse_when_nothing_is_verified_yet(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    _write_parsed("crimes-act", nodes)
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n["heading"] for n in current] == ["Murder", "Manslaughter"]
+    assert all("verified_at" not in n for n in current)
+
+
+def test_build_current_nodes_uses_the_edited_version_of_a_committed_unit(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    _write_parsed("crimes-act", nodes)
+    edited = dict(nodes[0], heading="Murder (as edited)", verified_at="2024-01-01T00:00:00+00:00", _source_node_index=0, _unit_end_index=0)
+    _write_verified("crimes-act", [edited])
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert current[0]["heading"] == "Murder (as edited)"
+    assert current[1]["heading"] == "Manslaughter"  # not yet reached -- shown as originally parsed
+
+
+def test_build_current_nodes_drops_a_node_that_was_merged_away(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    section = make_node("section", "1", "Murder")
+    subsection = make_node("subsection", "1", None, "text merged into the section")
+    _write_parsed("crimes-act", [section, subsection])
+    # Simulate review.py's merge endpoint: only the target (index 0) made
+    # it into `verified`, tagged as the end of unit 0 -- index 1 (the
+    # subsection folded into it) never gets its own verified entry.
+    merged_target = dict(section, text="Murder, including: text merged into the section", verified_at="2024-01-01T00:00:00+00:00", _source_node_index=0, _unit_end_index=0)
+    _write_verified("crimes-act", [merged_target])
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert len(current) == 1
+    assert current[0]["text"] == "Murder, including: text merged into the section"

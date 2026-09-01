@@ -117,6 +117,39 @@ def load_diagnostics(act: str) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
+    """The same "verified where committed, original parser output
+    otherwise" merge the live review server keeps in memory via
+    _current_node/_verified_by_source_index/_merged_away (see main()'s own
+    reconstruction of that state at startup) -- but as a pure, one-shot
+    read straight off disk, for a read-only consumer that has no reason to
+    hold a whole server process open just to see the Act's current state.
+    Used by the live HTML browsing view (ai_pipeline/html_view.py) so a
+    reviewer's in-progress edits show up immediately, without waiting for
+    an export step; akn_export.py/markdown_export.py could use this too
+    instead of their own all-or-nothing verified-vs-ai_parsed choice, but
+    that's a separate change from introducing it here.
+
+    Returns (nodes, unattached_notes, hierarchy) in the same shape as
+    load_parsed, with merged-away nodes simply absent, so any consumer
+    that already builds a hierarchy tree from load_parsed's output works
+    unchanged against this instead."""
+    nodes, unattached_notes, hierarchy = load_parsed(act)
+    units = group_into_units(nodes)
+    verified = load_verified(act)
+    verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
+    resume_unit = _resume_point(units, list(verified))
+
+    merged_away: set[int] = set()
+    for u in range(resume_unit):
+        for i in units[u]:
+            if i not in verified_by_source_index:
+                merged_away.add(i)
+
+    current_nodes = [verified_by_source_index.get(i, node) for i, node in enumerate(nodes) if i not in merged_away]
+    return current_nodes, unattached_notes, hierarchy
+
+
 _WRAP_RE = re.compile(r"\s*\n\s*")
 
 

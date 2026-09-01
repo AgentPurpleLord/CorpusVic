@@ -269,6 +269,9 @@ function actCardHtml(s) {
   const reviewBtn = s.parsed
     ? `<a class="btn small" href="/review/${s.slug}/" target="_blank">Review</a>`
     : `<button class="btn small" disabled title="Parse it first">Review</button>`;
+  const browseBtn = s.parsed
+    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this Act reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
+    : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
   const dlAkn = s.akn_exported
     ? `<a class="btn small" href="/api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
   const dlMd = s.markdown_exported
@@ -285,6 +288,7 @@ function actCardHtml(s) {
       </div>
       <div class="actions">
         ${reviewBtn}
+        ${browseBtn}
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
         ${dlAkn}

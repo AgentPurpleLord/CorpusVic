@@ -68,8 +68,9 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
+from ai_pipeline import html_view
 from ai_pipeline.extract import slugify
-from review import _resume_point, group_into_units
+from review import _resume_point, build_current_nodes, group_into_units
 
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
@@ -516,6 +517,7 @@ async def new_act(
     dest = acts_dir / Path(pdf.filename).name  # .name strips any directory components
     dest.write_bytes(await pdf.read())
     slug = slugify(dest.stem)
+    _act_title_cache.pop(slug, None)  # a re-upload under this slug may have a different title
 
     if kind == "em":
         cmd = [sys.executable, "run_em_pipeline.py", str(dest)]
@@ -585,6 +587,80 @@ def bill_link(bill_slug: str = Form(...), act_slug: str = Form(...), em_slug: st
         cmd += ["--em", em_slug.strip()]
     result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=300)
     return {"ok": result.returncode == 0, "log": result.stdout + result.stderr}
+
+
+_act_title_cache: dict[str, str] = {}
+
+
+def _act_title(slug: str) -> str:
+    """_detect_act_citation re-extracts the *whole* source PDF (every
+    page, via PyMuPDF) just to read the title off its first couple of
+    pages -- fine as a one-off in export_akn.py/export_markdown.py, but
+    browse_index/browse_section call this on every single page view, so
+    without caching, a 500-page Act would re-run full PDF extraction on
+    every click. Cached for this process's lifetime; new_act() clears a
+    slug's entry after (re-)parsing it so a changed source PDF is picked
+    up on the next browse request rather than staying stale forever."""
+    if slug in _act_title_cache:
+        return _act_title_cache[slug]
+
+    from ai_pipeline.akn_export import _detect_act_citation
+
+    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    source = None
+    if parsed_path.exists():
+        try:
+            source = json.loads(parsed_path.read_text(encoding="utf-8")).get("source")
+        except (OSError, ValueError):
+            pass
+    title = _detect_act_citation(source).get("title") or slug
+    _act_title_cache[slug] = title
+    return title
+
+
+def _preview_bar(slug: str) -> str:
+    return (
+        '<div class="previewbar">'
+        f"Live preview of {slug} &mdash; reflects your saved review progress, not just what's fully reviewed &middot; "
+        f'<a href="/">Dashboard</a> &middot; <a href="/review/{slug}/">Review</a>'
+        "</div>"
+    )
+
+
+@app.get("/browse/{slug}")
+def browse_redirect(slug: str):
+    _validate_slug(slug)
+    return RedirectResponse(f"/browse/{slug}/")
+
+
+@app.get("/browse/{slug}/", response_class=HTMLResponse)
+def browse_index(slug: str):
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    nodes, _unattached, hierarchy = build_current_nodes(slug)
+    title = _act_title(slug)
+    body = html_view.render_index({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}")
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug)))
+
+
+@app.get("/browse/{slug}/section/{section_slug}", response_class=HTMLResponse)
+def browse_section(slug: str, section_slug: str):
+    # section_slug isn't an act slug -- it comes from assign_filenames'
+    # per-Section ids (e.g. "s12", "s12_2" for a disambiguated repeat),
+    # which can contain underscores that _validate_slug's pattern rejects.
+    # It never touches the filesystem: html_view.render_section only
+    # compares it in-memory against computed section ids and returns None
+    # (-> 404) for anything that doesn't match a real one.
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    nodes, _unattached, hierarchy = build_current_nodes(slug)
+    title = _act_title(slug)
+    body = html_view.render_section({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug)
+    if body is None:
+        raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug)))
 
 
 @app.get("/review/{slug}")
