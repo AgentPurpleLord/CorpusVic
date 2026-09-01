@@ -380,7 +380,7 @@ function toast(msg, isError) {
 // ---------------------------------------------------------------------
 
 async function loadMeta() {
-  META = await api("/api/meta");
+  META = await api("api/meta");
   document.getElementById("act-title").textContent = `Review — ${META.act}`;
   document.getElementById("corrections-stat").textContent =
     `Corrections logged: ${META.corrections.total} (${META.corrections.changed} changed)`;
@@ -451,7 +451,7 @@ document.getElementById("resume-dismiss").onclick = () => {
 // ---------------------------------------------------------------------
 
 async function loadUnit(n) {
-  currentUnit = await api(`/api/units/${n}`);
+  currentUnit = await api(`api/units/${n}`);
   currentUnitNo = n;
   location.hash = `unit=${n}`;
   document.getElementById("empty-state").style.display = "none";
@@ -556,14 +556,14 @@ document.getElementById("next-btn").onclick = () => currentUnitNo < META.unit_co
 
 document.getElementById("accept-btn").onclick = async () => {
   try {
-    await api(`/api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: false }) });
+    await api(`api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: false }) });
     toast("Accepted.");
     await afterMutation();
   } catch (e) { toast(e.message, true); }
 };
 document.getElementById("flag-btn").onclick = async () => {
   try {
-    await api(`/api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: true }) });
+    await api(`api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: true }) });
     toast("Flagged for follow-up.");
     await afterMutation();
   } catch (e) { toast(e.message, true); }
@@ -589,7 +589,7 @@ function openEditModal(nodeIndex) {
   document.getElementById("edit-overlay").hidden = false;
   document.getElementById("edit-save").onclick = async () => {
     try {
-      await api(`/api/nodes/${nodeIndex}/edit`, {
+      await api(`api/nodes/${nodeIndex}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -640,7 +640,7 @@ async function renderPickerList(excludeNodeIndex, query) {
     list.appendChild(row);
   }
   if (query || query === "") {
-    const recent = await api(`/api/verified/recent?limit=8&q=${encodeURIComponent(query)}`);
+    const recent = await api(`api/verified/recent?limit=8&q=${encodeURIComponent(query)}`);
     for (const v of recent) {
       if (v.node_index === excludeNodeIndex) continue;
       const label = `${v.type.toUpperCase()} ${v.number || ""}`.trim();
@@ -695,7 +695,7 @@ function openMergeSourcesModal(targetIndex) {
   document.getElementById("merge-confirm").onclick = async () => {
     if (!selected.size) { toast("Pick at least one piece to merge.", true); return; }
     try {
-      await api("/api/merge", {
+      await api("api/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target_node_index: targetIndex, source_node_indices: [...selected] }),
@@ -744,7 +744,7 @@ function showSelectionMenu(x, y, nodeIndex, startR, endR, preview) {
       const piece = currentUnit.pieces.find((p) => p.node_index === nodeIndex);
       const start = piece.offset_map[startR], end = piece.offset_map[endR];
       try {
-        await api("/api/links", {
+        await api("api/links", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ node_index: nodeIndex, start, end, label }),
         });
@@ -780,7 +780,7 @@ function showRemoveMenu(x, y, linkId) {
   btn.onclick = async () => {
     hideMenu();
     try {
-      await api(`/api/links/${linkId}`, { method: "DELETE" });
+      await api(`api/links/${linkId}`, { method: "DELETE" });
       await loadUnit(currentUnitNo);
     } catch (e) { toast(e.message, true); }
   };
@@ -793,7 +793,7 @@ function startSplit(nodeIndex, splitAtReflowed) {
   window._pickerExclude = nodeIndex;
   openPicker("Reassign the tail to:", nodeIndex, async (targetIndex) => {
     try {
-      await api("/api/split", {
+      await api("api/split", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ node_index: nodeIndex, split_at_reflowed: splitAtReflowed, target_node_index: targetIndex }),
       });
