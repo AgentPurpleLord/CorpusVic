@@ -1,0 +1,125 @@
+# Deploying the dashboard to a VPS, with HTTPS
+
+This runs `dashboard.py` as a systemd service bound to `127.0.0.1` only,
+with [Caddy](https://caddyserver.com/) as the internet-facing reverse
+proxy in front of it. Caddy gets you real, auto-renewing HTTPS (via
+Let's Encrypt) for free with essentially no TLS configuration of your
+own, and the dashboard process itself never listens on a public
+interface directly -- only Caddy does.
+
+Written for Ubuntu/Debian. Adjust package-manager commands for another
+distro; the systemd unit and Caddy config are distro-agnostic.
+
+Prerequisite: a domain (or subdomain) with its DNS **A** record pointed
+at this server's public IP. Let's Encrypt needs that to issue a
+certificate, and it needs to already be resolving before you start Caddy.
+
+## 1. Get the code onto the server
+
+```bash
+sudo mkdir -p /opt/vic-legislation-parser
+sudo git clone <your-repo-url> /opt/vic-legislation-parser
+cd /opt/vic-legislation-parser
+```
+
+(Or `git pull` there if it's already cloned.)
+
+## 2. Python environment
+
+```bash
+sudo apt update
+sudo apt install -y python3-venv
+cd /opt/vic-legislation-parser
+sudo python3 -m venv .venv
+sudo .venv/bin/pip install -r requirements-gui.txt
+```
+
+## 3. A dedicated, unprivileged user to run it as
+
+```bash
+sudo useradd --system --home /opt/vic-legislation-parser --shell /usr/sbin/nologin dashboard
+sudo chown -R dashboard:dashboard /opt/vic-legislation-parser
+```
+
+## 4. Credentials (optional -- skip this to use the forced first-login change)
+
+```bash
+sudo cp deploy/dashboard.env.example deploy/dashboard.env
+sudo nano deploy/dashboard.env   # fill in DASHBOARD_USERNAME / DASHBOARD_PASSWORD, or leave blank
+sudo chmod 600 deploy/dashboard.env
+sudo chown dashboard:dashboard deploy/dashboard.env
+```
+
+If you skip this step entirely, the dashboard starts on its built-in
+placeholder login and forces a password change on first login instead --
+see `dashboard.py`'s module docstring. Either way, whatever password ends
+up in effect is never stored in this repo.
+
+## 5. systemd service
+
+```bash
+sudo cp deploy/dashboard.service /etc/systemd/system/dashboard.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now dashboard
+sudo systemctl status dashboard   # confirm it's "active (running)"
+```
+
+`journalctl -u dashboard -f` tails its logs.
+
+## 6. Caddy (reverse proxy + automatic HTTPS)
+
+These are Caddy's own official apt-repo install commands as of this
+writing; if they've changed, https://caddyserver.com/docs/install has
+the current version -- I couldn't reach that page live to double-check
+it from this session, so treat this block as "very likely still
+correct" rather than freshly verified:
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install -y caddy
+```
+
+Edit `/etc/caddy/Caddyfile` (see `deploy/Caddyfile.example` in this repo
+for the two-line contents) to point at your actual domain, then:
+
+```bash
+sudo systemctl reload caddy
+```
+
+## 7. Firewall
+
+Only 80 (ACME challenge + HTTP->HTTPS redirect, which Caddy does
+automatically) and 443 (HTTPS) need to be open to the internet. Port 8000
+(the dashboard itself) should stay loopback-only -- it already is,
+because of `--host 127.0.0.1` in the systemd unit; just don't also open
+it in the firewall.
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow OpenSSH   # don't lock yourself out over SSH
+sudo ufw enable
+```
+
+## 8. Verify
+
+Visit `https://your-domain.example.com/` from any browser. You should
+land on the login page over a valid HTTPS connection. Log in with
+whatever credentials you set in step 4 (or the placeholder, which then
+forces you to set a real one immediately).
+
+## Updating later
+
+```bash
+cd /opt/vic-legislation-parser
+sudo git pull
+sudo .venv/bin/pip install -r requirements-gui.txt   # in case dependencies changed
+sudo systemctl restart dashboard
+```
+
+Restarting the service does not lose review progress or the login
+credential you've set -- both live in `data/` and `.dashboard_auth.json`
+respectively, neither of which this restarts touches.
