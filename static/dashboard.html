@@ -122,6 +122,7 @@
   <div class="spacer"></div>
   <button class="btn" onclick="loadActs()">Refresh</button>
   <button class="btn primary" onclick="openModal('add-modal')">+ Add Act / Bill / EM</button>
+  <button class="btn" onclick="logout()">Log out</button>
 </header>
 
 <main>
@@ -226,6 +227,11 @@
 <script>
 function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  location.href = "/login";
+}
 
 function toast(msg, isError) {
   const el = document.getElementById("toast");
