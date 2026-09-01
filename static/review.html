@@ -118,6 +118,32 @@
   #main-inner { max-width: 880px; margin: 0 auto; padding: 20px 20px 100px; }
   #empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
 
+  /* Source-PDF panel -- three modes cycled by #pdf-toggle-btn: "text"
+     (panel hidden, #main full width -- the default, unchanged layout),
+     "split" (both visible, each getting an equal flex share), "pdf"
+     (#main hidden, panel full width). Toggled via body[data-view-mode]
+     rather than JS-set inline styles so both states are one CSS rule
+     each. */
+  #pdf-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    border-left: 1px solid var(--border);
+    background: #52565c;
+  }
+  body[data-view-mode="split"] #pdf-panel, body[data-view-mode="pdf"] #pdf-panel { display: flex; }
+  body[data-view-mode="pdf"] #main { display: none; }
+  #pdf-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 12px; background: #374151; color: #e5e7eb; font-size: 12.5px; flex-shrink: 0;
+  }
+  #pdf-toolbar button { background: #1f2937; color: #e5e7eb; border-color: #4b5563; }
+  #pdf-toolbar button:hover { background: #111827; }
+  #pdf-image-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
+  #pdf-image { max-width: 100%; height: auto; box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white; }
+  .page-jump-btn { font-size: 10.5px !important; padding: 2px 6px !important; }
+
   #unit-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
   #unit-header h2 { font-size: 18px; margin: 0; }
   #unit-header .status-badge {
@@ -246,6 +272,7 @@
   <h1 id="act-title">Review</h1>
   <span class="stat" id="corrections-stat"></span>
   <span class="stat" id="unattached-stat"></span>
+  <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
   <div class="spacer"></div>
   <span class="stat">Legend:</span>
   <span class="stat"><mark class="label-act_citation">&nbsp;</mark> Act citation</span>
@@ -285,6 +312,17 @@
         <button class="btn" id="flag-btn">Flag for follow-up</button>
       </div>
       <div id="empty-state">Loading&hellip;</div>
+    </div>
+  </div>
+
+  <div id="pdf-panel">
+    <div id="pdf-toolbar">
+      <button class="btn small" id="pdf-prev">&larr;</button>
+      <span id="pdf-page-label">No page</span>
+      <button class="btn small" id="pdf-next">&rarr;</button>
+    </div>
+    <div id="pdf-image-wrap">
+      <img id="pdf-image" alt="Source PDF page">
     </div>
   </div>
 </div>
@@ -376,6 +414,62 @@ function toast(msg, isError) {
 }
 
 // ---------------------------------------------------------------------
+// Source PDF panel -- three view modes cycled by #pdf-toggle-btn: "text"
+// (the default -- panel hidden, unchanged layout), "split" (piece text
+// and the PDF page side by side), "pdf" (PDF only, full width). Only
+// shown at all when META.has_source_pdf is true (see loadMeta). Purely a
+// read-only check against the real page -- nothing here feeds back into
+// the parse.
+// ---------------------------------------------------------------------
+const VIEW_MODES = ["text", "split", "pdf"];
+const VIEW_MODE_LABELS = { text: "Show PDF", split: "PDF: Split view", pdf: "PDF: Full view" };
+let viewMode = localStorage.getItem("reviewViewMode") || "text";
+let currentPageNo = null;
+
+function applyViewMode() {
+  document.body.dataset.viewMode = viewMode;
+  document.getElementById("pdf-toggle-btn").textContent = VIEW_MODE_LABELS[viewMode];
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  localStorage.setItem("reviewViewMode", viewMode);
+  applyViewMode();
+}
+
+function cycleViewMode() {
+  setViewMode(VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length]);
+  if (viewMode !== "text" && currentPageNo == null && currentUnit && currentUnit.pieces[0]) {
+    loadPdfPage(currentUnit.pieces[0].page_start);
+  }
+}
+
+function loadPdfPage(pageNo) {
+  if (!pageNo) return;
+  // Probe with a throwaway Image first so a bad page number (past the
+  // end of the PDF, most likely from the "Next" button) leaves the
+  // panel showing the last good page instead of a broken image.
+  const probe = new Image();
+  probe.onload = () => {
+    currentPageNo = pageNo;
+    document.getElementById("pdf-image").src = probe.src;
+    document.getElementById("pdf-page-label").textContent = `Page ${pageNo}`;
+  };
+  probe.onerror = () => toast(`No page ${pageNo} in this Act's source PDF`, true);
+  probe.src = `api/pages/${pageNo}.png`;
+}
+
+function jumpToPiecePage(pageNo) {
+  if (viewMode === "text") setViewMode("split");
+  loadPdfPage(pageNo);
+}
+
+document.getElementById("pdf-toggle-btn").onclick = cycleViewMode;
+document.getElementById("pdf-prev").onclick = () => currentPageNo > 1 && loadPdfPage(currentPageNo - 1);
+document.getElementById("pdf-next").onclick = () => loadPdfPage((currentPageNo || 0) + 1);
+applyViewMode();
+
+// ---------------------------------------------------------------------
 // Meta / sidebar
 // ---------------------------------------------------------------------
 
@@ -386,6 +480,7 @@ async function loadMeta() {
     `Corrections logged: ${META.corrections.total} (${META.corrections.changed} changed)`;
   document.getElementById("unattached-stat").textContent =
     META.unattached_notes ? `${META.unattached_notes} note(s) unlinked` : "";
+  document.getElementById("pdf-toggle-btn").style.display = META.has_source_pdf ? "" : "none";
   renderSidebar();
 
   const banner = document.getElementById("resume-banner");
@@ -458,6 +553,7 @@ async function loadUnit(n) {
   document.getElementById("unit-header").style.display = "flex";
   renderUnit();
   renderSidebar();
+  if (viewMode !== "text" && currentUnit.pieces[0]) loadPdfPage(currentUnit.pieces[0].page_start);
   // Status of the unit we just left/entered may have changed; keep the
   // sidebar's own copy fresh without a full meta reload on every click.
   if (META) {
@@ -528,11 +624,15 @@ function renderUnit() {
     const verifiedHtml = piece.verified_at
       ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>`
       : piece.needs_followup ? `<div class="piece-verified">&#9873; Flagged for follow-up</div>` : "";
+    const pageJumpHtml = META.has_source_pdf && piece.page_start
+      ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
+      : "";
     div.innerHTML = `
       <div class="piece-top">
         <span class="piece-label">${escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
         <span class="piece-type">${escapeHtml(piece.type)}</span>
         <div class="piece-toolbar">
+          ${pageJumpHtml}
           <button class="btn small edit-piece-btn">Edit</button>
         </div>
       </div>
@@ -542,6 +642,8 @@ function renderUnit() {
       ${verifiedHtml}
     `;
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
+    const jumpBtn = div.querySelector(".page-jump-btn");
+    if (jumpBtn) jumpBtn.onclick = () => jumpToPiecePage(piece.page_start);
     container.appendChild(div);
   });
 

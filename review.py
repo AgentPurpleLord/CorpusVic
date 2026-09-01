@@ -56,6 +56,16 @@ Labelled link spans are saved to data/links/<act>.json the moment
 they're labelled -- independent of structural review above, since
 annotating a span doesn't require (or imply) that its node has passed
 review, and structural review doesn't need to know these exist.
+
+A "Show source PDF" toggle in the header renders the actual source page
+each piece came from (page_start on the piece, GET /api/pages/{n}.png --
+a plain PyMuPDF rasterisation of that page, cached in memory) alongside
+or in place of the parsed text, three view modes cycled by the one
+button: text only, side-by-side split, PDF only. This is read-only --
+purely a check against the real page, nothing here feeds back into the
+parse -- available only when data/ai_parsed/<act>.json still has the
+source PDF at the path it was parsed from (see load_source_pdf_path);
+missing entirely otherwise rather than a toggle that always errors.
 """
 import argparse
 import bisect
@@ -64,8 +74,9 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+import fitz
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from ai_pipeline.examples_store import add_correction, stats
@@ -115,6 +126,20 @@ def load_diagnostics(act: str) -> list[dict]:
     if not path.exists():
         return []
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_source_pdf_path(act: str) -> str | None:
+    """The source PDF path run_pipeline.py/run_em_pipeline.py stamped into
+    data/ai_parsed/<act>.json (relative to the repo root, since that's
+    where those scripts are run from) -- used to show the actual page a
+    piece came from during review (see the /api/pages/{page_no}.png
+    endpoint). None if this Act's parsed output predates that field, or
+    the PDF has since moved/been deleted -- the page-image endpoint 404s
+    in that case rather than the server failing to start."""
+    path = Path("data/ai_parsed") / f"{act}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8")).get("source")
 
 
 def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
@@ -355,6 +380,10 @@ _unattached_notes: list[dict] = []
 _hierarchy: list[str] = []
 _relabel_types: list[str] = []
 _startup_resume_unit = 0
+_source_pdf_path: str | None = None
+_pdf_doc: "fitz.Document | None" = None
+_page_image_cache: dict[int, bytes] = {}
+_PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible after the browser scales the <img> to fit its panel
 
 
 def _current_node(i: int) -> dict:
@@ -445,6 +474,8 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "links": piece_links,
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),
+        "page_start": node.get("page_start"),
+        "page_end": node.get("page_end"),
     }
 
 
@@ -525,6 +556,7 @@ def get_meta():
         "corrections": stats(),
         "unattached_notes": len(_unattached_notes),
         "units": units_summary,
+        "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
     }
 
 
@@ -533,6 +565,40 @@ def get_unit(unit_no: int):
     if not (0 <= unit_no < len(_units)):
         raise HTTPException(404, "No such unit")
     return _unit_payload(unit_no)
+
+
+def _get_pdf_doc() -> fitz.Document:
+    global _pdf_doc
+    if _pdf_doc is None:
+        if not _source_pdf_path or not Path(_source_pdf_path).exists():
+            raise HTTPException(404, "No source PDF available for this Act")
+        _pdf_doc = fitz.open(_source_pdf_path)
+    return _pdf_doc
+
+
+@app.get("/api/pages/{page_no}.png")
+def get_page_image(page_no: int):
+    """Renders one page of this Act's source PDF as a PNG, so a reviewer
+    can check a piece's text against the real page it came from (see
+    page_start/page_end on each piece from _build_piece) -- side by side
+    with, or in place of, the parsed text. page_no is 1-indexed and refers
+    to the *original* PDF's own page numbering (the same numbers
+    page_start/page_end already use), not the Act-body-only slice
+    run_pipeline.py may have started extraction from. Rendered once per
+    page per server run and cached in memory -- an Act's page count is
+    small enough (typically well under a thousand) that caching every
+    page ever requested costs at most a few tens of MB, far cheaper than
+    re-rendering on every click as a reviewer moves between pieces on the
+    same page."""
+    if page_no in _page_image_cache:
+        return Response(content=_page_image_cache[page_no], media_type="image/png")
+    doc = _get_pdf_doc()
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
+    pixmap = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(_PAGE_RENDER_ZOOM, _PAGE_RENDER_ZOOM))
+    png_bytes = pixmap.tobytes("png")
+    _page_image_cache[page_no] = png_bytes
+    return Response(content=png_bytes, media_type="image/png")
 
 
 @app.get("/api/verified/recent")
@@ -685,7 +751,7 @@ def remove_link(link_id: str):
 
 def main():
     global _act, _nodes, _units, _unit_of_index, _verified, _definition_index
-    global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
+    global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit, _source_pdf_path
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("act")
@@ -695,6 +761,7 @@ def main():
 
     _act = args.act
     _nodes, _unattached_notes, _hierarchy = load_parsed(args.act)
+    _source_pdf_path = load_source_pdf_path(args.act)
     _units = group_into_units(_nodes)
     for u, indices in enumerate(_units):
         for i in indices:
