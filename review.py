@@ -463,7 +463,7 @@ _merged_away: set[int] = set()
 _merged_into_unit: dict[int, int] = {}  # source unit_no -> the unit_no its content ended up in (this session only)
 _definition_index: dict[str, int] = {}
 _findings_by_node: dict[int, list[dict]] = {}
-_unattached_notes: list[dict] = []
+_unattached_notes: list[dict] = []  # startup snapshot, plus anything detach_history_endpoint has since returned to it (this session only)
 _hierarchy: list[str] = []
 _relabel_types: list[str] = []
 _startup_resume_unit = 0
@@ -695,6 +695,39 @@ def _accept_node(i: int, flagged: bool) -> dict:
     return node
 
 
+def _history_key(note: dict) -> tuple:
+    """A history note's stable identity, independent of which node's (or
+    which list's) history it currently sits in: its own page plus its raw
+    citation text, exactly as history_notes.py's collect_page_notes
+    produced it, which never changes across a review session. Used to
+    tell whether a note from the original unattached_notes pool has since
+    been manually linked somewhere, without needing a separate table just
+    to track that -- "does this note's key appear in any node's current
+    history" already answers it directly from state that exists anyway."""
+    return (note.get("page"), note.get("raw"))
+
+
+def _attached_history_keys() -> set[tuple]:
+    keys: set[tuple] = set()
+    for i in range(len(_nodes)):
+        if i in _merged_away:
+            continue
+        for h in _current_node(i).get("history") or []:
+            keys.add(_history_key(h))
+    return keys
+
+
+def _currently_unattached_indices() -> list[int]:
+    """Indices into _unattached_notes that haven't (yet, or any more) been
+    manually linked to a node (see _history_key). detach_history_endpoint
+    only ever *appends* to this list (for a note that started out
+    auto-attached, so it wasn't already in it) and never removes from it,
+    so existing indices stay stable session-long identifiers a reviewer's
+    own attach/move action can reference even as the list grows."""
+    attached = _attached_history_keys()
+    return [i for i, note in enumerate(_unattached_notes) if _history_key(note) not in attached]
+
+
 def _links_by_node(act: str) -> dict[int, list[dict]]:
     by_node: dict[int, list[dict]] = {}
     for link in load_links(act):
@@ -723,6 +756,7 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "offset_map": offset_map,
         "findings": _findings_by_node.get(node_index, []),
         "links": piece_links,
+        "history": node.get("history") or [],
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),
         "page_start": node.get("page_start"),
@@ -789,6 +823,22 @@ class LinkRequest(BaseModel):
     label: str
 
 
+class HistoryAttachRequest(BaseModel):
+    unattached_id: int
+    node_index: int
+
+
+class HistoryMoveRequest(BaseModel):
+    node_index: int
+    history_index: int
+    target_node_index: int
+
+
+class HistoryDetachRequest(BaseModel):
+    node_index: int
+    history_index: int
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "review.html")
@@ -817,7 +867,7 @@ def get_meta():
         "labels": LABELS,
         "node_types": _relabel_types,
         "corrections": stats(),
-        "unattached_notes": len(_unattached_notes),
+        "unattached_notes": len(_currently_unattached_indices()),
         "units": units_summary,
         "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
         "act_title": _act_title,
@@ -891,6 +941,102 @@ def get_recent_verified(limit: int = 8, q: str = ""):
         for v in recent
         if v.get("_source_node_index") is not None and v["_source_node_index"] not in _merged_away
     ]
+
+
+@app.get("/api/history/unattached")
+def get_unattached_history(limit: int = 30, q: str = ""):
+    """Amendment-history margin notes attach_history (ai_pipeline/tree.py)
+    couldn't confidently match to a node at parse time, for the review
+    panel's history sidebar to offer a reviewer as manual-link candidates.
+    Narrowed by a case-insensitive substring of the note's own citation
+    text/section when `q` is given -- the sidebar defaults this to the
+    open unit's own section number, since that's overwhelmingly where a
+    note actually belongs, but leaves it a free search since a note can
+    just as easily cite a Part/Division instead."""
+    pool = [(i, n) for i in _currently_unattached_indices() for n in [_unattached_notes[i]]]
+    if q:
+        needle = q.lower()
+        pool = [
+            (i, n) for i, n in pool
+            if needle in f"{n.get('raw', '')} {n.get('section') or ''} {n.get('division') or ''} {n.get('part') or ''}".lower()
+        ]
+    return [{"id": i, **n} for i, n in pool[:limit]]
+
+
+@app.post("/api/history/attach")
+def attach_history_endpoint(req: HistoryAttachRequest):
+    """Manually links one of the sidebar's unattached notes to a piece --
+    a reviewer confirming what attach_history's own regex-based matching
+    (ai_pipeline/history_notes.py) couldn't work out on its own. Tagged
+    "manual" rather than "high"/"low" (see diagnostics.py's own
+    history-low-confidence check, which only ever flags "low") so it
+    reads, later, as a human's own decision rather than another guess."""
+    if not (0 <= req.unattached_id < len(_unattached_notes)):
+        raise HTTPException(404, "No such note")
+    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    note = dict(_unattached_notes[req.unattached_id])
+    if _history_key(note) in _attached_history_keys():
+        raise HTTPException(400, "This note is already linked to a provision")
+    note["confidence"] = "manual"
+    note["linked_at"] = _now_iso()
+    history = [*(_current_node(req.node_index).get("history") or []), note]
+    _mutate_node(req.node_index, history=history)
+    return {"node_index": req.node_index, "history": _current_node(req.node_index)["history"]}
+
+
+@app.post("/api/history/move")
+def move_history_endpoint(req: HistoryMoveRequest):
+    """Re-targets a note already attached to one piece onto another --
+    covers both correcting a wrong auto-match (move to the right piece)
+    and simply confirming a "low" confidence guess in place
+    (target_node_index == node_index), since both are "a human looked at
+    this and this is where it belongs" and get the same "manual" stamp
+    either way."""
+    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    if not (0 <= req.target_node_index < len(_nodes)) or req.target_node_index in _merged_away:
+        raise HTTPException(404, "No such target node")
+    history = list(_current_node(req.node_index).get("history") or [])
+    if not (0 <= req.history_index < len(history)):
+        raise HTTPException(404, "No such history note on this piece")
+    note = history.pop(req.history_index)
+    note = {**note, "confidence": "manual", "linked_at": _now_iso()}
+    if req.target_node_index == req.node_index:
+        history.append(note)
+        _mutate_node(req.node_index, history=history)
+    else:
+        _mutate_node(req.node_index, history=history)
+        target_history = [*(_current_node(req.target_node_index).get("history") or []), note]
+        _mutate_node(req.target_node_index, history=target_history)
+    return {"node_index": req.node_index, "target_node_index": req.target_node_index}
+
+
+@app.post("/api/history/detach")
+def detach_history_endpoint(req: HistoryDetachRequest):
+    """Removes a wrongly-attached note from a piece entirely, back into
+    the sidebar's unattached pool. If the note started out in that pool
+    (it was a manual link, or a move/confirm of one), it's already back
+    there the moment it's gone from every node's history -- see
+    _currently_unattached_indices, which derives "unattached" from
+    absence rather than tracking it as its own flag. But a note that
+    arrived here via attach_history's own auto-matching (a "high"/"low"
+    confidence note straight from parsing) was *never* in that pool, so
+    without this it would just vanish from the review entirely on
+    detach -- a real historical citation silently dropped, which is
+    exactly what diagnostics.py's own module docstring says this tool
+    never does. Appending it here, once, keeps it discoverable and
+    re-attachable instead."""
+    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    history = list(_current_node(req.node_index).get("history") or [])
+    if not (0 <= req.history_index < len(history)):
+        raise HTTPException(404, "No such history note on this piece")
+    note = history.pop(req.history_index)
+    _mutate_node(req.node_index, history=history)
+    if _history_key(note) not in {_history_key(n) for n in _unattached_notes}:
+        _unattached_notes.append(note)
+    return {"node_index": req.node_index, "history": history}
 
 
 @app.post("/api/nodes/{node_index}/edit")
