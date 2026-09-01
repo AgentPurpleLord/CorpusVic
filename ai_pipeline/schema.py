@@ -1,11 +1,12 @@
 """JSON schema for the AI's structural parse of a chunk of Act text."""
 
-# The structural container types the AI backend may emit, plus the three
-# non-hierarchy node types (heading_group / definition / note). "chapter"
-# is the optional top level some Acts use above Part (see hierarchy.py); an
-# Act that defines further custom levels in its profile adds them on top of
-# this list at review time, not here -- this list is the AI schema's fixed
-# enum and review.py's baseline set of relabel choices.
+# The structural container types the AI backend may emit, plus the
+# non-hierarchy node types (heading_group / definition / note / repealed).
+# "chapter" is the optional top level some Acts use above Part (see
+# hierarchy.py); an Act that defines further custom levels in its profile
+# adds them on top of this list at review time, not here -- this list is
+# the AI schema's fixed enum and review.py's baseline set of relabel
+# choices.
 NODE_TYPES = [
     "chapter",
     "part",
@@ -19,6 +20,7 @@ NODE_TYPES = [
     "subparagraph",
     "definition",
     "note",
+    "repealed",
     "em_entry",
 ]
 

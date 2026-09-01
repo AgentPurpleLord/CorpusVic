@@ -92,7 +92,7 @@ from pydantic import BaseModel
 
 from ai_pipeline import db
 from ai_pipeline.examples_store import add_correction, stats
-from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES
+from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, make_ranks
 from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from ai_pipeline.link_targets import build_definition_index, resolve_link
 from ai_pipeline.schema import NODE_TYPES
@@ -261,6 +261,40 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
     return units
 
 
+def compute_unit_tree_info(unit_root_types: list[str], hierarchy_order: list[str]) -> list[dict]:
+    """depth (0 = top-level) and parent_unit_no (None for top-level) for
+    every review unit, computed from just its own root node's type, in
+    the same open/close-stack style build_hierarchy_tree uses for
+    individual nodes -- one level per *unit* here instead of per node,
+    since a unit's own root is always exactly one of the boundary types
+    that stack already understands (chapter/part/division/subdivision/
+    section/clause) or a heading_group. Powers the sidebar's collapsible
+    tree view: a Part collapses every unit nested under it, transitively,
+    by parent_unit_no chaining up to it.
+
+    heading_group is the one boundary type with no rank of its own (a
+    bare topical heading, not a real container) -- it doesn't push
+    anything onto the stack, so it nests at whatever depth the stack is
+    currently at (the same depth a Section would have there), and a unit
+    can still be *its* child if the next real container hasn't opened
+    yet."""
+    rank = make_ranks(hierarchy_order)
+    stack: list[tuple[int, int]] = []  # (rank, unit_no), shallowest last-popped first
+    info = []
+    for unit_no, root_type in enumerate(unit_root_types):
+        if root_type == "heading_group":
+            parent = stack[-1][1] if stack else None
+            info.append({"depth": len(stack), "parent_unit_no": parent})
+            continue
+        r = rank.get(root_type, len(hierarchy_order))
+        while stack and stack[-1][0] >= r:
+            stack.pop()
+        parent = stack[-1][1] if stack else None
+        info.append({"depth": len(stack), "parent_unit_no": parent})
+        stack.append((r, unit_no))
+    return info
+
+
 def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
     """Which unit to resume at. commit_unit tags the last node it appends
     for a unit with that unit's own index (`_unit_end_index`); when any
@@ -311,14 +345,26 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     to. These get a running per-type counter instead. A final
     de-duplication pass guards against a genuine collision anyway (e.g. a
     mis-parsed repeated number, or two same-named terms redefined in
-    separate Definitions sections that both landed in one review unit)."""
+    separate Definitions sections that both landed in one review unit).
+
+    A Subsection/Paragraph/Subparagraph nested under a Definition (a
+    Definitions section's own "term means— (a) ...; (b) ...;" lists) has
+    no subsection number to anchor its own chain to -- path["definition"]
+    (see tree.py's annotate_paths) carries the term itself instead, so
+    it's prefixed onto the chain there specifically to disambiguate: a
+    section with a hundred definitions each with their own bare "(a)"
+    list would otherwise show a hundred identical "(a)" labels with no
+    way to tell which definition any of them belongs to."""
     labels = ["SECTION"]
     counters: dict[str, int] = {}
     for node in unit_nodes[1:]:
         if node["type"] in ("subsection", "paragraph", "subparagraph") and node.get("number"):
             path = node.get("path") or {}
             chain = "".join(f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph") if path.get(level))
-            labels.append(chain or f"({node['number']})")
+            chain = chain or f"({node['number']})"
+            if path.get("definition"):
+                chain = f"{path['definition']} {chain}"
+            labels.append(chain)
         elif node["type"] == "definition" and node.get("heading"):
             labels.append(node["heading"])
         else:
@@ -660,6 +706,7 @@ def index():
 
 @app.get("/api/meta")
 def get_meta():
+    tree_info = compute_unit_tree_info([_nodes[indices[0]]["type"] for indices in _units], _hierarchy)
     units_summary = []
     for u, indices in enumerate(_units):
         root = _nodes[indices[0]]
@@ -670,6 +717,8 @@ def get_meta():
             "heading": root.get("heading"),
             "status": _unit_status(u),
             "flagged_pieces": sum(1 for i in indices if i in _findings_by_node),
+            "depth": tree_info[u]["depth"],
+            "parent_unit_no": tree_info[u]["parent_unit_no"],
         })
     return {
         "act": _act,

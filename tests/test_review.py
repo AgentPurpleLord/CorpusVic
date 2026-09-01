@@ -13,6 +13,7 @@ from review import (
     build_current_nodes,
     commit_unit,
     compute_unit_labels,
+    compute_unit_tree_info,
     group_into_units,
     reflow_with_map,
     save_verified,
@@ -53,6 +54,44 @@ def test_group_into_units_covers_every_node_exactly_once():
     assert units[2] == [2]  # division
     assert units[3] == [3, 4, 5, 6]  # section 1 + its subsection/paragraph/note
     assert units[4] == [7, 8]  # section 2 + its subsection
+
+
+_DEFAULT_HIERARCHY = ["chapter", "part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"]
+
+
+def test_compute_unit_tree_info_nests_by_hierarchy_depth():
+    # part(0) > division(1) > section(2), and a second section(3) as a
+    # sibling of the first under that same division -- two sections in a
+    # row are never one nested inside the other, only both children of
+    # whatever division/part is currently open.
+    root_types = ["part", "division", "section", "section"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert [i["depth"] for i in info] == [0, 1, 2, 2]
+    assert [i["parent_unit_no"] for i in info] == [None, 0, 1, 1]
+
+
+def test_compute_unit_tree_info_pops_back_out_to_a_shallower_sibling():
+    # part(0) > division(1) > section(2), then a second part(0) as a sibling of the first
+    root_types = ["part", "division", "section", "part"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert [i["depth"] for i in info] == [0, 1, 2, 0]
+    assert info[3]["parent_unit_no"] is None
+
+
+def test_compute_unit_tree_info_heading_group_nests_at_the_current_depth_without_opening_one():
+    # part(0), heading_group sitting at the same depth as a section would, then a section as its sibling
+    root_types = ["part", "heading_group", "section"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert info[1] == {"depth": 1, "parent_unit_no": 0}
+    assert info[2] == {"depth": 1, "parent_unit_no": 0}  # the heading_group didn't push a new level
+
+
+def test_compute_unit_tree_info_top_level_heading_group_has_no_parent():
+    root_types = ["heading_group", "heading_group", "part"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert info[0] == {"depth": 0, "parent_unit_no": None}
+    assert info[1] == {"depth": 0, "parent_unit_no": None}
+    assert info[2] == {"depth": 0, "parent_unit_no": None}
 
 
 def test_compute_unit_labels_are_unique_even_with_repeated_note_markers():

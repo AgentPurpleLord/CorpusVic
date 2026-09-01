@@ -12,13 +12,25 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
     """Adds a node["path"] breadcrumb (e.g. {"part": "I", "division": "1",
     "section": "3", "subsection": "(2)", ...}) to every node, by tracking the
     most recent number seen at each hierarchy level and resetting deeper
-    levels whenever a shallower one changes."""
+    levels whenever a shallower one changes.
+
+    "definition" is the one level identified by its heading rather than a
+    number (see rule_parser.py's _try_definition_start -- a defined term
+    has no legislative numbering of its own): using node.get("number")
+    for it the way every other level does would just be None every time,
+    so every paragraph/subparagraph nested under a defined term would
+    silently carry path["definition"] = None forever, with nothing
+    recording which definition they actually belong to. That's exactly
+    the "wonky" labelling a Definitions section's own paragraphs used to
+    get in review.py (several different terms' own "(a)"/"(b)" lists are
+    all indistinguishable without this) -- see compute_unit_labels, which
+    reads this same field back to disambiguate them."""
     rank = make_ranks(hierarchy_order)
     current = {level: None for level in hierarchy_order}
     for node in nodes:
         t = node.get("type")
         if t in rank:
-            current[t] = node.get("number")
+            current[t] = node.get("heading") if t == "definition" else node.get("number")
             for deeper in hierarchy_order[rank[t] + 1 :]:
                 current[deeper] = None
         node["path"] = dict(current)

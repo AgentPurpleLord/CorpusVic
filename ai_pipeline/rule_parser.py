@@ -393,11 +393,23 @@ class _LineParser:
             self.current_note = None
 
     def _flush_asterisk_run(self, char_end: int) -> None:
+        """3+ asterisks on their own is Victoria's standard convention for
+        "a provision used to be here and was repealed" -- distinct from an
+        actual footnote/margin note (type "note"), so it gets its own type
+        rather than being lumped in as one: a reviewer (or an export)
+        wants to treat "the parser wasn't sure what this text was" and
+        "this was deliberately, formally repealed" very differently, and
+        conflating them under "note" made that impossible to tell apart
+        downstream. Never carries a number or heading of its own -- like a
+        genuine note, it isn't itself a numbered provision (see
+        _try_bracket_item's own subsection/paragraph handling for that);
+        unlike a note, its text is always exactly this asterisk marker,
+        never free text a human or a margin annotation wrote."""
         run = self.asterisk_run
         if len(run) >= 3:
             first, last = run[0], run[-1]
             self.nodes.append({
-                "type": "note", "number": None, "heading": None,
+                "type": "repealed", "number": None, "heading": None,
                 "text": ("* " * len(run)).strip(),
                 "page_start": first.page_no, "page_end": last.page_no,
                 "char_start": self.asterisk_start, "char_end": char_end, "source": "rules",

@@ -592,6 +592,28 @@ def test_singular_unnumbered_note_ends_at_a_fresh_definition_start():
     assert "Section 586" not in sexual_offence["text"]
 
 
+def test_repealed_marker_between_subsections_gets_its_own_type():
+    """Regression (Criminal Procedure Act, e.g. s. 2): 3+ asterisks on
+    their own lines is Victoria's standard drafting convention for "a
+    subsection used to be here and was repealed" -- distinct from an
+    actual footnote/margin note (the parser has no idea *why* the text is
+    missing, only that it's not there), so it gets its own "repealed"
+    type rather than the "note" every other unclassified aside gets."""
+    lines = [
+        line("5 Some section", bold=True),
+        line("(1) The first subsection.", x0=HEAD_X0),
+        line("*", x0=HEAD_X0),
+        line("*", x0=HEAD_X0),
+        line("*", x0=HEAD_X0),
+        line("(3) The third subsection.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    repealed = find(result.nodes, "repealed", None)
+    assert repealed["text"] == "* * *"
+    assert find(result.nodes, "subsection", "1")["text"] == "The first subsection."
+    assert find(result.nodes, "subsection", "3")["text"] == "The third subsection."
+
+
 def test_top_level_type_clause_parses_a_bill_the_same_way_as_an_act():
     """A Bill's own top-level numbered provision is called a "clause", not
     a "section" -- same drafting shape, same nesting rank (subsection/

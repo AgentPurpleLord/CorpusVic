@@ -52,7 +52,7 @@ class DiagnosticsReport:
         ]
 
 
-_LEAF_TYPES = {"section", "clause", "subsection", "paragraph", "subparagraph", "note", "definition"}
+_LEAF_TYPES = {"section", "clause", "subsection", "paragraph", "subparagraph", "note", "definition", "repealed"}
 
 
 def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_notes: list[dict]) -> DiagnosticsReport:

@@ -11,12 +11,71 @@
     --muted: #6b6b6b;
     --border: #d7d7d7;
     --accent: #2b6cb0;
+    --accent-hover: #2558a0;
     --sidebar-bg: #f5f5f4;
     --sidebar-hover: #ebebe9;
     --sidebar-active: #e2e8f0;
     --pending: #9ca3af;
     --done: #16a34a;
     --flagged: #d97706;
+    --hover-bg: #f0f0f0;
+    --danger: #b91c1c;
+    --danger-border: #f0c0c0;
+    --resume-bg: #eff6ff;
+    --resume-border: #bfdbfe;
+    --selected-bg: #eff6ff;
+    --toast-bg: #1f2937;
+    --toast-error-bg: #991b1b;
+    --piece-accepted-bg: #f0fdf4;
+    --piece-accepted-border: #bbf7d0;
+    --piece-flagged-bg: #fffbeb;
+    --piece-flagged-border: #fde68a;
+    --piece-merge-source-bg: #fff7ed;
+    --repealed-bg: #f9fafb;
+    --accepted-text: #166534;
+    --flagged-text: #92400e;
+  }
+  /* Dark mode: a manual toggle (#theme-toggle-btn, persisted in
+     localStorage) rather than only prefers-color-scheme -- a reviewer
+     working long sessions wants this under their own control, not tied
+     to whatever their OS happens to be set to. Every colour a large
+     surface uses (backgrounds, borders, panels) is a variable specifically
+     so this one block can restyle the whole page; small saturated accent
+     colours (defined-term/citation highlight marks, the type-accent left
+     borders, status-badge pills) are deliberately left as-is in both
+     themes -- they're already vivid enough to stay legible against a
+     dark background, the same way a syntax-highlighted code block or a
+     colored GitHub label doesn't re-theme itself either. */
+  :root[data-theme="dark"] {
+    --bg: #16181d;
+    --panel: #1e2126;
+    --fg: #e8e8ea;
+    --muted: #9aa1ab;
+    --border: #34383f;
+    --accent: #5b9bd9;
+    --accent-hover: #6fabe3;
+    --sidebar-bg: #1a1c21;
+    --sidebar-hover: #24272e;
+    --sidebar-active: #29344a;
+    --pending: #8b93a0;
+    --done: #34d17f;
+    --flagged: #f0ad4e;
+    --hover-bg: #2a2e35;
+    --danger: #f87171;
+    --danger-border: #5c2626;
+    --resume-bg: #16233a;
+    --resume-border: #294a72;
+    --selected-bg: #1c2c42;
+    --toast-bg: #05070a;
+    --toast-error-bg: #7f1d1d;
+    --piece-accepted-bg: #132a1c;
+    --piece-accepted-border: #1f5c37;
+    --piece-flagged-bg: #2c2410;
+    --piece-flagged-border: #6b551c;
+    --piece-merge-source-bg: #2e2013;
+    --repealed-bg: #202329;
+    --accepted-text: #4ade80;
+    --flagged-text: #fbbf24;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -49,14 +108,14 @@
     font-size: 13px;
     color: var(--fg);
   }
-  header button:hover, .btn:hover { background: #f0f0f0; }
+  header button:hover, .btn:hover { background: var(--hover-bg); }
   .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
-  .btn.primary:hover { background: #2558a0; }
-  .btn.danger { color: #b91c1c; border-color: #f0c0c0; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.danger { color: var(--danger); border-color: var(--danger-border); }
   .btn.small { padding: 2px 8px; font-size: 12px; }
   #resume-banner {
-    background: #eff6ff;
-    border-bottom: 1px solid #bfdbfe;
+    background: var(--resume-bg);
+    border-bottom: 1px solid var(--resume-border);
     padding: 6px 16px;
     font-size: 12.5px;
     display: none;
@@ -99,12 +158,18 @@
   .unit-row {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
     padding: 7px 10px;
     cursor: pointer;
-    border-bottom: 1px solid #eceae7;
+    border-bottom: 1px solid var(--border);
     font-size: 12.5px;
   }
+  .tree-toggle, .tree-spacer {
+    display: inline-block; width: 12px; flex-shrink: 0; text-align: center;
+    color: var(--muted); margin-top: 1px; font-size: 10px;
+  }
+  .tree-toggle { cursor: pointer; }
+  .tree-toggle:hover { color: var(--fg); }
   .unit-row:hover { background: var(--sidebar-hover); }
   .unit-row.active { background: var(--sidebar-active); }
   .status-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
@@ -149,9 +214,9 @@
   #unit-header .status-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
   }
-  .status-badge.pending { background: #f3f4f6; color: var(--pending); }
-  .status-badge.done { background: #dcfce7; color: #166534; }
-  .status-badge.flagged { background: #fef3c7; color: #92400e; }
+  .status-badge.pending { background: var(--sidebar-bg); color: var(--pending); }
+  .status-badge.done { background: var(--piece-accepted-bg); color: var(--accepted-text); }
+  .status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
   #unit-nav { display: flex; gap: 6px; margin-left: auto; }
 
   .piece {
@@ -163,20 +228,20 @@
     position: relative;
   }
   .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .piece.merge-source { background: #fff7ed; }
-  .piece.piece-accepted { background: #f0fdf4; border-color: #bbf7d0; }
-  .piece.piece-flagged { background: #fffbeb; border-color: #fde68a; }
+  .piece.merge-source { background: var(--piece-merge-source-bg); }
+  .piece.piece-accepted { background: var(--piece-accepted-bg); border-color: var(--piece-accepted-border); }
+  .piece.piece-flagged { background: var(--piece-flagged-bg); border-color: var(--piece-flagged-border); }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .piece-label { font-weight: 700; font-size: 13px; }
   .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
   .piece-status-badge { font-size: 10.5px; padding: 1px 8px; border-radius: 8px; font-weight: 600; white-space: nowrap; }
-  .piece-status-badge.accepted { background: #dcfce7; color: #166534; }
-  .piece-status-badge.flagged { background: #fef3c7; color: #92400e; }
+  .piece-status-badge.accepted { background: var(--piece-accepted-bg); color: var(--accepted-text); }
+  .piece-status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
   .piece-toolbar { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
   .piece:hover .piece-toolbar { opacity: 1; }
   .piece-toolbar button { font-size: 11px; padding: 2px 7px; }
-  .accept-piece-btn { color: #166534 !important; border-color: #bbf7d0 !important; }
-  .flag-piece-btn { color: #92400e !important; border-color: #fde68a !important; }
+  .accept-piece-btn { color: var(--accepted-text) !important; border-color: var(--piece-accepted-border) !important; }
+  .flag-piece-btn { color: var(--flagged-text) !important; border-color: var(--piece-flagged-border) !important; }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
   .piece-text {
     white-space: pre-wrap;
@@ -193,7 +258,7 @@
   mark.label-other { background: #e5e7eb; }
   mark.resolved { border-bottom-color: #16a34a; }
   mark.unresolved { border-bottom: 2px dashed #9ca3af; }
-  .piece-findings { margin-top: 6px; font-size: 12.5px; color: #92400e; }
+  .piece-findings { margin-top: 6px; font-size: 12.5px; color: var(--flagged-text); }
   .piece-findings div { margin-top: 2px; }
   .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
 
@@ -205,6 +270,8 @@
   .piece[data-type="note"] { border-left: 3px solid #d946ef; }
   .piece[data-type="definition"] { border-left: 3px solid #3b82f6; }
   .piece[data-type="heading_group"] { border-left: 3px solid #111827; }
+  .piece[data-type="repealed"] { border-left: 3px solid #6b7280; background: var(--repealed-bg); }
+  .piece[data-type="repealed"] .piece-text { color: var(--muted); font-style: italic; }
 
   #unit-actions {
     position: sticky;
@@ -235,8 +302,8 @@
     border-bottom: 1px solid var(--border); margin-bottom: 4px; max-width: 280px; overflow-wrap: break-word;
   }
   #menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; }
-  #menu button:hover { background: #f0f0f0; }
-  #menu button.remove { color: #b91c1c; }
+  #menu button:hover { background: var(--hover-bg); }
+  #menu button.remove { color: var(--danger); }
 
   /* Modal overlay (edit / target-picker / merge) */
   .overlay {
@@ -258,20 +325,20 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
   .picker-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
-  .picker-item { padding: 8px 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  .picker-item { padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
   .picker-item:last-child { border-bottom: none; }
-  .picker-item:hover { background: #f5f5f4; }
+  .picker-item:hover { background: var(--sidebar-hover); }
   .picker-item input[type=checkbox] { margin-top: 2px; }
   .picker-item .picker-label { font-weight: 600; white-space: nowrap; }
   .picker-item .picker-preview { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .picker-item.selected { background: #eff6ff; }
+  .picker-item.selected { background: var(--selected-bg); }
 
   #toast {
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    background: #1f2937; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px;
+    background: var(--toast-bg); color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px;
     z-index: 400; display: none;
   }
-  #toast.error { background: #991b1b; }
+  #toast.error { background: var(--toast-error-bg); }
 </style>
 </head>
 <body>
@@ -280,6 +347,7 @@
   <span class="stat" id="corrections-stat"></span>
   <span class="stat" id="unattached-stat"></span>
   <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
+  <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <div class="spacer"></div>
   <span class="stat">Legend:</span>
   <span class="stat"><mark class="label-act_citation">&nbsp;</mark> Act citation</span>
@@ -394,6 +462,28 @@ let META = null;
 let currentUnitNo = null;
 let currentUnit = null;
 let sidebarFilter = "all";
+
+// ---------------------------------------------------------------------
+// Dark mode -- a manual toggle persisted in localStorage (see the CSS
+// variables' own comment for why not just prefers-color-scheme).
+// ---------------------------------------------------------------------
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.dataset.theme = "dark";
+    document.getElementById("theme-toggle-btn").innerHTML = "&#9728;&#65039;";
+    document.getElementById("theme-toggle-btn").title = "Switch to light mode";
+  } else {
+    delete document.documentElement.dataset.theme;
+    document.getElementById("theme-toggle-btn").innerHTML = "&#127769;";
+    document.getElementById("theme-toggle-btn").title = "Switch to dark mode";
+  }
+}
+applyTheme(localStorage.getItem("reviewTheme") || "light");
+document.getElementById("theme-toggle-btn").onclick = () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("reviewTheme", next);
+  applyTheme(next);
+};
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -513,9 +603,33 @@ function unitRowLabel(u) {
   return bits.join(" ");
 }
 
+// Sidebar tree: collapsedUnits holds unit_no's a reviewer has folded
+// closed, persisted per-tab (sessionStorage) since it's a browsing
+// convenience, not review state. Only meaningful in the unfiltered,
+// unsearched view -- a status filter or a search query means the
+// reviewer is hunting for something specific, so every match should show
+// regardless of collapse state rather than being hidden inside a folded
+// parent.
+let collapsedUnits = new Set(JSON.parse(sessionStorage.getItem("collapsedUnits") || "[]"));
+
+function saveCollapsedUnits() {
+  sessionStorage.setItem("collapsedUnits", JSON.stringify([...collapsedUnits]));
+}
+
+function isUnitVisible(u) {
+  let parent = u.parent_unit_no;
+  while (parent != null) {
+    if (collapsedUnits.has(parent)) return false;
+    parent = META.units[parent] ? META.units[parent].parent_unit_no : null;
+  }
+  return true;
+}
+
 function renderSidebar() {
   const list = document.getElementById("unit-list");
   const q = document.getElementById("jump-input").value.trim().toLowerCase();
+  const applyCollapse = sidebarFilter === "all" && !q;
+  const hasChildren = new Set(META.units.filter((u) => u.parent_unit_no != null).map((u) => u.parent_unit_no));
   list.innerHTML = "";
   for (const u of META.units) {
     if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
@@ -523,14 +637,29 @@ function renderSidebar() {
       const hay = `${u.unit_no + 1} ${u.type} ${u.number || ""} ${u.heading || ""}`.toLowerCase();
       if (!hay.includes(q)) continue;
     }
+    if (applyCollapse && !isUnitVisible(u)) continue;
     const row = document.createElement("div");
     row.className = "unit-row" + (u.unit_no === currentUnitNo ? " active" : "");
+    row.style.paddingLeft = `${10 + u.depth * 14}px`;
+    const toggleHtml = hasChildren.has(u.unit_no)
+      ? `<span class="tree-toggle">${collapsedUnits.has(u.unit_no) ? "&#9656;" : "&#9662;"}</span>`
+      : `<span class="tree-spacer"></span>`;
     row.innerHTML = `
+      ${toggleHtml}
       <span class="status-dot ${u.status}"></span>
       <div style="min-width:0">
         <div class="unit-title">${escapeHtml(unitRowLabel(u))}</div>
         <div class="unit-sub">${escapeHtml(u.heading || "")}</div>
       </div>`;
+    const toggleEl = row.querySelector(".tree-toggle");
+    if (toggleEl) {
+      toggleEl.onclick = (e) => {
+        e.stopPropagation();
+        if (collapsedUnits.has(u.unit_no)) collapsedUnits.delete(u.unit_no); else collapsedUnits.add(u.unit_no);
+        saveCollapsedUnits();
+        renderSidebar();
+      };
+    }
     row.onclick = () => loadUnit(u.unit_no);
     list.appendChild(row);
   }
