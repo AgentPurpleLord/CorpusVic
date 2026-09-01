@@ -1,93 +1,96 @@
 """
-Interactive CLI to human-verify the AI's structural parse of an Act.
+Local web GUI to human-verify the AI's structural parse of an Act, and to
+tag spans of its text that should become links -- one merged tool, where
+link_review.py and review.py's own CLI used to be two separate ones.
 
 Usage:
     python review.py crimes-act
+    python review.py crimes-act --port 8001
 
-Default mode reviews one Section at a time: the Section's own lead-in text
-plus every Subsection/Paragraph/Subparagraph/Note nested under it are shown
-together in one colour-coded panel (colour by type), since a Section and
-its own components are what a reviewer actually needs to see side by side
-to judge whether the parser attached each piece to the right place. Accept
-the whole Section in one go, or drill into a specific piece via a numbered
-menu (see _prompt_piece) to edit, split, or merge it -- picking a piece's
-own legislative label off the panel above and typing it used to be the
-only way in, but a nested piece's real label is its full chain ("(1)(a)"),
-not the bare bracket its own number alone suggests, so it was easy to type
-something that looked right and get "no matching piece"; a plain menu
-number is never ambiguous. Standalone structural nodes that aren't a
-Section's own content (Part/Division/Subdivision headings, bare topical
-headings) are still reviewed one at a time, same as before.
+Then open the printed URL (http://127.0.0.1:8000/ by default). A Section's
+own lead-in text plus every Subsection/Paragraph/Subparagraph/Note/
+Definition nested under it are shown together as one reviewable unit,
+colour-coded by type -- a Section and its own components are what a
+reviewer actually needs to see side by side to judge whether the parser
+attached each piece to the right place. Standalone structural nodes that
+aren't a Section's own content (Part/Division/Subdivision headings, bare
+topical headings) are their own single-piece unit, same idea.
 
-    python review.py crimes-act --flat     reviews every node one at a time
-                                            instead (the original behaviour)
-    python review.py crimes-act --triage   reviews only the nodes flagged by
-                                            data/diagnostics/<act>.json
+Per piece, the toolbar offers:
+  - Edit -- change its type/number/heading, or its text body outright.
+  - Merge -- pick a destination piece first (the one that keeps the
+    combined text), then which piece(s) feed into it: another piece
+    still in this unit, or an already-reviewed piece from an earlier
+    one. For when the parser wrongly broke a paragraph into extra
+    fragments (most often a stray heading/section boundary mistaken
+    mid-paragraph, e.g. a multi-line bold Act-name citation).
+  - Drag-select a span of a piece's own text to either split it there
+    (the tail reassigns to another piece the same way Merge's
+    destination picker works) or label it as a link -- an Act citation,
+    a defined term, a Bill/EM reference -- which also attempts to
+    *resolve* it immediately (ai_pipeline/link_targets.py): an
+    act_citation against ai_pipeline/known_acts.yaml (falling back to
+    the comprehensive Act registry), a defined_term against this Act's
+    own definitions. Text displays reflowed (the source PDF's own line
+    wraps joined into flowing prose) for reading, independent of the
+    underlying stored text a span's offsets index into.
 
-Writes the finalized result to data/verified/<act>.json. Every decision
-(the AI's original guess vs. what you approved) is appended to
-data/corrections.jsonl, which future run_pipeline.py runs read back in as
-few-shot examples -- so the parser is meant to get better at this over
-time, without any fine-tuning step.
+The sidebar lists every unit with its own review status (pending/done/
+flagged) and a filter to show only flagged ones (former --triage) or
+jump anywhere out of order; the flat, one-node-at-a-time view former
+--flat gave has no separate mode here since group_into_units already
+gives a Part/Division/heading_group its own single-piece unit and every
+piece within a Section is already individually addressable.
 
-Progress is saved after every Section (or, in --flat/--triage mode, every
-node), so you can quit ('q') and resume later from where you left off.
+Accepting or flagging a unit writes it into data/verified/<act>.json and
+logs each decision (the AI's original guess vs. what a human approved)
+to data/corrections.jsonl, which future run_pipeline.py runs read back
+in as few-shot examples -- so the parser is meant to get better at this
+over time, without any fine-tuning step. An edit made directly to an
+already-reviewed piece (browsing back to fix something) persists and
+logs immediately, since there's no later Accept step to do it for.
+Progress is saved continuously, so the server can be stopped and
+restarted from wherever it left off.
+
+Labelled link spans are saved to data/links/<act>.json the moment
+they're labelled -- independent of structural review above, since
+annotating a span doesn't require (or imply) that its node has passed
+review, and structural review doesn't need to know these exist.
+
+A "Show source PDF" toggle in the header renders the actual source page
+each piece came from (page_start on the piece, GET /api/pages/{n}.png --
+a plain PyMuPDF rasterisation of that page, cached in memory) alongside
+or in place of the parsed text, three view modes cycled by the one
+button: text only, side-by-side split, PDF only. This is read-only --
+purely a check against the real page, nothing here feeds back into the
+parse -- available only when data/ai_parsed/<act>.json still has the
+source PDF at the path it was parsed from (see load_source_pdf_path);
+missing entirely otherwise rather than a toggle that always errors.
 """
 import argparse
+import bisect
 import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from rich.console import Console
-from rich.markup import escape
-from rich.panel import Panel
-from rich.prompt import Confirm, IntPrompt, Prompt
-from rich.text import Text
+import fitz
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
 
 from ai_pipeline.examples_store import add_correction, stats
 from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES
+from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
+from ai_pipeline.link_targets import build_definition_index, resolve_link
 from ai_pipeline.schema import NODE_TYPES
 
-console = Console()
+STATIC_DIR = Path(__file__).parent / "static"
 
-# The type labels edit_node offers when relabelling a node. Starts as the
-# built-in NODE_TYPES; main() prepends this Act's own hierarchy levels
-# (from data/ai_parsed/<act>.json) so an Act with e.g. Chapters can have
-# its mis-typed headings relabelled to "chapter". Mutated in place once,
-# at startup, so the edit helpers don't each need it threaded in.
-RELABEL_TYPES = list(NODE_TYPES)
-
-# Rich treats "[a]" as a markup style tag and silently drops it rather than
-# printing it -- so a prompt string like "[a]ccept / [e]dit" doesn't lose
-# its brackets, it loses the "a" and "e" too (the single letters the
-# reviewer actually needs to see to know which key does what). Parentheses
-# aren't special to Rich markup, so they survive. The same risk applies to
-# any *legislative* text or computed label interpolated into a string
-# that reaches console.print/Panel -- real Act text routinely contains
-# "[...]"-shaped citations and bracketed annotations, and Rich's markup
-# parser is inconsistent about which of those it swallows (case- and
-# shape-dependent, not simply "any brackets"). Every such value below goes
-# through rich.markup.escape() before interpolation rather than relying on
-# guessing which shapes happen to be safe.
-ACTION_PROMPT = "(a)ccept / (e)dit / (s)plit-and-reassign / (f)lag-and-continue / (q)uit"
-ACTION_CHOICES = ["a", "e", "s", "f", "q"]
-
-UNIT_ACTION_PROMPT = "(a)ccept section / (e)dit a piece / (s)plit a piece / (m)erge a piece / (f)lag section / (q)uit"
-UNIT_ACTION_CHOICES = ["a", "e", "s", "m", "f", "q"]
-
-# Colour by type, not by depth -- depth is already shown by indentation, but
-# colour is what lets a reviewer's eye jump straight to "is this line a
-# Subsection, a Paragraph, or a Note" without reading the label first.
-TYPE_STYLES = {
-    "subsection": "cyan",
-    "paragraph": "green",
-    "subparagraph": "yellow",
-    "note": "magenta",
-    "definition": "blue",
-    "heading_group": "bold white",
-}
-_DEPTH_BY_TYPE = {"subsection": 0, "paragraph": 1, "subparagraph": 2}
+# ---------------------------------------------------------------------------
+# Pure logic shared with the test suite (tests/test_review.py) -- no I/O,
+# no FastAPI, unit-testable on its own.
+# ---------------------------------------------------------------------------
 
 
 def _now_iso() -> str:
@@ -125,32 +128,99 @@ def load_diagnostics(act: str) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _reflow(text: str) -> str:
+def load_source_pdf_path(act: str) -> str | None:
+    """The source PDF path run_pipeline.py/run_em_pipeline.py stamped into
+    data/ai_parsed/<act>.json (relative to the repo root, since that's
+    where those scripts are run from) -- used to show the actual page a
+    piece came from during review (see the /api/pages/{page_no}.png
+    endpoint). None if this Act's parsed output predates that field, or
+    the PDF has since moved/been deleted -- the page-image endpoint 404s
+    in that case rather than the server failing to start."""
+    path = Path("data/ai_parsed") / f"{act}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8")).get("source")
+
+
+def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
+    """The same "verified where committed, original parser output
+    otherwise" merge the live review server keeps in memory via
+    _current_node/_verified_by_source_index/_merged_away (see main()'s own
+    reconstruction of that state at startup) -- but as a pure, one-shot
+    read straight off disk, for a read-only consumer that has no reason to
+    hold a whole server process open just to see the Act's current state.
+    Used by the live HTML browsing view (ai_pipeline/html_view.py) so a
+    reviewer's in-progress edits show up immediately, without waiting for
+    an export step; akn_export.py/markdown_export.py could use this too
+    instead of their own all-or-nothing verified-vs-ai_parsed choice, but
+    that's a separate change from introducing it here.
+
+    Returns (nodes, unattached_notes, hierarchy) in the same shape as
+    load_parsed, with merged-away nodes simply absent, so any consumer
+    that already builds a hierarchy tree from load_parsed's output works
+    unchanged against this instead."""
+    nodes, unattached_notes, hierarchy = load_parsed(act)
+    units = group_into_units(nodes)
+    verified = load_verified(act)
+    verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
+    resume_unit = _resume_point(units, list(verified))
+
+    merged_away: set[int] = set()
+    for u in range(resume_unit):
+        for i in units[u]:
+            if i not in verified_by_source_index:
+                merged_away.add(i)
+
+    current_nodes = [verified_by_source_index.get(i, node) for i, node in enumerate(nodes) if i not in merged_away]
+    return current_nodes, unattached_notes, hierarchy
+
+
+_WRAP_RE = re.compile(r"\s*\n\s*")
+
+
+def reflow_with_map(text: str) -> tuple[str, list[int]]:
     """The stored text's "\\n"s are just the source PDF's own line-wrap
-    points, not paragraph breaks -- displaying them raw makes every node
-    look like a jagged list of half-sentences. Join them back into normal
-    flowing prose for display; the underlying data (what gets saved, what
-    split_node's line numbers index into) is untouched."""
-    return re.sub(r"\s*\n\s*", " ", text or "").strip()
+    points, not paragraph breaks -- displaying them raw makes every piece
+    look like a jagged list of half-sentences. Collapses each wrap into a
+    single space for display, same transform review.py's old CLI-only
+    _reflow did, but also returns the raw-offset each reflowed character
+    came from (one longer than the reflowed text, for the position just
+    past its last character) -- callers use this to translate a browser
+    text selection made against the *displayed* string back into an
+    offset into the *stored* one (what link/split actions actually index
+    into), and to place an already-saved link's raw-offset span back onto
+    the reflowed text for highlighting."""
+    text = text or ""
+    chars: list[str] = []
+    offsets: list[int] = []
+    pos = 0
+    for m in _WRAP_RE.finditer(text):
+        for j in range(pos, m.start()):
+            chars.append(text[j])
+            offsets.append(j)
+        chars.append(" ")
+        offsets.append(m.start())
+        pos = m.end()
+    for j in range(pos, len(text)):
+        chars.append(text[j])
+        offsets.append(j)
+    offsets.append(len(text))
+
+    start = 0
+    while start < len(chars) and chars[start].isspace():
+        start += 1
+    end = len(chars)
+    while end > start and chars[end - 1].isspace():
+        end -= 1
+
+    result_chars = chars[start:end]
+    result_offsets = offsets[start:end] + [offsets[end]]
+    return "".join(result_chars), result_offsets
 
 
-def render_node(node: dict, idx: int, total: int, findings: list[dict] | None = None) -> None:
-    header = f"[{idx + 1}/{total}] {node['type'].upper()} {escape(node.get('number') or '')} — {escape(node.get('heading') or '')}".strip()
-    pages = f"pages {node.get('page_start')}-{node.get('page_end')}"
-    body = escape(_reflow(node["text"]))
-    if len(body) > 1500:
-        body = body[:1500] + "\n... (truncated for display; full text carries through unedited)"
-    history = node.get("history") or []
-    if history:
-        body += "\n\n[dim]History:[/]\n" + "\n".join(f"  • {escape(h['raw'])}" for h in history)
-    if findings:
-        body += "\n\n[yellow]Flagged:[/]\n" + "\n".join(f"  ! ({escape(f['severity'])}) {escape(f['message'])}" for f in findings)
-    console.print(Panel(body or "(no text)", title=header, subtitle=pages))
+def _raw_to_reflowed(raw_offset: int, offset_map: list[int]) -> int:
+    return bisect.bisect_left(offset_map, raw_offset)
 
-
-# ---------------------------------------------------------------------------
-# Section-level grouped review -- the default mode.
-# ---------------------------------------------------------------------------
 
 # A Section's own lead-in text plus everything nested under it (Subsection/
 # Paragraph/Subparagraph/Note/Definition) forms one review unit; every other
@@ -192,19 +262,17 @@ def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
     """Which unit to resume at. commit_unit tags the last node it appends
     for a unit with that unit's own index (`_unit_end_index`); when any
     such marker is present, the highest one is trusted directly -- this is
-    the only reliable signal once merge_piece has been used, since merging
-    a wrongly-split-off piece away means commit_unit can append *fewer*
+    the only reliable signal once a merge has been used, since merging a
+    wrongly-split-off piece away means commit_unit can append *fewer*
     nodes than that unit's original size, and the plain node count below
     can no longer tell "unit N committed short because of a merge" apart
     from "review stopped partway through unit N".
 
-    Absent any marker (verified data written by --flat/--triage, or by a
-    version of this tool from before merge_piece existed), fall back to
-    the original approach: `verified` should hold exactly `len(verified)`
-    nodes' worth of *whole* units, since a marker-free run always commits
-    a unit at its full original size; a prior --flat run can still leave
-    it mid-unit, so trim back to the last complete unit in that case
-    rather than risk duplicating a partially-reviewed one."""
+    Absent any marker (verified data from a version of this tool from
+    before that marker existed), fall back to the original approach:
+    `verified` should hold exactly `len(verified)` nodes' worth of *whole*
+    units, since a marker-free run always commits a unit at its full
+    original size."""
     marked = [n["_unit_end_index"] for n in verified if "_unit_end_index" in n]
     if marked:
         return max(marked) + 1
@@ -217,10 +285,6 @@ def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
         cumulative += len(u)
         boundary_units += 1
     if cumulative != len(verified):
-        console.print(
-            f"[yellow]Verified progress ({len(verified)} nodes) doesn't land on a section boundary "
-            f"-- trimming back to the last complete section ({cumulative} nodes).[/]"
-        )
         del verified[cumulative:]
     return boundary_units
 
@@ -228,18 +292,23 @@ def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
 def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     """One label per node in the unit (index 0 is the Section itself,
     labelled "SECTION"), shown alongside each piece for the reviewer's own
-    reference in both the rendered panel and _prompt_piece/_prompt_target's
-    numbered menus. A Subsection/Paragraph/Subparagraph's own legislative
+    reference. A Subsection/Paragraph/Subparagraph's own legislative
     numbering is unique by construction, so its path-derived chain
-    ("(1)(a)") is used directly; anything else (Note, Definition, a stray
-    heading_group) has no numbering of its own -- these commonly share
-    the exact same inherited path context (several repealed-text
-    "* * * *" markers in a row all sitting right after the same last-
-    numbered piece), so a naive path-based label would collide between
-    them and even with the real numbered piece they're attached to. These
-    get a running per-type counter instead. A final de-duplication pass
-    guards against a genuine collision anyway (e.g. a mis-parsed repeated
-    number)."""
+    ("(1)(a)") is used directly. A Definition has no numbering of its own
+    either, but does carry its own defined term as its heading (see
+    rule_parser.py's _try_definition_start) -- shown bare, since the term
+    itself is exactly what a reviewer needs to pick it out by, and
+    "Definitions" sections name each of theirs uniquely by construction
+    (the same term can't be defined twice). Anything else (Note, a stray
+    heading_group) has no numbering *or* a useful heading of its own --
+    these commonly share the exact same inherited path context (several
+    repealed-text "* * * *" markers in a row all sitting right after the
+    same last-numbered piece), so a naive path-based label would collide
+    between them and even with the real numbered piece they're attached
+    to. These get a running per-type counter instead. A final
+    de-duplication pass guards against a genuine collision anyway (e.g. a
+    mis-parsed repeated number, or two same-named terms redefined in
+    separate Definitions sections that both landed in one review unit)."""
     labels = ["SECTION"]
     counters: dict[str, int] = {}
     for node in unit_nodes[1:]:
@@ -247,6 +316,8 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
             path = node.get("path") or {}
             chain = "".join(f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph") if path.get(level))
             labels.append(chain or f"({node['number']})")
+        elif node["type"] == "definition" and node.get("heading"):
+            labels.append(node["heading"])
         else:
             counters[node["type"]] = counters.get(node["type"], 0) + 1
             labels.append(f"[{node['type']} {counters[node['type']]}]")
@@ -256,274 +327,6 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
         if seen[label] > 1:
             labels[i] = f"{label}#{seen[label]}"
     return labels
-
-
-def _prompt_piece(unit_nodes: list[dict], labels: list[str], heading: str, exclude: int | None = None) -> int | None:
-    """Numbered-menu piece picker for edit_piece/split_piece/merge_piece,
-    replacing an earlier version that asked the reviewer to *type* a
-    piece's own legislative label. That broke down constantly in
-    practice: a paragraph nested under a subsection is labelled by its
-    full chain ("(1)(k)"), not the bare "(k)" its own bracket alone
-    suggests, and a bare-bracket fallback silently failed the moment more
-    than one piece in the Section happened to share that same letter --
-    both easy to get wrong from memory, with no feedback but "no matching
-    piece". A plain 1-based menu number is never ambiguous and needs no
-    guessing, so this replaces typed-label lookup entirely; `labels` is
-    still shown alongside each entry purely so the reviewer can see which
-    piece is which. Returns None (having already told the reviewer why)
-    on a blank or invalid answer."""
-    indices = [i for i in range(len(unit_nodes)) if i != exclude]
-    console.print(f"  {heading}")
-    for n, i in enumerate(indices, start=1):
-        preview = escape(_reflow(unit_nodes[i].get("text") or "")[:60]) or "(no text)"
-        console.print(f"    {n}. {escape(labels[i])} — {preview}")
-    raw = Prompt.ask("  Number (blank to cancel)", default="")
-    if not raw:
-        console.print("  [yellow]Cancelled.[/]")
-        return None
-    try:
-        n = int(raw)
-        if not (1 <= n <= len(indices)):
-            raise ValueError
-    except ValueError:
-        console.print("  [red]Invalid choice -- cancelled.[/]")
-        return None
-    return indices[n - 1]
-
-
-def _prompt_target(
-    unit_nodes: list[dict], labels: list[str], verified: list[dict], heading: str, exclude: int | None = None, recent_limit: int = 8
-) -> tuple[str, int] | None:
-    """One combined numbered menu for split_piece/merge_piece's "reassign
-    the tail/merge this piece onto..." step -- every other piece still in
-    the current unit, plus a handful of the most recently verified pieces
-    from earlier units (most recent last, so "put it back on the very
-    last thing I accepted" is always the bottom entry), all in one list
-    instead of asking the reviewer to type a label for one pool or leave
-    the prompt blank to switch to the other. Returns ("unit", index) for
-    a piece still in unit_nodes, ("verified", index) for an entry in
-    `verified`, or None (having already told the reviewer why) on a
-    blank/invalid answer or when there's nothing to choose from at all."""
-    entries: list[tuple[str, int, str]] = []
-    for i, n in enumerate(unit_nodes):
-        if i == exclude:
-            continue
-        preview = escape(_reflow(n.get("text") or "")[:60]) or "(no text)"
-        entries.append(("unit", i, f"{escape(labels[i])} — {preview}"))
-    recent = verified[-recent_limit:]
-    offset = len(verified) - len(recent)
-    for i, v in enumerate(recent):
-        preview = escape(_reflow(v.get("text") or "")[:60]) or "(no text)"
-        vlabel = f"{v['type'].upper()} {v.get('number') or ''}".strip()
-        # Parentheses, not square brackets -- a literal "[...]" here would
-        # be swallowed as an (invalid, silently-dropped) Rich markup style
-        # tag rather than printed, the same pitfall the escape() calls
-        # throughout this module exist to avoid (see the top-of-file note).
-        entries.append(("verified", offset + i, f"[dim](from an earlier section)[/] {escape(vlabel)} — {preview}"))
-
-    if not entries:
-        console.print("  [yellow]Nothing to choose from -- cancelled.[/]")
-        return None
-
-    console.print(f"  {heading}")
-    for n, (_, _, line) in enumerate(entries, start=1):
-        console.print(f"    {n}. {line}")
-    raw = Prompt.ask("  Number (blank to cancel)", default="")
-    if not raw:
-        console.print("  [yellow]Cancelled.[/]")
-        return None
-    try:
-        n = int(raw)
-        if not (1 <= n <= len(entries)):
-            raise ValueError
-    except ValueError:
-        console.print("  [red]Invalid choice -- cancelled.[/]")
-        return None
-    kind, idx, _ = entries[n - 1]
-    return kind, idx
-
-
-def render_unit(
-    unit_nodes: list[dict],
-    unit_indices: list[int],
-    labels: list[str],
-    unit_no: int,
-    total_units: int,
-    findings_by_node: dict[int, list[dict]],
-) -> None:
-    root = unit_nodes[0]
-    if root["type"] not in _UNIT_ROOT_TYPES:
-        render_node(root, unit_no - 1, total_units, findings_by_node.get(unit_indices[0]))
-        return
-
-    header = f"[{unit_no}/{total_units}] {root['type'].upper()} {escape(root.get('number') or '')} — {escape(root.get('heading') or '')}".strip()
-    pages = f"pages {root.get('page_start')}-{root.get('page_end')}"
-
-    body = Text()
-    if root.get("text"):
-        body.append(_reflow(root["text"]))
-        body.append("\n\n")
-
-    for node, orig_idx, label in zip(unit_nodes[1:], unit_indices[1:], labels[1:]):
-        style = TYPE_STYLES.get(node["type"], "white")
-        indent = "  " * (_DEPTH_BY_TYPE.get(node["type"], 0) + 1)
-        body.append(f"{indent}{label} ", style=f"bold {style}")
-        body.append(_reflow(node.get("text") or "") or "(no text)", style=style)
-        for f in findings_by_node.get(orig_idx) or []:
-            body.append(f"\n{indent}  ! ({f['severity']}) {f['message']}", style="yellow")
-        body.append("\n\n")
-
-    console.print(Panel(body, title=header, subtitle=pages))
-
-
-def edit_piece(unit_nodes: list[dict], labels: list[str]) -> None:
-    idx = _prompt_piece(unit_nodes, labels, "Which piece?")
-    if idx is None:
-        return
-    unit_nodes[idx] = edit_node(unit_nodes[idx])
-    console.print(f"  Updated {escape(labels[idx])}.")
-
-
-def split_piece(unit_nodes: list[dict], labels: list[str], act: str, verified: list[dict]) -> None:
-    """Splits one piece's text at a chosen line boundary and reassigns the
-    tail -- most often onto another piece in this same Section (the common
-    "(1) A person who -- (a) does X; or (b) does Y -- is guilty of an
-    offence" run-on, where the closing clause resumes the lead-in's
-    sentence, not the last list item's), or onto an already-verified node
-    from an earlier Section (see _prompt_target)."""
-    idx = _prompt_piece(unit_nodes, labels, "Split which piece?")
-    if idx is None:
-        return
-
-    node = unit_nodes[idx]
-    lines = (node.get("text") or "").split("\n")
-    if len(lines) < 2:
-        console.print("  [yellow]Only one line of text in this piece -- nothing to split.[/]")
-        return
-
-    console.print(f"  Lines in {escape(labels[idx])}:")
-    for i, line in enumerate(lines):
-        console.print(f"    {i + 1}: {escape(line)}")
-    split_at = IntPrompt.ask("  Split before which line number? (this piece keeps everything before it; 0 to cancel)", default=0)
-    if not (1 < split_at <= len(lines)):
-        if split_at != 0:
-            console.print("  [yellow]Not a valid split point -- cancelled.[/]")
-        return
-
-    picked = _prompt_target(unit_nodes, labels, verified, "Reassign the tail to:", exclude=idx)
-    if picked is None:
-        return
-    kind, target_idx = picked
-    tail_text = "\n".join(lines[split_at - 1 :]).strip()
-
-    if kind == "unit":
-        target = unit_nodes[target_idx]
-        target_label = labels[target_idx]
-        original_target_text = target.get("text") or ""
-        target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
-    else:
-        target = verified[target_idx]
-        target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
-        # This node was already committed (and logged) by an earlier
-        # Section's own accept -- log this extra edit against it now, since
-        # nothing will revisit it later to log it for us. Its content is
-        # changing again right now, under direct human review, so its
-        # verification timestamp is refreshed too.
-        original_target_text = target.get("text") or ""
-        target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
-        target["verified_at"] = _now_iso()
-        add_correction(
-            act,
-            ai_output={"type": target["type"], "number": target.get("number"), "heading": target.get("heading"), "text": original_target_text},
-            human_output=target,
-            changed=True,
-        )
-
-    node["text"] = "\n".join(lines[: split_at - 1]).strip()
-    console.print(f"  Moved the tail to {escape(target_label)}.")
-
-
-def merge_piece(
-    unit_nodes: list[dict], unit_orig: list[dict], indices: list[int], labels: list[str], act: str, verified: list[dict], unit_index: int
-) -> None:
-    """The other direction from split_piece: appends one piece's whole text
-    onto an adjacent piece and discards the now-empty source, for when the
-    parser wrongly broke a paragraph into extra fragments -- most often a
-    stray heading_group/section/etc. that the parser mistook for a new
-    heading partway through a paragraph's wrapped text (e.g. a multi-line
-    bold Act-name citation). Rather than hand-editing each fragment's text
-    and blanking the rest out one at a time, merge puts a fragment back
-    where it belongs in one step.
-
-    Critically, a spurious heading_group/section/etc. is itself a *unit
-    boundary* (see _UNIT_BOUNDARY_TYPES) -- it splits what should be one
-    Section's review unit into several, so the fragment needing to go back
-    onto the piece before it is very often the *entire, sole* content of
-    this unit (a standalone heading_group with nothing else beside it),
-    and the piece it belongs on is in the *previous*, already-committed
-    unit, not this one. See _prompt_target for the combined "another piece
-    still in this unit, or an already-verified piece from an earlier one"
-    menu this offers for the merge destination.
-
-    unit_nodes/unit_orig/indices are the three positionally-aligned lists
-    run_section_review holds for this unit (see its own docstring); the
-    source piece is deleted from all three in lockstep so commit_unit's
-    zip(unit_orig, unit_nodes) stays aligned afterwards and the discarded
-    piece is simply never committed to `verified` at all. Discarding index
-    0 is only blocked when it's a real Section others in this unit are
-    nested under (len(unit_nodes) > 1) -- for a standalone single-node
-    unit, index 0 *is* the whole unit, and merging it away entirely (into
-    an earlier already-verified piece) is exactly the point. When that
-    empties unit_nodes altogether, the cross-unit target is tagged as
-    though it had ended this unit, so run_section_review and _resume_point
-    both treat this now-nodeless unit as fully handled."""
-    idx = _prompt_piece(unit_nodes, labels, "Merge which piece away?")
-    if idx is None:
-        return
-    if idx == 0 and len(unit_nodes) > 1:
-        console.print("  [red]Can't merge SECTION itself away while it still has pieces nested under it.[/]")
-        return
-
-    source = unit_nodes[idx]
-    source_text = (source.get("text") or "").strip()
-
-    picked = _prompt_target(unit_nodes, labels, verified, "Merge its text into:", exclude=idx)
-    if picked is None:
-        return
-    kind, target_idx = picked
-
-    if kind == "unit":
-        target = unit_nodes[target_idx]
-        target_label = labels[target_idx]
-        target_text = (target.get("text") or "").strip()
-        target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
-    else:
-        target = verified[target_idx]
-        target_label = f"{target['type'].upper()} {target.get('number') or ''}".strip()
-        original_target_text = target.get("text") or ""
-        target_text = original_target_text.strip()
-        target["text"] = f"{target_text}\n{source_text}" if target_text else source_text
-        target["verified_at"] = _now_iso()
-        add_correction(
-            act,
-            ai_output={"type": target["type"], "number": target.get("number"), "heading": target.get("heading"), "text": original_target_text},
-            human_output=target,
-            changed=True,
-        )
-        if len(unit_nodes) == 1:
-            # This was the unit's sole node -- deleting it below empties
-            # unit_nodes altogether, so there's nothing left here for
-            # commit_unit to ever tag with _unit_end_index. Tag the
-            # cross-unit target instead (already-committed, so this is
-            # safe): _resume_point only ever needs the *highest* tagged
-            # index, so marking this now-fully-handled unit here, on
-            # whatever entry, is exactly as good as tagging one of our own.
-            target["_unit_end_index"] = unit_index
-
-    console.print(f"  Merged {escape(labels[idx])} into {escape(target_label)} and discarded {escape(labels[idx])}.")
-    del unit_nodes[idx]
-    del unit_orig[idx]
-    del indices[idx]
 
 
 def commit_unit(
@@ -539,12 +342,12 @@ def commit_unit(
     (that's what flagging means -- "not sure, revisit this"), so it's kept
     unstamped even though the reviewer looked at it.
 
-    unit_index, when given, is this unit's own position in run_section_
-    review's `units` list -- tagged onto the last node appended here so
-    _resume_point can find exactly where review left off even when
-    merge_piece has made this commit shorter than the unit's original
-    size (unit_nodes/unit_orig can have had pieces merged away by the time
-    commit_unit is called -- see merge_piece's docstring)."""
+    unit_index, when given, is this unit's own position in group_into_
+    units's own list -- tagged onto the last node appended here so
+    _resume_point can find exactly where review left off even when a
+    merge has made this commit shorter than the unit's original size
+    (unit_nodes/unit_orig can have had pieces merged away by the time
+    commit_unit is called -- see the server's own merge endpoint)."""
     for original, current in zip(unit_orig, unit_nodes):
         node = dict(current)
         if flagged:
@@ -558,270 +361,444 @@ def commit_unit(
         verified[-1]["_unit_end_index"] = unit_index
 
 
-def run_section_review(act: str, nodes: list[dict], verified: list[dict], findings_by_node: dict[int, list[dict]]) -> None:
-    units = group_into_units(nodes)
-    start_unit = _resume_point(units, verified)
-    if start_unit:
-        console.print(f"Resuming at section {start_unit + 1}/{len(units)} (use --restart to start over)")
-
-    for u in range(start_unit, len(units)):
-        indices = units[u]
-        unit_orig = [nodes[i] for i in indices]
-        unit_nodes = [dict(n) for n in unit_orig]
-        while True:
-            labels = compute_unit_labels(unit_nodes)
-            render_unit(unit_nodes, indices, labels, u + 1, len(units), findings_by_node)
-            action = Prompt.ask(UNIT_ACTION_PROMPT, choices=UNIT_ACTION_CHOICES, default="a")
-            if action == "a":
-                commit_unit(unit_nodes, unit_orig, act, verified, unit_index=u)
-                break
-            if action == "e":
-                edit_piece(unit_nodes, labels)
-                continue
-            if action == "s":
-                split_piece(unit_nodes, labels, act, verified)
-                continue
-            if action == "m":
-                merge_piece(unit_nodes, unit_orig, indices, labels, act, verified, u)
-                if not unit_nodes:
-                    # The unit's sole node was just merged away entirely --
-                    # nothing left to render or commit for it (merge_piece
-                    # already tagged the cross-unit target so resume skips
-                    # this unit correctly); move straight to the next one.
-                    break
-                continue
-            if action == "f":
-                commit_unit(unit_nodes, unit_orig, act, verified, flagged=True, unit_index=u)
-                console.print("  [yellow]Flagged for follow-up; kept current version.[/]")
-                break
-            if action == "q":
-                save_verified(act, verified)
-                console.print(f"Saved {len(verified)}/{len(nodes)} verified nodes to data/verified/{act}.json")
-                return
-        save_verified(act, verified)
-
-    flagged_count = sum(1 for n in verified if n.get("needs_followup"))
-    console.print(f"[green]Done.[/] All {len(units)} section(s)/heading(s) reviewed -> data/verified/{act}.json")
-    if flagged_count:
-        console.print(f"[yellow]{flagged_count} node(s) still flagged for follow-up.[/]")
-
-
 # ---------------------------------------------------------------------------
-# Flat, one-node-at-a-time review -- --flat and --triage both use this.
+# Server state -- one Act per running process (see the module docstring's
+# usage), so there's no per-request act parameter to plumb through.
 # ---------------------------------------------------------------------------
 
-def _apply_action(action: str, node: dict, act: str, verified: list[dict]) -> bool:
-    """Handles one accept/edit/flag/quit decision, appending the result to
-    `verified` and logging a correction where relevant. Returns False on
-    quit (caller should stop the loop), True otherwise.
-
-    Accept/edit stamp when a human confirmed the node -- see commit_unit's
-    docstring for why flagging doesn't."""
-    if action == "a":
-        node = dict(node)
-        node["verified_at"] = _now_iso()
-        verified.append(node)
-        add_correction(act, ai_output=node, human_output=node, changed=False)
-    elif action == "e":
-        edited = edit_node(node)
-        edited["verified_at"] = _now_iso()
-        verified.append(edited)
-        changed = any(edited[k] != node.get(k) for k in ("type", "number", "heading", "text"))
-        add_correction(act, ai_output=node, human_output=edited, changed=changed)
-    elif action == "f":
-        flagged = dict(node)
-        flagged["needs_followup"] = True
-        verified.append(flagged)
-        console.print("  [yellow]Flagged for follow-up; kept the parser's version for now.[/]")
-    elif action == "q":
-        return False
-    return True
+_act: str | None = None
+_nodes: list[dict] = []
+_units: list[list[int]] = []
+_unit_of_index: dict[int, int] = {}
+_verified: list[dict] = []
+_verified_by_source_index: dict[int, dict] = {}
+_pending_edits: dict[int, dict] = {}
+_merged_away: set[int] = set()
+_definition_index: dict[str, int] = {}
+_findings_by_node: dict[int, list[dict]] = {}
+_unattached_notes: list[dict] = []
+_hierarchy: list[str] = []
+_relabel_types: list[str] = []
+_startup_resume_unit = 0
+_source_pdf_path: str | None = None
+_pdf_doc: "fitz.Document | None" = None
+_page_image_cache: dict[int, bytes] = {}
+_PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible after the browser scales the <img> to fit its panel
 
 
-def split_node(node: dict, act: str, verified: list[dict]) -> dict | None:
-    """Splits node["text"] at a chosen line boundary and reassigns the tail
-    onto an earlier, already-verified node -- the --flat/--triage mode
-    counterpart of split_piece above, searching the flat `verified` list
-    (its most recent entries) instead of the current Section's own pieces,
-    since flat mode has no "current Section" to offer as targets.
-
-    Returns the shortened node (still needing its own accept/edit/flag/quit
-    decision) if a split was made, or None if the reviewer cancelled --
-    callers should re-render and re-prompt on a dict, and just re-prompt
-    unchanged on None."""
-    lines = (node.get("text") or "").split("\n")
-    if len(lines) < 2:
-        console.print("  [yellow]Only one line of text in this node -- nothing to split.[/]")
-        return None
-
-    console.print("  Lines in this node's text:")
-    for i, line in enumerate(lines):
-        console.print(f"    {i + 1}: {escape(line)}")
-    split_at = IntPrompt.ask(
-        "  Split before which line number? (this node keeps everything before it; 0 to cancel)",
-        default=0,
-    )
-    if not (1 < split_at <= len(lines)):
-        if split_at != 0:
-            console.print("  [yellow]Not a valid split point -- cancelled.[/]")
-        return None
-
-    if not verified:
-        console.print("  [yellow]Nothing verified yet to reassign the tail to -- cancelled.[/]")
-        return None
-
-    console.print("  Reassign the tail to which already-reviewed node?")
-    recent = verified[-8:]
-    offset = len(verified) - len(recent)
-    for i, v in enumerate(recent):
-        preview = escape(_reflow(v.get("text") or "")[:70])
-        console.print(f"    {offset + i + 1}: {v['type'].upper()} {escape(v.get('number') or '')} — {preview}")
-    choice = Prompt.ask("  Verified-list number (blank to cancel)", default="")
-    if not choice:
-        console.print("  [yellow]Cancelled.[/]")
-        return None
-    try:
-        target_idx = int(choice) - 1
-        if not (0 <= target_idx < len(verified)):
-            raise ValueError
-    except ValueError:
-        console.print("  [red]Invalid choice -- cancelled.[/]")
-        return None
-
-    target = verified[target_idx]
-    tail_text = "\n".join(lines[split_at - 1 :]).strip()
-    original_target_text = target.get("text") or ""
-    target["text"] = (original_target_text + "\n" + tail_text) if original_target_text else tail_text
-    target["verified_at"] = _now_iso()
-    add_correction(
-        act,
-        ai_output={"type": target["type"], "number": target.get("number"), "heading": target.get("heading"), "text": original_target_text},
-        human_output=target,
-        changed=True,
-    )
-    console.print(f"  Reassigned to {target['type'].upper()} {escape(target.get('number') or '')}.")
-
-    head = dict(node)
-    head["text"] = "\n".join(lines[: split_at - 1]).strip()
-    return head
+def _current_node(i: int) -> dict:
+    """Node i as this session currently sees it: a pending (not yet
+    Accepted/Flagged) edit first, else its already-reviewed state if the
+    unit containing it has been committed, else the original AI parse."""
+    if i in _pending_edits:
+        return _pending_edits[i]
+    if i in _verified_by_source_index:
+        return _verified_by_source_index[i]
+    return _nodes[i]
 
 
-def edit_node(node: dict) -> dict:
-    edited = dict(node)
-    edited["type"] = Prompt.ask("  type", choices=RELABEL_TYPES, default=node["type"])
-    number = Prompt.ask("  number", default=node.get("number") or "")
-    edited["number"] = number or None
-    heading = Prompt.ask("  heading", default=node.get("heading") or "")
-    edited["heading"] = heading or None
-    if Confirm.ask("  Edit the text body too?", default=False):
-        console.print("  Enter replacement text, end with a blank line:")
-        lines = []
-        while True:
-            line = input()
-            if line == "":
-                break
-            lines.append(line)
-        edited["text"] = "\n".join(lines)
-    return edited
+def _is_committed(i: int) -> bool:
+    return i in _verified_by_source_index
 
 
-def run_flat_review(args, nodes: list[dict], verified: list[dict], findings_by_node: dict[int, list[dict]]) -> None:
-    start_idx = len(verified)
-    if start_idx:
-        console.print(f"Resuming at node {start_idx + 1}/{len(nodes)} (use --restart to start over)")
-
-    for idx in range(start_idx, len(nodes)):
-        node = nodes[idx]
-        while True:
-            render_node(node, idx, len(nodes), findings_by_node.get(idx))
-            action = Prompt.ask(ACTION_PROMPT, choices=ACTION_CHOICES, default="a")
-            if action != "s":
-                break
-            split = split_node(node, args.act, verified)
-            if split is not None:
-                node = split
-        if not _apply_action(action, node, args.act, verified):
-            save_verified(args.act, verified)
-            console.print(f"Saved {len(verified)}/{len(nodes)} verified nodes to data/verified/{args.act}.json")
-            return
-        save_verified(args.act, verified)
-
-    flagged_count = sum(1 for n in verified if n.get("needs_followup"))
-    console.print(f"[green]Done.[/] All {len(nodes)} nodes reviewed -> data/verified/{args.act}.json")
-    if flagged_count:
-        console.print(f"[yellow]{flagged_count} node(s) still flagged for follow-up.[/]")
+def _mutate_node(i: int, **fields) -> dict:
+    """Applies field updates to node i's current effective state. If i's
+    unit has already been committed, mutates the verified entry directly,
+    refreshes its verification stamp, logs a correction against its prior
+    state, and persists immediately -- there's no later Accept step to do
+    it for us once a piece has already been reviewed once. Otherwise
+    stages the change in _pending_edits, folded into `verified` for real
+    only when that unit is Accepted/Flagged."""
+    current = _current_node(i)
+    merged = {**current, **fields}
+    if _is_committed(i):
+        original_snapshot = dict(current)
+        target = _verified_by_source_index[i]
+        target.clear()
+        target.update(merged)
+        target["verified_at"] = _now_iso()
+        target.pop("needs_followup", None)
+        add_correction(_act, ai_output=original_snapshot, human_output=target, changed=True)
+        save_verified(_act, _verified)
+        return target
+    _pending_edits[i] = merged
+    return merged
 
 
-def run_triage(args, nodes: list[dict], verified: list[dict], findings_by_node: dict[int, list[dict]]) -> None:
-    indices = sorted(findings_by_node)
+def _append_text_to_node(i: int, addition: str) -> dict:
+    if not addition:
+        return _current_node(i)
+    current_text = (_current_node(i).get("text") or "").strip()
+    new_text = f"{current_text}\n{addition}" if current_text else addition
+    return _mutate_node(i, text=new_text)
+
+
+def _unit_status(unit_no: int) -> str:
+    indices = [i for i in _units[unit_no] if i not in _merged_away]
     if not indices:
-        console.print("[green]No flagged nodes -- nothing to triage.[/]")
-        return
-    console.print(f"Triage mode: {len(indices)} flagged node(s) out of {len(nodes)} total.")
-    reviewed_this_run = {n.get("_triage_index") for n in verified if "_triage_index" in n}
-    for idx in indices:
-        if idx in reviewed_this_run:
-            continue
-        node = nodes[idx]
-        while True:
-            render_node(node, idx, len(nodes), findings_by_node.get(idx))
-            action = Prompt.ask(ACTION_PROMPT, choices=ACTION_CHOICES, default="a")
-            if action != "s":
-                break
-            split = split_node(node, args.act, verified)
-            if split is not None:
-                node = split
-        before = len(verified)
-        if not _apply_action(action, node, args.act, verified):
-            save_verified(args.act, verified)
-            console.print(f"Saved {len(verified)}/{len(nodes)} verified nodes to data/verified/{args.act}.json")
-            return
-        verified[before]["_triage_index"] = idx
-        save_verified(args.act, verified)
-    console.print(f"[green]Triage pass complete.[/] {len(indices)} flagged node(s) reviewed.")
+        return "done"  # every node in it ended up merged away into elsewhere
+    if not all(_is_committed(i) for i in indices):
+        return "pending"
+    if any(_verified_by_source_index[i].get("needs_followup") for i in indices):
+        return "flagged"
+    return "done"
+
+
+def _links_by_node(act: str) -> dict[int, list[dict]]:
+    by_node: dict[int, list[dict]] = {}
+    for link in load_links(act):
+        by_node.setdefault(link["node_index"], []).append(link)
+    return by_node
+
+
+def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[int, list[dict]]) -> dict:
+    raw_text = node.get("text") or ""
+    reflowed, offset_map = reflow_with_map(raw_text)
+    piece_links = []
+    for link in links_by_node.get(node_index, []):
+        piece_links.append({
+            **link,
+            "start_reflowed": _raw_to_reflowed(link["start"], offset_map),
+            "end_reflowed": _raw_to_reflowed(link["end"], offset_map),
+        })
+    return {
+        "node_index": node_index,
+        "label": label,
+        "type": node["type"],
+        "number": node.get("number"),
+        "heading": node.get("heading"),
+        "text": raw_text,
+        "reflowed": reflowed,
+        "offset_map": offset_map,
+        "findings": _findings_by_node.get(node_index, []),
+        "links": piece_links,
+        "verified_at": node.get("verified_at"),
+        "needs_followup": bool(node.get("needs_followup")),
+        "page_start": node.get("page_start"),
+        "page_end": node.get("page_end"),
+    }
+
+
+def _unit_payload(unit_no: int) -> dict:
+    indices = [i for i in _units[unit_no] if i not in _merged_away]
+    unit_nodes = [_current_node(i) for i in indices]
+    labels = compute_unit_labels(unit_nodes) if unit_nodes and unit_nodes[0]["type"] in _UNIT_ROOT_TYPES else ["" for _ in unit_nodes]
+    links_by_node = _links_by_node(_act)
+    return {
+        "unit_no": unit_no,
+        "unit_count": len(_units),
+        "status": _unit_status(unit_no),
+        "root_type": _nodes[_units[unit_no][0]]["type"],
+        "pieces": [_build_piece(i, lbl, n, links_by_node) for i, n, lbl in zip(indices, unit_nodes, labels)],
+    }
+
+
+# ---------------------------------------------------------------------------
+# FastAPI app
+# ---------------------------------------------------------------------------
+
+app = FastAPI(title="Legislation review")
+
+
+class EditRequest(BaseModel):
+    type: str
+    number: str | None = None
+    heading: str | None = None
+    text: str
+
+
+class SplitRequest(BaseModel):
+    node_index: int
+    split_at_reflowed: int
+    target_node_index: int
+
+
+class MergeRequest(BaseModel):
+    target_node_index: int
+    source_node_indices: list[int]
+
+
+class AcceptRequest(BaseModel):
+    flagged: bool = False
+
+
+class LinkRequest(BaseModel):
+    node_index: int
+    start: int
+    end: int
+    label: str
+
+
+@app.get("/")
+def index():
+    return FileResponse(STATIC_DIR / "review.html")
+
+
+@app.get("/api/meta")
+def get_meta():
+    units_summary = []
+    for u, indices in enumerate(_units):
+        root = _nodes[indices[0]]
+        units_summary.append({
+            "unit_no": u,
+            "type": root["type"],
+            "number": root.get("number"),
+            "heading": root.get("heading"),
+            "status": _unit_status(u),
+            "flagged_pieces": sum(1 for i in indices if i in _findings_by_node),
+        })
+    return {
+        "act": _act,
+        "unit_count": len(_units),
+        "resume_unit": _startup_resume_unit,
+        "labels": LABELS,
+        "node_types": _relabel_types,
+        "corrections": stats(),
+        "unattached_notes": len(_unattached_notes),
+        "units": units_summary,
+        "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
+    }
+
+
+@app.get("/api/units/{unit_no}")
+def get_unit(unit_no: int):
+    if not (0 <= unit_no < len(_units)):
+        raise HTTPException(404, "No such unit")
+    return _unit_payload(unit_no)
+
+
+def _get_pdf_doc() -> fitz.Document:
+    global _pdf_doc
+    if _pdf_doc is None:
+        if not _source_pdf_path or not Path(_source_pdf_path).exists():
+            raise HTTPException(404, "No source PDF available for this Act")
+        _pdf_doc = fitz.open(_source_pdf_path)
+    return _pdf_doc
+
+
+@app.get("/api/pages/{page_no}.png")
+def get_page_image(page_no: int):
+    """Renders one page of this Act's source PDF as a PNG, so a reviewer
+    can check a piece's text against the real page it came from (see
+    page_start/page_end on each piece from _build_piece) -- side by side
+    with, or in place of, the parsed text. page_no is 1-indexed and refers
+    to the *original* PDF's own page numbering (the same numbers
+    page_start/page_end already use), not the Act-body-only slice
+    run_pipeline.py may have started extraction from. Rendered once per
+    page per server run and cached in memory -- an Act's page count is
+    small enough (typically well under a thousand) that caching every
+    page ever requested costs at most a few tens of MB, far cheaper than
+    re-rendering on every click as a reviewer moves between pieces on the
+    same page."""
+    if page_no in _page_image_cache:
+        return Response(content=_page_image_cache[page_no], media_type="image/png")
+    doc = _get_pdf_doc()
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
+    pixmap = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(_PAGE_RENDER_ZOOM, _PAGE_RENDER_ZOOM))
+    png_bytes = pixmap.tobytes("png")
+    _page_image_cache[page_no] = png_bytes
+    return Response(content=png_bytes, media_type="image/png")
+
+
+@app.get("/api/verified/recent")
+def get_recent_verified(limit: int = 8, q: str = ""):
+    """The most recently reviewed pieces (most recent last), for the
+    "merge/split into an earlier piece" target picker -- optionally
+    narrowed by a case-insensitive substring of type/number/heading/text,
+    since "recent" alone can miss a piece from well before the current
+    unit that a reviewer still remembers by name."""
+    pool = _verified
+    if q:
+        needle = q.lower()
+        pool = [
+            v for v in pool
+            if needle in f"{v['type']} {v.get('number') or ''} {v.get('heading') or ''} {v.get('text') or ''}".lower()
+        ]
+    recent = pool[-limit:]
+    return [
+        {
+            "node_index": v.get("_source_node_index"),
+            "type": v["type"],
+            "number": v.get("number"),
+            "heading": v.get("heading"),
+            "preview": (v.get("text") or "")[:120],
+        }
+        for v in recent
+        if v.get("_source_node_index") is not None and v["_source_node_index"] not in _merged_away
+    ]
+
+
+@app.post("/api/nodes/{node_index}/edit")
+def edit_node_endpoint(node_index: int, req: EditRequest):
+    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    if req.type not in _relabel_types:
+        raise HTTPException(400, f"Unknown type {req.type!r}")
+    updated = _mutate_node(node_index, type=req.type, number=req.number or None, heading=req.heading or None, text=req.text)
+    return {"node_index": node_index, "type": updated["type"], "number": updated.get("number"), "heading": updated.get("heading")}
+
+
+@app.post("/api/split")
+def split_endpoint(req: SplitRequest):
+    i = req.node_index
+    if not (0 <= i < len(_nodes)) or i in _merged_away:
+        raise HTTPException(404, "No such node")
+    if not (0 <= req.target_node_index < len(_nodes)) or req.target_node_index in _merged_away or req.target_node_index == i:
+        raise HTTPException(400, "Invalid split target")
+
+    node = _current_node(i)
+    raw_text = node.get("text") or ""
+    _, offset_map = reflow_with_map(raw_text)
+    if not (0 < req.split_at_reflowed < len(offset_map) - 1):
+        raise HTTPException(400, "Invalid split position")
+    raw_split = offset_map[req.split_at_reflowed]
+    head, tail = raw_text[:raw_split].strip(), raw_text[raw_split:].strip()
+    if not tail:
+        raise HTTPException(400, "Nothing after that position to split off")
+
+    _mutate_node(i, text=head)
+    _append_text_to_node(req.target_node_index, tail)
+    return {"ok": True}
+
+
+@app.post("/api/merge")
+def merge_endpoint(req: MergeRequest):
+    target = req.target_node_index
+    sources = req.source_node_indices
+    if not sources:
+        raise HTTPException(400, "No source piece(s) given")
+    for i in [target, *sources]:
+        if not (0 <= i < len(_nodes)) or i in _merged_away:
+            raise HTTPException(404, f"No such node: {i}")
+    if target in sources:
+        raise HTTPException(400, "A piece can't be merged into itself")
+
+    source_unit_no = _unit_of_index[sources[0]]
+    if any(_unit_of_index[i] != source_unit_no for i in sources):
+        raise HTTPException(400, "Source pieces must all belong to the same unit")
+    root_index = _units[source_unit_no][0]
+    remaining = [j for j in _units[source_unit_no] if j not in _merged_away and j not in sources and j != target]
+    if root_index in sources and remaining:
+        raise HTTPException(400, "Can't merge the section itself away while it still has pieces nested under it.")
+
+    combined = "\n".join(
+        (_current_node(j).get("text") or "").strip() for j in sorted(sources) if (_current_node(j).get("text") or "").strip()
+    )
+    _append_text_to_node(target, combined)
+    for j in sources:
+        _merged_away.add(j)
+        _pending_edits.pop(j, None)
+
+    target_unit_no = _unit_of_index.get(target)
+    if target_unit_no != source_unit_no and _is_committed(target) and all(j in _merged_away for j in _units[source_unit_no]):
+        # Every node in the source unit is now gone and the destination
+        # lives in a different, already-committed unit -- nothing left
+        # here for a later Accept to ever tag with _unit_end_index, so
+        # tag the destination instead (_resume_point only ever needs the
+        # *highest* tagged index, so marking this now-fully-handled unit
+        # here is exactly as good as tagging one of its own nodes).
+        _verified_by_source_index[target]["_unit_end_index"] = source_unit_no
+        save_verified(_act, _verified)
+    return {"ok": True}
+
+
+@app.post("/api/units/{unit_no}/accept")
+def accept_unit(unit_no: int, req: AcceptRequest):
+    if not (0 <= unit_no < len(_units)):
+        raise HTTPException(404, "No such unit")
+    if _unit_status(unit_no) != "pending":
+        raise HTTPException(400, "This unit has already been reviewed -- edit its pieces directly instead.")
+
+    indices = [i for i in _units[unit_no] if i not in _merged_away]
+    if indices:
+        unit_orig = [_nodes[i] for i in indices]
+        unit_nodes = [_current_node(i) for i in indices]
+        before = len(_verified)
+        commit_unit(unit_nodes, unit_orig, _act, _verified, flagged=req.flagged, unit_index=unit_no)
+        for i, v in zip(indices, _verified[before:]):
+            v["_source_node_index"] = i
+            _verified_by_source_index[i] = v
+            _pending_edits.pop(i, None)
+        save_verified(_act, _verified)
+    return {"unit_no": unit_no, "status": _unit_status(unit_no)}
+
+
+@app.get("/api/links")
+def get_links():
+    return load_links(_act)
+
+
+@app.post("/api/links")
+def post_link(req: LinkRequest):
+    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    node_text = _current_node(req.node_index).get("text") or ""
+    span_text = node_text[req.start : req.end]
+    target = resolve_link(req.label, span_text, _nodes, _definition_index)
+    try:
+        return add_link(_act, req.node_index, req.start, req.end, req.label, node_text, target=target)
+    except LinkError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.delete("/api/links/{link_id}")
+def remove_link(link_id: str):
+    if not delete_link(_act, link_id):
+        raise HTTPException(404, "No such link")
+    return {"ok": True}
 
 
 def main():
+    global _act, _nodes, _units, _unit_of_index, _verified, _definition_index
+    global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit, _source_pdf_path
+
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("act")
+    ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--restart", action="store_true", help="ignore existing progress and start from the beginning")
-    ap.add_argument(
-        "--flat", action="store_true",
-        help="review every node one at a time instead of grouping each Section with its own components",
-    )
-    ap.add_argument(
-        "--triage", action="store_true",
-        help="review only the nodes flagged by data/diagnostics/<act>.json (duplicates, empty nodes, "
-             "low-confidence history links) instead of walking every node/section",
-    )
     args = ap.parse_args()
 
-    nodes, unattached_notes, hierarchy = load_parsed(args.act)
-    verified = [] if args.restart else load_verified(args.act)
+    _act = args.act
+    _nodes, _unattached_notes, _hierarchy = load_parsed(args.act)
+    _source_pdf_path = load_source_pdf_path(args.act)
+    _units = group_into_units(_nodes)
+    for u, indices in enumerate(_units):
+        for i in indices:
+            _unit_of_index[i] = u
+    _definition_index = build_definition_index(_nodes)
+    # This Act's own hierarchy levels first when relabelling a node (a
+    # custom top level like "chapter" won't be in the built-in list).
+    _relabel_types[:] = list(dict.fromkeys([*_hierarchy, *NODE_TYPES]))
 
-    # Offer this Act's own hierarchy levels first when relabelling a node
-    # (a custom top level like "chapter" won't be in the built-in list).
-    RELABEL_TYPES[:] = list(dict.fromkeys([*hierarchy, *NODE_TYPES]))
-
-    s = stats()
-    console.print(f"Corrections logged so far across all Acts: {s['total']} ({s['changed']} changed)")
-    if unattached_notes:
-        console.print(
-            f"[yellow]{len(unattached_notes)} amendment-history note(s) couldn't be auto-linked to a node[/] "
-            f"-- see data/ai_parsed/{args.act}.json -> unattached_notes"
-        )
-
-    findings_by_node: dict[int, list[dict]] = {}
     for finding in load_diagnostics(args.act):
         if finding.get("node_index") is not None:
-            findings_by_node.setdefault(finding["node_index"], []).append(finding)
+            _findings_by_node.setdefault(finding["node_index"], []).append(finding)
 
-    if args.triage:
-        run_triage(args, nodes, verified, findings_by_node)
-    elif args.flat:
-        run_flat_review(args, nodes, verified, findings_by_node)
-    else:
-        run_section_review(args.act, nodes, verified, findings_by_node)
+    _verified = [] if args.restart else load_verified(args.act)
+    for v in _verified:
+        if "_source_node_index" in v:
+            _verified_by_source_index[v["_source_node_index"]] = v
+    _startup_resume_unit = _resume_point(_units, _verified)
+    # Reconstruct which nodes were merged away in a prior session: any
+    # index belonging to an already-fully-processed unit (before the
+    # resume point) that never made it into `verified` at all -- a
+    # node merged away is simply never appended there (see the merge
+    # endpoint) -- must have been merged into something else rather
+    # than just not-yet-reached.
+    for u in range(_startup_resume_unit):
+        for i in _units[u]:
+            if i not in _verified_by_source_index:
+                _merged_away.add(i)
+
+    import uvicorn
+
+    print(f"Serving {args.act}: {len(_nodes)} nodes, {len(_units)} units.")
+    print(f"Corrections logged so far across all Acts: {stats()}")
+    if _unattached_notes:
+        print(f"{len(_unattached_notes)} amendment-history note(s) couldn't be auto-linked to a node.")
+    print(f"Open http://127.0.0.1:{args.port}/ in a browser.")
+    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,12 @@
+# Copy this to /etc/caddy/Caddyfile on the VPS (not inside this repo
+# checkout) and replace the domain below with your own. Caddy obtains and
+# renews a Let's Encrypt certificate for it automatically -- no manual
+# certbot/openssl steps -- as long as:
+#   - the domain's DNS A (and/or AAAA) record points at this server's
+#     public IP, and
+#   - ports 80 and 443 are open inbound (see deploy/README.md's firewall
+#     step) -- 80 is needed for the ACME HTTP challenge even though
+#     everything ends up served over HTTPS.
+your-domain.example.com {
+    reverse_proxy 127.0.0.1:8000
+}

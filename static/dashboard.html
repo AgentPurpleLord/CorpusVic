@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Legislation pipeline dashboard</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #d7d7d7;
+    --accent: #2b6cb0;
+    --card-bg: #f5f5f4;
+    --pending: #9ca3af;
+    --done: #16a34a;
+    --flagged: #d97706;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  header .stat { font-size: 12.5px; color: var(--muted); }
+  button, .btn {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--fg);
+  }
+  button:hover, .btn:hover { background: #f0f0f0; }
+  .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn.primary:hover { background: #2558a0; }
+  .btn.small { padding: 3px 9px; font-size: 12px; }
+  main { padding: 20px; max-width: 980px; margin: 0 auto; }
+  #tools-row { display: flex; gap: 10px; margin-bottom: 20px; }
+  #acts { display: flex; flex-direction: column; gap: 10px; }
+  .act-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .act-card .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .act-card .slug { font-weight: 600; font-size: 14.5px; }
+  .badge {
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #e5e7eb;
+    color: #374151;
+  }
+  .badge.done { background: #dcfce7; color: var(--done); }
+  .badge.in-progress { background: #fef3c7; color: var(--flagged); }
+  .badge.not-started, .badge.not-parsed { background: #e5e7eb; color: var(--pending); }
+  .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  #empty { color: var(--muted); font-size: 13.5px; padding: 30px 0; text-align: center; }
+
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 10px;
+    padding: 20px 22px;
+    width: 440px;
+    max-width: 92vw;
+    max-height: 86vh;
+    overflow: auto;
+  }
+  .modal h2 { font-size: 15px; margin: 0 0 14px; }
+  .modal label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
+  .modal input[type=text], .modal input[type=number], .modal select {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+  }
+  .modal input[type=file] { font-size: 13px; }
+  .modal .row { display: flex; gap: 10px; }
+  .modal .row > * { flex: 1; }
+  .modal .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .modal .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  pre#log {
+    background: #111827; color: #d1fae5;
+    padding: 10px; border-radius: 6px;
+    font-size: 12px; max-height: 300px; overflow: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  #toast {
+    display: none;
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #111827; color: white;
+    padding: 8px 16px; border-radius: 6px; font-size: 13px;
+    z-index: 100;
+  }
+  #toast.error { background: #b91c1c; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Legislation pipeline dashboard</h1>
+  <div class="stat" id="summary"></div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="loadActs()">Refresh</button>
+  <button class="btn primary" onclick="openModal('add-modal')">+ Add Act / Bill / EM</button>
+  <button class="btn" onclick="logout()">Log out</button>
+</header>
+
+<main>
+  <div id="tools-row">
+    <button class="btn" onclick="openModal('link-modal')">Link a Bill to its Act / EM</button>
+  </div>
+  <div id="acts"></div>
+  <div id="empty" style="display:none">No Acts yet -- click "+ Add Act / Bill / EM" to parse your first one.</div>
+</main>
+
+<!-- Add Act/Bill/EM modal -->
+<div class="overlay" id="add-modal">
+  <div class="modal">
+    <h2>Add a new Act, Bill, or Explanatory Memorandum</h2>
+    <form id="add-form">
+      <label>PDF file</label>
+      <input type="file" name="pdf" accept="application/pdf" required>
+
+      <label>Kind</label>
+      <select name="kind" id="add-kind" onchange="onKindChange()">
+        <option value="act">Act</option>
+        <option value="bill">Bill</option>
+        <option value="em">Explanatory Memorandum</option>
+      </select>
+
+      <div id="act-bill-fields">
+        <label>Profile (optional -- matches ai_pipeline/profiles/&lt;name&gt;.yaml)</label>
+        <input type="text" name="profile" placeholder="e.g. criminal-procedure-act">
+
+        <div class="row">
+          <div>
+            <label>Start page (optional)</label>
+            <input type="number" name="start_page" min="1">
+          </div>
+          <div>
+            <label>End page (optional)</label>
+            <input type="number" name="end_page" min="1">
+          </div>
+        </div>
+
+        <label>Engine</label>
+        <select name="engine" id="add-engine" onchange="onEngineChange()">
+          <option value="rules">Rules (default -- free, instant)</option>
+          <option value="ai">AI (model backend)</option>
+        </select>
+
+        <div id="ai-fields" style="display:none">
+          <div class="row">
+            <div>
+              <label>Backend</label>
+              <select name="backend">
+                <option value="ollama">ollama</option>
+                <option value="claude">claude</option>
+              </select>
+            </div>
+            <div>
+              <label>Model (optional)</label>
+              <input type="text" name="model" placeholder="backend default">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <button type="button" class="btn" onclick="closeModal('add-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Parse</button>
+      </div>
+    </form>
+    <div id="add-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Bill-link modal -->
+<div class="overlay" id="link-modal">
+  <div class="modal">
+    <h2>Link a Bill to its Act (and EM, if parsed)</h2>
+    <form id="link-form">
+      <label>Bill slug</label>
+      <input type="text" name="bill_slug" placeholder="e.g. criminal-procedure-bill-2008" required>
+      <label>Act slug</label>
+      <input type="text" name="act_slug" placeholder="e.g. criminal-procedure-act" required>
+      <label>EM slug (optional)</label>
+      <input type="text" name="em_slug" placeholder="e.g. criminal-procedure-bill-2008-em">
+      <div class="hint">Slugs come from the Act cards below, or from a PDF's filename (lowercased, spaces/punctuation to hyphens).</div>
+      <div class="footer">
+        <button type="button" class="btn" onclick="closeModal('link-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Link</button>
+      </div>
+    </form>
+    <div id="link-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="link-log"></pre>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  location.href = "/login";
+}
+
+function toast(msg, isError) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = isError ? "error" : "";
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = "none"; }, isError ? 4500 : 2500);
+}
+
+function onKindChange() {
+  const isEm = document.getElementById("add-kind").value === "em";
+  document.getElementById("act-bill-fields").style.display = isEm ? "none" : "block";
+}
+function onEngineChange() {
+  const isAi = document.getElementById("add-engine").value === "ai";
+  document.getElementById("ai-fields").style.display = isAi ? "block" : "none";
+}
+
+function statusLabel(s) {
+  if (!s.parsed) return "not parsed";
+  if (s.review_status === "reviewed") return "reviewed";
+  if (s.review_status === "in-progress") return `reviewing ${s.reviewed_units}/${s.unit_count} units`;
+  return "not yet reviewed";
+}
+function statusClass(s) {
+  if (!s.parsed) return "not-parsed";
+  return s.review_status;
+}
+
+function actCardHtml(s) {
+  const nodesBadge = s.parsed ? `<span class="badge">${s.node_count} nodes, ${s.unit_count} units</span>` : "";
+  const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
+  const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
+  const reviewBtn = s.parsed
+    ? `<a class="btn small" href="/review/${s.slug}/" target="_blank">Review</a>`
+    : `<button class="btn small" disabled title="Parse it first">Review</button>`;
+  const browseBtn = s.parsed
+    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this Act reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
+    : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
+  const dlAkn = s.akn_exported
+    ? `<a class="btn small" href="/api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
+  const dlMd = s.markdown_exported
+    ? `<a class="btn small" href="/api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
+
+  return `
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">${s.slug}</span>
+        <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
+        ${nodesBadge}
+        ${aknBadge}
+        ${mdBadge}
+      </div>
+      <div class="actions">
+        ${reviewBtn}
+        ${browseBtn}
+        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
+        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
+        ${dlAkn}
+        ${dlMd}
+      </div>
+    </div>`;
+}
+
+async function loadActs() {
+  const res = await fetch("/api/acts");
+  const acts = await res.json();
+  document.getElementById("summary").textContent = acts.length ? `${acts.length} Act(s)/Bill(s)/EM(s)` : "";
+  document.getElementById("empty").style.display = acts.length ? "none" : "block";
+  document.getElementById("acts").innerHTML = acts.map(actCardHtml).join("");
+}
+
+async function runExport(slug, kind, btn) {
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Running...";
+  try {
+    const res = await fetch(`/api/acts/${slug}/export/${kind}`, { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      toast(`${kind} export finished for ${slug}`);
+    } else {
+      toast(`${kind} export failed for ${slug} -- see console`, true);
+      console.error(data.log);
+    }
+  } catch (e) {
+    toast(String(e), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+    loadActs();
+  }
+}
+
+document.getElementById("add-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const submitBtn = form.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Parsing...";
+  const logWrap = document.getElementById("add-log-wrap");
+  const logEl = document.getElementById("log");
+  logWrap.style.display = "block";
+  logEl.textContent = "Running -- this can take a little while for a large PDF...";
+  try {
+    const res = await fetch("/api/acts/new", { method: "POST", body: new FormData(form) });
+    const data = await res.json();
+    logEl.textContent = data.log || "(no output)";
+    if (data.ok) {
+      toast(`Parsed ${data.slug}`);
+      loadActs();
+    } else if (res.ok) {
+      toast(`Parsing ${data.slug} failed -- see log below`, true);
+    } else {
+      toast(data.detail || "Request failed", true);
+    }
+  } catch (err) {
+    logEl.textContent = String(err);
+    toast(String(err), true);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Parse";
+  }
+});
+
+document.getElementById("link-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const submitBtn = form.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  const logWrap = document.getElementById("link-log-wrap");
+  const logEl = document.getElementById("link-log");
+  logWrap.style.display = "block";
+  logEl.textContent = "Running...";
+  try {
+    const res = await fetch("/api/bill-link", { method: "POST", body: new FormData(form) });
+    const data = await res.json();
+    logEl.textContent = data.log || "(no output)";
+    toast(data.ok ? "Bill linking finished" : "Bill linking failed -- see log below", !data.ok);
+  } catch (err) {
+    logEl.textContent = String(err);
+    toast(String(err), true);
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+loadActs();
+</script>
+</body>
+</html>

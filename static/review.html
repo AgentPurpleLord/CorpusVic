@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Legislation review</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #d7d7d7;
+    --accent: #2b6cb0;
+    --sidebar-bg: #f5f5f4;
+    --sidebar-hover: #ebebe9;
+    --sidebar-active: #e2e8f0;
+    --pending: #9ca3af;
+    --done: #16a34a;
+    --flagged: #d97706;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    z-index: 20;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
+  header .spacer { flex: 1; }
+  header .stat { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  header button, .btn {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--fg);
+  }
+  header button:hover, .btn:hover { background: #f0f0f0; }
+  .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn.primary:hover { background: #2558a0; }
+  .btn.danger { color: #b91c1c; border-color: #f0c0c0; }
+  .btn.small { padding: 2px 8px; font-size: 12px; }
+  #resume-banner {
+    background: #eff6ff;
+    border-bottom: 1px solid #bfdbfe;
+    padding: 6px 16px;
+    font-size: 12.5px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  #resume-banner a { color: var(--accent); cursor: pointer; }
+
+  #layout { flex: 1; display: flex; min-height: 0; }
+
+  #sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #sidebar-controls {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  #sidebar-filter { display: flex; gap: 4px; }
+  #sidebar-filter button {
+    flex: 1;
+    font-size: 11.5px;
+    padding: 4px 4px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #sidebar-filter button.active { background: var(--accent); color: white; border-color: var(--accent); }
+  #jump-input { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; }
+  #unit-list { flex: 1; overflow-y: auto; }
+  .unit-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eceae7;
+    font-size: 12.5px;
+  }
+  .unit-row:hover { background: var(--sidebar-hover); }
+  .unit-row.active { background: var(--sidebar-active); }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+  .status-dot.pending { background: var(--pending); }
+  .status-dot.done { background: var(--done); }
+  .status-dot.flagged { background: var(--flagged); }
+  .unit-row .unit-title { font-weight: 600; }
+  .unit-row .unit-sub { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  #main { flex: 1; overflow-y: auto; min-width: 0; }
+  #main-inner { max-width: 880px; margin: 0 auto; padding: 20px 20px 100px; }
+  #empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
+
+  /* Source-PDF panel -- three modes cycled by #pdf-toggle-btn: "text"
+     (panel hidden, #main full width -- the default, unchanged layout),
+     "split" (both visible, each getting an equal flex share), "pdf"
+     (#main hidden, panel full width). Toggled via body[data-view-mode]
+     rather than JS-set inline styles so both states are one CSS rule
+     each. */
+  #pdf-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    border-left: 1px solid var(--border);
+    background: #52565c;
+  }
+  body[data-view-mode="split"] #pdf-panel, body[data-view-mode="pdf"] #pdf-panel { display: flex; }
+  body[data-view-mode="pdf"] #main { display: none; }
+  #pdf-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 12px; background: #374151; color: #e5e7eb; font-size: 12.5px; flex-shrink: 0;
+  }
+  #pdf-toolbar button { background: #1f2937; color: #e5e7eb; border-color: #4b5563; }
+  #pdf-toolbar button:hover { background: #111827; }
+  #pdf-image-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
+  #pdf-image { max-width: 100%; height: auto; box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white; }
+  .page-jump-btn { font-size: 10.5px !important; padding: 2px 6px !important; }
+
+  #unit-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  #unit-header h2 { font-size: 18px; margin: 0; }
+  #unit-header .status-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
+  }
+  .status-badge.pending { background: #f3f4f6; color: var(--pending); }
+  .status-badge.done { background: #dcfce7; color: #166534; }
+  .status-badge.flagged { background: #fef3c7; color: #92400e; }
+  #unit-nav { display: flex; gap: 6px; margin-left: auto; }
+
+  .piece {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .piece.merge-source { background: #fff7ed; }
+  .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .piece-label { font-weight: 700; font-size: 13px; }
+  .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .piece-toolbar { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
+  .piece:hover .piece-toolbar { opacity: 1; }
+  .piece-toolbar button { font-size: 11px; padding: 2px 7px; }
+  .piece-heading { font-weight: 600; margin-bottom: 4px; }
+  .piece-text {
+    white-space: pre-wrap;
+    line-height: 1.55;
+    font-size: 14px;
+    cursor: text;
+    user-select: text;
+  }
+  .piece-text mark { border-radius: 3px; padding: 0 1px; cursor: pointer; border-bottom: 2px solid transparent; }
+  mark.label-act_citation { background: #bfdbfe; }
+  mark.label-defined_term { background: #bbf7d0; }
+  mark.label-bill_reference { background: #ddd6fe; }
+  mark.label-em_reference { background: #fed7aa; }
+  mark.label-other { background: #e5e7eb; }
+  mark.resolved { border-bottom-color: #16a34a; }
+  mark.unresolved { border-bottom: 2px dashed #9ca3af; }
+  .piece-findings { margin-top: 6px; font-size: 12.5px; color: #92400e; }
+  .piece-findings div { margin-top: 2px; }
+  .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
+
+  /* Type accent colours -- a left border, subtle, distinguishes piece
+     type by colour without competing with the text itself. */
+  .piece[data-type="subsection"] { border-left: 3px solid #06b6d4; }
+  .piece[data-type="paragraph"] { border-left: 3px solid #22c55e; }
+  .piece[data-type="subparagraph"] { border-left: 3px solid #eab308; }
+  .piece[data-type="note"] { border-left: 3px solid #d946ef; }
+  .piece[data-type="definition"] { border-left: 3px solid #3b82f6; }
+  .piece[data-type="heading_group"] { border-left: 3px solid #111827; }
+
+  #unit-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 10px 0;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  /* Selection / highlight popup menu */
+  #menu {
+    position: absolute;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    padding: 6px;
+    z-index: 200;
+    display: none;
+    min-width: 190px;
+  }
+  #menu .preview {
+    font-size: 12px; color: var(--muted); padding: 4px 8px 8px;
+    border-bottom: 1px solid var(--border); margin-bottom: 4px; max-width: 280px; overflow-wrap: break-word;
+  }
+  #menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; }
+  #menu button:hover { background: #f0f0f0; }
+  #menu button.remove { color: #b91c1c; }
+
+  /* Modal overlay (edit / target-picker / merge) */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center; z-index: 300;
+  }
+  .overlay[hidden] { display: none; }
+  .modal {
+    background: var(--panel); border-radius: 10px; padding: 18px 20px;
+    width: min(560px, 92vw); max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 15px; }
+  .modal label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 3px; }
+  .modal input[type=text], .modal select, .modal textarea {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13.5px; font-family: inherit;
+  }
+  .modal textarea { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  .picker-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
+  .picker-item { padding: 8px 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  .picker-item:last-child { border-bottom: none; }
+  .picker-item:hover { background: #f5f5f4; }
+  .picker-item input[type=checkbox] { margin-top: 2px; }
+  .picker-item .picker-label { font-weight: 600; white-space: nowrap; }
+  .picker-item .picker-preview { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker-item.selected { background: #eff6ff; }
+
+  #toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: #1f2937; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px;
+    z-index: 400; display: none;
+  }
+  #toast.error { background: #991b1b; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="act-title">Review</h1>
+  <span class="stat" id="corrections-stat"></span>
+  <span class="stat" id="unattached-stat"></span>
+  <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
+  <div class="spacer"></div>
+  <span class="stat">Legend:</span>
+  <span class="stat"><mark class="label-act_citation">&nbsp;</mark> Act citation</span>
+  <span class="stat"><mark class="label-defined_term">&nbsp;</mark> Defined term</span>
+  <span class="stat"><mark class="label-bill_reference">&nbsp;</mark> Bill ref</span>
+  <span class="stat"><mark class="label-em_reference">&nbsp;</mark> EM ref</span>
+</header>
+<div id="resume-banner"><span id="resume-text"></span> <a id="resume-link">Go there</a> <a id="resume-dismiss" style="margin-left:8px;">Dismiss</a></div>
+
+<div id="layout">
+  <div id="sidebar">
+    <div id="sidebar-controls">
+      <div id="sidebar-filter">
+        <button data-filter="all" class="active">All</button>
+        <button data-filter="pending">Pending</button>
+        <button data-filter="flagged">Flagged</button>
+      </div>
+      <input id="jump-input" type="text" placeholder="Jump to unit # or search heading...">
+    </div>
+    <div id="unit-list"></div>
+  </div>
+
+  <div id="main">
+    <div id="main-inner">
+      <div id="unit-header" style="display:none">
+        <h2 id="unit-title"></h2>
+        <span class="status-badge" id="unit-status-badge"></span>
+        <div id="unit-nav">
+          <button class="btn small" id="prev-btn">&larr; Prev</button>
+          <button class="btn small" id="next-btn">Next &rarr;</button>
+        </div>
+      </div>
+      <div id="pieces"></div>
+      <div id="unit-actions" style="display:none">
+        <button class="btn" id="merge-open-btn">Merge pieces&hellip;</button>
+        <button class="btn primary" id="accept-btn">Accept unit</button>
+        <button class="btn" id="flag-btn">Flag for follow-up</button>
+      </div>
+      <div id="empty-state">Loading&hellip;</div>
+    </div>
+  </div>
+
+  <div id="pdf-panel">
+    <div id="pdf-toolbar">
+      <button class="btn small" id="pdf-prev">&larr;</button>
+      <span id="pdf-page-label">No page</span>
+      <button class="btn small" id="pdf-next">&rarr;</button>
+    </div>
+    <div id="pdf-image-wrap">
+      <img id="pdf-image" alt="Source PDF page">
+    </div>
+  </div>
+</div>
+
+<div id="menu"></div>
+<div id="toast"></div>
+
+<!-- Edit modal -->
+<div class="overlay" id="edit-overlay" hidden>
+  <div class="modal">
+    <h3>Edit piece</h3>
+    <label>Type</label>
+    <select id="edit-type"></select>
+    <label>Number</label>
+    <input type="text" id="edit-number">
+    <label>Heading</label>
+    <input type="text" id="edit-heading">
+    <label>Text</label>
+    <textarea id="edit-text"></textarea>
+    <div class="modal-actions">
+      <button class="btn" id="edit-cancel">Cancel</button>
+      <button class="btn primary" id="edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Target picker modal (used by both Split and Merge's destination step) -->
+<div class="overlay" id="picker-overlay" hidden>
+  <div class="modal">
+    <h3 id="picker-title">Choose a piece</h3>
+    <input type="text" id="picker-search" placeholder="Search earlier reviewed pieces...">
+    <div class="picker-list" id="picker-list"></div>
+    <div class="modal-actions">
+      <button class="btn" id="picker-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Merge sources modal -->
+<div class="overlay" id="merge-overlay" hidden>
+  <div class="modal">
+    <h3 id="merge-title">Merge which piece(s) into it?</h3>
+    <div class="picker-list" id="merge-sources-list"></div>
+    <div class="modal-actions">
+      <button class="btn" id="merge-cancel">Cancel</button>
+      <button class="btn primary" id="merge-confirm">Merge</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LABEL_TITLES = {
+  act_citation: "Act citation",
+  defined_term: "Defined term",
+  bill_reference: "Bill reference",
+  em_reference: "Explanatory Memorandum reference",
+  other: "Other",
+};
+const TYPE_DEPTH = { subsection: 0, paragraph: 1, subparagraph: 2 };
+
+let META = null;
+let currentUnitNo = null;
+let currentUnit = null;
+let sidebarFilter = "all";
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s == null ? "" : s;
+  return div.innerHTML;
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try { detail = (await res.json()).detail || detail; } catch (e) {}
+    throw new Error(detail);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function toast(msg, isError) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = isError ? "error" : "";
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = "none"; }, isError ? 4000 : 2200);
+}
+
+// ---------------------------------------------------------------------
+// Source PDF panel -- three view modes cycled by #pdf-toggle-btn: "text"
+// (the default -- panel hidden, unchanged layout), "split" (piece text
+// and the PDF page side by side), "pdf" (PDF only, full width). Only
+// shown at all when META.has_source_pdf is true (see loadMeta). Purely a
+// read-only check against the real page -- nothing here feeds back into
+// the parse.
+// ---------------------------------------------------------------------
+const VIEW_MODES = ["text", "split", "pdf"];
+const VIEW_MODE_LABELS = { text: "Show PDF", split: "PDF: Split view", pdf: "PDF: Full view" };
+let viewMode = localStorage.getItem("reviewViewMode") || "text";
+let currentPageNo = null;
+
+function applyViewMode() {
+  document.body.dataset.viewMode = viewMode;
+  document.getElementById("pdf-toggle-btn").textContent = VIEW_MODE_LABELS[viewMode];
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  localStorage.setItem("reviewViewMode", viewMode);
+  applyViewMode();
+}
+
+function cycleViewMode() {
+  setViewMode(VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length]);
+  if (viewMode !== "text" && currentPageNo == null && currentUnit && currentUnit.pieces[0]) {
+    loadPdfPage(currentUnit.pieces[0].page_start);
+  }
+}
+
+function loadPdfPage(pageNo) {
+  if (!pageNo) return;
+  // Probe with a throwaway Image first so a bad page number (past the
+  // end of the PDF, most likely from the "Next" button) leaves the
+  // panel showing the last good page instead of a broken image.
+  const probe = new Image();
+  probe.onload = () => {
+    currentPageNo = pageNo;
+    document.getElementById("pdf-image").src = probe.src;
+    document.getElementById("pdf-page-label").textContent = `Page ${pageNo}`;
+  };
+  probe.onerror = () => toast(`No page ${pageNo} in this Act's source PDF`, true);
+  probe.src = `api/pages/${pageNo}.png`;
+}
+
+function jumpToPiecePage(pageNo) {
+  if (viewMode === "text") setViewMode("split");
+  loadPdfPage(pageNo);
+}
+
+document.getElementById("pdf-toggle-btn").onclick = cycleViewMode;
+document.getElementById("pdf-prev").onclick = () => currentPageNo > 1 && loadPdfPage(currentPageNo - 1);
+document.getElementById("pdf-next").onclick = () => loadPdfPage((currentPageNo || 0) + 1);
+applyViewMode();
+
+// ---------------------------------------------------------------------
+// Meta / sidebar
+// ---------------------------------------------------------------------
+
+async function loadMeta() {
+  META = await api("api/meta");
+  document.getElementById("act-title").textContent = `Review — ${META.act}`;
+  document.getElementById("corrections-stat").textContent =
+    `Corrections logged: ${META.corrections.total} (${META.corrections.changed} changed)`;
+  document.getElementById("unattached-stat").textContent =
+    META.unattached_notes ? `${META.unattached_notes} note(s) unlinked` : "";
+  document.getElementById("pdf-toggle-btn").style.display = META.has_source_pdf ? "" : "none";
+  renderSidebar();
+
+  const banner = document.getElementById("resume-banner");
+  if (META.resume_unit < META.unit_count && !sessionStorage.getItem("resume-dismissed")) {
+    document.getElementById("resume-text").textContent =
+      `Resume where you left off: unit ${META.resume_unit + 1} of ${META.unit_count}.`;
+    document.getElementById("resume-link").onclick = () => loadUnit(META.resume_unit);
+    banner.style.display = "flex";
+  } else {
+    banner.style.display = "none";
+  }
+}
+
+function unitRowLabel(u) {
+  const bits = [u.type.toUpperCase()];
+  if (u.number) bits.push(u.number);
+  return bits.join(" ");
+}
+
+function renderSidebar() {
+  const list = document.getElementById("unit-list");
+  const q = document.getElementById("jump-input").value.trim().toLowerCase();
+  list.innerHTML = "";
+  for (const u of META.units) {
+    if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
+    if (q) {
+      const hay = `${u.unit_no + 1} ${u.type} ${u.number || ""} ${u.heading || ""}`.toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    const row = document.createElement("div");
+    row.className = "unit-row" + (u.unit_no === currentUnitNo ? " active" : "");
+    row.innerHTML = `
+      <span class="status-dot ${u.status}"></span>
+      <div style="min-width:0">
+        <div class="unit-title">${u.unit_no + 1}. ${escapeHtml(unitRowLabel(u))}</div>
+        <div class="unit-sub">${escapeHtml(u.heading || "")}</div>
+      </div>`;
+    row.onclick = () => loadUnit(u.unit_no);
+    list.appendChild(row);
+  }
+}
+
+document.querySelectorAll("#sidebar-filter button").forEach((btn) => {
+  btn.onclick = () => {
+    sidebarFilter = btn.dataset.filter;
+    document.querySelectorAll("#sidebar-filter button").forEach((b) => b.classList.toggle("active", b === btn));
+    renderSidebar();
+  };
+});
+document.getElementById("jump-input").addEventListener("input", renderSidebar);
+document.getElementById("jump-input").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const n = parseInt(document.getElementById("jump-input").value, 10);
+  if (!isNaN(n) && n >= 1 && n <= META.unit_count) loadUnit(n - 1);
+});
+document.getElementById("resume-dismiss").onclick = () => {
+  sessionStorage.setItem("resume-dismissed", "1");
+  document.getElementById("resume-banner").style.display = "none";
+};
+
+// ---------------------------------------------------------------------
+// Unit loading / rendering
+// ---------------------------------------------------------------------
+
+async function loadUnit(n) {
+  currentUnit = await api(`api/units/${n}`);
+  currentUnitNo = n;
+  location.hash = `unit=${n}`;
+  document.getElementById("empty-state").style.display = "none";
+  document.getElementById("unit-header").style.display = "flex";
+  renderUnit();
+  renderSidebar();
+  if (viewMode !== "text" && currentUnit.pieces[0]) loadPdfPage(currentUnit.pieces[0].page_start);
+  // Status of the unit we just left/entered may have changed; keep the
+  // sidebar's own copy fresh without a full meta reload on every click.
+  if (META) {
+    const entry = META.units[n];
+    if (entry) entry.status = currentUnit.status;
+  }
+}
+
+function pieceLabelText(piece) {
+  if (piece.label && piece.label !== "SECTION") return piece.label;
+  const bits = [piece.type.toUpperCase()];
+  if (piece.number) bits.push(piece.number);
+  return bits.join(" ");
+}
+
+function renderPieceText(piece) {
+  const text = piece.reflowed;
+  const sorted = [...piece.links].sort((a, b) => a.start_reflowed - b.start_reflowed);
+  let html = "";
+  let cursor = 0;
+  for (const l of sorted) {
+    if (l.start_reflowed < cursor) continue;
+    html += escapeHtml(text.slice(cursor, l.start_reflowed));
+    const resolvedClass = l.target ? "resolved" : "unresolved";
+    const title = `${LABEL_TITLES[l.label] || l.label} -- ${describeTarget(l)}`;
+    html += `<mark class="label-${l.label} ${resolvedClass}" data-link-id="${l.id}" title="${escapeHtml(title)}">${escapeHtml(text.slice(l.start_reflowed, l.end_reflowed))}</mark>`;
+    cursor = l.end_reflowed;
+  }
+  html += escapeHtml(text.slice(cursor));
+  return html || "<span style=\"color:var(--muted)\">(no text)</span>";
+}
+
+function describeTarget(link) {
+  const t = link.target;
+  if (!t) return "unresolved -- no matching target yet";
+  if (t.kind === "act") {
+    const status = "in_force" in t ? (t.in_force ? ", in force" : ", repealed") : "";
+    return `resolved -- ${t.act_title}${t.act_slug ? ` (${t.act_slug})` : " (not in this pipeline)"}${status}`;
+  }
+  if (t.kind === "definition") {
+    const where = t.number ? `(${t.number})` : t.heading || `node ${t.node_index}`;
+    return `resolved -- defined at ${where}`;
+  }
+  return "resolved";
+}
+
+function renderUnit() {
+  const root = currentUnit.pieces[0];
+  document.getElementById("unit-title").textContent = root
+    ? `${currentUnit.unit_no + 1}. ${root.type.toUpperCase()} ${root.number || ""} ${root.heading || ""}`.replace(/\s+/g, " ").trim()
+    : `${currentUnit.unit_no + 1}. (empty -- fully merged away)`;
+  const badge = document.getElementById("unit-status-badge");
+  badge.textContent = currentUnit.status;
+  badge.className = `status-badge ${currentUnit.status}`;
+
+  const container = document.getElementById("pieces");
+  container.innerHTML = "";
+  currentUnit.pieces.forEach((piece, idx) => {
+    const div = document.createElement("div");
+    div.className = "piece";
+    div.dataset.type = piece.type;
+    div.dataset.nodeIndex = piece.node_index;
+    const isRoot = idx === 0 && currentUnit.root_type === piece.type && piece.label === "SECTION";
+    const headingLine = piece.heading && piece.type !== "definition"
+      ? `<div class="piece-heading">${escapeHtml(piece.heading)}</div>` : "";
+    const findingsHtml = (piece.findings || [])
+      .map((f) => `<div>&#9888; (${escapeHtml(f.severity)}) ${escapeHtml(f.message)}</div>`).join("");
+    const verifiedHtml = piece.verified_at
+      ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>`
+      : piece.needs_followup ? `<div class="piece-verified">&#9873; Flagged for follow-up</div>` : "";
+    const pageJumpHtml = META.has_source_pdf && piece.page_start
+      ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
+      : "";
+    div.innerHTML = `
+      <div class="piece-top">
+        <span class="piece-label">${escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
+        <span class="piece-type">${escapeHtml(piece.type)}</span>
+        <div class="piece-toolbar">
+          ${pageJumpHtml}
+          <button class="btn small edit-piece-btn">Edit</button>
+        </div>
+      </div>
+      ${headingLine}
+      <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece)}</div>
+      <div class="piece-findings">${findingsHtml}</div>
+      ${verifiedHtml}
+    `;
+    div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
+    const jumpBtn = div.querySelector(".page-jump-btn");
+    if (jumpBtn) jumpBtn.onclick = () => jumpToPiecePage(piece.page_start);
+    container.appendChild(div);
+  });
+
+  const actions = document.getElementById("unit-actions");
+  actions.style.display = currentUnit.pieces.length ? "flex" : "none";
+  document.getElementById("accept-btn").style.display = currentUnit.status === "pending" ? "" : "none";
+  document.getElementById("flag-btn").style.display = currentUnit.status === "pending" ? "" : "none";
+}
+
+document.getElementById("prev-btn").onclick = () => currentUnitNo > 0 && loadUnit(currentUnitNo - 1);
+document.getElementById("next-btn").onclick = () => currentUnitNo < META.unit_count - 1 && loadUnit(currentUnitNo + 1);
+
+document.getElementById("accept-btn").onclick = async () => {
+  try {
+    await api(`api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: false }) });
+    toast("Accepted.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+};
+document.getElementById("flag-btn").onclick = async () => {
+  try {
+    await api(`api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: true }) });
+    toast("Flagged for follow-up.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+};
+
+async function afterMutation() {
+  await loadMeta();
+  await loadUnit(currentUnitNo);
+}
+
+// ---------------------------------------------------------------------
+// Edit modal
+// ---------------------------------------------------------------------
+
+function openEditModal(nodeIndex) {
+  const piece = currentUnit.pieces.find((p) => p.node_index === nodeIndex);
+  const sel = document.getElementById("edit-type");
+  sel.innerHTML = META.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+  sel.value = piece.type;
+  document.getElementById("edit-number").value = piece.number || "";
+  document.getElementById("edit-heading").value = piece.heading || "";
+  document.getElementById("edit-text").value = piece.text || "";
+  document.getElementById("edit-overlay").hidden = false;
+  document.getElementById("edit-save").onclick = async () => {
+    try {
+      await api(`api/nodes/${nodeIndex}/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: sel.value,
+          number: document.getElementById("edit-number").value || null,
+          heading: document.getElementById("edit-heading").value || null,
+          text: document.getElementById("edit-text").value,
+        }),
+      });
+      document.getElementById("edit-overlay").hidden = true;
+      toast("Updated.");
+      await afterMutation();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("edit-cancel").onclick = () => { document.getElementById("edit-overlay").hidden = true; };
+
+// ---------------------------------------------------------------------
+// Target picker (shared by Split's "reassign the tail" step and Merge's
+// "merge into which piece" step) -- lists every other piece still in the
+// current unit, plus a searchable list of already-reviewed pieces from
+// earlier ones.
+// ---------------------------------------------------------------------
+
+let pickerOnChoose = null;
+
+async function openPicker(title, excludeNodeIndex, onChoose) {
+  document.getElementById("picker-title").textContent = title;
+  document.getElementById("picker-search").value = "";
+  pickerOnChoose = onChoose;
+  await renderPickerList(excludeNodeIndex, "");
+  document.getElementById("picker-overlay").hidden = false;
+  document.getElementById("picker-search").focus();
+}
+
+async function renderPickerList(excludeNodeIndex, query) {
+  const list = document.getElementById("picker-list");
+  list.innerHTML = "";
+  for (const piece of currentUnit.pieces) {
+    if (piece.node_index === excludeNodeIndex) continue;
+    const label = piece.label === "SECTION" ? "SECTION" : piece.label;
+    const hay = `${label} ${piece.text || ""}`.toLowerCase();
+    if (query && !hay.includes(query.toLowerCase())) continue;
+    const row = document.createElement("div");
+    row.className = "picker-item";
+    row.innerHTML = `<span class="picker-label">${escapeHtml(label)}</span><span class="picker-preview">${escapeHtml((piece.reflowed || "").slice(0, 80))}</span>`;
+    row.onclick = () => { document.getElementById("picker-overlay").hidden = true; pickerOnChoose(piece.node_index); };
+    list.appendChild(row);
+  }
+  if (query || query === "") {
+    const recent = await api(`api/verified/recent?limit=8&q=${encodeURIComponent(query)}`);
+    for (const v of recent) {
+      if (v.node_index === excludeNodeIndex) continue;
+      const label = `${v.type.toUpperCase()} ${v.number || ""}`.trim();
+      const row = document.createElement("div");
+      row.className = "picker-item";
+      row.innerHTML = `<span class="picker-label" style="color:var(--muted)">${escapeHtml(label)}</span><span class="picker-preview">${escapeHtml(v.preview)}</span>`;
+      row.onclick = () => { document.getElementById("picker-overlay").hidden = true; pickerOnChoose(v.node_index); };
+      list.appendChild(row);
+    }
+  }
+}
+document.getElementById("picker-search").addEventListener("input", (e) => {
+  renderPickerList(window._pickerExclude, e.target.value);
+});
+document.getElementById("picker-cancel").onclick = () => { document.getElementById("picker-overlay").hidden = true; };
+
+// ---------------------------------------------------------------------
+// Merge -- pick a destination first (via the shared picker above), then
+// which piece(s) in this unit feed into it (checkboxes).
+// ---------------------------------------------------------------------
+
+document.getElementById("merge-open-btn").onclick = () => {
+  window._pickerExclude = null;
+  openPicker("Merge into which piece? (it keeps the combined text)", null, (targetIndex) => {
+    openMergeSourcesModal(targetIndex);
+  });
+};
+
+function openMergeSourcesModal(targetIndex) {
+  const targetPiece = currentUnit.pieces.find((p) => p.node_index === targetIndex);
+  document.getElementById("merge-title").textContent =
+    `Merge which piece(s) into ${targetPiece ? targetPiece.label : "the selected piece"}?`;
+  const list = document.getElementById("merge-sources-list");
+  list.innerHTML = "";
+  const selected = new Set();
+  for (const piece of currentUnit.pieces) {
+    if (piece.node_index === targetIndex) continue;
+    const row = document.createElement("div");
+    row.className = "picker-item";
+    const id = `merge-src-${piece.node_index}`;
+    row.innerHTML = `<input type="checkbox" id="${id}"><label for="${id}" style="cursor:pointer;flex:1;display:flex;gap:8px;">
+      <span class="picker-label">${escapeHtml(piece.label)}</span>
+      <span class="picker-preview">${escapeHtml((piece.reflowed || "").slice(0, 80))}</span></label>`;
+    const cb = row.querySelector("input");
+    cb.onchange = () => {
+      if (cb.checked) selected.add(piece.node_index); else selected.delete(piece.node_index);
+      row.classList.toggle("selected", cb.checked);
+    };
+    list.appendChild(row);
+  }
+  document.getElementById("merge-overlay").hidden = false;
+  document.getElementById("merge-confirm").onclick = async () => {
+    if (!selected.size) { toast("Pick at least one piece to merge.", true); return; }
+    try {
+      await api("api/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_node_index: targetIndex, source_node_indices: [...selected] }),
+      });
+      document.getElementById("merge-overlay").hidden = true;
+      toast("Merged.");
+      await afterMutation();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("merge-cancel").onclick = () => { document.getElementById("merge-overlay").hidden = true; };
+
+// ---------------------------------------------------------------------
+// Text selection: link labelling + split
+// ---------------------------------------------------------------------
+
+function offsetWithin(container, node, offset) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+  let total = 0;
+  let current;
+  while ((current = walker.nextNode())) {
+    if (current === node) return total + offset;
+    total += current.textContent.length;
+  }
+  const children = Array.from((node === container ? container : node).childNodes);
+  total = 0;
+  for (let i = 0; i < offset && i < children.length; i++) total += children[i].textContent.length;
+  return total;
+}
+
+const menu = document.getElementById("menu");
+function hideMenu() { menu.style.display = "none"; }
+function showMenuAt(x, y) {
+  menu.style.left = `${x + window.scrollX}px`;
+  menu.style.top = `${y + window.scrollY}px`;
+  menu.style.display = "block";
+}
+
+function showSelectionMenu(x, y, nodeIndex, startR, endR, preview) {
+  menu.innerHTML = `<div class="preview">${escapeHtml(preview)}</div>`;
+  for (const label of META.labels) {
+    const btn = document.createElement("button");
+    btn.textContent = LABEL_TITLES[label] || label;
+    btn.onclick = async () => {
+      hideMenu();
+      const piece = currentUnit.pieces.find((p) => p.node_index === nodeIndex);
+      const start = piece.offset_map[startR], end = piece.offset_map[endR];
+      try {
+        await api("api/links", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ node_index: nodeIndex, start, end, label }),
+        });
+        await loadUnit(currentUnitNo);
+      } catch (e) { toast(e.message, true); }
+    };
+    menu.appendChild(btn);
+  }
+  const splitBtn = document.createElement("button");
+  splitBtn.textContent = "Split here (before selection)";
+  splitBtn.onclick = () => {
+    hideMenu();
+    startSplit(nodeIndex, startR);
+  };
+  menu.appendChild(splitBtn);
+  showMenuAt(x, y);
+}
+
+function showCaretMenu(x, y, nodeIndex, posR) {
+  menu.innerHTML = "";
+  const splitBtn = document.createElement("button");
+  splitBtn.textContent = "Split here";
+  splitBtn.onclick = () => { hideMenu(); startSplit(nodeIndex, posR); };
+  menu.appendChild(splitBtn);
+  showMenuAt(x, y);
+}
+
+function showRemoveMenu(x, y, linkId) {
+  menu.innerHTML = "";
+  const btn = document.createElement("button");
+  btn.className = "remove";
+  btn.textContent = "Remove label";
+  btn.onclick = async () => {
+    hideMenu();
+    try {
+      await api(`api/links/${linkId}`, { method: "DELETE" });
+      await loadUnit(currentUnitNo);
+    } catch (e) { toast(e.message, true); }
+  };
+  menu.appendChild(btn);
+  showMenuAt(x, y);
+}
+
+function startSplit(nodeIndex, splitAtReflowed) {
+  if (splitAtReflowed <= 0) { toast("Can't split at the very start of the text.", true); return; }
+  window._pickerExclude = nodeIndex;
+  openPicker("Reassign the tail to:", nodeIndex, async (targetIndex) => {
+    try {
+      await api("api/split", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ node_index: nodeIndex, split_at_reflowed: splitAtReflowed, target_node_index: targetIndex }),
+      });
+      toast("Split.");
+      await afterMutation();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+document.getElementById("pieces").addEventListener("mouseup", (e) => {
+  const pieceEl = e.target.closest(".piece-text");
+  if (!pieceEl) return;
+  const nodeIndex = Number(pieceEl.dataset.nodeIndex);
+  const markEl = e.target.closest("mark");
+  const x = e.clientX, y = e.clientY;
+
+  // A drag-selection is already fully settled in window.getSelection() by
+  // the time mouseup fires, but a plain click's caret placement can still
+  // be in flight at this exact instant in some browsers -- deferring one
+  // tick lets it finish before reading it, without changing anything for
+  // the (already-settled) drag case.
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && pieceEl.contains(sel.anchorNode) && pieceEl.contains(sel.focusNode)) {
+      const range = sel.getRangeAt(0);
+      const start = offsetWithin(pieceEl, range.startContainer, range.startOffset);
+      const end = offsetWithin(pieceEl, range.endContainer, range.endOffset);
+      if (end > start) {
+        const preview = pieceEl.textContent.slice(start, end).slice(0, 80);
+        showSelectionMenu(x, y, nodeIndex, start, end, preview);
+        return;
+      }
+      if (!markEl) {
+        showCaretMenu(x, y, nodeIndex, start);
+        return;
+      }
+    }
+    if (markEl) {
+      showRemoveMenu(x, y, markEl.dataset.linkId);
+    } else {
+      hideMenu();
+    }
+  }, 0);
+});
+document.addEventListener("mousedown", (e) => {
+  if (!menu.contains(e.target)) hideMenu();
+});
+
+// ---------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------
+
+(async function init() {
+  await loadMeta();
+  const hashMatch = location.hash.match(/unit=(\d+)/);
+  const startUnit = hashMatch ? Math.min(Number(hashMatch[1]), META.unit_count - 1) : 0;
+  if (META.unit_count) await loadUnit(startUnit);
+  else document.getElementById("empty-state").textContent = "No units to review.";
+})();
+</script>
+</body>
+</html>

@@ -32,12 +32,21 @@ HIERARCHY_ORDER = [
 def make_ranks(order: list[str]) -> dict[str, int]:
     """level -> its index in `order` (0 = shallowest), plus "clause" mapped
     onto "section"'s own rank -- see the module-level HIERARCHY_RANK's own
-    comment for why. The dict form of the ordering, for the very common
-    "is level A shallower/deeper than level B" test -- a lookup instead of
-    an O(n) list.index() scan."""
+    comment for why -- and "definition" mapped onto "subsection"'s: a
+    defined term inside a Definitions/Interpretation section (see
+    rule_parser.py's _try_definition_start) nests at exactly the same
+    depth a numbered subsection would -- a fresh definition closes out
+    whatever bracketed list belonged to the previous one, without closing
+    the enclosing Section itself -- it just isn't numbered, so it can't
+    literally share the "subsection" node type the way a Bill's clause
+    shares "section"'s. The dict form of the ordering, for the very
+    common "is level A shallower/deeper than level B" test -- a lookup
+    instead of an O(n) list.index() scan."""
     ranks = {level: i for i, level in enumerate(order)}
     if "section" in ranks:
         ranks["clause"] = ranks["section"]
+    if "subsection" in ranks:
+        ranks["definition"] = ranks["subsection"]
     return ranks
 
 

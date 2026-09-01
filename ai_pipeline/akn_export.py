@@ -64,7 +64,7 @@ HIERARCHY_ELEMENT = {level: level for level in HIERARCHY_ORDER}
 
 EID_PREFIX = {
     "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
-    "section": "sec", "subsection": "subsec",
+    "section": "sec", "subsection": "subsec", "definition": "def",
     "paragraph": "para", "subparagraph": "subpara",
 }
 
@@ -154,6 +154,12 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
                 while level_stack and level_stack[-1][0] >= section_idx:
                     level_stack.pop()
             parent_level, parent = level_stack[-1]
+            # "definition" reaches here only if `rank` has no "subsection"
+            # entry at all to alias it onto (see hierarchy.py's
+            # make_ranks) -- a pathological profile missing that level
+            # entirely; the ordinary case is handled by the `if t in
+            # rank:` branch above instead, with proper popping/nesting so
+            # a defined term's own (a)/(b) list attaches under it.
             prefix = {"note": "note", "heading_group": "hd", "definition": "def"}.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)

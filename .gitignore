@@ -13,3 +13,12 @@ __pycache__/
 *.pyc
 .idea/
 .pytest_cache/
+
+# dashboard.py's persisted login credentials (username + salted password
+# hash, written after the forced first-login password change) -- never
+# commit this, even though it's a hash rather than the plain password.
+.dashboard_auth.json
+
+# deploy/dashboard.env.example is tracked as a template; the real copy
+# (deploy/README.md step 4) holds actual credentials and must not be.
+deploy/dashboard.env

@@ -1,9 +1,17 @@
-# Only needed to run link_review.py (the span-highlighting web GUI), not
-# the pipeline or the review.py CLI.
+# Only needed to run review.py/dashboard.py (the web GUIs for structural
+# review, link tagging, and the tool-picker dashboard that fronts both),
+# not the rest of the pipeline.
 -r requirements.txt
 fastapi
 uvicorn
-# fastapi already pulls this in transitively, but link_review.py imports
-# it directly (BaseModel) -- pinned here explicitly rather than relying
-# on fastapi's own dependency bounds to keep providing it.
+# fastapi already pulls this in transitively, but review.py/dashboard.py
+# import it directly (BaseModel) -- pinned here explicitly rather than
+# relying on fastapi's own dependency bounds to keep providing it.
 pydantic
+# dashboard.py's "Add new Act/Bill/EM" upload form needs this to parse
+# multipart/form-data requests; fastapi only imports it lazily, so it has
+# to be installed explicitly even though dashboard.py never imports it
+# directly.
+python-multipart
+# dashboard.py's reverse proxy onto each per-Act review.py child process.
+httpx

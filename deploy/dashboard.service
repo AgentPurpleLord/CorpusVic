@@ -1,0 +1,27 @@
+[Unit]
+Description=Legislation pipeline dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=dashboard
+Group=dashboard
+WorkingDirectory=/opt/vic-legislation-parser
+# The "-" makes a missing file non-fatal: dashboard.py's own forced
+# first-login password change (see dashboard.py's module docstring) means
+# this service still comes up safely without it, it just starts on the
+# built-in placeholder credentials instead of whatever you'd put here.
+EnvironmentFile=-/opt/vic-legislation-parser/deploy/dashboard.env
+ExecStart=/opt/vic-legislation-parser/.venv/bin/python3 dashboard.py --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+
+# Bound to loopback only (see --host above) -- Caddy is the only thing
+# facing the internet; see deploy/Caddyfile.example.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/vic-legislation-parser
+
+[Install]
+WantedBy=multi-user.target

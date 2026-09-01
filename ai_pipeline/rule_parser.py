@@ -24,15 +24,17 @@ parse_result.lines_consumed` is a hard assertion, not a hope.
 Structure: `parse_act` builds a `_LineParser` and feeds it the flat line
 list. `_LineParser.feed` is the single pass; for each line it runs the
 classifiers below in priority order (`_try_bold_heading` ->
-`_try_bracket_item` -> `_try_bold_emphasis`), and any line none of them
-claims falls through to `_consume_as_continuation`. Each classifier
-returns True once it has consumed the line. The stack bookkeeping
-(`_open_node`/`_close_top`/...) is shared state on the instance.
+`_try_definition_start` -> `_try_bracket_item` -> `_try_bold_emphasis`),
+and any line none of them claims falls through to
+`_consume_as_continuation`. Each classifier returns True once it has
+consumed the line. The stack bookkeeping (`_open_node`/`_close_top`/...)
+is shared state on the instance.
 """
 import re
 from collections import Counter
 from dataclasses import dataclass, field
 
+from .definitions import looks_like_definitions_section
 from .extract import BodyLine, PageText
 from .hierarchy import HIERARCHY_ORDER, heading_levels, make_ranks
 from .profiles import load_hierarchy, load_profile
@@ -352,6 +354,15 @@ class _LineParser:
         # a clean structural boundary for _is_fresh_start, the same as
         # right after a Part/Division heading.
         self.prev_was_heading_group = False
+        # Whether the currently-open Section/Clause looks like a
+        # Definitions/Interpretation section (see
+        # ai_pipeline.definitions.looks_like_definitions_section) -- set
+        # fresh every time one opens (_open_node, below), gating
+        # _try_definition_start so a bold+italic leading run is only ever
+        # promoted to its own "definition" node inside a section that's
+        # actually introducing defined terms, never on an incidental
+        # bold+italic run elsewhere.
+        self._in_definitions_section = False
 
     # -- stack bookkeeping ---------------------------------------------------
 
@@ -364,6 +375,8 @@ class _LineParser:
         rank = self.rank[level]
         while self.stack and self.rank[self.stack[-1]["type"]] >= rank:
             self._close_top()
+        if level == self.top_level_type:
+            self._in_definitions_section = looks_like_definitions_section(heading)
         node = {
             "type": level, "number": number, "heading": heading, "text": "",
             "page_start": line.page_no, "page_end": line.page_no,
@@ -453,6 +466,7 @@ class _LineParser:
             self.prev_was_heading_group = False
             if not (
                 self._try_bold_heading(line, text, char_start, was_heading_group)
+                or self._try_definition_start(line, text, char_start, char_end)
                 or self._try_bracket_item(line, text, char_start, char_end, was_heading_group)
                 or self._try_bold_emphasis(line, text, char_start, char_end, next_text)
             ):
@@ -476,6 +490,17 @@ class _LineParser:
         )
 
     # -- classifiers -----------------------------------------------------
+
+    def _ends_notes_block(self, line: BodyLine, text: str) -> bool:
+        """True if this line can't possibly be more of a Notes block's own
+        prose -- either it matches one of the ordinary structural patterns
+        (_looks_like_boundary: a new Part/Division/.../paragraph), or --
+        a case _looks_like_boundary has no way to see, since it works off
+        text patterns alone with no font information -- it's a fresh
+        defined term opening inside a Definitions section (see
+        _try_definition_start): nothing about a definition's own shape is
+        pattern-matchable, only its typesetting."""
+        return _looks_like_boundary(text, self.patterns) or bool(self._in_definitions_section and line.leading_bold_italic)
 
     def _handle_notes_mode(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
         """Inside an amendment-history "Notes" block. Returns True if the
@@ -503,8 +528,24 @@ class _LineParser:
             }
             self.nodes.append(self.current_note)
             return True
-        if self.current_note is not None and not _looks_like_boundary(text, self.patterns):
+        if self.current_note is not None and not self._ends_notes_block(line, text):
             _append_text(self.current_note, text, line, char_end)
+            return True
+        if self.current_note is None and not self._ends_notes_block(line, text):
+            # A singular, unnumbered "Note" (as opposed to "Notes" with
+            # its own numbered "1 ...", "2 ..." items) -- the drafting
+            # convention for one explanatory remark under a single
+            # provision. Without this, its own first line matches neither
+            # branch above (no leading number to open a numbered note
+            # with) and immediately fell through to ending notes_mode,
+            # silently gluing the whole note onto whatever text was
+            # already open instead of ever becoming its own "note" node.
+            self.current_note = {
+                "type": "note", "number": None, "heading": None, "text": text,
+                "page_start": line.page_no, "page_end": line.page_no,
+                "char_start": char_start, "char_end": char_end, "source": "rules",
+            }
+            self.nodes.append(self.current_note)
             return True
         self._close_note()
         self.notes_mode = False
@@ -587,6 +628,64 @@ class _LineParser:
             return True
 
         return False
+
+    def _try_definition_start(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """Inside a Definitions/Interpretation section, a defined term is
+        reliably set bold+italic where it's introduced ("accused means a
+        person who—") -- distinctly different typesetting from the
+        ordinary bold-only emphasis used elsewhere (Act-name citations)
+        and the italic-only case citations that also appear in body text,
+        so line.leading_bold_italic (see extract.py) is a much stronger
+        signal here than the text-pattern heuristics definitions.py falls
+        back to for cross-linking. Splitting each one into its own
+        "definition" node -- nested at the same rank a numbered
+        subsection would be (see hierarchy.py's make_ranks), so a
+        definition's own (a)/(b) list still nests correctly under it --
+        rather than leaving a whole run of definitions concatenated into
+        one Section's single, unbroken block of text lets a human
+        reviewer actually see and work through each term individually,
+        the same way review.py already lets them work through a
+        Section's own numbered pieces one at a time.
+
+        Gated on self._in_definitions_section so an incidental bold+
+        italic run elsewhere (there isn't a known case of one, but
+        nothing rules one out) can never be mistaken for a defined term
+        outside a section that's actually introducing them."""
+        if not (self._in_definitions_section and line.leading_bold_italic):
+            return False
+        term = line.leading_bold_italic
+        if not text.startswith(term):
+            # Shouldn't happen (term is built from this same line's own
+            # leading spans -- see extract.py's _leading_bold_italic), but
+            # if some edge case ever misaligns them, falling through to
+            # ordinary continuation handling is safe; slicing on a
+            # mismatched prefix here would not be.
+            return False
+        remainder = text[len(term) :].strip()
+
+        top = self.stack[-1] if self.stack else None
+        if top is not None and top["type"] == "definition" and not top["text"]:
+            # The currently-open definition's own term wrapped onto this
+            # second physical line (a long one, e.g. "indictable offence
+            # that may be heard and" / "determined summarily means an
+            # offence to..."), rather than this line starting a genuinely
+            # new definition -- its own text is still empty, meaning the
+            # previous line was consumed entirely as heading with nothing
+            # left over. Extend the heading instead, the same way a
+            # wrapped Part/Division/Section heading already does (see
+            # _try_bold_emphasis's own heading-wrap branch) -- a
+            # definition just has no stack-level "no body text yet" flag
+            # of its own the way _prev_line_was_heading checks for those,
+            # so this checks it directly.
+            _append_heading(top, term, char_end)
+            if remainder:
+                _append_text(top, remainder, line, char_end)
+            return True
+
+        self._open_node("definition", None, term, line, char_start)
+        if remainder:
+            _append_text(self.stack[-1], remainder, line, char_end)
+        return True
 
     def _try_bracket_item(self, line: BodyLine, text: str, char_start: int, char_end: int, was_heading_group: bool) -> bool:
         """Bracket items (subsection/paragraph/subparagraph) are classified
