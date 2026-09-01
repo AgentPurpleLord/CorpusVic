@@ -5,9 +5,22 @@ data/diagnostics/
 data/akn/
 data/markdown/
 
-# Keep data/verified/, data/links/, and data/corrections.jsonl tracked --
-# that's the accumulated human-verified ground truth / few-shot learning
-# data / link annotations (see link_review.py).
+# The durable, human-created review data (verified state, link
+# annotations, the correction log -- see ai_pipeline/db.py's module
+# docstring) now lives in this one SQLite file instead of data/verified/,
+# data/links/, and data/corrections.jsonl. Not committed here either --
+# a binary database file doesn't diff/merge meaningfully in git -- but
+# unlike the regenerable outputs above, this one genuinely can't be
+# recreated if lost, so back it up separately (see deploy/README.md).
+data/legislation.db
+data/legislation.db-wal
+data/legislation.db-shm
+
+# Superseded by data/legislation.db above; only relevant if you still
+# have pre-migration JSON files around (see migrate_json_to_sqlite.py).
+data/verified/
+data/links/
+data/corrections.jsonl
 
 __pycache__/
 *.pyc

@@ -11,6 +11,7 @@ import time
 import pytest
 
 import dashboard
+from ai_pipeline import db
 from conftest import make_node
 
 
@@ -91,10 +92,11 @@ def test_act_status_is_reviewed_once_every_unit_is_committed(tmp_path, monkeypat
     nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
     _write_parsed(tmp_path, "crimes-act", nodes)
 
-    verified_dir = tmp_path / "data" / "verified"
-    verified_dir.mkdir(parents=True)
-    committed = [dict(nodes[0], _unit_end_index=0), dict(nodes[1], _unit_end_index=1)]
-    (verified_dir / "crimes-act.json").write_text(json.dumps(committed), encoding="utf-8")
+    committed = [
+        dict(nodes[0], _source_node_index=0, _unit_end_index=0),
+        dict(nodes[1], _source_node_index=1, _unit_end_index=1),
+    ]
+    db.save_verified("crimes-act", committed, base_dir=tmp_path)
 
     status = dashboard.act_status("crimes-act")
     assert status["review_status"] == "reviewed"
@@ -106,10 +108,8 @@ def test_act_status_is_in_progress_when_only_some_units_are_committed(tmp_path, 
     nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
     _write_parsed(tmp_path, "crimes-act", nodes)
 
-    verified_dir = tmp_path / "data" / "verified"
-    verified_dir.mkdir(parents=True)
-    committed = [dict(nodes[0], _unit_end_index=0)]
-    (verified_dir / "crimes-act.json").write_text(json.dumps(committed), encoding="utf-8")
+    committed = [dict(nodes[0], _source_node_index=0, _unit_end_index=0)]
+    db.save_verified("crimes-act", committed, base_dir=tmp_path)
 
     status = dashboard.act_status("crimes-act")
     assert status["review_status"] == "in-progress"

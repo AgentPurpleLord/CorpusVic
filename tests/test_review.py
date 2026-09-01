@@ -15,6 +15,7 @@ from review import (
     compute_unit_labels,
     group_into_units,
     reflow_with_map,
+    save_verified,
 )
 
 from conftest import make_node
@@ -27,9 +28,7 @@ def _write_parsed(act: str, nodes: list[dict]) -> None:
 
 
 def _write_verified(act: str, verified: list[dict]) -> None:
-    path = Path("data/verified") / f"{act}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(verified), encoding="utf-8")
+    save_verified(act, verified)
 
 
 def test_group_into_units_covers_every_node_exactly_once():

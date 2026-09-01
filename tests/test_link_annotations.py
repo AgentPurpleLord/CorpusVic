@@ -1,11 +1,10 @@
 """Tests for the pure link-annotation data model (ai_pipeline/
-link_annotations.py) -- validation and persistence, independent of
-link_review.py's FastAPI layer entirely."""
-import json
-
+link_annotations.py, a thin re-export of ai_pipeline/db.py's storage) --
+validation and persistence, independent of review.py's FastAPI layer
+entirely."""
 import pytest
 
-from ai_pipeline.link_annotations import LinkError, add_link, delete_link, links_path, load_links, save_links
+from ai_pipeline.link_annotations import LinkError, add_link, delete_link, load_links, save_links
 
 
 @pytest.fixture
@@ -72,13 +71,22 @@ def test_delete_link_returns_false_for_unknown_id(isolate_links):
     assert len(load_links("crimes-act")) == 1
 
 
-def test_links_path_is_scoped_per_act(isolate_links):
-    assert links_path("crimes-act") == links_path("crimes-act")
-    assert links_path("crimes-act") != links_path("evidence-act")
-
-
-def test_save_links_creates_parent_directory(tmp_path, monkeypatch):
+def test_save_links_creates_the_database_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    save_links("crimes-act", [{"id": "x"}])
-    on_disk = json.loads((tmp_path / "data" / "links" / "crimes-act.json").read_text())
-    assert on_disk == [{"id": "x"}]
+    assert not (tmp_path / "data" / "legislation.db").exists()
+    save_links("crimes-act", [])
+    assert (tmp_path / "data" / "legislation.db").exists()
+
+
+def test_save_links_replaces_this_acts_links_wholesale(isolate_links):
+    add_link("crimes-act", node_index=0, start=0, end=3, label="other", node_text="one two")
+    add_link("evidence-act", node_index=0, start=0, end=3, label="other", node_text="one two")
+
+    replacement = {
+        "id": "kept", "node_index": 9, "start": 0, "end": 3, "text": "abc",
+        "label": "defined_term", "target": {"kind": "act", "slug": "crimes-act"}, "created_at": "2024-01-01T00:00:00+00:00",
+    }
+    save_links("crimes-act", [replacement])
+
+    assert load_links("crimes-act") == [replacement]
+    assert len(load_links("evidence-act")) == 1  # a different Act's links are untouched

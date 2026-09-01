@@ -5,9 +5,10 @@ Usage:
     python export_akn.py crimes-act
     python export_akn.py crimes-act --source data/ai_parsed/crimes-act.json
 
-Prefers data/verified/<act>.json (what you approved in review.py) and falls
-back to data/ai_parsed/<act>.json (the raw parser output) if you haven't
-run review.py yet -- printed either way so you know which one you got.
+Uses whatever review.py's build_current_nodes finds in data/legislation.db
+(human-verified where a unit's been reviewed there, the raw parser output
+from data/ai_parsed/<act>.json everywhere else) -- so exporting mid-review
+still includes every node, not just the ones reviewed so far.
 
 Writes: data/akn/<act>.xml
 
@@ -20,17 +21,22 @@ import json
 from pathlib import Path
 
 from ai_pipeline.akn_export import write_akn
+from review import build_current_nodes
 
 
 def load_nodes_for_export(act: str) -> dict:
-    verified_path = Path("data/verified") / f"{act}.json"
     parsed_path = Path("data/ai_parsed") / f"{act}.json"
     if not parsed_path.exists():
         raise SystemExit(f"No parsed output found at {parsed_path} -- run run_pipeline.py first.")
     base = json.loads(parsed_path.read_text(encoding="utf-8"))
-    if verified_path.exists():
-        print(f"Using human-verified nodes from {verified_path}")
-        base["nodes"] = json.loads(verified_path.read_text(encoding="utf-8"))
+    nodes, unattached_notes, hierarchy = build_current_nodes(act)
+    base["nodes"] = nodes
+    base["unattached_notes"] = unattached_notes
+    if hierarchy:
+        base["hierarchy"] = hierarchy
+    reviewed = sum(1 for n in nodes if n.get("verified_at") or n.get("needs_followup"))
+    if reviewed:
+        print(f"Using {reviewed}/{len(nodes)} human-reviewed node(s) from data/legislation.db, the raw parse for the rest")
     else:
         print(f"No verified data yet -- using raw parser output from {parsed_path} (run review.py first for higher confidence)")
     return base

@@ -51,19 +51,21 @@ jump anywhere out of order; the flat, one-node-at-a-time view former
 gives a Part/Division/heading_group its own single-piece unit and every
 piece within a Section is already individually addressable.
 
-Accepting or flagging a unit writes it into data/verified/<act>.json and
-logs each decision (the AI's original guess vs. what a human approved)
-to data/corrections.jsonl, which future run_pipeline.py runs read back
-in as few-shot examples -- so the parser is meant to get better at this
-over time, without any fine-tuning step. An edit made directly to an
-already-reviewed piece (browsing back to fix something) persists and
-logs immediately, since there's no later Accept step to do it for.
-Progress is saved continuously, so the server can be stopped and
-restarted from wherever it left off.
+Accepting or flagging a unit writes it into data/legislation.db and logs
+each decision (the AI's original guess vs. what a human approved) there
+too, which future run_pipeline.py runs read back in as few-shot examples
+-- so the parser is meant to get better at this over time, without any
+fine-tuning step. An edit made directly to an already-reviewed piece
+(browsing back to fix something) persists and logs immediately, since
+there's no later Accept step to do it for. Progress is saved
+continuously, so the server can be stopped and restarted from wherever
+it left off (see ai_pipeline/db.py for why this data -- and only this
+data, not the regenerable data/ai_parsed/<act>.json -- moved off plain
+JSON files).
 
-Labelled link spans are saved to data/links/<act>.json the moment
-they're labelled -- independent of structural review above, since
-annotating a span doesn't require (or imply) that its node has passed
+Labelled link spans are saved the moment they're labelled -- independent
+of structural review above, since annotating a span doesn't require (or
+imply) that its node has passed
 review, and structural review doesn't need to know these exist.
 
 A "Show source PDF" toggle in the header renders the actual source page
@@ -88,6 +90,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
+from ai_pipeline import db
 from ai_pipeline.examples_store import add_correction, stats
 from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES
 from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
@@ -117,17 +120,8 @@ def load_parsed(act: str):
     return data["nodes"], data.get("unattached_notes", []), data.get("hierarchy", [])
 
 
-def load_verified(act: str) -> list[dict]:
-    path = Path("data/verified") / f"{act}.json"
-    if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
-    return []
-
-
-def save_verified(act: str, verified: list[dict]) -> None:
-    path = Path("data/verified") / f"{act}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(verified, indent=2), encoding="utf-8")
+load_verified = db.load_verified
+save_verified = db.save_verified
 
 
 def load_diagnostics(act: str) -> list[dict]:
@@ -342,7 +336,7 @@ def commit_unit(
     unit_nodes: list[dict], unit_orig: list[dict], act: str, verified: list[dict], flagged: bool = False, unit_index: int | None = None
 ) -> None:
     """Appends every node in the unit to `verified` and logs one correction
-    per node -- same per-node granularity data/corrections.jsonl has always
+    per node -- same per-node granularity the correction log has always
     had, just decided on in one batch instead of one prompt per node.
 
     Every accepted/edited node is stamped with when a human confirmed it --
@@ -489,7 +483,7 @@ def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: d
     Deliberately not run through _mutate_node/add_correction: this
     repairs internal bookkeeping a parsing mistake left behind, not a
     reviewed change to any of these pieces' actual content, so it
-    shouldn't re-stamp verified_at or add noise to corrections.jsonl."""
+    shouldn't re-stamp verified_at or add noise to the correction log."""
     level = removed_node["type"]
     removed_number = removed_node.get("number")
     if level not in _CASCADING_PATH_LEVELS or removed_number is None:

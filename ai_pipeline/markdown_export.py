@@ -7,9 +7,9 @@ through to a section, follow a cross-reference or a defined term) as plain
 Markdown files instead of a database-backed website.
 
 Like akn_export.py, this is a read-only export over whichever node list you
-point it at (data/verified/<act>.json preferred, data/ai_parsed/<act>.json
-as a fallback) -- it doesn't change extraction, the rule parser, or
-review.py.
+point it at (data/ai_parsed/<act>.json, merged with whatever review.py has
+since verified in data/legislation.db) -- it doesn't change extraction,
+the rule parser, or review.py.
 
 Layout written under the given output directory:
     index.md              Part/Division/Subdivision headings, each Section

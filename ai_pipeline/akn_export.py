@@ -1,7 +1,7 @@
 """
-Exports a parsed Act (data/ai_parsed/<act>.json or, once you've been through
-review.py, data/verified/<act>.json) to Akoma Ntoso XML (OASIS AKN v1.0,
-schema namespace akn/3.0).
+Exports a parsed Act (data/ai_parsed/<act>.json, merged with whatever
+review.py has since verified in data/legislation.db) to Akoma Ntoso XML
+(OASIS AKN v1.0, schema namespace akn/3.0).
 
 This is an export step, not a rewrite of the pipeline: extraction, the rule
 parser, history-note linking, diagnostics, and review.py's editing workflow
