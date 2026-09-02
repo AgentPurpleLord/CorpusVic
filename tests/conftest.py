@@ -18,7 +18,6 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ai_pipeline import examples_store
 from ai_pipeline.extract import BodyLine, PageText
 
 BODY_SIZE = 12.0
@@ -77,9 +76,12 @@ def make_node(
 
 @pytest.fixture
 def isolate_corrections(tmp_path, monkeypatch):
-    """Redirects examples_store's correction log to a scratch file so tests
+    """Redirects the correction log -- and, since they share the same
+    SQLite file, verified/link data too -- to a scratch database so tests
     that go through review.py's commit/accept paths (which call
-    add_correction) never touch the real project's data/corrections.jsonl."""
-    path = tmp_path / "corrections.jsonl"
-    monkeypatch.setattr(examples_store, "CORRECTIONS_PATH", path)
-    return path
+    add_correction) never touch the real project's data/legislation.db.
+    ai_pipeline.db resolves its db path relative to the current working
+    directory on every call (see its own module docstring), so chdir-ing
+    here is enough; no path needs monkeypatching directly."""
+    monkeypatch.chdir(tmp_path)
+    return tmp_path

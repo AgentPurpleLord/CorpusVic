@@ -15,9 +15,29 @@ the exporters can read it back without re-loading the profile). The
 module-level HIERARCHY_ORDER / HIERARCHY_RANK / HEADING_LEVELS are the
 defaults, used for the AI-engine path and as the fallback when a node
 list carries no hierarchy of its own.
+
+"schedule" sits shallower than "chapter", not nested under it: a Schedule
+doesn't belong to any enclosing Part/Division the way the rest of the
+Act's own structure does -- it's a separate, self-contained sequence that
+starts after the Act's substantive Parts/Divisions/Sections end and
+restarts its own numbering from 1 (see basic-structure.yaml's own notes
+on this). Putting it at the very top means opening one always closes out
+whatever Chapter/Part/Division/.../Section was still open, which is
+exactly right. Its own internal numbered items reuse the ordinary
+section/subsection/paragraph/subparagraph types rather than getting
+schedule-specific ones -- real Schedules number their own clauses "in the
+same way as sections" (again see basic-structure.yaml), so the existing
+patterns already recognise most Schedule content correctly with no extra
+code; anything that doesn't match (a reprinted treaty's own numbering,
+say) just falls back to being the Schedule's own plain text, same as any
+other unrecognised line does everywhere else in this parser.
+"sub_subparagraph" -- bracketed capital letters, "(A)", "(B)" -- is the
+one level rarer than the rest (drafters avoid it where possible), but
+real Acts do use it in heavily-amended sections.
 """
 
 HIERARCHY_ORDER = [
+    "schedule",
     "chapter",
     "part",
     "division",
@@ -26,6 +46,7 @@ HIERARCHY_ORDER = [
     "subsection",
     "paragraph",
     "subparagraph",
+    "sub_subparagraph",
 ]
 
 
@@ -86,8 +107,13 @@ HEADING_LEVELS = heading_levels(HIERARCHY_ORDER)
 # text reconstruction all need independently. Lives here, not duplicated
 # in each, for the same reason HIERARCHY_ORDER itself does. Fixed
 # regardless of an individual Act's own resolved hierarchy order -- a
-# Chapter/Part/Division/Subdivision/Section/Clause heading always closes
-# off whatever came before it, whatever order a particular profile nests
-# them in.
-UNIT_BOUNDARY_TYPES = {"chapter", "part", "division", "subdivision", "section", "clause", "heading_group"}
+# Chapter/Part/Division/Subdivision/Section/Clause/Schedule heading always
+# closes off whatever came before it, whatever order a particular profile
+# nests them in. Schedule is a boundary only, not a root: it doesn't
+# itself absorb the numbered items nested under it into one review unit
+# the way a Section does -- each of those is its own ordinary "section"-
+# type node (see rule_parser.py's own note on why Schedule reuses that
+# type rather than getting one of its own), so it already starts its own
+# unit via UNIT_ROOT_TYPES below with no help needed here.
+UNIT_BOUNDARY_TYPES = {"schedule", "chapter", "part", "division", "subdivision", "section", "clause", "heading_group"}
 UNIT_ROOT_TYPES = {"section", "clause"}

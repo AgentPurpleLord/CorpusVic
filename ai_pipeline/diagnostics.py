@@ -52,7 +52,14 @@ class DiagnosticsReport:
         ]
 
 
-_LEAF_TYPES = {"section", "clause", "subsection", "paragraph", "subparagraph", "note", "definition"}
+# "example" isn't exempted from the empty-body check the way "note" is --
+# unlike a note (which can legitimately be an empty placeholder), an
+# Example callout with nothing under it is always a parsing mistake, not
+# a valid drafting shape.
+_LEAF_TYPES = {
+    "section", "clause", "subsection", "paragraph", "subparagraph", "sub_subparagraph",
+    "note", "definition", "repealed", "example",
+}
 
 
 def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_notes: list[dict]) -> DiagnosticsReport:

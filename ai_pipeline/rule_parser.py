@@ -24,11 +24,11 @@ parse_result.lines_consumed` is a hard assertion, not a hope.
 Structure: `parse_act` builds a `_LineParser` and feeds it the flat line
 list. `_LineParser.feed` is the single pass; for each line it runs the
 classifiers below in priority order (`_try_bold_heading` ->
-`_try_definition_start` -> `_try_bracket_item` -> `_try_bold_emphasis`),
-and any line none of them claims falls through to
-`_consume_as_continuation`. Each classifier returns True once it has
-consumed the line. The stack bookkeeping (`_open_node`/`_close_top`/...)
-is shared state on the instance.
+`_try_schedule_hangs_off` -> `_try_definition_start` ->
+`_try_bracket_item` -> `_try_bold_emphasis`), and any line none of them
+claims falls through to `_consume_as_continuation`. Each classifier
+returns True once it has consumed the line. The stack bookkeeping
+(`_open_node`/`_close_top`/...) is shared state on the instance.
 """
 import re
 from collections import Counter
@@ -293,8 +293,15 @@ def _looks_like_boundary(text: str, patterns: dict) -> bool:
     return any(
         compiled.match(text)
         for key, compiled in patterns.items()
-        if key not in ("notes_marker", "note_item")
+        if key not in ("notes_marker", "note_item", "example_marker")
     ) or text == "*"
+
+
+# A Schedule's own heading is sometimes immediately followed by a
+# standalone line naming which section(s) it "hangs off" -- "Sections
+# 6(3), 159(3)" or "Section 5" -- see basic-structure.yaml's own note on
+# this and _try_schedule_hangs_off below.
+_SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+[\d()\s,]+\.?$")
 
 
 class _LineParser:
@@ -336,8 +343,12 @@ class _LineParser:
         self.stack_x0: list[float] = []
         self.warnings: list[str] = []
 
-        self.current_note: dict | None = None
-        self.notes_mode = False
+        # Which kind of bold-marker block ("Notes"/singular "Note", or
+        # "Example") is currently open, if any -- see _handle_marked_block.
+        # Both share the exact same state machine, just under a different
+        # marker word and resulting node type.
+        self.current_marked_block: dict | None = None
+        self.marked_block_type: str | None = None
         self.asterisk_run: list[BodyLine] = []
         self.asterisk_start = 0
 
@@ -387,17 +398,29 @@ class _LineParser:
         self.stack_x0.append(line.x0)
         return node
 
-    def _close_note(self) -> None:
-        if self.current_note is not None:
-            self.current_note["text"] = self.current_note["text"].strip()
-            self.current_note = None
+    def _close_marked_block(self) -> None:
+        if self.current_marked_block is not None:
+            self.current_marked_block["text"] = self.current_marked_block["text"].strip()
+            self.current_marked_block = None
 
     def _flush_asterisk_run(self, char_end: int) -> None:
+        """3+ asterisks on their own is Victoria's standard convention for
+        "a provision used to be here and was repealed" -- distinct from an
+        actual footnote/margin note (type "note"), so it gets its own type
+        rather than being lumped in as one: a reviewer (or an export)
+        wants to treat "the parser wasn't sure what this text was" and
+        "this was deliberately, formally repealed" very differently, and
+        conflating them under "note" made that impossible to tell apart
+        downstream. Never carries a number or heading of its own -- like a
+        genuine note, it isn't itself a numbered provision (see
+        _try_bracket_item's own subsection/paragraph handling for that);
+        unlike a note, its text is always exactly this asterisk marker,
+        never free text a human or a margin annotation wrote."""
         run = self.asterisk_run
         if len(run) >= 3:
             first, last = run[0], run[-1]
             self.nodes.append({
-                "type": "note", "number": None, "heading": None,
+                "type": "repealed", "number": None, "heading": None,
                 "text": ("* " * len(run)).strip(),
                 "page_start": first.page_no, "page_end": last.page_no,
                 "char_start": self.asterisk_start, "char_end": char_end, "source": "rules",
@@ -455,17 +478,23 @@ class _LineParser:
                 self._flush_asterisk_run(char_start - 1)
 
             if self.patterns["notes_marker"].match(text):
-                self._close_note()
-                self.notes_mode = True
+                self._close_marked_block()
+                self.marked_block_type = "note"
                 continue
 
-            if self.notes_mode and self._handle_notes_mode(line, text, char_start, char_end):
+            if self.patterns["example_marker"].match(text):
+                self._close_marked_block()
+                self.marked_block_type = "example"
+                continue
+
+            if self.marked_block_type and self._handle_marked_block(line, text, char_start, char_end):
                 continue
 
             was_heading_group = self.prev_was_heading_group
             self.prev_was_heading_group = False
             if not (
                 self._try_bold_heading(line, text, char_start, was_heading_group)
+                or self._try_schedule_hangs_off(line, text, char_end)
                 or self._try_definition_start(line, text, char_start, char_end)
                 or self._try_bracket_item(line, text, char_start, char_end, was_heading_group)
                 or self._try_bold_emphasis(line, text, char_start, char_end, next_text)
@@ -476,7 +505,7 @@ class _LineParser:
 
         if self.asterisk_run:
             self._flush_asterisk_run(self.cursor)
-        self._close_note()
+        self._close_marked_block()
         while self.stack:
             self._close_top()
 
@@ -491,23 +520,33 @@ class _LineParser:
 
     # -- classifiers -----------------------------------------------------
 
-    def _ends_notes_block(self, line: BodyLine, text: str) -> bool:
-        """True if this line can't possibly be more of a Notes block's own
-        prose -- either it matches one of the ordinary structural patterns
-        (_looks_like_boundary: a new Part/Division/.../paragraph), or --
-        a case _looks_like_boundary has no way to see, since it works off
-        text patterns alone with no font information -- it's a fresh
-        defined term opening inside a Definitions section (see
-        _try_definition_start): nothing about a definition's own shape is
-        pattern-matchable, only its typesetting."""
+    def _ends_marked_block(self, line: BodyLine, text: str) -> bool:
+        """True if this line can't possibly be more of a Notes/Example
+        block's own prose -- either it matches one of the ordinary
+        structural patterns (_looks_like_boundary: a new Part/Division/
+        .../paragraph), or -- a case _looks_like_boundary has no way to
+        see, since it works off text patterns alone with no font
+        information -- it's a fresh defined term opening inside a
+        Definitions section (see _try_definition_start): nothing about a
+        definition's own shape is pattern-matchable, only its
+        typesetting."""
         return _looks_like_boundary(text, self.patterns) or bool(self._in_definitions_section and line.leading_bold_italic)
 
-    def _handle_notes_mode(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
-        """Inside an amendment-history "Notes" block. Returns True if the
-        line belongs to that block (caller skips to the next line); returns
-        False -- having also turned notes_mode off -- when the block has
-        ended and the line needs normal classification instead."""
-        m = self.patterns["note_item"].match(text)
+    def _handle_marked_block(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """Inside a "Notes" (or singular "Note") or "Example" block --
+        self.marked_block_type says which; both share this same state
+        machine, since an Example is set exactly like a singular Note,
+        just under a different marker word (see basic-structure.yaml).
+        Returns True if the line belongs to the open block (caller skips
+        to the next line); returns False -- having also closed the block
+        -- when it's ended and the line needs normal classification
+        instead."""
+        kind = self.marked_block_type
+        # Only a "Notes" block's own numbered items ("1 ...", "2 ...")
+        # need the note_item pattern -- an Example is never numbered this
+        # way (no evidence of "Example 1"/"Example 2" in this drafting
+        # convention, only ever a single unnumbered block per callout).
+        m = self.patterns["note_item"].match(text) if kind == "note" else None
         # A hanging-indent note number ("1") can land as its own line,
         # separate from its text, if the PDF laid it out with a tab stop
         # rather than inline -- don't let that split fool us into thinking
@@ -517,38 +556,38 @@ class _LineParser:
         # section/clause heading immediately following the Notes block
         # (e.g. "38 Requirements for informant's statement in..."), not
         # a new note -- falls through to the boundary check below, which
-        # ends notes_mode and lets it be reclassified normally.
-        if (m or (text.isdigit() and len(text) <= 3)) and not line.bold:
-            self._close_note()
-            self.current_note = {
-                "type": "note", "number": m.group(1) if m else text, "heading": None,
+        # ends the block and lets it be reclassified normally.
+        if (m or (kind == "note" and text.isdigit() and len(text) <= 3)) and not line.bold:
+            self._close_marked_block()
+            self.current_marked_block = {
+                "type": kind, "number": m.group(1) if m else text, "heading": None,
                 "text": m.group(2) if m else "",
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
-            self.nodes.append(self.current_note)
+            self.nodes.append(self.current_marked_block)
             return True
-        if self.current_note is not None and not self._ends_notes_block(line, text):
-            _append_text(self.current_note, text, line, char_end)
+        if self.current_marked_block is not None and not self._ends_marked_block(line, text):
+            _append_text(self.current_marked_block, text, line, char_end)
             return True
-        if self.current_note is None and not self._ends_notes_block(line, text):
-            # A singular, unnumbered "Note" (as opposed to "Notes" with
-            # its own numbered "1 ...", "2 ..." items) -- the drafting
-            # convention for one explanatory remark under a single
-            # provision. Without this, its own first line matches neither
-            # branch above (no leading number to open a numbered note
-            # with) and immediately fell through to ending notes_mode,
-            # silently gluing the whole note onto whatever text was
-            # already open instead of ever becoming its own "note" node.
-            self.current_note = {
-                "type": "note", "number": None, "heading": None, "text": text,
+        if self.current_marked_block is None and not self._ends_marked_block(line, text):
+            # A singular, unnumbered block (as opposed to "Notes" with its
+            # own numbered "1 ...", "2 ..." items) -- the drafting
+            # convention for one explanatory remark or worked example
+            # under a single provision. Without this, its own first line
+            # matches neither branch above (no leading number to open a
+            # numbered item with) and immediately fell through to ending
+            # the block, silently gluing it onto whatever text was
+            # already open instead of ever becoming its own node.
+            self.current_marked_block = {
+                "type": kind, "number": None, "heading": None, "text": text,
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
-            self.nodes.append(self.current_note)
+            self.nodes.append(self.current_marked_block)
             return True
-        self._close_note()
-        self.notes_mode = False
+        self._close_marked_block()
+        self.marked_block_type = None
         return False
 
     def _try_bold_heading(self, line: BodyLine, text: str, char_start: int, was_heading_group: bool) -> bool:
@@ -629,6 +668,35 @@ class _LineParser:
 
         return False
 
+    def _try_schedule_hangs_off(self, line: BodyLine, text: str, char_end: int) -> bool:
+        """Immediately under a fresh Schedule heading, a standalone plain
+        (non-bold) line like "Sections 6(3), 159(3)" or "Section 5" names
+        which section(s) the Schedule "hangs off" (see basic-structure.
+        yaml's own note on this) -- not itself part of the heading, but
+        not the Schedule's own substantive content either, so it's folded
+        into the heading (in parens) rather than either. Scoped tightly
+        (only right after a Schedule heading with no body text yet) so an
+        ordinary cross-reference sentence elsewhere that happens to start
+        the same way is never mistaken for one.
+
+        Folding it into the heading rather than appending it as body text
+        also matters for a reason beyond just "where does this belong":
+        appending it to the Schedule's own `text` would make that text
+        non-empty, and _is_fresh_start's own "did the previous line leave
+        us inside an empty heading" check (_prev_line_was_heading) reads
+        exactly that emptiness to decide whether the Schedule's own first
+        numbered item right after this line is a genuine fresh section
+        start -- getting that wrong would silently glue the Schedule's
+        first real clause onto this line as plain continuation text
+        instead of giving it its own node."""
+        top = self.stack[-1] if self.stack else None
+        if top is None or top["type"] != "schedule" or top["text"] or line.bold:
+            return False
+        if not _SCHEDULE_HANGS_OFF_RE.match(text):
+            return False
+        _append_heading(top, f"({text})", char_end)
+        return True
+
     def _try_definition_start(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
         """Inside a Definitions/Interpretation section, a defined term is
         reliably set bold+italic where it's introduced ("accused means a
@@ -688,9 +756,9 @@ class _LineParser:
         return True
 
     def _try_bracket_item(self, line: BodyLine, text: str, char_start: int, char_end: int, was_heading_group: bool) -> bool:
-        """Bracket items (subsection/paragraph/subparagraph) are classified
-        by content shape + sequence context, not boldness -- Act-name
-        citations are commonly bolded throughout these Acts."""
+        """Bracket items (subsection/paragraph/subparagraph/sub_subparagraph)
+        are classified by content shape + sequence context, not boldness --
+        Act-name citations are commonly bolded throughout these Acts."""
         m = self.patterns["subsection"].match(text)
         bracket_match, level = None, None
         if m and re.match(r"^\d", m.group(1)):
@@ -699,6 +767,15 @@ class _LineParser:
             m2 = self.patterns["paragraph"].match(text) or self.patterns["subparagraph"].match(text)
             if m2:
                 bracket_match, level = m2, _bracket_level(m2.group(1), self.stack)
+            else:
+                m3 = self.patterns["sub_subparagraph"].match(text)
+                if m3:
+                    # Bracketed capital letters -- "(A)", "(B)" -- never
+                    # overlap with paragraph's lowercase letters or
+                    # subparagraph's lowercase roman numerals, so unlike
+                    # those two (see _bracket_level), there's no sequence-
+                    # continuity ambiguity to resolve here.
+                    bracket_match, level = m3, "sub_subparagraph"
         if not (level and bracket_match):
             return False
 

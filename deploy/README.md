@@ -123,3 +123,67 @@ sudo systemctl restart dashboard
 Restarting the service does not lose review progress or the login
 credential you've set -- both live in `data/` and `.dashboard_auth.json`
 respectively, neither of which this restarts touches.
+
+## Backing up your review progress
+
+All the review work a human has actually done -- accepted/flagged
+pieces, link annotations, the correction log -- lives in one file:
+`data/legislation.db` (SQLite), alongside `data/ai_parsed/<act>.json`
+(the raw parse those rows are keyed against). Both are committed to git
+(see the next section) -- that's now the primary way this data travels
+and gets backed up. Between commits, or as extra insurance before
+anything risky (an OS upgrade, a migration, a `git pull` across a major
+version bump), back the live file up directly too:
+
+```bash
+# A safe way to copy a live SQLite file without risking a torn read
+sqlite3 /opt/vic-legislation-parser/data/legislation.db ".backup /path/to/backup/legislation-$(date +%F).db"
+```
+
+## Working from a remote dev environment
+
+`data/legislation.db` and `data/ai_parsed/<act>.json` are committed to
+git as a pair (see `.gitignore`'s own comment on why they're kept
+together): review.py's verified rows are keyed by a *positional* index
+into that exact parse, so a clone that had the DB but regenerated
+`ai_parsed` from a different parser version could silently misalign
+verified content with the wrong provisions. Committing both together
+means a fresh clone -- a temporary cloud dev environment (Codespaces, a
+VS Code remote container, a throwaway VM), say -- can start reviewing
+immediately:
+
+```bash
+git clone <repo-url>
+cd vic-legislation-parser
+pip install -r requirements-gui.txt
+python review.py criminal-procedure-act   # your review progress is already there
+```
+
+No pipeline re-run needed, and none of the drift risk a re-run would
+otherwise carry.
+
+Before committing any change to `data/legislation.db`, checkpoint it
+first -- it's opened in WAL mode, so a recent write can sit in the
+(gitignored) `-wal` file rather than the main one yet:
+
+```bash
+python checkpoint_db.py
+```
+
+To do this automatically on every commit instead of remembering it,
+install the tracked hook template once per environment (git hooks
+don't travel with a clone):
+
+```bash
+cp deploy/pre-commit.hook.example .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+When you're done working in a temporary environment, just commit and
+push `data/legislation.db` (the hook above handles checkpointing) so
+the progress travels back with you -- and `git pull` it into your other
+environments to pick it up there. This is a single-file, whole-database
+sync, not a real merge: if you review from two environments without
+pulling in between, whichever you push last wins and the other's
+progress is overwritten, so pull before you start a session, and avoid
+leaving two environments mid-review at once.

@@ -7,9 +7,9 @@ through to a section, follow a cross-reference or a defined term) as plain
 Markdown files instead of a database-backed website.
 
 Like akn_export.py, this is a read-only export over whichever node list you
-point it at (data/verified/<act>.json preferred, data/ai_parsed/<act>.json
-as a fallback) -- it doesn't change extraction, the rule parser, or
-review.py.
+point it at (data/ai_parsed/<act>.json, merged with whatever review.py has
+since verified in data/legislation.db) -- it doesn't change extraction,
+the rule parser, or review.py.
 
 Layout written under the given output directory:
     index.md              Part/Division/Subdivision headings, each Section
@@ -73,10 +73,14 @@ def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str,
     page) and {number.lower(): filename} for the *first* section with that
     number (used for "section N" prose cross-references).
 
-    Section numbers aren't always unique document-wide: the rule parser
-    doesn't yet model Schedules as their own container (see akn_export.py's
-    docstring for the same caveat), so a Schedule reproducing the full text
-    of a historical amending Act can introduce its own "3", "4", etc.
+    Section numbers aren't always unique document-wide: a Schedule is its
+    own container (see hierarchy.py's own note on "schedule"'s rank), but
+    its internal numbered items still reuse the ordinary "section" node
+    type rather than getting a schedule-specific one -- real Schedules
+    number their own clauses "in the same way as sections" (see
+    basic-structure.yaml) -- so a Schedule reproducing the full text of a
+    historical amending Act, or just numbering its own items 1, 2, 3...,
+    can introduce a "3", "4", etc. that collides with the Act's own.
     Silently overwriting one section's page with another's would be exactly
     the kind of data loss this pipeline is built to avoid, so a repeat
     number gets a disambiguating suffix for its own page instead -- and

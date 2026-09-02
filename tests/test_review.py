@@ -11,10 +11,13 @@ from review import (
     _now_iso,
     _resume_point,
     build_current_nodes,
+    can_renest_under,
     commit_unit,
     compute_unit_labels,
+    compute_unit_tree_info,
     group_into_units,
     reflow_with_map,
+    save_verified,
 )
 
 from conftest import make_node
@@ -27,9 +30,7 @@ def _write_parsed(act: str, nodes: list[dict]) -> None:
 
 
 def _write_verified(act: str, verified: list[dict]) -> None:
-    path = Path("data/verified") / f"{act}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(verified), encoding="utf-8")
+    save_verified(act, verified)
 
 
 def test_group_into_units_covers_every_node_exactly_once():
@@ -54,6 +55,73 @@ def test_group_into_units_covers_every_node_exactly_once():
     assert units[2] == [2]  # division
     assert units[3] == [3, 4, 5, 6]  # section 1 + its subsection/paragraph/note
     assert units[4] == [7, 8]  # section 2 + its subsection
+
+
+_DEFAULT_HIERARCHY = ["chapter", "part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"]
+
+
+def test_compute_unit_tree_info_nests_by_hierarchy_depth():
+    # part(0) > division(1) > section(2), and a second section(3) as a
+    # sibling of the first under that same division -- two sections in a
+    # row are never one nested inside the other, only both children of
+    # whatever division/part is currently open.
+    root_types = ["part", "division", "section", "section"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert [i["depth"] for i in info] == [0, 1, 2, 2]
+    assert [i["parent_unit_no"] for i in info] == [None, 0, 1, 1]
+
+
+def test_compute_unit_tree_info_pops_back_out_to_a_shallower_sibling():
+    # part(0) > division(1) > section(2), then a second part(0) as a sibling of the first
+    root_types = ["part", "division", "section", "part"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert [i["depth"] for i in info] == [0, 1, 2, 0]
+    assert info[3]["parent_unit_no"] is None
+
+
+def test_compute_unit_tree_info_heading_group_nests_at_the_current_depth_without_opening_one():
+    # part(0), heading_group sitting at the same depth as a section would, then a section as its sibling
+    root_types = ["part", "heading_group", "section"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert info[1] == {"depth": 1, "parent_unit_no": 0}
+    assert info[2] == {"depth": 1, "parent_unit_no": 0}  # the heading_group didn't push a new level
+
+
+def test_compute_unit_tree_info_top_level_heading_group_has_no_parent():
+    root_types = ["heading_group", "heading_group", "part"]
+    info = compute_unit_tree_info(root_types, _DEFAULT_HIERARCHY)
+    assert info[0] == {"depth": 0, "parent_unit_no": None}
+    assert info[1] == {"depth": 0, "parent_unit_no": None}
+    assert info[2] == {"depth": 0, "parent_unit_no": None}
+
+
+def test_can_renest_under_allows_nesting_directly_under_the_dragged_onto_piece():
+    # section(0), subsection(1) "(1)", paragraph(2) "(a)" -- renesting a
+    # later stray piece(3) under the subsection is fine, nothing of
+    # subsection-or-shallower rank sits between them.
+    unit_types = ["section", "subsection", "paragraph", "subparagraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=3, hierarchy_order=_DEFAULT_HIERARCHY) is True
+
+
+def test_can_renest_under_rejects_when_a_same_rank_piece_intervenes():
+    # subsection(1) "(1)" ... subsection(2) "(2)" ... piece(3) -- nesting
+    # piece(3) under subsection(1) would be a lie once paths are
+    # recomputed: subsection(2) is what actually precedes it.
+    unit_types = ["section", "subsection", "subsection", "subparagraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=3, hierarchy_order=_DEFAULT_HIERARCHY) is False
+
+
+def test_can_renest_under_rejects_when_a_shallower_piece_intervenes():
+    # A section boundary appearing between the target and the dragged
+    # piece would mean they're not even in the same review unit any more
+    # in spirit -- rejected the same way a same-rank one is.
+    unit_types = ["section", "subsection", "section", "paragraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=3, hierarchy_order=_DEFAULT_HIERARCHY) is False
+
+
+def test_can_renest_under_allows_immediately_adjacent_pieces():
+    unit_types = ["section", "subsection", "paragraph"]
+    assert can_renest_under(unit_types, target_pos=1, node_pos=2, hierarchy_order=_DEFAULT_HIERARCHY) is True
 
 
 def test_compute_unit_labels_are_unique_even_with_repeated_note_markers():

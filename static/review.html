@@ -11,12 +11,71 @@
     --muted: #6b6b6b;
     --border: #d7d7d7;
     --accent: #2b6cb0;
+    --accent-hover: #2558a0;
     --sidebar-bg: #f5f5f4;
     --sidebar-hover: #ebebe9;
     --sidebar-active: #e2e8f0;
     --pending: #9ca3af;
     --done: #16a34a;
     --flagged: #d97706;
+    --hover-bg: #f0f0f0;
+    --danger: #b91c1c;
+    --danger-border: #f0c0c0;
+    --resume-bg: #eff6ff;
+    --resume-border: #bfdbfe;
+    --selected-bg: #eff6ff;
+    --toast-bg: #1f2937;
+    --toast-error-bg: #991b1b;
+    --piece-accepted-bg: #f0fdf4;
+    --piece-accepted-border: #bbf7d0;
+    --piece-flagged-bg: #fffbeb;
+    --piece-flagged-border: #fde68a;
+    --piece-merge-source-bg: #fff7ed;
+    --repealed-bg: #f9fafb;
+    --accepted-text: #166534;
+    --flagged-text: #92400e;
+  }
+  /* Dark mode: a manual toggle (#theme-toggle-btn, persisted in
+     localStorage) rather than only prefers-color-scheme -- a reviewer
+     working long sessions wants this under their own control, not tied
+     to whatever their OS happens to be set to. Every colour a large
+     surface uses (backgrounds, borders, panels) is a variable specifically
+     so this one block can restyle the whole page; small saturated accent
+     colours (defined-term/citation highlight marks, the type-accent left
+     borders, status-badge pills) are deliberately left as-is in both
+     themes -- they're already vivid enough to stay legible against a
+     dark background, the same way a syntax-highlighted code block or a
+     colored GitHub label doesn't re-theme itself either. */
+  :root[data-theme="dark"] {
+    --bg: #16181d;
+    --panel: #1e2126;
+    --fg: #e8e8ea;
+    --muted: #9aa1ab;
+    --border: #34383f;
+    --accent: #5b9bd9;
+    --accent-hover: #6fabe3;
+    --sidebar-bg: #1a1c21;
+    --sidebar-hover: #24272e;
+    --sidebar-active: #29344a;
+    --pending: #8b93a0;
+    --done: #34d17f;
+    --flagged: #f0ad4e;
+    --hover-bg: #2a2e35;
+    --danger: #f87171;
+    --danger-border: #5c2626;
+    --resume-bg: #16233a;
+    --resume-border: #294a72;
+    --selected-bg: #1c2c42;
+    --toast-bg: #05070a;
+    --toast-error-bg: #7f1d1d;
+    --piece-accepted-bg: #132a1c;
+    --piece-accepted-border: #1f5c37;
+    --piece-flagged-bg: #2c2410;
+    --piece-flagged-border: #6b551c;
+    --piece-merge-source-bg: #2e2013;
+    --repealed-bg: #202329;
+    --accepted-text: #4ade80;
+    --flagged-text: #fbbf24;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -49,14 +108,14 @@
     font-size: 13px;
     color: var(--fg);
   }
-  header button:hover, .btn:hover { background: #f0f0f0; }
+  header button:hover, .btn:hover { background: var(--hover-bg); }
   .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
-  .btn.primary:hover { background: #2558a0; }
-  .btn.danger { color: #b91c1c; border-color: #f0c0c0; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.danger { color: var(--danger); border-color: var(--danger-border); }
   .btn.small { padding: 2px 8px; font-size: 12px; }
   #resume-banner {
-    background: #eff6ff;
-    border-bottom: 1px solid #bfdbfe;
+    background: var(--resume-bg);
+    border-bottom: 1px solid var(--resume-border);
     padding: 6px 16px;
     font-size: 12.5px;
     display: none;
@@ -99,12 +158,18 @@
   .unit-row {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
     padding: 7px 10px;
     cursor: pointer;
-    border-bottom: 1px solid #eceae7;
+    border-bottom: 1px solid var(--border);
     font-size: 12.5px;
   }
+  .tree-toggle, .tree-spacer {
+    display: inline-block; width: 12px; flex-shrink: 0; text-align: center;
+    color: var(--muted); margin-top: 1px; font-size: 10px;
+  }
+  .tree-toggle { cursor: pointer; }
+  .tree-toggle:hover { color: var(--fg); }
   .unit-row:hover { background: var(--sidebar-hover); }
   .unit-row.active { background: var(--sidebar-active); }
   .status-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
@@ -133,6 +198,49 @@
     background: #52565c;
   }
   body[data-view-mode="split"] #pdf-panel, body[data-view-mode="pdf"] #pdf-panel { display: flex; }
+
+  /* History-notes panel -- independent of the PDF panel's view-mode (a
+     reviewer may well want both open at once), toggled by its own button
+     and persisted separately (see the JS below). Fixed width rather than
+     a flex share like #pdf-panel: its content (a handful of short notes)
+     never needs the room a PDF page does. */
+  #history-panel {
+    display: none;
+    flex-direction: column;
+    width: 320px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+  }
+  body[data-history-panel="open"] #history-panel { display: flex; }
+  #history-panel-inner { padding: 14px; }
+  #history-panel h3 { font-size: 13px; margin: 0 0 8px; }
+  #history-panel .history-section + .history-section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .history-piece-group { margin-bottom: 12px; }
+  .history-piece-group .history-piece-label { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+  .history-note {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+  }
+  .history-note .history-note-text { line-height: 1.4; }
+  .history-note .history-note-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+  .history-confidence { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+  .history-confidence.high { background: var(--piece-accepted-bg); color: var(--accepted-text); }
+  .history-confidence.low { background: var(--piece-flagged-bg); color: var(--flagged-text); }
+  .history-confidence.manual { background: var(--accent); color: white; }
+  .history-note .history-note-meta button { font-size: 10.5px; padding: 1px 6px; margin-left: auto; }
+  .history-candidate { border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; font-size: 12.5px; }
+  .history-candidate .history-note-text { line-height: 1.4; margin-bottom: 5px; }
+  #history-search {
+    width: 100%; box-sizing: border-box; margin-bottom: 8px;
+    padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px;
+  }
+  #history-empty { color: var(--muted); font-size: 12.5px; }
   body[data-view-mode="pdf"] #main { display: none; }
   #pdf-toolbar {
     display: flex; align-items: center; gap: 10px;
@@ -149,9 +257,9 @@
   #unit-header .status-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
   }
-  .status-badge.pending { background: #f3f4f6; color: var(--pending); }
-  .status-badge.done { background: #dcfce7; color: #166534; }
-  .status-badge.flagged { background: #fef3c7; color: #92400e; }
+  .status-badge.pending { background: var(--sidebar-bg); color: var(--pending); }
+  .status-badge.done { background: var(--piece-accepted-bg); color: var(--accepted-text); }
+  .status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
   #unit-nav { display: flex; gap: 6px; margin-left: auto; }
 
   .piece {
@@ -163,13 +271,66 @@
     position: relative;
   }
   .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .piece.merge-source { background: #fff7ed; }
+  .piece.merge-source { background: var(--piece-merge-source-bg); }
+  .piece.nest-target { outline: 2px dashed var(--accent); outline-offset: -1px; background: var(--hover-bg); }
+  .piece.dragging { opacity: 0.45; }
+  .nest-handle {
+    cursor: grab;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .nest-handle:hover { color: var(--fg); border-color: var(--accent); }
+  .nest-handle:active { cursor: grabbing; }
+  .piece.piece-accepted { background: var(--piece-accepted-bg); border-color: var(--piece-accepted-border); }
+  .piece.piece-flagged { background: var(--piece-flagged-bg); border-color: var(--piece-flagged-border); }
+
+  /* Blind-review gate for elevated-risk pieces (AI-sourced, or carrying
+     a diagnostics finding) -- see _is_elevated_risk in review.py. Reuses
+     the flagged palette (this *is* a "needs your attention" state, just
+     before rather than after a decision) rather than a whole new colour
+     family. */
+  .piece.blind-pending { border: 1px dashed var(--piece-flagged-border); }
+  .blind-form { background: var(--piece-flagged-bg); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+  .blind-form-label { font-size: 11.5px; font-weight: 700; color: var(--flagged-text); margin-bottom: 6px; }
+  .blind-form-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .blind-form-row input, .blind-form-row select {
+    flex: 1; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12.5px;
+  }
+  .blind-form > input {
+    display: block; width: 100%; box-sizing: border-box; margin-bottom: 6px;
+    padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12.5px;
+  }
+  .blind-form textarea {
+    width: 100%; box-sizing: border-box; min-height: 44px; padding: 5px 6px; margin-bottom: 6px;
+    border: 1px solid var(--border); border-radius: 5px; font-size: 12.5px; font-family: inherit; resize: vertical;
+  }
+  .blind-result { background: var(--sidebar-bg); border-radius: 6px; padding: 9px 12px; margin-bottom: 10px; font-size: 12.5px; }
+  .blind-result-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+  .blind-result-row { display: flex; gap: 14px; margin-bottom: 3px; }
+  .blind-match { font-weight: 700; }
+  .blind-match.yes { color: var(--accepted-text); }
+  .blind-match.no { color: var(--flagged-text); }
+  .blind-reasoning { color: var(--muted); font-style: italic; margin-top: 4px; }
+  .source-badge {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px;
+    border-radius: 8px; font-weight: 700; background: var(--piece-flagged-bg); color: var(--flagged-text);
+  }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .piece-label { font-weight: 700; font-size: 13px; }
   .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .piece-status-badge { font-size: 10.5px; padding: 1px 8px; border-radius: 8px; font-weight: 600; white-space: nowrap; }
+  .piece-status-badge.accepted { background: var(--piece-accepted-bg); color: var(--accepted-text); }
+  .piece-status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
   .piece-toolbar { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
   .piece:hover .piece-toolbar { opacity: 1; }
   .piece-toolbar button { font-size: 11px; padding: 2px 7px; }
+  .accept-piece-btn { color: var(--accepted-text) !important; border-color: var(--piece-accepted-border) !important; }
+  .flag-piece-btn { color: var(--flagged-text) !important; border-color: var(--piece-flagged-border) !important; }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
   .piece-text {
     white-space: pre-wrap;
@@ -186,7 +347,7 @@
   mark.label-other { background: #e5e7eb; }
   mark.resolved { border-bottom-color: #16a34a; }
   mark.unresolved { border-bottom: 2px dashed #9ca3af; }
-  .piece-findings { margin-top: 6px; font-size: 12.5px; color: #92400e; }
+  .piece-findings { margin-top: 6px; font-size: 12.5px; color: var(--flagged-text); }
   .piece-findings div { margin-top: 2px; }
   .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
 
@@ -195,9 +356,13 @@
   .piece[data-type="subsection"] { border-left: 3px solid #06b6d4; }
   .piece[data-type="paragraph"] { border-left: 3px solid #22c55e; }
   .piece[data-type="subparagraph"] { border-left: 3px solid #eab308; }
+  .piece[data-type="sub_subparagraph"] { border-left: 3px solid #f97316; }
   .piece[data-type="note"] { border-left: 3px solid #d946ef; }
+  .piece[data-type="example"] { border-left: 3px solid #14b8a6; }
   .piece[data-type="definition"] { border-left: 3px solid #3b82f6; }
   .piece[data-type="heading_group"] { border-left: 3px solid #111827; }
+  .piece[data-type="repealed"] { border-left: 3px solid #6b7280; background: var(--repealed-bg); }
+  .piece[data-type="repealed"] .piece-text { color: var(--muted); font-style: italic; }
 
   #unit-actions {
     position: sticky;
@@ -228,8 +393,8 @@
     border-bottom: 1px solid var(--border); margin-bottom: 4px; max-width: 280px; overflow-wrap: break-word;
   }
   #menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; }
-  #menu button:hover { background: #f0f0f0; }
-  #menu button.remove { color: #b91c1c; }
+  #menu button:hover { background: var(--hover-bg); }
+  #menu button.remove { color: var(--danger); }
 
   /* Modal overlay (edit / target-picker / merge) */
   .overlay {
@@ -251,28 +416,31 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
   .picker-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
-  .picker-item { padding: 8px 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  .picker-item { padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
   .picker-item:last-child { border-bottom: none; }
-  .picker-item:hover { background: #f5f5f4; }
+  .picker-item:hover { background: var(--sidebar-hover); }
   .picker-item input[type=checkbox] { margin-top: 2px; }
   .picker-item .picker-label { font-weight: 600; white-space: nowrap; }
   .picker-item .picker-preview { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .picker-item.selected { background: #eff6ff; }
+  .picker-item.selected { background: var(--selected-bg); }
 
   #toast {
     position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    background: #1f2937; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px;
+    background: var(--toast-bg); color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px;
     z-index: 400; display: none;
   }
-  #toast.error { background: #991b1b; }
+  #toast.error { background: var(--toast-error-bg); }
 </style>
 </head>
 <body>
 <header>
   <h1 id="act-title">Review</h1>
   <span class="stat" id="corrections-stat"></span>
-  <span class="stat" id="unattached-stat"></span>
+  <span class="stat" id="unattached-stat" title="Click to open the history-notes panel" style="cursor:pointer"></span>
+  <span class="stat" id="blind-review-stat" title="How often a reviewer's own first, independent guess matched the parser's answer"></span>
   <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
+  <button class="btn" id="history-toggle-btn">History notes</button>
+  <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <div class="spacer"></div>
   <span class="stat">Legend:</span>
   <span class="stat"><mark class="label-act_citation">&nbsp;</mark> Act citation</span>
@@ -310,6 +478,7 @@
         <button class="btn" id="merge-open-btn">Merge pieces&hellip;</button>
         <button class="btn primary" id="accept-btn">Accept unit</button>
         <button class="btn" id="flag-btn">Flag for follow-up</button>
+        <span style="margin-left:auto; font-size:11.5px; color:var(--muted);">Drag a piece onto another to merge &middot; drag its &#8676; Nest handle onto another to nest under it</span>
       </div>
       <div id="empty-state">Loading&hellip;</div>
     </div>
@@ -323,6 +492,20 @@
     </div>
     <div id="pdf-image-wrap">
       <img id="pdf-image" alt="Source PDF page">
+    </div>
+  </div>
+
+  <div id="history-panel">
+    <div id="history-panel-inner">
+      <div class="history-section">
+        <h3>Attached to this unit</h3>
+        <div id="history-attached"></div>
+      </div>
+      <div class="history-section">
+        <h3>Link an unattached note</h3>
+        <input id="history-search" type="text" placeholder="Search by section, part, or text...">
+        <div id="history-candidates"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -387,6 +570,44 @@ let META = null;
 let currentUnitNo = null;
 let currentUnit = null;
 let sidebarFilter = "all";
+
+// ---------------------------------------------------------------------
+// Dark mode -- a manual toggle persisted in localStorage (see the CSS
+// variables' own comment for why not just prefers-color-scheme).
+// ---------------------------------------------------------------------
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.dataset.theme = "dark";
+    document.getElementById("theme-toggle-btn").innerHTML = "&#9728;&#65039;";
+    document.getElementById("theme-toggle-btn").title = "Switch to light mode";
+  } else {
+    delete document.documentElement.dataset.theme;
+    document.getElementById("theme-toggle-btn").innerHTML = "&#127769;";
+    document.getElementById("theme-toggle-btn").title = "Switch to dark mode";
+  }
+}
+applyTheme(localStorage.getItem("reviewTheme") || "light");
+document.getElementById("theme-toggle-btn").onclick = () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("reviewTheme", next);
+  applyTheme(next);
+};
+
+// ---------------------------------------------------------------------
+// History-notes panel -- open/closed persisted independently of the PDF
+// panel's own view-mode (see the CSS comment above #history-panel).
+// ---------------------------------------------------------------------
+function setHistoryPanelOpen(open) {
+  document.body.dataset.historyPanel = open ? "open" : "closed";
+  document.getElementById("history-toggle-btn").classList.toggle("primary", open);
+  localStorage.setItem("reviewHistoryPanel", open ? "open" : "closed");
+  if (open && currentUnit) renderHistoryPanel();
+}
+setHistoryPanelOpen(localStorage.getItem("reviewHistoryPanel") === "open");
+document.getElementById("history-toggle-btn").onclick = () => {
+  setHistoryPanelOpen(document.body.dataset.historyPanel !== "open");
+};
+document.getElementById("unattached-stat").onclick = () => setHistoryPanelOpen(true);
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -480,6 +701,9 @@ async function loadMeta() {
     `Corrections logged: ${META.corrections.total} (${META.corrections.changed} changed)`;
   document.getElementById("unattached-stat").textContent =
     META.unattached_notes ? `${META.unattached_notes} note(s) unlinked` : "";
+  const br = META.blind_review_stats;
+  document.getElementById("blind-review-stat").textContent = br && br.total
+    ? `Independent review: ${Math.round((br.type_matched / br.total) * 100)}% type match (${br.total} reviewed)` : "";
   document.getElementById("pdf-toggle-btn").style.display = META.has_source_pdf ? "" : "none";
   renderSidebar();
 
@@ -495,14 +719,44 @@ async function loadMeta() {
 }
 
 function unitRowLabel(u) {
+  if (u.type === "heading_group") {
+    const heading = (u.heading || "").trim().replace(/\s+/g, " ");
+    if (/^authorised version\b/i.test(heading)) return "Authorised version";
+    if (META.act_title && heading === META.act_title.trim().replace(/\s+/g, " ")) return "Act title";
+    return "Heading";
+  }
   const bits = [u.type.toUpperCase()];
   if (u.number) bits.push(u.number);
   return bits.join(" ");
 }
 
+// Sidebar tree: collapsedUnits holds unit_no's a reviewer has folded
+// closed, persisted per-tab (sessionStorage) since it's a browsing
+// convenience, not review state. Only meaningful in the unfiltered,
+// unsearched view -- a status filter or a search query means the
+// reviewer is hunting for something specific, so every match should show
+// regardless of collapse state rather than being hidden inside a folded
+// parent.
+let collapsedUnits = new Set(JSON.parse(sessionStorage.getItem("collapsedUnits") || "[]"));
+
+function saveCollapsedUnits() {
+  sessionStorage.setItem("collapsedUnits", JSON.stringify([...collapsedUnits]));
+}
+
+function isUnitVisible(u) {
+  let parent = u.parent_unit_no;
+  while (parent != null) {
+    if (collapsedUnits.has(parent)) return false;
+    parent = META.units[parent] ? META.units[parent].parent_unit_no : null;
+  }
+  return true;
+}
+
 function renderSidebar() {
   const list = document.getElementById("unit-list");
   const q = document.getElementById("jump-input").value.trim().toLowerCase();
+  const applyCollapse = sidebarFilter === "all" && !q;
+  const hasChildren = new Set(META.units.filter((u) => u.parent_unit_no != null).map((u) => u.parent_unit_no));
   list.innerHTML = "";
   for (const u of META.units) {
     if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
@@ -510,14 +764,29 @@ function renderSidebar() {
       const hay = `${u.unit_no + 1} ${u.type} ${u.number || ""} ${u.heading || ""}`.toLowerCase();
       if (!hay.includes(q)) continue;
     }
+    if (applyCollapse && !isUnitVisible(u)) continue;
     const row = document.createElement("div");
     row.className = "unit-row" + (u.unit_no === currentUnitNo ? " active" : "");
+    row.style.paddingLeft = `${10 + u.depth * 14}px`;
+    const toggleHtml = hasChildren.has(u.unit_no)
+      ? `<span class="tree-toggle">${collapsedUnits.has(u.unit_no) ? "&#9656;" : "&#9662;"}</span>`
+      : `<span class="tree-spacer"></span>`;
     row.innerHTML = `
+      ${toggleHtml}
       <span class="status-dot ${u.status}"></span>
       <div style="min-width:0">
-        <div class="unit-title">${u.unit_no + 1}. ${escapeHtml(unitRowLabel(u))}</div>
+        <div class="unit-title">${escapeHtml(unitRowLabel(u))}</div>
         <div class="unit-sub">${escapeHtml(u.heading || "")}</div>
       </div>`;
+    const toggleEl = row.querySelector(".tree-toggle");
+    if (toggleEl) {
+      toggleEl.onclick = (e) => {
+        e.stopPropagation();
+        if (collapsedUnits.has(u.unit_no)) collapsedUnits.delete(u.unit_no); else collapsedUnits.add(u.unit_no);
+        saveCollapsedUnits();
+        renderSidebar();
+      };
+    }
     row.onclick = () => loadUnit(u.unit_no);
     list.appendChild(row);
   }
@@ -553,6 +822,7 @@ async function loadUnit(n) {
   document.getElementById("unit-header").style.display = "flex";
   renderUnit();
   renderSidebar();
+  if (document.body.dataset.historyPanel === "open") renderHistoryPanel();
   if (viewMode !== "text" && currentUnit.pieces[0]) loadPdfPage(currentUnit.pieces[0].page_start);
   // Status of the unit we just left/entered may have changed; keep the
   // sidebar's own copy fresh without a full meta reload on every click.
@@ -564,6 +834,7 @@ async function loadUnit(n) {
 
 function pieceLabelText(piece) {
   if (piece.label && piece.label !== "SECTION") return piece.label;
+  if (piece.type === "heading_group") return unitRowLabel({ type: "heading_group", heading: piece.heading });
   const bits = [piece.type.toUpperCase()];
   if (piece.number) bits.push(piece.number);
   return bits.join(" ");
@@ -602,9 +873,21 @@ function describeTarget(link) {
 
 function renderUnit() {
   const root = currentUnit.pieces[0];
-  document.getElementById("unit-title").textContent = root
-    ? `${currentUnit.unit_no + 1}. ${root.type.toUpperCase()} ${root.number || ""} ${root.heading || ""}`.replace(/\s+/g, " ").trim()
-    : `${currentUnit.unit_no + 1}. (empty -- fully merged away)`;
+  const titleEl = document.getElementById("unit-title");
+  if (root && root.type === "heading_group") {
+    // The heading text alone already says what this is ("Criminal
+    // Procedure Act 2009", "Authorised Version No. 114") -- prefixing it
+    // with its own friendly type label would just repeat "Act title
+    // Criminal Procedure Act 2009"-style.
+    titleEl.textContent = (root.heading || "").trim() || unitRowLabel({ type: "heading_group", heading: root.heading });
+  } else if (root) {
+    titleEl.textContent = `${root.type.toUpperCase()} ${root.number || ""} ${root.heading || ""}`.replace(/\s+/g, " ").trim();
+  } else if (currentUnit.merged_into_unit != null) {
+    titleEl.innerHTML = `Merged into <a href="#" id="merged-into-link">unit ${currentUnit.merged_into_unit + 1}</a> -- nothing left to review here`;
+    document.getElementById("merged-into-link").onclick = (e) => { e.preventDefault(); loadUnit(currentUnit.merged_into_unit); };
+  } else {
+    titleEl.textContent = "Merged away entirely -- its content now lives in whichever piece it was merged into (see the sidebar)";
+  }
   const badge = document.getElementById("unit-status-badge");
   badge.textContent = currentUnit.status;
   badge.className = `status-badge ${currentUnit.status}`;
@@ -613,45 +896,332 @@ function renderUnit() {
   container.innerHTML = "";
   currentUnit.pieces.forEach((piece, idx) => {
     const div = document.createElement("div");
-    div.className = "piece";
+    const isAccepted = !!piece.verified_at;
+    const isFlagged = !!piece.needs_followup;
+    // Elevated-risk (AI-sourced, or carrying a diagnostics finding) and
+    // not yet independently assessed -- see _is_elevated_risk in
+    // review.py. Its own classification (type/number/heading) and
+    // findings stay hidden below until the reviewer forms and submits
+    // their own view, so seeing them can't anchor it; the raw text
+    // itself is always visible, since that's exactly what an
+    // independent read needs.
+    const blindPending = piece.elevated_risk && !piece.blind_review;
+    div.className = "piece"
+      + (isAccepted ? " piece-accepted" : isFlagged ? " piece-flagged" : "")
+      + (blindPending ? " blind-pending" : "");
     div.dataset.type = piece.type;
     div.dataset.nodeIndex = piece.node_index;
     const isRoot = idx === 0 && currentUnit.root_type === piece.type && piece.label === "SECTION";
-    const headingLine = piece.heading && piece.type !== "definition"
+    const headingLine = !blindPending && piece.heading && piece.type !== "definition"
       ? `<div class="piece-heading">${escapeHtml(piece.heading)}</div>` : "";
-    const findingsHtml = (piece.findings || [])
+    const findingsHtml = blindPending ? "" : (piece.findings || [])
       .map((f) => `<div>&#9888; (${escapeHtml(f.severity)}) ${escapeHtml(f.message)}</div>`).join("");
     const verifiedHtml = piece.verified_at
-      ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>`
-      : piece.needs_followup ? `<div class="piece-verified">&#9873; Flagged for follow-up</div>` : "";
+      ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>` : "";
+    const statusBadgeHtml = isAccepted
+      ? `<span class="piece-status-badge accepted">&#10003; Accepted</span>`
+      : isFlagged ? `<span class="piece-status-badge flagged">&#9873; Flagged</span>` : "";
+    const decisionButtonsHtml = isAccepted || isFlagged ? "" : `
+          ${blindPending ? "" : `<button class="btn small accept-piece-btn" title="Accept this piece">&#10003; Accept</button>`}
+          <button class="btn small flag-piece-btn" title="Flag this piece for follow-up">&#9873; Flag</button>`;
     const pageJumpHtml = META.has_source_pdf && piece.page_start
       ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
       : "";
+    const sourceBadgeHtml = piece.source === "ai" ? `<span class="source-badge" title="Classified by the AI-engine backend, not the deterministic rules engine">AI</span>` : "";
+    const blindFormHtml = blindPending ? `
+      <div class="blind-form">
+        <div class="blind-form-label">&#9888; Needs your own assessment before it can be accepted${piece.source === "ai" ? " (AI-sourced)" : ""}${(piece.findings || []).length ? " (flagged by diagnostics)" : ""} -- what do <em>you</em> think this piece is, from its text alone?</div>
+        <div class="blind-form-row">
+          <select class="blind-type-input">
+            <option value="" disabled selected>Type&hellip;</option>
+            ${META.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
+          </select>
+          <input class="blind-number-input" type="text" placeholder="Number (if any)">
+        </div>
+        <input class="blind-heading-input" type="text" placeholder="Heading (if any)">
+        <textarea class="blind-reasoning-input" placeholder="Why do you think so? (required)"></textarea>
+        <button class="btn small primary blind-submit-btn">Submit my assessment</button>
+      </div>` : "";
+    const review = piece.blind_review;
+    const blindResultHtml = piece.elevated_risk && review ? `
+      <div class="blind-result">
+        <div class="blind-result-label">Your independent assessment</div>
+        <div class="blind-result-row">
+          <span>Type: ${escapeHtml(review.guessed_type)}</span>
+          <span class="blind-match ${review.matched_type ? "yes" : "no"}">${review.matched_type ? "&#10003; matched the parser" : `&#10007; parser said "${escapeHtml(piece.type)}"`}</span>
+        </div>
+        <div class="blind-result-row">
+          <span>Number: ${escapeHtml(review.guessed_number || "—")}</span>
+          <span class="blind-match ${review.matched_number ? "yes" : "no"}">${review.matched_number ? "&#10003; matched" : `&#10007; parser said "${escapeHtml(piece.number || "—")}"`}</span>
+        </div>
+        <div class="blind-reasoning">&ldquo;${escapeHtml(review.reasoning)}&rdquo;</div>
+      </div>` : "";
+    // The Section itself (idx 0) is never a drag *source* -- dragging "the
+    // whole section" onto something else isn't a meaningful gesture, and
+    // merge_endpoint already refuses to merge it away while it still has
+    // pieces nested under it. It stays a perfectly valid *drop target*
+    // for both gestures (merge-into-section, and the nest handle for
+    // "outdent this back to a top-level subsection"), so only the source
+    // side is restricted here.
+    const nestHandleHtml = idx > 0
+      ? `<span class="nest-handle" draggable="true" title="Drag onto another piece to nest this one under it">&#8676; Nest</span>` : "";
     div.innerHTML = `
       <div class="piece-top">
-        <span class="piece-label">${escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
-        <span class="piece-type">${escapeHtml(piece.type)}</span>
+        <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
+        <span class="piece-type">${blindPending ? "awaiting your assessment" : escapeHtml(piece.type)}</span>
+        ${sourceBadgeHtml}
+        ${statusBadgeHtml}
         <div class="piece-toolbar">
+          ${nestHandleHtml}
           ${pageJumpHtml}
+          ${decisionButtonsHtml}
           <button class="btn small edit-piece-btn">Edit</button>
         </div>
       </div>
       ${headingLine}
       <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece)}</div>
+      ${blindFormHtml}
+      ${blindResultHtml}
       <div class="piece-findings">${findingsHtml}</div>
       ${verifiedHtml}
     `;
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
     const jumpBtn = div.querySelector(".page-jump-btn");
     if (jumpBtn) jumpBtn.onclick = () => jumpToPiecePage(piece.page_start);
+    const acceptBtn = div.querySelector(".accept-piece-btn");
+    if (acceptBtn) acceptBtn.onclick = () => acceptPiece(piece.node_index, false);
+    const flagBtn = div.querySelector(".flag-piece-btn");
+    if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
+    const blindSubmitBtn = div.querySelector(".blind-submit-btn");
+    if (blindSubmitBtn) blindSubmitBtn.onclick = () => submitBlindGuess(div, piece.node_index);
+    if (idx > 0) div.draggable = true;
+    attachPieceDragAndDrop(div, piece.node_index);
     container.appendChild(div);
   });
+
+  const anyPieceDecided = currentUnit.pieces.some((p) => p.verified_at || p.needs_followup);
+  document.getElementById("accept-btn").textContent = anyPieceDecided ? "Accept remaining pieces" : "Accept unit";
+  document.getElementById("flag-btn").textContent = anyPieceDecided ? "Flag remaining as follow-up" : "Flag for follow-up";
 
   const actions = document.getElementById("unit-actions");
   actions.style.display = currentUnit.pieces.length ? "flex" : "none";
   document.getElementById("accept-btn").style.display = currentUnit.status === "pending" ? "" : "none";
   document.getElementById("flag-btn").style.display = currentUnit.status === "pending" ? "" : "none";
 }
+
+// ---------------------------------------------------------------------
+// Drag and drop: dragging a piece's body onto another piece merges it in
+// (same call the "Merge pieces..." button/modal above makes); dragging
+// its "Nest" handle onto another piece nests it under that piece instead
+// (see review.py's renest_endpoint -- a type change, never a reorder).
+// Two different draggable elements per piece, rather than one gesture
+// disambiguated some other way (a modifier key, say), so the intent is
+// visible up front and works the same with mouse or trackpad.
+// ---------------------------------------------------------------------
+
+let dragState = null; // { nodeIndex, mode: "merge" | "nest" }
+
+function attachPieceDragAndDrop(div, nodeIndex) {
+  div.addEventListener("dragstart", (e) => {
+    dragState = { nodeIndex, mode: "merge" };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(nodeIndex));
+    div.classList.add("dragging");
+  });
+  div.addEventListener("dragend", () => {
+    div.classList.remove("dragging");
+    dragState = null;
+    clearDragHighlights();
+  });
+  div.addEventListener("dragover", (e) => {
+    if (!dragState || dragState.nodeIndex === nodeIndex) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    div.classList.toggle("nest-target", dragState.mode === "nest");
+    div.classList.toggle("merge-target", dragState.mode === "merge");
+  });
+  div.addEventListener("dragleave", () => {
+    div.classList.remove("nest-target", "merge-target");
+  });
+  div.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    div.classList.remove("nest-target", "merge-target");
+    if (!dragState || dragState.nodeIndex === nodeIndex) return;
+    const { nodeIndex: draggedIndex, mode } = dragState;
+    dragState = null;
+    try {
+      if (mode === "nest") {
+        await api("api/renest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ node_index: draggedIndex, target_node_index: nodeIndex }),
+        });
+        toast("Nested.");
+      } else {
+        await api("api/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target_node_index: nodeIndex, source_node_indices: [draggedIndex] }),
+        });
+        toast("Merged.");
+      }
+      await afterMutation();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  const handle = div.querySelector(".nest-handle");
+  if (!handle) return;
+  handle.addEventListener("dragstart", (e) => {
+    e.stopPropagation(); // otherwise this bubbles into the piece's own dragstart above and gets overwritten to "merge"
+    dragState = { nodeIndex, mode: "nest" };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(nodeIndex));
+  });
+  handle.addEventListener("dragend", (e) => {
+    e.stopPropagation();
+    dragState = null;
+    clearDragHighlights();
+  });
+}
+
+function clearDragHighlights() {
+  document.querySelectorAll(".piece.nest-target, .piece.merge-target").forEach((el) => {
+    el.classList.remove("nest-target", "merge-target");
+  });
+}
+
+// ---------------------------------------------------------------------
+// History-notes panel: every amendment-history note already attached to
+// a piece in the open unit (Confirm/Move/Detach per note), plus a
+// searchable list of notes attach_history (ai_pipeline/tree.py) couldn't
+// confidently match to anything at parse time, for manual linking. See
+// review.py's /api/history/* endpoints.
+// ---------------------------------------------------------------------
+
+function describeHistoryNote(note) {
+  const bits = [];
+  if (note.section) bits.push(`s. ${note.section}${(note.sub_path || []).join("")}`);
+  if (note.division) bits.push(`Div ${note.division}`);
+  else if (note.part) bits.push(`Pt ${note.part}`);
+  if (note.def_name) bits.push(`def. of "${note.def_name}"`);
+  return bits.join(", ");
+}
+
+function renderHistoryPanel() {
+  const attachedContainer = document.getElementById("history-attached");
+  attachedContainer.innerHTML = "";
+  const piecesWithHistory = currentUnit.pieces.filter((p) => (p.history || []).length);
+  if (!piecesWithHistory.length) {
+    attachedContainer.innerHTML = `<div id="history-empty">No history notes attached to this unit.</div>`;
+  }
+  for (const piece of piecesWithHistory) {
+    const group = document.createElement("div");
+    group.className = "history-piece-group";
+    const notesHtml = piece.history.map((h, idx) => `
+      <div class="history-note">
+        <div class="history-note-text">${escapeHtml(h.raw)}</div>
+        <div class="history-note-meta">
+          <span class="history-confidence ${escapeHtml(h.confidence || "low")}">${escapeHtml(h.confidence || "low")}</span>
+          ${h.confidence !== "manual" ? `<button class="btn small history-confirm-btn" data-node="${piece.node_index}" data-idx="${idx}">Confirm</button>` : ""}
+          <button class="btn small history-move-btn" data-node="${piece.node_index}" data-idx="${idx}">Move&hellip;</button>
+          <button class="btn small history-detach-btn" data-node="${piece.node_index}" data-idx="${idx}">Detach</button>
+        </div>
+      </div>`).join("");
+    group.innerHTML = `<div class="history-piece-label">${escapeHtml(pieceLabelText(piece))}</div>${notesHtml}`;
+    attachedContainer.appendChild(group);
+  }
+  attachedContainer.querySelectorAll(".history-confirm-btn").forEach((btn) => {
+    const nodeIndex = Number(btn.dataset.node), historyIndex = Number(btn.dataset.idx);
+    btn.onclick = () => moveHistoryNote(nodeIndex, historyIndex, nodeIndex);
+  });
+  attachedContainer.querySelectorAll(".history-move-btn").forEach((btn) => {
+    const nodeIndex = Number(btn.dataset.node), historyIndex = Number(btn.dataset.idx);
+    btn.onclick = () => {
+      openPicker("Move this note to which piece?", null, (targetIndex) => moveHistoryNote(nodeIndex, historyIndex, targetIndex));
+    };
+  });
+  attachedContainer.querySelectorAll(".history-detach-btn").forEach((btn) => {
+    btn.onclick = () => detachHistoryNote(Number(btn.dataset.node), Number(btn.dataset.idx));
+  });
+
+  // Defaults the search to this unit's own section number (overwhelmingly
+  // where a stray note actually belongs) without clobbering whatever a
+  // reviewer already typed if this re-render was just the result of
+  // their own attach/move/detach action within the *same* unit.
+  const root = currentUnit.pieces[0];
+  const searchInput = document.getElementById("history-search");
+  if (searchInput.dataset.unitNo !== String(currentUnitNo)) {
+    searchInput.value = root && root.number ? root.number : "";
+    searchInput.dataset.unitNo = String(currentUnitNo);
+  }
+  loadHistoryCandidates(searchInput.value);
+}
+
+async function loadHistoryCandidates(q) {
+  const container = document.getElementById("history-candidates");
+  const candidates = await api(`api/history/unattached?limit=20&q=${encodeURIComponent(q || "")}`);
+  container.innerHTML = "";
+  if (!candidates.length) {
+    container.innerHTML = `<div id="history-empty">No matching unattached notes.</div>`;
+    return;
+  }
+  for (const note of candidates) {
+    const row = document.createElement("div");
+    row.className = "history-candidate";
+    const meta = describeHistoryNote(note);
+    row.innerHTML = `
+      <div class="history-note-text">${escapeHtml(note.raw)}</div>
+      <div class="history-note-meta">
+        ${meta ? `<span style="color:var(--muted)">${escapeHtml(meta)}</span>` : ""}
+        <button class="btn small history-attach-btn">Attach to&hellip;</button>
+      </div>`;
+    row.querySelector(".history-attach-btn").onclick = () => {
+      openPicker("Attach this note to which piece?", null, async (targetIndex) => {
+        try {
+          await api("api/history/attach", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ unattached_id: note.id, node_index: targetIndex }),
+          });
+          toast("Linked.");
+          await afterMutation();
+        } catch (e) { toast(e.message, true); }
+      });
+    };
+    container.appendChild(row);
+  }
+}
+
+async function moveHistoryNote(nodeIndex, historyIndex, targetIndex) {
+  try {
+    await api("api/history/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ node_index: nodeIndex, history_index: historyIndex, target_node_index: targetIndex }),
+    });
+    toast(nodeIndex === targetIndex ? "Confirmed." : "Moved.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function detachHistoryNote(nodeIndex, historyIndex) {
+  try {
+    await api("api/history/detach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ node_index: nodeIndex, history_index: historyIndex }),
+    });
+    toast("Detached.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+}
+
+let historySearchTimer = null;
+document.getElementById("history-search").addEventListener("input", (e) => {
+  clearTimeout(historySearchTimer);
+  const q = e.target.value;
+  historySearchTimer = setTimeout(() => loadHistoryCandidates(q), 250);
+});
 
 document.getElementById("prev-btn").onclick = () => currentUnitNo > 0 && loadUnit(currentUnitNo - 1);
 document.getElementById("next-btn").onclick = () => currentUnitNo < META.unit_count - 1 && loadUnit(currentUnitNo + 1);
@@ -671,9 +1241,40 @@ document.getElementById("flag-btn").onclick = async () => {
   } catch (e) { toast(e.message, true); }
 };
 
+async function acceptPiece(nodeIndex, flagged) {
+  try {
+    await api(`api/nodes/${nodeIndex}/accept`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
+    });
+    toast(flagged ? "Piece flagged." : "Piece accepted.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+}
+
 async function afterMutation() {
   await loadMeta();
   await loadUnit(currentUnitNo);
+}
+
+async function submitBlindGuess(pieceDiv, nodeIndex) {
+  const type = pieceDiv.querySelector(".blind-type-input").value;
+  if (!type) { toast("Pick what you think this piece's type is.", true); return; }
+  const reasoning = pieceDiv.querySelector(".blind-reasoning-input").value.trim();
+  if (!reasoning) { toast("A short reason for your assessment is required.", true); return; }
+  try {
+    await api(`api/nodes/${nodeIndex}/blind-guess`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type,
+        number: pieceDiv.querySelector(".blind-number-input").value || null,
+        heading: pieceDiv.querySelector(".blind-heading-input").value || null,
+        reasoning,
+      }),
+    });
+    toast("Assessment recorded.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
 }
 
 // ---------------------------------------------------------------------

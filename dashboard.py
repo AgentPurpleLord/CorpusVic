@@ -68,7 +68,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import html_view
+from ai_pipeline import db, html_view
 from ai_pipeline.extract import slugify
 from review import _resume_point, build_current_nodes, group_into_units
 
@@ -125,8 +125,7 @@ def act_status(slug: str) -> dict:
     status["node_count"] = len(nodes)
     status["unit_count"] = len(units)
 
-    verified_path = BASE_DIR / "data" / "verified" / f"{slug}.json"
-    verified = json.loads(verified_path.read_text(encoding="utf-8")) if verified_path.exists() else []
+    verified = db.load_verified(slug, base_dir=BASE_DIR)
     resume_unit = _resume_point(units, list(verified))  # copy: _resume_point may trim its list arg
     status["reviewed_units"] = min(resume_unit, len(units))
     if not units:
