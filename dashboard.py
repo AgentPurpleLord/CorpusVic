@@ -338,15 +338,24 @@ def _session_is_valid(token: str | None) -> bool:
 _LOGIN_HTML = """<!doctype html><html><head><meta charset="utf-8">
 <title>Sign in</title>
 <style>
-body{font-family:ui-sans-serif,system-ui,sans-serif;background:#f5f5f4;display:flex;
+/* Honours the same localStorage["reviewTheme"] preference the rest of the
+   GUI uses (no toggle of its own -- this screen is on the way to the
+   dashboard, where the toggle lives). */
+:root{color-scheme:light;--bg:#f5f5f4;--panel:#fff;--fg:#1a1a1a;--border:#d7d7d7;--accent:#2b6cb0;--danger:#b91c1c}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#16181d;--panel:#1e2126;--fg:#e8e8ea;--border:#34383f;--accent:#5b9bd9;--danger:#f87171}
+body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--fg);display:flex;
   align-items:center;justify-content:center;height:100vh;margin:0}
-form{background:#fff;border:1px solid #d7d7d7;border-radius:8px;padding:24px;width:280px}
+form{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px;width:280px}
 h1{font-size:15px;margin:0 0 14px}
-input{width:100%;padding:7px 9px;border:1px solid #d7d7d7;border-radius:6px;font-size:13px;box-sizing:border-box;margin-bottom:8px}
-button{margin-top:6px;width:100%;padding:8px;border:0;border-radius:6px;background:#2b6cb0;color:#fff;
+input{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;box-sizing:border-box;
+  margin-bottom:8px;background:var(--panel);color:var(--fg)}
+button{margin-top:6px;width:100%;padding:8px;border:0;border-radius:6px;background:var(--accent);color:#fff;
   font-size:13px;cursor:pointer}
-#err{color:#b91c1c;font-size:12px;min-height:16px;margin-top:6px}
-</style></head><body>
+#err{color:var(--danger);font-size:12px;min-height:16px;margin-top:6px}
+</style>
+<script>
+try { if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script></head><body>
 <form id="f">
   <h1>Legislation pipeline dashboard</h1>
   <input type="text" id="username" placeholder="Username" autocomplete="username" autofocus>

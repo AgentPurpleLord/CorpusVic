@@ -3,8 +3,15 @@
 <head>
 <meta charset="utf-8">
 <title>Legislation review</title>
+<script>
+  // Applied before first paint so a dark-mode reviewer never sees a
+  // white flash on load; applyTheme() below re-runs it once the
+  // toggle button exists, to sync the button's own icon/title.
+  try { if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
 <style>
   :root {
+    color-scheme: light;
     --bg: #ffffff;
     --panel: #ffffff;
     --fg: #1a1a1a;
@@ -47,6 +54,7 @@
      dark background, the same way a syntax-highlighted code block or a
      colored GitHub label doesn't re-theme itself either. */
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #16181d;
     --panel: #1e2126;
     --fg: #e8e8ea;
