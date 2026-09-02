@@ -114,6 +114,20 @@ CREATE TABLE IF NOT EXISTS blind_reviews (
     PRIMARY KEY (act, node_index)
 );
 CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
+
+-- Extra node types one Act's reviewer defined for themselves, on top of
+-- schema.NODE_TYPES and whatever levels that Act's profile declares.
+-- Per-Act rather than global on purpose: a label that's meaningful in one
+-- Act ("penalty", say) is noise in the relabel dropdown of every other.
+-- These are labels, not hierarchy levels -- an Act's nesting order comes
+-- from its profile (see ai_pipeline/hierarchy.py), so a type added here
+-- doesn't nest and can't be nested under.
+CREATE TABLE IF NOT EXISTS custom_types (
+    act TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (act, name)
+);
 """
 
 _connections: dict[str, sqlite3.Connection] = {}
@@ -419,3 +433,50 @@ def blind_review_stats(act: "str | None" = None) -> dict:
     query = "SELECT COUNT(*) AS total, COALESCE(SUM(matched_type), 0) AS type_matched, COALESCE(SUM(matched_number), 0) AS number_matched FROM blind_reviews"
     row = conn.execute(f"{query} WHERE act = ?", (act,)).fetchone() if act is not None else conn.execute(query).fetchone()
     return {"total": row["total"], "type_matched": row["type_matched"], "number_matched": row["number_matched"]}
+
+
+# ---------------------------------------------------------------------
+# Per-Act custom node types
+# ---------------------------------------------------------------------
+def load_custom_types(act: str) -> list[str]:
+    """This Act's own extra node types, oldest first -- the order they were
+    added is the order they show up in the relabel dropdown, under the
+    built-in ones, so adding a type never reshuffles the list a reviewer
+    has already built muscle memory for."""
+    rows = _connect().execute(
+        "SELECT name FROM custom_types WHERE act = ? ORDER BY created_at, name", (act,)
+    ).fetchall()
+    return [row["name"] for row in rows]
+
+
+def add_custom_type(act: str, name: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO custom_types (act, name, created_at) VALUES (?, ?, ?)",
+            (act, name, _now_iso()),
+        )
+
+
+def rename_custom_type(act: str, old_name: str, new_name: str) -> None:
+    """Kept as an insert+delete rather than an UPDATE of the primary key so
+    the renamed type keeps its original created_at (and therefore its
+    place in load_custom_types' order)."""
+    conn = _connect()
+    with conn:
+        row = conn.execute(
+            "SELECT created_at FROM custom_types WHERE act = ? AND name = ?", (act, old_name)
+        ).fetchone()
+        if row is None:
+            return
+        conn.execute(
+            "INSERT OR IGNORE INTO custom_types (act, name, created_at) VALUES (?, ?, ?)",
+            (act, new_name, row["created_at"]),
+        )
+        conn.execute("DELETE FROM custom_types WHERE act = ? AND name = ?", (act, old_name))
+
+
+def delete_custom_type(act: str, name: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("DELETE FROM custom_types WHERE act = ? AND name = ?", (act, name))

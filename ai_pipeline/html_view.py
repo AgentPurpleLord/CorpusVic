@@ -18,6 +18,15 @@ letting a reviewer immediately see how their in-progress edits will read
 to an actual user, without running export_markdown.py as a separate step
 first.
 
+A Section page is laid out the way the Act itself prints rather than the
+way the Markdown export has to: subsections/paragraphs/subparagraphs are
+indented by their nesting depth with their number hanging in the left
+margin, and each provision's amendment-history notes sit in a margin
+column beside it. Markdown has no indentation of its own to carry
+structure with, so markdown_export.py turns every one of those into a
+heading and pools the history at the foot -- that's a limitation of the
+format, not the intended reading.
+
 Kept intentionally independent of review.py's own live server process:
 rendering a page here needs no interactive state (no edit/split/merge),
 just whatever build_current_nodes reads off disk, so a Section page can
@@ -31,7 +40,7 @@ rather than linked to the wrong place.
 import html
 import re
 
-from .akn_export import _format_num, build_hierarchy_tree
+from .akn_export import build_hierarchy_tree
 from .hierarchy import HIERARCHY_ORDER
 from .markdown_export import (
     _DIVISION_REF_RE,
@@ -158,14 +167,19 @@ def _verification_badge(verification: dict) -> str:
     return f'<div class="verify-badge verify-{status}">{_esc(label)}</div>'
 
 
-def _render_history_html(tree_node: dict, out: list[str]) -> None:
-    node = tree_node["node"]
+def _margin_notes_html(node: dict) -> str:
+    """This one provision's own amendment-history notes, for the right-hand
+    margin column beside it -- the same place the source PDF prints them,
+    rather than pooled into one list at the foot of the page. A note whose
+    own attachment was a guess (confidence "low" -- see tree.py's
+    attach_history) is marked, so a reader can tell "the drafter put this
+    here" apart from "the parser worked out where this probably goes"."""
+    bits = []
     for h in node.get("history") or []:
-        label = _format_num(node["type"], node["number"]) if node.get("number") else ""
-        prefix = f"{_esc(label)} " if label else ""
-        out.append(f"<li>{prefix}{_esc(h['raw'])}</li>")
-    for child in tree_node["children"]:
-        _render_history_html(child, out)
+        cls = "hist-note low" if h.get("confidence") == "low" else "hist-note"
+        title = ' title="Attached to this provision as the closest match, not an exact citation"' if h.get("confidence") == "low" else ""
+        bits.append(f'<span class="{cls}"{title}>{_esc(h["raw"])}</span>')
+    return "".join(bits)
 
 
 def render_index(parsed: dict, act_title: str, base_url: str) -> str:
@@ -243,25 +257,55 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
     out.append(_verification_badge(verification))
     out.append(f"<h1>{_esc(title)}</h1>")
 
+    # The body reads as the Act itself does: each provision indented by its
+    # own nesting depth with its number hanging in the left margin, rather
+    # than every subsection/paragraph becoming its own <h4>/<h5> heading the
+    # way the Markdown export has to (Markdown has no indentation of its
+    # own to carry structure with). The anchors those headings used to
+    # provide are kept -- they're what cross-references from other sections
+    # link into (see _build_linkifier_html's `fragment`) -- just moved onto
+    # the provision <div> itself.
     slugs = compute_section_slugs(tree_node)
+    out.append('<div class="provisions">')
     for unit in _iter_body_units(tree_node):
-        key = (unit["tree_node"]["eid"], unit["clause_index"])
-        if unit["header_text"] is not None:
-            slug = slugs.get(key)
-            id_attr = f' id="{_esc(slug)}"' if slug else ""
-            level = min(unit["level"], 6)
-            out.append(f"<h{level}{id_attr}>{_esc(unit['header_text'])}</h{level}>")
-        if unit["text"] is not None:
-            linked = linkify(_esc(unit["text"]), target_filename, slugs.get(key))
-            out.append(f"<p>{linked}</p>")
+        unit_tree_node = unit["tree_node"]
+        unit_node = unit_tree_node["node"]
+        key = (unit_tree_node["eid"], unit["clause_index"])
+        slug = slugs.get(key)
+        id_attr = f' id="{_esc(slug)}"' if slug else ""
 
-    history: list[str] = []
-    _render_history_html(tree_node, history)
-    if history:
-        out.append("<h2>History</h2>")
-        out.append('<ul class="history">')
-        out.extend(history)
-        out.append("</ul>")
+        classes = ["prov", f"prov-{_esc(unit_node['type'])}"]
+        if unit["text"] is None:
+            classes.append("prov-heading")  # a heading-only provision (a Subdivision caption, say)
+
+        bits = []
+        if unit["header_text"] is not None:
+            # A defined term is set in bold italics where it's introduced
+            # (the drafting convention -- see rule_parser.py's
+            # _try_definition_start); every other label is just the
+            # provision's own number, hanging left of its text.
+            label_class = "prov-term" if unit_node["type"] == "definition" else "prov-num"
+            bits.append(f'<span class="{label_class}">{_esc(unit["header_text"])}</span>')
+        if unit["text"] is not None:
+            # A number's gutter is CSS (.prov-num's own width), but a defined
+            # term runs straight on into its text, so it needs a real space --
+            # except where that text opens with punctuation ("appear, in
+            # relation to a party, ..."), which must sit tight against it.
+            if bits and unit_node["type"] == "definition" and not unit["text"].lstrip().startswith((",", ".", ";", ":", ")", "\u2014", "-")):
+                bits.append(" ")
+            bits.append(linkify(_esc(unit["text"]), target_filename, slug))
+
+        # bits are joined with no separator on purpose: the gutter between a
+        # provision's number and its text is the label span's own width and
+        # padding (see .prov-num), so an extra space here would push the
+        # first line out of line with the wrapped ones below it.
+        out.append(f'<div class="{" ".join(classes)}"{id_attr} style="--depth:{unit["depth"]}">{"".join(bits)}</div>')
+        # One margin cell per provision, empty or not: the two columns are
+        # auto-placed rows of the same grid, so a note only stays level with
+        # the provision it belongs to if every provision contributes a cell.
+        notes = _margin_notes_html(unit_node) if unit["clause_index"] == 0 else ""
+        out.append(f'<div class="prov-notes">{notes}</div>')
+    out.append("</div>")
 
     nav = []
     if match_index > 0:
@@ -277,41 +321,131 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
 
 
 PAGE_CSS = """
+/* The palette (and the data-theme dark override below) is deliberately the
+   same set of variable names static/review.html uses, driven by the same
+   localStorage["reviewTheme"] key -- toggling the theme in the review GUI
+   and then clicking through to a browse page keeps the theme, because both
+   surfaces read the one preference. */
 :root {
-  --bg: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b; --border: #d7d7d7;
-  --accent: #2b6cb0; --done: #16a34a; --pending: #9ca3af; --flagged: #d97706;
+  color-scheme: light;
+  --bg: #ffffff; --panel: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b;
+  --border: #d7d7d7; --accent: #2b6cb0;
+  --done: #16a34a; --pending: #9ca3af; --flagged: #d97706;
+  --verify-full-bg: #dcfce7; --verify-partial-bg: #fef3c7; --verify-none-bg: #e5e7eb;
+  --bar-bg: #111827; --bar-fg: #d1d5db; --bar-link: #93c5fd;
   --sans: ui-sans-serif, system-ui, sans-serif;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #16181d; --panel: #1e2126; --fg: #e8e8ea; --muted: #9aa1ab;
+  --border: #34383f; --accent: #5b9bd9;
+  --done: #34d17f; --pending: #8b93a0; --flagged: #f0ad4e;
+  --verify-full-bg: #132a1c; --verify-partial-bg: #2c2410; --verify-none-bg: #262a31;
+  --bar-bg: #05070a; --bar-fg: #b6bcc6; --bar-link: #7fb6ea;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: Georgia, "Times New Roman", serif; line-height: 1.65; }
 .previewbar {
-  background: #111827; color: #d1d5db; font-family: var(--sans); font-size: 12px;
+  background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
   padding: 6px 20px; display: flex; gap: 14px; align-items: center;
 }
-.previewbar a { color: #93c5fd; }
-.page { max-width: 760px; margin: 0 auto; padding: 26px 20px 60px; }
+.previewbar a { color: var(--bar-link); }
+.page { max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
 h1 { font-size: 22px; margin: 0 0 10px; font-family: var(--sans); }
 h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
-h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: #333; }
+h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: var(--fg); }
 h4, h5, h6 { font-size: 14px; margin: 16px 0 4px; font-weight: 600; font-family: var(--sans); }
 p { margin: 0 0 13px; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .breadcrumb { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
 .verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 2px 9px; border-radius: 10px; margin-bottom: 18px; }
-.verify-full { background: #dcfce7; color: var(--done); }
-.verify-partial { background: #fef3c7; color: var(--flagged); }
-.verify-none { background: #e5e7eb; color: var(--pending); }
+.verify-full { background: var(--verify-full-bg); color: var(--done); }
+.verify-partial { background: var(--verify-partial-bg); color: var(--flagged); }
+.verify-none { background: var(--verify-none-bg); color: var(--pending); }
 .section-list { list-style: none; padding-left: 0; margin: 0 0 10px; }
 .section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
-.history { font-family: var(--sans); font-size: 12.5px; color: var(--muted); padding-left: 18px; }
 .section-nav { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); font-family: var(--sans); font-size: 13px; }
+
+/* The Section body, laid out the way the Act itself prints: one two-column
+   grid whose rows alternate provision / margin-note, so a note stays level
+   with the provision it belongs to (that's why render_section emits an
+   empty .prov-notes cell for every provision, not just annotated ones).
+   Indentation carries the structure -- --depth is the provision's nesting
+   distance below the Section -- with the number hanging in the margin to
+   its left, so a subsection reads as a subsection without needing its own
+   heading. */
+.provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
+.prov {
+  margin: 0 0 11px;
+  padding-left: calc(var(--depth, 0) * 26px + 2.4em);
+  text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
+}
+.prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
+.prov-term { font-weight: 600; font-style: italic; }
+.prov-heading {
+  font-family: var(--sans); font-weight: 600; font-size: 14px;
+  margin: 20px 0 8px; text-indent: 0;
+  padding-left: calc(var(--depth, 0) * 26px);
+}
+.prov-notes { font-family: var(--sans); font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.hist-note { display: block; margin-bottom: 5px; }
+/* A note the parser placed by proximity rather than by an explicit
+   citation -- flagged so a reader can tell a guess from a certainty. */
+.hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
+
+.theme-toggle {
+  position: fixed; top: 10px; right: 14px; z-index: 30;
+  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+  border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 13px;
+  font-family: var(--sans);
+}
+
+/* Below the width the two columns need, the margin notes fold in underneath
+   their provision rather than being squeezed into an unreadable strip. */
+@media (max-width: 720px) {
+  .provisions { display: block; }
+  .prov-notes { padding-left: 12px; margin: -4px 0 12px; }
+}
+"""
+
+# Applied in <head>, before first paint, so a dark-mode reader doesn't get a
+# white flash on every page load; the button wiring below runs after the DOM
+# exists. Both halves read/write the same key static/review.html does.
+THEME_HEAD_SCRIPT = """
+try {
+  if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark";
+} catch (e) {}
+"""
+
+THEME_BODY_SCRIPT = """
+(function () {
+  var btn = document.getElementById("theme-toggle-btn");
+  function paint() {
+    var dark = document.documentElement.dataset.theme === "dark";
+    btn.innerHTML = dark ? "&#9728;&#65039;" : "&#127769;";
+    btn.title = dark ? "Switch to light mode" : "Switch to dark mode";
+  }
+  paint();
+  btn.onclick = function () {
+    var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    if (next === "dark") document.documentElement.dataset.theme = "dark";
+    else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem("reviewTheme", next); } catch (e) {}
+    paint();
+  };
+})();
 """
 
 
 def page_shell(title: str, body_html: str, previewbar_html: str = "") -> str:
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
-        f"<title>{_esc(title)}</title>\n<style>{PAGE_CSS}</style>\n</head>\n<body>\n"
-        f"{previewbar_html}<div class=\"page\">\n{body_html}\n</div>\n</body>\n</html>"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        f"<title>{_esc(title)}</title>\n<style>{PAGE_CSS}</style>\n"
+        f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body>\n"
+        f"{previewbar_html}"
+        "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"
+        f"<div class=\"page\">\n{body_html}\n</div>\n"
+        f"<script>{THEME_BODY_SCRIPT}</script>\n</body>\n</html>"
     )

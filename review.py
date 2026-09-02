@@ -68,6 +68,18 @@ of structural review above, since annotating a span doesn't require (or
 imply) that its node has passed
 review, and structural review doesn't need to know these exist.
 
+The header's "Types" button manages the set of types a piece can be
+labelled with. The built-in ones (schema.NODE_TYPES plus whatever levels
+this Act's profile declares) are fixed -- the parser emits them,
+hierarchy.py ranks them and akn_export.py maps them to real AkomaNtoso
+elements -- but a reviewer can add extra labels of their own for this Act
+("penalty", say). Those are labels only: they take no place in the
+hierarchy, so nothing nests under them, and they export as a generic
+<hcontainer name="...">. Removing one is guarded -- a type still in use
+can only go if the reviewer names an existing type to move those pieces
+across to first, so a type can never be deleted out from under the
+pieces carrying it.
+
 A "Show source PDF" toggle in the header renders the actual source page
 each piece came from (page_start on the piece, GET /api/pages/{n}.png --
 a plain PyMuPDF rasterisation of that page, cached in memory) alongside
@@ -333,6 +345,30 @@ def can_renest_under(unit_types: list[str], target_pos: int, node_pos: int, hier
     return not any(t in rank and rank[t] <= target_rank for t in unit_types[target_pos + 1 : node_pos])
 
 
+# A custom node type's name has to survive being written into a parsed
+# node's "type" field, matched against hierarchy.py's rank tables, and
+# turned into an eId prefix by akn_export.py -- all of which assume the
+# same shape the built-in types have. So the same shape is required here
+# rather than accepting arbitrary display text.
+_CUSTOM_TYPE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+
+
+def validate_custom_type_name(name: str, existing: list[str]) -> str:
+    """Returns the cleaned name, or raises ValueError with a message meant
+    to be shown to the reviewer as-is."""
+    cleaned = (name or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if not cleaned:
+        raise ValueError("A type name is required.")
+    if not _CUSTOM_TYPE_NAME_RE.match(cleaned):
+        raise ValueError(
+            "A type name must start with a letter and use only lowercase letters, "
+            "digits and underscores (up to 40 characters)."
+        )
+    if cleaned in existing:
+        raise ValueError(f"{cleaned!r} already exists.")
+    return cleaned
+
+
 def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
     """Which unit to resume at. commit_unit tags the last node it appends
     for a unit with that unit's own index (`_unit_end_index`); when any
@@ -464,6 +500,7 @@ _verified_by_source_index: dict[int, dict] = {}
 _pending_edits: dict[int, dict] = {}
 _merged_away: set[int] = set()
 _merged_into_unit: dict[int, int] = {}  # source unit_no -> the unit_no its content ended up in (this session only)
+_renest_history: list[dict] = []  # LIFO undo stack for renest_endpoint (this session only) -- see undo_renest_endpoint
 _definition_index: dict[str, int] = {}
 _findings_by_node: dict[int, list[dict]] = {}
 _unattached_notes: list[dict] = []  # startup snapshot, plus anything detach_history_endpoint has since returned to it (this session only)
@@ -879,6 +916,20 @@ class BlindGuessRequest(BaseModel):
     reasoning: str
 
 
+class NodeTypeCreateRequest(BaseModel):
+    name: str
+
+
+class NodeTypeRenameRequest(BaseModel):
+    new_name: str
+
+
+class NodeTypeDeleteRequest(BaseModel):
+    # The type every node currently using the doomed one is moved to.
+    # Required whenever it's actually in use -- see delete_node_type.
+    replacement: str | None = None
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "review.html")
@@ -909,6 +960,10 @@ def get_meta():
         "corrections": stats(),
         "unattached_notes": len(_currently_unattached_indices()),
         "blind_review_stats": db.blind_review_stats(_act),
+        "renest_undo": (
+            {"node_index": _renest_history[-1]["node_index"], "restores_type": _renest_history[-1]["previous_type"]}
+            if _renest_history else None
+        ),
         "units": units_summary,
         "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
         "act_title": _act_title,
@@ -1209,10 +1264,45 @@ def renest_endpoint(req: RenestRequest):
     if not can_renest_under(unit_types, target_pos, node_pos, _hierarchy):
         raise HTTPException(400, f"Can't nest here -- another {target_type} (or shallower) opens between them first")
 
+    previous_type = _current_node(i)["type"]
     _mutate_node(i, type=new_type)
     _recompute_unit_paths(unit_no)
+    # Recording just enough to reverse the *type* change (previous_type)
+    # is enough on its own to also undo its knock-on effect on every
+    # later piece's own displayed label in this unit: those never had
+    # their own type changed, only their path recomputed off of this
+    # piece's new one (see _recompute_unit_paths) -- restoring this one
+    # piece's type and recomputing again naturally un-cascades all of it,
+    # with nothing else to track.
+    _renest_history.append({"node_index": i, "previous_type": previous_type, "unit_no": unit_no})
     updated = _current_node(i)
     return {"node_index": i, "type": updated["type"], "path": updated.get("path")}
+
+
+@app.post("/api/renest/undo")
+def undo_renest_endpoint():
+    """Reverses the most recent successful renest (LIFO -- repeated calls
+    walk back through several in a row), restoring the piece's own prior
+    type and recomputing the unit's paths again so every other piece's
+    label that shifted as a knock-on effect (see renest_endpoint) reverts
+    right along with it. This is specifically why a whole-unit
+    _recompute_unit_paths, not a hand-patched single path entry, is the
+    right undo primitive here: nothing downstream of the renested piece
+    ever had its own *type* changed in the first place, only its
+    *displayed* nesting, which a fresh recompute off the restored type
+    fixes for all of them at once, the same way it did going forward."""
+    if not _renest_history:
+        raise HTTPException(400, "Nothing to undo")
+    entry = _renest_history[-1]
+    i, previous_type, unit_no = entry["node_index"], entry["previous_type"], entry["unit_no"]
+    if i in _merged_away:
+        _renest_history.pop()
+        raise HTTPException(400, "That piece has since been merged away and can't be un-nested")
+    _renest_history.pop()
+    _mutate_node(i, type=previous_type)
+    _recompute_unit_paths(unit_no)
+    updated = _current_node(i)
+    return {"node_index": i, "unit_no": unit_no, "type": updated["type"], "path": updated.get("path")}
 
 
 @app.post("/api/nodes/{node_index}/blind-guess")
@@ -1251,6 +1341,141 @@ def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
         "review": record,
         "actual": {"type": actual["type"], "number": actual.get("number"), "heading": actual.get("heading")},
     }
+
+
+# ---------------------------------------------------------------------------
+# Node types ("legislation part" types)
+# ---------------------------------------------------------------------------
+def _builtin_type_names() -> list[str]:
+    """This Act's own hierarchy levels first (a custom top level like
+    "chapter" declared in its profile won't be in the built-in list),
+    then the fixed schema enum -- the exact order main() has always
+    built _relabel_types in."""
+    return list(dict.fromkeys([*_hierarchy, *NODE_TYPES]))
+
+
+def _refresh_relabel_types() -> None:
+    """Rebuilds the relabel list in place. _relabel_types is a module-level
+    list other endpoints validate against by identity, so it's mutated
+    rather than rebound."""
+    builtins = _builtin_type_names()
+    customs = [t for t in db.load_custom_types(_act) if t not in builtins]
+    _relabel_types[:] = [*builtins, *customs]
+
+
+def _type_usage() -> dict[str, int]:
+    """How many live nodes currently carry each type, counted against each
+    node's *effective* state (a pending edit, else its verified state,
+    else the parse) -- the same view the reviewer is looking at, so a
+    type they've just relabelled the last node away from reads as unused
+    straight away."""
+    counts: dict[str, int] = {}
+    for i in range(len(_nodes)):
+        if i in _merged_away:
+            continue
+        t = _current_node(i).get("type")
+        if t:
+            counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
+def _node_types_payload() -> dict:
+    builtins = set(_builtin_type_names())
+    usage = _type_usage()
+    return {
+        "types": [
+            {"name": t, "builtin": t in builtins, "in_use": usage.get(t, 0)}
+            for t in _relabel_types
+        ]
+    }
+
+
+def _reassign_type(old_type: str, new_type: str) -> int:
+    """Moves every live node off old_type onto new_type, through the same
+    _mutate_node path a hand relabel uses -- so each reassignment is
+    logged as a correction and persisted (or staged as a pending edit for
+    a not-yet-committed piece) exactly as if it had been done one at a
+    time in the GUI. Returns how many nodes moved."""
+    moved = 0
+    for i in range(len(_nodes)):
+        if i in _merged_away:
+            continue
+        if _current_node(i).get("type") == old_type:
+            _mutate_node(i, type=new_type)
+            moved += 1
+    return moved
+
+
+@app.get("/api/node-types")
+def list_node_types():
+    return _node_types_payload()
+
+
+@app.post("/api/node-types")
+def create_node_type(req: NodeTypeCreateRequest):
+    try:
+        name = validate_custom_type_name(req.name, _relabel_types)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    db.add_custom_type(_act, name)
+    _refresh_relabel_types()
+    return {"created": name, **_node_types_payload()}
+
+
+@app.post("/api/node-types/{name}/rename")
+def rename_node_type(name: str, req: NodeTypeRenameRequest):
+    """Renaming carries every node using the old name across to the new
+    one, so a rename is never a silent way of orphaning nodes onto a type
+    that no longer exists. Built-in types can't be renamed: they're what
+    the parser emits, hierarchy.py ranks and akn_export.py maps to AkomaNtoso
+    elements, so renaming one here would only desynchronise this Act's
+    review state from the rest of the pipeline."""
+    if name not in _relabel_types:
+        raise HTTPException(404, f"Unknown type {name!r}")
+    if name in _builtin_type_names():
+        raise HTTPException(400, f"{name!r} is a built-in type and can't be renamed.")
+    try:
+        new_name = validate_custom_type_name(req.new_name, _relabel_types)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    db.rename_custom_type(_act, name, new_name)
+    _refresh_relabel_types()
+    moved = _reassign_type(name, new_name)
+    return {"renamed": name, "to": new_name, "reassigned": moved, **_node_types_payload()}
+
+
+@app.delete("/api/node-types/{name}")
+def delete_node_type(name: str, req: NodeTypeDeleteRequest | None = None):
+    """The safeguard: a type that nodes are still using is never simply
+    removed. Either nothing uses it (delete outright), or the caller names
+    an existing replacement type every one of those nodes is moved to
+    first. Refusing without a replacement returns 409 with the usage count,
+    which is what the GUI turns into its "N pieces still use this" prompt.
+
+    Built-in types can't be deleted at all -- the parser will just emit
+    them again on the next parse, and hierarchy.py/akn_export.py still
+    expect them, so "deleting" one would be a lie."""
+    if name not in _relabel_types:
+        raise HTTPException(404, f"Unknown type {name!r}")
+    if name in _builtin_type_names():
+        raise HTTPException(400, f"{name!r} is a built-in type and can't be deleted.")
+    in_use = _type_usage().get(name, 0)
+    replacement = (req.replacement or "").strip() if req is not None else ""
+    if in_use and not replacement:
+        raise HTTPException(
+            409,
+            f"{name!r} is still used by {in_use} piece(s) -- choose a type to move them to first.",
+        )
+    moved = 0
+    if in_use:
+        if replacement == name:
+            raise HTTPException(400, "The replacement type must be a different type.")
+        if replacement not in _relabel_types:
+            raise HTTPException(400, f"Unknown replacement type {replacement!r}")
+        moved = _reassign_type(name, replacement)
+    db.delete_custom_type(_act, name)
+    _refresh_relabel_types()
+    return {"deleted": name, "reassigned_to": replacement or None, "reassigned": moved, **_node_types_payload()}
 
 
 @app.post("/api/nodes/{node_index}/accept")
@@ -1358,9 +1583,9 @@ def main():
         for i in indices:
             _unit_of_index[i] = u
     _definition_index = build_definition_index(_nodes)
-    # This Act's own hierarchy levels first when relabelling a node (a
-    # custom top level like "chapter" won't be in the built-in list).
-    _relabel_types[:] = list(dict.fromkeys([*_hierarchy, *NODE_TYPES]))
+    # Built-in types plus whatever extra ones this Act's reviewer has
+    # defined for themselves (see the node-types endpoints).
+    _refresh_relabel_types()
 
     for finding in load_diagnostics(args.act):
         if finding.get("node_index") is not None:

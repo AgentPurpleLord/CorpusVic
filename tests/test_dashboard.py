@@ -6,7 +6,9 @@ deliberately not covered here -- they were exercised end to end against a
 live server instead (curl and Playwright), same approach test_review.py
 takes for review.py's own endpoints."""
 import json
+import sys
 import time
+from pathlib import Path
 
 import pytest
 
@@ -54,6 +56,7 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
     assert status == {
         "slug": "crimes-act",
         "has_pdf": False,
+        "has_profile": False,
         "parsed": False,
         "node_count": None,
         "unit_count": None,
@@ -220,3 +223,88 @@ def test_resolve_auth_prefers_explicit_credentials_over_the_persisted_store(tmp_
     assert dashboard._check_credentials("bob", "explicit-password") is True
     # Explicit creds are this run's source of truth -- they don't overwrite the store.
     assert dashboard._AUTH_STORE_PATH.read_text(encoding="utf-8") == stored_before
+
+
+# --- parsing/reparsing: pure param validation + command building --------
+
+
+def test_validate_parse_params_accepts_defaults():
+    dashboard._validate_parse_params("act", "", "rules", "ollama", "", "")  # no exception
+
+
+@pytest.mark.parametrize(
+    "kind,profile,engine,backend,start_page,end_page",
+    [
+        ("play", "", "rules", "ollama", "", ""),
+        ("act", "Not A Slug", "rules", "ollama", "", ""),
+        ("act", "", "not-an-engine", "ollama", "", ""),
+        ("act", "", "rules", "not-a-backend", "", ""),
+        ("act", "", "rules", "ollama", "not-a-number", ""),
+        ("act", "", "rules", "ollama", "", "not-a-number"),
+    ],
+)
+def test_validate_parse_params_rejects_bad_input(kind, profile, engine, backend, start_page, end_page):
+    with pytest.raises(Exception):
+        dashboard._validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+
+
+def test_build_parse_command_for_an_em_ignores_every_other_option():
+    cmd = dashboard._build_parse_command(Path("acts/some-bill-em.pdf"), "em", "profile", "ai", "claude", "opus", "5", "10")
+    assert cmd == [sys.executable, "run_em_pipeline.py", "acts/some-bill-em.pdf"]
+
+
+def test_build_parse_command_for_a_bill_sets_document_type():
+    cmd = dashboard._build_parse_command(Path("acts/some-bill.pdf"), "bill", "", "rules", "ollama", "", "", "")
+    assert cmd == [sys.executable, "run_pipeline.py", "acts/some-bill.pdf", "--document-type", "bill"]
+
+
+def test_build_parse_command_includes_profile_and_page_range_when_given():
+    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "my-profile", "rules", "ollama", "", "5", "20")
+    assert cmd == [
+        sys.executable, "run_pipeline.py", "acts/x.pdf", "--document-type", "act",
+        "--profile", "my-profile", "--start-page", "5", "--end-page", "20",
+    ]
+
+
+def test_build_parse_command_ai_engine_includes_backend_and_optional_model():
+    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "", "ai", "claude", "opus", "", "")
+    assert cmd == [
+        sys.executable, "run_pipeline.py", "acts/x.pdf", "--document-type", "act",
+        "--engine", "ai", "--backend", "claude", "--model", "opus",
+    ]
+
+
+def test_find_source_pdf_matches_by_slug(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "acts").mkdir()
+    (tmp_path / "acts" / "crimes-act.pdf").write_bytes(b"%PDF-1.4")
+    assert dashboard._find_source_pdf("crimes-act") == tmp_path / "acts" / "crimes-act.pdf"
+
+
+def test_find_source_pdf_returns_none_when_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    assert dashboard._find_source_pdf("no-such-act") is None
+
+
+def test_repo_relative_strips_the_checkout_path(tmp_path, monkeypatch):
+    """The path handed to run_pipeline.py ends up verbatim in the
+    committed data/ai_parsed/<slug>.json -- it has to stay repo-relative
+    so it doesn't bake in one machine's checkout location."""
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    assert dashboard._repo_relative(tmp_path / "acts" / "crimes-act.pdf") == "acts/crimes-act.pdf"
+
+
+def test_repo_relative_leaves_a_path_outside_the_repo_alone(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path / "repo")
+    (tmp_path / "repo").mkdir()
+    outside = tmp_path / "elsewhere" / "x.pdf"
+    assert dashboard._repo_relative(outside) == str(outside)
+
+
+def test_act_status_reports_whether_the_act_has_its_own_profile(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "ai_pipeline" / "profiles").mkdir(parents=True)
+    (tmp_path / "ai_pipeline" / "profiles" / "crimes-act.yaml").write_text("part: 'x'\n", encoding="utf-8")
+
+    assert dashboard.act_status("crimes-act")["has_profile"] is True
+    assert dashboard.act_status("evidence-act")["has_profile"] is False

@@ -4,17 +4,61 @@
 <meta charset="utf-8">
 <title>Legislation pipeline dashboard</title>
 <style>
+  /* Same variable names, and the same localStorage["reviewTheme"] key, as
+     static/review.html and ai_pipeline/html_view.py's PAGE_CSS: the theme
+     is one preference shared by every surface in the GUI, so switching it
+     here and then opening a review or a browse page keeps it. */
   :root {
+    color-scheme: light;
     --bg: #ffffff;
     --panel: #ffffff;
     --fg: #1a1a1a;
     --muted: #6b6b6b;
     --border: #d7d7d7;
     --accent: #2b6cb0;
+    --accent-hover: #2558a0;
     --card-bg: #f5f5f4;
     --pending: #9ca3af;
     --done: #16a34a;
     --flagged: #d97706;
+    --hover-bg: #f0f0f0;
+    --badge-bg: #e5e7eb;
+    --badge-fg: #374151;
+    --badge-done-bg: #dcfce7;
+    --badge-progress-bg: #fef3c7;
+    --warning-bg: #fef3c7;
+    --warning-fg: #92400e;
+    --warning-border: #fde68a;
+    --log-bg: #111827;
+    --log-fg: #d1fae5;
+    --toast-bg: #1f2937;
+    --toast-error-bg: #991b1b;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #16181d;
+    --panel: #1e2126;
+    --fg: #e8e8ea;
+    --muted: #9aa1ab;
+    --border: #34383f;
+    --accent: #5b9bd9;
+    --accent-hover: #6fabe3;
+    --card-bg: #1e2126;
+    --pending: #8b93a0;
+    --done: #34d17f;
+    --flagged: #f0ad4e;
+    --hover-bg: #2a2e35;
+    --badge-bg: #262a31;
+    --badge-fg: #c3c9d2;
+    --badge-done-bg: #132a1c;
+    --badge-progress-bg: #2c2410;
+    --warning-bg: #2c2410;
+    --warning-fg: #fbbf24;
+    --warning-border: #6b551c;
+    --log-bg: #05070a;
+    --log-fg: #a7f3d0;
+    --toast-bg: #05070a;
+    --toast-error-bg: #7f1d1d;
   }
   * { box-sizing: border-box; }
   body {
@@ -42,9 +86,9 @@
     font-size: 13px;
     color: var(--fg);
   }
-  button:hover, .btn:hover { background: #f0f0f0; }
+  button:hover, .btn:hover { background: var(--hover-bg); }
   .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
-  .btn.primary:hover { background: #2558a0; }
+  .btn.primary:hover { background: var(--accent-hover); }
   .btn.small { padding: 3px 9px; font-size: 12px; }
   main { padding: 20px; max-width: 980px; margin: 0 auto; }
   #tools-row { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -61,12 +105,12 @@
     font-size: 11.5px;
     padding: 2px 8px;
     border-radius: 10px;
-    background: #e5e7eb;
-    color: #374151;
+    background: var(--badge-bg);
+    color: var(--badge-fg);
   }
-  .badge.done { background: #dcfce7; color: var(--done); }
-  .badge.in-progress { background: #fef3c7; color: var(--flagged); }
-  .badge.not-started, .badge.not-parsed { background: #e5e7eb; color: var(--pending); }
+  .badge.done { background: var(--badge-done-bg); color: var(--done); }
+  .badge.in-progress { background: var(--badge-progress-bg); color: var(--flagged); }
+  .badge.not-started, .badge.not-parsed { background: var(--badge-bg); color: var(--pending); }
   .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   #empty { color: var(--muted); font-size: 13.5px; padding: 30px 0; text-align: center; }
 
@@ -79,7 +123,7 @@
   }
   .overlay.open { display: flex; }
   .modal {
-    background: white;
+    background: var(--panel);
     border-radius: 10px;
     padding: 20px 22px;
     width: 440px;
@@ -91,14 +135,22 @@
   .modal label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
   .modal input[type=text], .modal input[type=number], .modal select {
     width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+    background: var(--panel); color: var(--fg);
   }
   .modal input[type=file] { font-size: 13px; }
   .modal .row { display: flex; gap: 10px; }
   .modal .row > * { flex: 1; }
   .modal .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .modal .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .modal .warning {
+    background: var(--warning-bg); color: var(--warning-fg); border: 1px solid var(--warning-border);
+    border-radius: 6px; padding: 8px 10px; font-size: 12.5px; margin-bottom: 6px;
+  }
+  .modal label:has(input[type=checkbox]) {
+    display: flex; align-items: center; font-size: 13px; color: var(--fg); margin: 12px 0 0;
+  }
   pre#log {
-    background: #111827; color: #d1fae5;
+    background: var(--log-bg); color: var(--log-fg);
     padding: 10px; border-radius: 6px;
     font-size: 12px; max-height: 300px; overflow: auto;
     white-space: pre-wrap; word-break: break-word;
@@ -107,12 +159,20 @@
   #toast {
     display: none;
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: #111827; color: white;
+    background: var(--toast-bg); color: white;
     padding: 8px 16px; border-radius: 6px; font-size: 13px;
     z-index: 100;
   }
-  #toast.error { background: #b91c1c; }
+  #toast.error { background: var(--toast-error-bg); }
 </style>
+<script>
+  // Applied before first paint so a dark-mode reader never gets a white
+  // flash while the rest of the page loads; the toggle itself is wired up
+  // in the main script below.
+  try {
+    if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark";
+  } catch (e) {}
+</script>
 </head>
 <body>
 
@@ -122,6 +182,7 @@
   <div class="spacer"></div>
   <button class="btn" onclick="loadActs()">Refresh</button>
   <button class="btn primary" onclick="openModal('add-modal')">+ Add Act / Bill / EM</button>
+  <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <button class="btn" onclick="logout()">Log out</button>
 </header>
 
@@ -198,6 +259,74 @@
   </div>
 </div>
 
+<!-- Parse / Re-parse an already-uploaded PDF -->
+<div class="overlay" id="parse-modal">
+  <div class="modal">
+    <h2>Parse <span id="parse-slug"></span></h2>
+    <div id="parse-warning" class="warning" style="display:none"></div>
+    <form id="parse-form">
+      <label>Kind</label>
+      <select name="kind" id="parse-kind" onchange="onParseKindChange()">
+        <option value="act">Act</option>
+        <option value="bill">Bill</option>
+        <option value="em">Explanatory Memorandum</option>
+      </select>
+
+      <div id="parse-act-bill-fields">
+        <label>Profile (optional -- matches ai_pipeline/profiles/&lt;name&gt;.yaml)</label>
+        <input type="text" name="profile" placeholder="e.g. criminal-procedure-act">
+
+        <div class="row">
+          <div>
+            <label>Start page (optional)</label>
+            <input type="number" name="start_page" min="1">
+          </div>
+          <div>
+            <label>End page (optional)</label>
+            <input type="number" name="end_page" min="1">
+          </div>
+        </div>
+
+        <label>Engine</label>
+        <select name="engine" id="parse-engine" onchange="onParseEngineChange()">
+          <option value="rules">Rules (default -- free, instant)</option>
+          <option value="ai">AI (model backend)</option>
+        </select>
+
+        <div id="parse-ai-fields" style="display:none">
+          <div class="row">
+            <div>
+              <label>Backend</label>
+              <select name="backend">
+                <option value="ollama">ollama</option>
+                <option value="claude">claude</option>
+              </select>
+            </div>
+            <div>
+              <label>Model (optional)</label>
+              <input type="text" name="model" placeholder="backend default">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <label id="parse-confirm-label" style="display:none">
+        <input type="checkbox" id="parse-confirm-checkbox" style="width:auto; margin-right:6px;">
+        I understand -- replace the existing parse anyway
+      </label>
+
+      <div class="footer">
+        <button type="button" class="btn" onclick="closeModal('parse-modal')">Cancel</button>
+        <button type="submit" class="btn primary" id="parse-submit-btn">Parse</button>
+      </div>
+    </form>
+    <div id="parse-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="parse-log"></pre>
+    </div>
+  </div>
+</div>
+
 <!-- Bill-link modal -->
 <div class="overlay" id="link-modal">
   <div class="modal">
@@ -225,6 +354,30 @@
 <div id="toast"></div>
 
 <script>
+// ---------------------------------------------------------------------
+// Dark mode -- shares one localStorage key with the review GUI and the
+// browse pages, so the whole GUI switches together (see the CSS comment
+// on :root for why a manual toggle rather than prefers-color-scheme).
+// ---------------------------------------------------------------------
+function applyTheme(theme) {
+  const btn = document.getElementById("theme-toggle-btn");
+  if (theme === "dark") {
+    document.documentElement.dataset.theme = "dark";
+    btn.innerHTML = "&#9728;&#65039;";
+    btn.title = "Switch to light mode";
+  } else {
+    delete document.documentElement.dataset.theme;
+    btn.innerHTML = "&#127769;";
+    btn.title = "Switch to dark mode";
+  }
+}
+applyTheme(localStorage.getItem("reviewTheme") || "light");
+document.getElementById("theme-toggle-btn").onclick = () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("reviewTheme", next);
+  applyTheme(next);
+};
+
 function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
 
@@ -249,6 +402,15 @@ function onKindChange() {
 function onEngineChange() {
   const isAi = document.getElementById("add-engine").value === "ai";
   document.getElementById("ai-fields").style.display = isAi ? "block" : "none";
+}
+
+function onParseKindChange() {
+  const isEm = document.getElementById("parse-kind").value === "em";
+  document.getElementById("parse-act-bill-fields").style.display = isEm ? "none" : "block";
+}
+function onParseEngineChange() {
+  const isAi = document.getElementById("parse-engine").value === "ai";
+  document.getElementById("parse-ai-fields").style.display = isAi ? "block" : "none";
 }
 
 function statusLabel(s) {
@@ -277,6 +439,11 @@ function actCardHtml(s) {
   const dlMd = s.markdown_exported
     ? `<a class="btn small" href="/api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
 
+  const parseBtnLabel = s.parsed ? "Re-parse…" : "Parse…";
+  const parseBtn = s.has_pdf
+    ? `<button class="btn small" onclick="openParseModal('${s.slug}')">${parseBtnLabel}</button>`
+    : `<button class="btn small" disabled title="No source PDF in acts/">${parseBtnLabel}</button>`;
+
   return `
     <div class="act-card">
       <div class="head">
@@ -287,6 +454,7 @@ function actCardHtml(s) {
         ${mdBadge}
       </div>
       <div class="actions">
+        ${parseBtn}
         ${reviewBtn}
         ${browseBtn}
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
@@ -297,12 +465,14 @@ function actCardHtml(s) {
     </div>`;
 }
 
+let ACTS = [];
+
 async function loadActs() {
   const res = await fetch("/api/acts");
-  const acts = await res.json();
-  document.getElementById("summary").textContent = acts.length ? `${acts.length} Act(s)/Bill(s)/EM(s)` : "";
-  document.getElementById("empty").style.display = acts.length ? "none" : "block";
-  document.getElementById("acts").innerHTML = acts.map(actCardHtml).join("");
+  ACTS = await res.json();
+  document.getElementById("summary").textContent = ACTS.length ? `${ACTS.length} Act(s)/Bill(s)/EM(s)` : "";
+  document.getElementById("empty").style.display = ACTS.length ? "none" : "block";
+  document.getElementById("acts").innerHTML = ACTS.map(actCardHtml).join("");
 }
 
 async function runExport(slug, kind, btn) {
@@ -326,6 +496,84 @@ async function runExport(slug, kind, btn) {
     loadActs();
   }
 }
+
+let parseModalSlug = null;
+
+function openParseModal(slug) {
+  parseModalSlug = slug;
+  const s = ACTS.find((a) => a.slug === slug) || {};
+  document.getElementById("parse-slug").textContent = slug;
+  document.getElementById("parse-log-wrap").style.display = "none";
+  document.getElementById("parse-log").textContent = "";
+  document.getElementById("parse-form").reset();
+
+  const reviewed = s.reviewed_units || 0;
+  const warn = document.getElementById("parse-warning");
+  const confirmLabel = document.getElementById("parse-confirm-label");
+  const confirmCheckbox = document.getElementById("parse-confirm-checkbox");
+  confirmCheckbox.checked = false;
+  if (s.parsed && reviewed > 0) {
+    warn.style.display = "block";
+    warn.textContent = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Re-parsing `
+      + "regenerates the raw structure from the PDF -- if node positions shift, existing review progress "
+      + "can silently misalign with the wrong provisions.";
+    confirmLabel.style.display = "flex";
+  } else {
+    warn.style.display = "none";
+    confirmLabel.style.display = "none";
+  }
+  // Pre-fill the Act's own profile when it has one -- leaving it blank
+  // silently produces a worse parse rather than an error (see
+  // act_status's has_profile).
+  if (s.has_profile) document.querySelector("#parse-form input[name=profile]").value = slug;
+  onParseKindChange();
+  onParseEngineChange();
+  openModal("parse-modal");
+}
+
+document.getElementById("parse-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const slug = parseModalSlug;
+  const submitBtn = document.getElementById("parse-submit-btn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Parsing...";
+  const logWrap = document.getElementById("parse-log-wrap");
+  const logEl = document.getElementById("parse-log");
+  logWrap.style.display = "block";
+  logEl.textContent = "Running -- this can take a little while for a large PDF...";
+  try {
+    const fd = new FormData(form);
+    fd.set("confirm", document.getElementById("parse-confirm-checkbox").checked ? "true" : "false");
+    const res = await fetch(`/api/acts/${slug}/reparse`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (res.status === 409) {
+      logWrap.style.display = "none";
+      const warn = document.getElementById("parse-warning");
+      warn.style.display = "block";
+      warn.textContent = data.detail;
+      document.getElementById("parse-confirm-label").style.display = "flex";
+      toast("Check the box to confirm replacing the existing parse.", true);
+      return;
+    }
+    logEl.textContent = data.log || data.detail || "(no output)";
+    if (data.ok) {
+      toast(`Parsed ${slug}`);
+      closeModal("parse-modal");
+      loadActs();
+    } else if (res.ok) {
+      toast(`Parsing ${slug} failed -- see log below`, true);
+    } else {
+      toast(data.detail || "Request failed", true);
+    }
+  } catch (err) {
+    logEl.textContent = String(err);
+    toast(String(err), true);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Parse";
+  }
+});
 
 document.getElementById("add-form").addEventListener("submit", async (e) => {
   e.preventDefault();

@@ -106,3 +106,16 @@ def test_export_to_akn_with_history_and_notes_validates():
     parsed = {"nodes": nodes, "act": "test-act"}
     tree = export_to_akn(parsed)
     assert_valid_akn(tree)
+
+
+def test_export_to_akn_with_a_reviewer_defined_custom_type_validates():
+    """A type a reviewer added in the GUI (see review.py's node-type
+    endpoints) isn't a hierarchy level and has no native AKN element, so
+    it must fall through to the generic <hcontainer name="..."> escape
+    hatch rather than producing an element the schema doesn't know."""
+    nodes = _small_act_nodes()
+    nodes.append(make_node("penalty", None, None, "Level 1 imprisonment."))
+    parsed = {"nodes": nodes, "act": "test-act"}
+    tree = export_to_akn(parsed)
+    assert_valid_akn(tree)
+    assert tree.find(f".//{{{FINAL_NS}}}hcontainer[@name='penalty']") is not None

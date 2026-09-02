@@ -174,3 +174,43 @@ def test_blind_review_stats_aggregates_matches_and_narrows_by_act():
 
 def test_blind_review_stats_with_nothing_recorded_yet():
     assert db.blind_review_stats() == {"total": 0, "type_matched": 0, "number_matched": 0}
+
+
+def test_load_custom_types_is_empty_for_an_act_with_none():
+    assert db.load_custom_types("crimes-act") == []
+
+
+def test_custom_types_are_scoped_to_one_act():
+    db.add_custom_type("crimes-act", "penalty")
+    db.add_custom_type("evidence-act", "caution")
+    assert db.load_custom_types("crimes-act") == ["penalty"]
+    assert db.load_custom_types("evidence-act") == ["caution"]
+
+
+def test_add_custom_type_is_idempotent():
+    db.add_custom_type("crimes-act", "penalty")
+    db.add_custom_type("crimes-act", "penalty")
+    assert db.load_custom_types("crimes-act") == ["penalty"]
+
+
+def test_rename_custom_type_keeps_its_place_in_the_list():
+    # Renaming re-inserts the row, so it would sort to the end unless the
+    # original created_at is carried across -- which is what keeps the
+    # relabel dropdown from reshuffling under a reviewer.
+    db.add_custom_type("crimes-act", "aaa")
+    db.add_custom_type("crimes-act", "zzz")
+    db.rename_custom_type("crimes-act", "aaa", "mmm")
+    assert db.load_custom_types("crimes-act") == ["mmm", "zzz"]
+
+
+def test_rename_custom_type_is_a_no_op_for_an_unknown_name():
+    db.add_custom_type("crimes-act", "penalty")
+    db.rename_custom_type("crimes-act", "nope", "something")
+    assert db.load_custom_types("crimes-act") == ["penalty"]
+
+
+def test_delete_custom_type_removes_only_that_one():
+    db.add_custom_type("crimes-act", "penalty")
+    db.add_custom_type("crimes-act", "transitional")
+    db.delete_custom_type("crimes-act", "penalty")
+    assert db.load_custom_types("crimes-act") == ["transitional"]

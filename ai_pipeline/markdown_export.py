@@ -151,7 +151,13 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     """Yields one dict per renderable unit of a section's subtree, in the
     exact order rendering will emit them -- the single source of truth both
     _render_body (which prints them) and compute_section_slugs (which
-    predicts their header anchors, before the page is even written) walk."""
+    predicts their header anchors, before the page is even written) walk.
+
+    "level" is the Markdown header level a unit would print as (capped at
+    6, since Markdown has no deeper header); "depth" is the raw nesting
+    distance from the Section itself, uncapped -- html_view.py renders
+    indentation from it rather than headers, so it needs the real depth,
+    not one flattened by that cap."""
     node = tree_node["node"]
     t = node["type"]
 
@@ -175,10 +181,10 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # directly rather than re-deriving the term from `text` --
         # nothing here is left for extract_terms to find any more, since
         # the term is no longer inline at the text's own start.
-        yield {"tree_node": tree_node, "clause_index": 0, "text": text or None, "header_text": heading, "level": level}
+        yield {"tree_node": tree_node, "clause_index": 0, "text": text or None, "header_text": heading, "level": level, "depth": depth}
     elif heading and t != "section":
         header_text = f"{label} {heading}".strip() if label else heading
-        yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level}
+        yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level, "depth": depth}
     elif text:
         # A Definitions section's separate "term means ..." clauses commonly
         # arrive concatenated into one node's text blob with the rule parser
@@ -190,9 +196,9 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         needs_header = t != "section" or len(clauses) > 1
         for i, clause in enumerate(clauses):
             header_text = _clause_header_text(label, i, len(clauses)) if needs_header else None
-            yield {"tree_node": tree_node, "clause_index": i, "text": clause, "header_text": header_text, "level": level}
+            yield {"tree_node": tree_node, "clause_index": i, "text": clause, "header_text": header_text, "level": level, "depth": depth}
     elif label:
-        yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": label, "level": level}
+        yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": label, "level": level, "depth": depth}
 
     child_depth = depth + 1 if t != "section" else depth
     for child in tree_node["children"]:

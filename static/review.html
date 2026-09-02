@@ -3,8 +3,15 @@
 <head>
 <meta charset="utf-8">
 <title>Legislation review</title>
+<script>
+  // Applied before first paint so a dark-mode reviewer never sees a
+  // white flash on load; applyTheme() below re-runs it once the
+  // toggle button exists, to sync the button's own icon/title.
+  try { if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
 <style>
   :root {
+    color-scheme: light;
     --bg: #ffffff;
     --panel: #ffffff;
     --fg: #1a1a1a;
@@ -47,6 +54,7 @@
      dark background, the same way a syntax-highlighted code block or a
      colored GitHub label doesn't re-theme itself either. */
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #16181d;
     --panel: #1e2126;
     --fg: #e8e8ea;
@@ -415,6 +423,20 @@
   .modal textarea { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
+  .type-list { border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; max-height: 320px; overflow-y: auto; }
+  .type-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-row .type-name { font-weight: 600; }
+  .type-row .type-meta { color: var(--muted); font-size: 12px; }
+  .type-row .spacer { flex: 1; }
+  .type-row.builtin .type-name { font-weight: 500; color: var(--muted); }
+  .modal .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .modal .inline-row { display: flex; gap: 8px; margin-top: 8px; }
+  .modal .inline-row input[type=text] { flex: 1; }
+
   .picker-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
   .picker-item { padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
   .picker-item:last-child { border-bottom: none; }
@@ -438,8 +460,10 @@
   <span class="stat" id="corrections-stat"></span>
   <span class="stat" id="unattached-stat" title="Click to open the history-notes panel" style="cursor:pointer"></span>
   <span class="stat" id="blind-review-stat" title="How often a reviewer's own first, independent guess matched the parser's answer"></span>
+  <button class="btn" id="undo-nest-btn" style="display:none">&#8617; Undo nest</button>
   <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
   <button class="btn" id="history-toggle-btn">History notes</button>
+  <button class="btn" id="types-btn" title="Add, rename or remove the piece types you can label with">Types</button>
   <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <div class="spacer"></div>
   <span class="stat">Legend:</span>
@@ -532,6 +556,28 @@
   </div>
 </div>
 
+<!-- Node-type manager -->
+<div class="overlay" id="types-overlay" hidden>
+  <div class="modal">
+    <h3>Piece types</h3>
+    <div class="hint">
+      Built-in types come from the parser and this Act's profile, so they can't be
+      renamed or removed. Types you add here are extra labels for this Act only --
+      they don't nest, so nothing can be renested under one.
+    </div>
+    <div class="type-list" id="type-list"></div>
+    <label>Add a type</label>
+    <div class="inline-row">
+      <input type="text" id="type-new-name" placeholder="e.g. penalty">
+      <button class="btn primary" id="type-add-btn">Add</button>
+    </div>
+    <div class="hint">Lowercase letters, digits and underscores.</div>
+    <div class="modal-actions">
+      <button class="btn" id="types-close">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Target picker modal (used by both Split and Merge's destination step) -->
 <div class="overlay" id="picker-overlay" hidden>
   <div class="modal">
@@ -608,6 +654,15 @@ document.getElementById("history-toggle-btn").onclick = () => {
   setHistoryPanelOpen(document.body.dataset.historyPanel !== "open");
 };
 document.getElementById("unattached-stat").onclick = () => setHistoryPanelOpen(true);
+
+document.getElementById("undo-nest-btn").onclick = async () => {
+  try {
+    const result = await api("api/renest/undo", { method: "POST" });
+    toast(`Nesting undone (piece ${result.node_index} is now "${result.type}").`);
+    await loadMeta();
+    await loadUnit(result.unit_no);
+  } catch (e) { toast(e.message, true); }
+};
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -705,6 +760,9 @@ async function loadMeta() {
   document.getElementById("blind-review-stat").textContent = br && br.total
     ? `Independent review: ${Math.round((br.type_matched / br.total) * 100)}% type match (${br.total} reviewed)` : "";
   document.getElementById("pdf-toggle-btn").style.display = META.has_source_pdf ? "" : "none";
+  const undoBtn = document.getElementById("undo-nest-btn");
+  undoBtn.style.display = META.renest_undo ? "" : "none";
+  if (META.renest_undo) undoBtn.title = `Restores piece ${META.renest_undo.node_index} back to type "${META.renest_undo.restores_type}"`;
   renderSidebar();
 
   const banner = document.getElementById("resume-banner");
@@ -1276,6 +1334,122 @@ async function submitBlindGuess(pieceDiv, nodeIndex) {
     await afterMutation();
   } catch (e) { toast(e.message, true); }
 }
+
+// ---------------------------------------------------------------------
+// Piece-type manager -- add/rename/remove the types a piece can be
+// labelled with. The safeguard against orphaning pieces lives on the
+// server (see review.py's delete_node_type): a type still in use can
+// only go if the reviewer names a type to move those pieces to, and this
+// modal makes that the explicit prompt rather than a silent reassignment.
+// ---------------------------------------------------------------------
+
+let TYPE_INFO = [];
+
+async function refreshTypes(payload) {
+  TYPE_INFO = (payload || await api("api/node-types")).types;
+  META.node_types = TYPE_INFO.map((t) => t.name);
+  renderTypeList();
+}
+
+function renderTypeList() {
+  const list = document.getElementById("type-list");
+  list.innerHTML = TYPE_INFO.map((t) => {
+    const use = t.in_use ? `${t.in_use} piece(s)` : "unused";
+    const buttons = t.builtin
+      ? `<span class="type-meta">built-in</span>`
+      : `<button class="btn small" data-rename="${escapeHtml(t.name)}">Rename</button>
+         <button class="btn small" data-delete="${escapeHtml(t.name)}">Remove</button>`;
+    return `<div class="type-row${t.builtin ? " builtin" : ""}">
+      <span class="type-name">${escapeHtml(t.name)}</span>
+      <span class="type-meta">${use}</span>
+      <span class="spacer"></span>
+      ${buttons}
+    </div>`;
+  }).join("");
+  list.querySelectorAll("[data-rename]").forEach((btn) => {
+    btn.onclick = () => renameType(btn.dataset.rename);
+  });
+  list.querySelectorAll("[data-delete]").forEach((btn) => {
+    btn.onclick = () => deleteType(btn.dataset.delete);
+  });
+}
+
+// Reassigning a type rewrites pieces right across the Act, not just the
+// open unit, so the sidebar's cached unit types and the correction count
+// both go stale -- reload meta, then the open unit. refreshTypes has
+// already updated META.node_types, so re-apply it over loadMeta's copy.
+async function afterTypeReassignment(reassigned) {
+  if (!reassigned) return;
+  const names = META.node_types;
+  await loadMeta();
+  META.node_types = names;
+  if (currentUnitNo !== null) await loadUnit(currentUnitNo);
+}
+
+async function renameType(name) {
+  const next = prompt(`Rename "${name}" to:`, name);
+  if (next === null || next.trim() === name) return;
+  try {
+    const res = await api(`api/node-types/${encodeURIComponent(name)}/rename`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_name: next }),
+    });
+    await refreshTypes(res);
+    toast(res.reassigned ? `Renamed; ${res.reassigned} piece(s) moved across.` : "Renamed.");
+    await afterTypeReassignment(res.reassigned);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteType(name) {
+  const info = TYPE_INFO.find((t) => t.name === name);
+  let replacement = null;
+  if (info && info.in_use) {
+    // The safeguard, surfaced: naming a replacement is the only way past
+    // this, and cancelling here leaves the type (and its pieces) alone.
+    const options = TYPE_INFO.filter((t) => t.name !== name).map((t) => t.name);
+    replacement = prompt(
+      `"${name}" is still used by ${info.in_use} piece(s). Type the type to move them to, or Cancel to keep it:\n\n${options.join(", ")}`,
+      ""
+    );
+    if (replacement === null || !replacement.trim()) return;
+  } else if (!confirm(`Remove the type "${name}"?`)) {
+    return;
+  }
+  try {
+    const res = await api(`api/node-types/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ replacement: replacement }),
+    });
+    await refreshTypes(res);
+    toast(res.reassigned ? `Removed; ${res.reassigned} piece(s) moved to "${res.reassigned_to}".` : "Removed.");
+    await afterTypeReassignment(res.reassigned);
+  } catch (e) { toast(e.message, true); }
+}
+
+document.getElementById("types-btn").onclick = async () => {
+  document.getElementById("type-new-name").value = "";
+  document.getElementById("types-overlay").hidden = false;
+  try { await refreshTypes(); } catch (e) { toast(e.message, true); }
+};
+document.getElementById("types-close").onclick = () => { document.getElementById("types-overlay").hidden = true; };
+document.getElementById("type-add-btn").onclick = async () => {
+  const input = document.getElementById("type-new-name");
+  try {
+    const res = await api("api/node-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: input.value }),
+    });
+    input.value = "";
+    await refreshTypes(res);
+    toast(`Added "${res.created}".`);
+  } catch (e) { toast(e.message, true); }
+};
+document.getElementById("type-new-name").onkeydown = (e) => {
+  if (e.key === "Enter") { e.preventDefault(); document.getElementById("type-add-btn").click(); }
+};
 
 // ---------------------------------------------------------------------
 // Edit modal
