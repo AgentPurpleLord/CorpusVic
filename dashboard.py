@@ -710,6 +710,46 @@ def bill_link(bill_slug: str = Form(...), act_slug: str = Form(...), em_slug: st
     return {"ok": result.returncode == 0, "log": result.stdout + result.stderr}
 
 
+_current_nodes_cache: dict[str, tuple[tuple, tuple]] = {}
+
+
+def _browse_state_signature(slug: str) -> tuple:
+    """A cheap stamp of everything build_current_nodes reads: this Act's
+    parse plus the review database (whose -wal file is where a write
+    actually lands first under WAL, so the .db's own mtime alone would
+    miss an edit a reviewer just made)."""
+    paths = [
+        BASE_DIR / "data" / "ai_parsed" / f"{slug}.json",
+        db.db_path(BASE_DIR),
+        Path(f"{db.db_path(BASE_DIR)}-wal"),
+    ]
+    stamp = []
+    for path in paths:
+        try:
+            st = path.stat()
+            stamp.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            stamp.append(None)
+    return tuple(stamp)
+
+
+def _current_nodes(slug: str) -> tuple[list[dict], list[dict], list[str]]:
+    """build_current_nodes re-reads the parse and re-merges every verified
+    row on each call -- ~0.2s for a large Act, which was fine when only a
+    page view paid it, but the hover-preview endpoint can be hit several
+    times while a reader skims one page. Cached against the signature
+    above, so a reviewer's edit still shows up on the very next request
+    (the whole point of this view being live) without re-reading the Act
+    for every hover."""
+    signature = _browse_state_signature(slug)
+    cached = _current_nodes_cache.get(slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    state = build_current_nodes(slug)
+    _current_nodes_cache[slug] = (signature, state)
+    return state
+
+
 _act_title_cache: dict[str, str] = {}
 
 
@@ -759,10 +799,10 @@ def browse_index(slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = build_current_nodes(slug)
+    nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
     body = html_view.render_index({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}")
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug)))
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
 
 @app.get("/browse/{slug}/section/{section_slug}", response_class=HTMLResponse)
@@ -776,12 +816,30 @@ def browse_section(slug: str, section_slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = build_current_nodes(slug)
+    nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
     body = html_view.render_section({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug)
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug)))
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+
+
+@app.get("/api/browse/{slug}/preview")
+def browse_preview(slug: str, section: str | None = None, fragment: str | None = None):
+    """Backs the hover cards on a browse page: the content one link leads
+    to, small enough to read without leaving the page. `section` and
+    `fragment` are the two halves of a link the page itself rendered (see
+    html_view.render_preview) -- neither touches the filesystem, both are
+    only ever matched in memory against computed ids, so an unknown one is
+    a plain 404 and the card simply doesn't appear."""
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    nodes, _unattached, hierarchy = _current_nodes(slug)
+    preview = html_view.render_preview({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug), section, fragment)
+    if preview is None:
+        raise HTTPException(404, "No such link target")
+    return preview
 
 
 @app.get("/review/{slug}")

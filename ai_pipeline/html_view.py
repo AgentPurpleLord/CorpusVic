@@ -27,6 +27,14 @@ structure with, so markdown_export.py turns every one of those into a
 heading and pools the history at the foot -- that's a limitation of the
 format, not the intended reading.
 
+Every link on those pages also has a hover preview: pause on a defined
+term, a "section N" reference or a "Part N" reference and a small card
+shows what's behind it -- the definition and its own paragraphs, the
+Section's opening provisions, the Sections under that Part. Checking what
+a term means is the single most common reason to follow a link here, and
+following it costs you your place; render_preview builds those cards, and
+PREVIEW_SCRIPT is the browser side.
+
 Kept intentionally independent of review.py's own live server process:
 rendering a page here needs no interactive state (no edit/split/merge),
 just whatever build_current_nodes reads off disk, so a Section page can
@@ -277,6 +285,11 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
         classes = ["prov", f"prov-{_esc(unit_node['type'])}"]
         if unit["text"] is None:
             classes.append("prov-heading")  # a heading-only provision (a Subdivision caption, say)
+        elif unit["header_text"] is None:
+            # Body text with no number of its own -- a section's lead-in, a
+            # note, a paragraph the parser couldn't number. Nothing to hang
+            # in the margin, so it just sits in the text column.
+            classes.append("prov-nolabel")
 
         bits = []
         if unit["header_text"] is not None:
@@ -318,6 +331,147 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
     out.append(f'<div class="section-nav">{" | ".join(nav)}</div>')
 
     return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Hover previews
+# ---------------------------------------------------------------------------
+# How many provisions (and how much text) a preview card is allowed before
+# it stops being a glance and becomes the page it's previewing. A card that
+# hits either limit says so and offers the link.
+_PREVIEW_MAX_UNITS = 6
+_PREVIEW_MAX_CHARS = 650
+
+
+def _preview_prov_html(unit: dict, base_depth: int) -> str:
+    """One provision, in the same shape render_section emits -- minus the
+    anchor id and the linkifier. A preview is a glance at where a link
+    goes, not a second page: links inside one would invite previews of
+    previews, and its ids would collide with the real page's own."""
+    node = unit["tree_node"]["node"]
+    classes = ["prov", f"prov-{_esc(node['type'])}"]
+    if unit["text"] is None:
+        classes.append("prov-heading")
+    elif unit["header_text"] is None:
+        classes.append("prov-nolabel")
+    bits = []
+    if unit["header_text"] is not None:
+        label_class = "prov-term" if node["type"] == "definition" else "prov-num"
+        bits.append(f'<span class="{label_class}">{_esc(unit["header_text"])}</span>')
+    if unit["text"] is not None:
+        if node["type"] == "definition" and bits and not unit["text"].lstrip().startswith((",", ".", ";", ":", ")", "\u2014", "-")):
+            bits.append(" ")
+        bits.append(_esc(unit["text"]))
+    depth = max(unit["depth"] - base_depth, 0)
+    return f'<div class="{" ".join(classes)}" style="--depth:{depth}">{"".join(bits)}</div>'
+
+
+def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fragment: "str | None") -> "dict | None":
+    """The content behind one link, small enough to read in a hover card.
+
+    Three shapes, matching the three kinds of link _build_linkifier_html
+    produces: a defined term or a numbered provision (section_slug plus the
+    fragment its anchor uses -- the provision itself and whatever nests
+    under it), a bare "section N" reference (section_slug alone -- the
+    Section's opening provisions), and a "Part N"/"Division N" reference
+    (fragment alone -- that heading and the Sections beneath it).
+
+    Returns {title, subtitle, html, truncated}, or None when the target
+    doesn't resolve -- the caller turns that into a 404 and the hover card
+    simply doesn't appear, which is the right outcome for a link into
+    something that isn't there.
+    """
+    ctx = _build_context(parsed, act_title)
+
+    if section_slug:
+        sections = ctx["sections"]
+        filenames_by_eid = ctx["filenames_by_eid"]
+        target_filename = f"{section_slug}.md"
+        match = next(((tn, b) for tn, b in sections if filenames_by_eid[tn["eid"]] == target_filename), None)
+        if match is None:
+            return None
+        tree_node, breadcrumb = match
+        node = tree_node["node"]
+        title = f"{node['number']} {node.get('heading') or ''}".strip()
+        subtitle = " » ".join(
+            _display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading")) for b in breadcrumb
+        )
+
+        units = list(_iter_body_units(tree_node))
+        if fragment:
+            slugs = compute_section_slugs(tree_node)
+            start = next(
+                (
+                    i for i, u in enumerate(units)
+                    if slugs.get((u["tree_node"]["eid"], u["clause_index"])) == fragment
+                ),
+                None,
+            )
+            if start is None:
+                return None
+            # The provision itself plus everything nested under it, which is
+            # what makes a definition useful at a glance: a term whose
+            # meaning is a list of (a)/(b) paragraphs is only answered by
+            # showing them too.
+            base_depth = units[start]["depth"]
+            selected = [units[start]]
+            for u in units[start + 1 :]:
+                if u["depth"] <= base_depth:
+                    break
+                selected.append(u)
+            if units[start]["header_text"]:
+                title = units[start]["header_text"]
+                subtitle = f"{node['number']} {node.get('heading') or ''}".strip()
+        else:
+            base_depth = 0
+            selected = units
+
+        truncated = len(selected) > _PREVIEW_MAX_UNITS
+        selected = selected[:_PREVIEW_MAX_UNITS]
+        html_bits, chars = [], 0
+        for unit in selected:
+            if chars >= _PREVIEW_MAX_CHARS:
+                truncated = True
+                break
+            html_bits.append(_preview_prov_html(unit, base_depth))
+            chars += len(unit["text"] or unit["header_text"] or "")
+        return {"title": title, "subtitle": subtitle, "html": "".join(html_bits), "truncated": truncated}
+
+    if not fragment:
+        return None
+
+    # An index anchor: a Part/Division/Chapter heading. What's useful here
+    # isn't its text (it has none) but what it contains, so the card lists
+    # the Sections under it.
+    index_slugs = ctx["index_slugs"]
+    target = None
+    for root in ctx["tree_roots"]:
+        for tn in _iter_tree(root):
+            if index_slugs.get(tn["eid"]) == fragment:
+                target = tn
+                break
+        if target is not None:
+            break
+    if target is None:
+        return None
+
+    node = target["node"]
+    listed = [
+        tn["node"] for tn in _iter_tree(target)
+        if tn["node"]["type"] == "section" and tn is not target
+    ]
+    truncated = len(listed) > _PREVIEW_MAX_UNITS
+    rows = "".join(
+        f'<div class="prov" style="--depth:0">'
+        f'<span class="prov-num">{_esc(sec["number"])}</span>{_esc(sec.get("heading") or "")}</div>'
+        for sec in listed[:_PREVIEW_MAX_UNITS]
+    )
+    return {
+        "title": _display_title(node["type"], node.get("number"), node.get("heading")),
+        "subtitle": f"{len(listed)} section(s)" if listed else "",
+        "html": rows,
+        "truncated": truncated,
+    }
 
 
 PAGE_CSS = """
@@ -381,6 +535,10 @@ a:hover { text-decoration: underline; }
   padding-left: calc(var(--depth, 0) * 26px + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
 }
+/* No number to hang, so no hanging indent -- the text just starts where a
+   numbered sibling's text does, rather than its first line poking out
+   into the empty number column. */
+.prov-nolabel { text-indent: 0; }
 .prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
 .prov-term { font-weight: 600; font-style: italic; }
 .prov-heading {
@@ -393,6 +551,32 @@ a:hover { text-decoration: underline; }
 /* A note the parser placed by proximity rather than by an explicit
    citation -- flagged so a reader can tell a guess from a certainty. */
 .hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
+
+/* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
+   coordinates (not fixed) so it scrolls with the link it belongs to. */
+.linkpeek {
+  position: absolute; z-index: 40; display: none;
+  width: min(420px, 90vw); max-height: 340px; overflow-y: auto;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+  font-size: 13.5px; line-height: 1.55;
+}
+.linkpeek.open { display: block; }
+.linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.linkpeek .peek-sub { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
+.linkpeek .prov { margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + 2.2em); text-indent: -2.2em; }
+.linkpeek .prov-nolabel { text-indent: 0; }
+.linkpeek .prov:last-child { margin-bottom: 0; }
+.linkpeek .prov-num { min-width: 1.7em; padding-right: 0.5em; }
+.linkpeek .peek-more {
+  position: sticky; bottom: -12px;   /* cancels the card's own bottom padding */
+  background: var(--panel);
+  font-family: var(--sans); font-size: 11.5px; color: var(--muted);
+  margin-top: 9px; padding: 7px 0 12px; border-top: 1px solid var(--border);
+}
+.linkpeek .peek-loading { font-family: var(--sans); font-size: 12px; color: var(--muted); }
 
 .theme-toggle {
   position: fixed; top: 10px; right: 14px; z-index: 30;
@@ -438,14 +622,157 @@ THEME_BODY_SCRIPT = """
 """
 
 
-def page_shell(title: str, body_html: str, previewbar_html: str = "") -> str:
+# Hover previews. Every link on a browse page points either at a Section
+# page (optionally with a provision's anchor) or at an index anchor, so the
+# href alone says what to preview -- no data has to be embedded in the page.
+# Deliberately hover-with-a-delay rather than click: the point is checking
+# what a defined term means without losing your place, and a card that
+# appeared instantly would flash open every time the pointer crossed a
+# link mid-sentence. It also opens on keyboard focus, where there's no
+# accidental-hover problem to guard against, so a card is reachable
+# without a pointer.
+PREVIEW_SCRIPT = """
+(function () {
+  var BASE = document.body.dataset.baseUrl;
+  if (!BASE) return;
+  var OPEN_DELAY = 500;   // long enough that skimming past a link doesn't trigger one
+  var CLOSE_DELAY = 220;  // long enough to move the pointer from the link into the card
+  var card = document.createElement("div");
+  card.className = "linkpeek";
+  document.body.appendChild(card);
+
+  var cache = {};
+  var openTimer = null, closeTimer = null, activeLink = null, requestSeq = 0;
+
+  // Which link target this is, as the preview endpoint's two parameters.
+  // Anything that isn't a link into this Act (the preview bar's own links,
+  // an external href) returns null and is left alone.
+  function targetOf(a) {
+    var url;
+    try { url = new URL(a.getAttribute("href"), location.href); } catch (e) { return null; }
+    if (url.origin !== location.origin) return null;
+    var fragment = decodeURIComponent(url.hash.replace(/^#/, ""));
+    var m = url.pathname.match(/^([^?]*)\/section\/([^/]+)$/);
+    if (m && m[1] === BASE) return { section: m[2], fragment: fragment };
+    if (url.pathname === BASE + "/" || url.pathname === BASE) {
+      return fragment ? { section: "", fragment: fragment } : null;
+    }
+    return null;
+  }
+
+  function render(data) {
+    card.classList.add("open");  // must be laid out before the overflow check below can measure it
+    var more = data.truncated
+      ? '<div class="peek-more">Continues &mdash; open the link to read the rest.</div>' : "";
+    var sub = data.subtitle ? '<div class="peek-sub">' + escapeText(data.subtitle) + "</div>" : "";
+    card.innerHTML = '<div class="peek-title">' + escapeText(data.title) + "</div>" + sub + data.html + more;
+    // A card can also overflow without the server having truncated
+    // anything -- short provisions that simply wrap past its height. Say so
+    // there too, so a clipped last line always reads as "there's more",
+    // never as a rendering glitch.
+    if (!more && card.scrollHeight > card.clientHeight) {
+      card.insertAdjacentHTML("beforeend", '<div class="peek-more">Continues &mdash; scroll, or open the link.</div>');
+    }
+  }
+
+  function escapeText(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : s;
+    return d.innerHTML;
+  }
+
+  // Anchored to the link in page coordinates so the card scrolls with it,
+  // flipped above when there isn't room below and nudged back inside the
+  // viewport horizontally.
+  function place(a) {
+    var r = a.getBoundingClientRect();
+    card.style.left = "0px";
+    card.style.top = "0px";
+    card.classList.add("open");
+    var w = card.offsetWidth, h = card.offsetHeight;
+    var left = Math.min(Math.max(r.left, 8), Math.max(window.innerWidth - w - 8, 8));
+    var below = r.bottom + 8;
+    var top = (below + h > window.innerHeight && r.top - h - 8 > 0) ? r.top - h - 8 : below;
+    card.style.left = (left + window.scrollX) + "px";
+    card.style.top = (top + window.scrollY) + "px";
+  }
+
+  function show(a) {
+    var target = targetOf(a);
+    if (!target) return;
+    var href = a.getAttribute("href");
+    activeLink = a;
+    var seq = ++requestSeq;
+    if (cache[href]) { render(cache[href]); place(a); return; }
+    card.innerHTML = '<div class="peek-loading">Loading&hellip;</div>';
+    place(a);
+    var query = "section=" + encodeURIComponent(target.section) + "&fragment=" + encodeURIComponent(target.fragment);
+    fetch("/api" + BASE + "/preview?" + query)
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (seq !== requestSeq || activeLink !== a) return;  // pointer moved on before this landed
+        if (!data) { hide(); return; }
+        cache[href] = data;
+        render(data);
+        place(a);
+      })
+      .catch(function () { if (seq === requestSeq) hide(); });
+  }
+
+  function hide() {
+    card.classList.remove("open");
+    activeLink = null;
+    requestSeq++;
+  }
+
+  function scheduleShow(a) {
+    clearTimeout(closeTimer);
+    clearTimeout(openTimer);
+    if (activeLink === a) return;
+    openTimer = setTimeout(function () { show(a); }, OPEN_DELAY);
+  }
+
+  function scheduleHide() {
+    clearTimeout(openTimer);
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(hide, CLOSE_DELAY);
+  }
+
+  document.addEventListener("mouseover", function (e) {
+    var a = e.target.closest ? e.target.closest("a[href]") : null;
+    if (a && a.closest(".page")) scheduleShow(a);
+    else if (!e.target.closest || !e.target.closest(".linkpeek")) scheduleHide();
+  });
+  document.addEventListener("mouseout", function (e) {
+    if (e.target.closest && (e.target.closest("a[href]") || e.target.closest(".linkpeek"))) scheduleHide();
+  });
+  card.addEventListener("mouseenter", function () { clearTimeout(closeTimer); });
+  card.addEventListener("mouseleave", scheduleHide);
+  document.addEventListener("focusin", function (e) {
+    var a = e.target.closest ? e.target.closest("a[href]") : null;
+    if (a && a.closest(".page")) scheduleShow(a);
+  });
+  document.addEventListener("focusout", scheduleHide);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
+  window.addEventListener("scroll", function () { if (activeLink) place(activeLink); }, { passive: true });
+})();
+"""
+
+
+def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: str | None = None) -> str:
+    """base_url is this Act's own root (e.g. "/browse/crimes-act"). Given
+    one, the page also gets link hover previews -- the script needs it to
+    tell a link into this Act from any other href on the page. Omitted,
+    the page renders exactly as before, without them."""
+    body_attr = f' data-base-url="{_esc(base_url)}"' if base_url else ""
+    preview_script = f"<script>{PREVIEW_SCRIPT}</script>\n" if base_url else ""
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
         f"<title>{_esc(title)}</title>\n<style>{PAGE_CSS}</style>\n"
-        f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body>\n"
+        f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body{body_attr}>\n"
         f"{previewbar_html}"
         "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"
         f"<div class=\"page\">\n{body_html}\n</div>\n"
-        f"<script>{THEME_BODY_SCRIPT}</script>\n</body>\n</html>"
+        f"<script>{THEME_BODY_SCRIPT}</script>\n{preview_script}</body>\n</html>"
     )
