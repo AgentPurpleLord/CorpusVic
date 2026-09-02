@@ -7,6 +7,8 @@ data and a real browser session instead (see the module docstring)."""
 import json
 from pathlib import Path
 
+import pytest
+
 from review import (
     _now_iso,
     _resume_point,
@@ -18,6 +20,7 @@ from review import (
     group_into_units,
     reflow_with_map,
     save_verified,
+    validate_custom_type_name,
 )
 
 from conftest import make_node
@@ -306,3 +309,30 @@ def test_build_current_nodes_drops_a_node_that_was_merged_away(tmp_path, monkeyp
 
     assert len(current) == 1
     assert current[0]["text"] == "Murder, including: text merged into the section"
+
+
+# ---------------------------------------------------------------------
+# Custom node-type names
+# ---------------------------------------------------------------------
+
+def test_validate_custom_type_name_normalises_case_spaces_and_hyphens():
+    assert validate_custom_type_name("Penalty Note", []) == "penalty_note"
+    assert validate_custom_type_name("  transitional-provision ", []) == "transitional_provision"
+
+
+def test_validate_custom_type_name_rejects_an_empty_name():
+    with pytest.raises(ValueError, match="required"):
+        validate_custom_type_name("   ", [])
+
+
+def test_validate_custom_type_name_rejects_a_name_that_cannot_be_a_node_type():
+    # Has to survive being written into a node's "type" field and ranked
+    # by hierarchy.py, so it takes the same shape the built-in types have.
+    for bad in ("9lives", "penalty!", "_leading", "x" * 41):
+        with pytest.raises(ValueError, match="must start with a letter"):
+            validate_custom_type_name(bad, [])
+
+
+def test_validate_custom_type_name_rejects_a_duplicate_after_normalising():
+    with pytest.raises(ValueError, match="already exists"):
+        validate_custom_type_name("Penalty Note", ["section", "penalty_note"])
