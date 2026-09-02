@@ -1,0 +1,3669 @@
+{
+  "bill_slug": "criminal-procedure-bill-2008",
+  "act_slug": "criminal-procedure-act",
+  "links": [
+    {
+      "clause_number": "1",
+      "bill_node_index": 1,
+      "act_node_index": 4,
+      "act_section_number": "1",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "2",
+      "bill_node_index": 15,
+      "act_node_index": 18,
+      "act_section_number": "2",
+      "similarity": 0.926,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "3",
+      "bill_node_index": 20,
+      "act_node_index": 23,
+      "act_section_number": "3",
+      "similarity": 0.539,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "4",
+      "bill_node_index": 115,
+      "act_node_index": 180,
+      "act_section_number": "4",
+      "similarity": 0.011,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "5",
+      "bill_node_index": 117,
+      "act_node_index": 211,
+      "act_section_number": "5",
+      "similarity": 0.262,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "7",
+      "bill_node_index": 133,
+      "act_node_index": 231,
+      "act_section_number": "7",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "8",
+      "bill_node_index": 141,
+      "act_node_index": 261,
+      "act_section_number": "8",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "9",
+      "bill_node_index": 149,
+      "act_node_index": 269,
+      "act_section_number": "9",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "10",
+      "bill_node_index": 155,
+      "act_node_index": 275,
+      "act_section_number": "10",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "11",
+      "bill_node_index": 163,
+      "act_node_index": 283,
+      "act_section_number": "11",
+      "similarity": 0.964,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "12",
+      "bill_node_index": 171,
+      "act_node_index": 292,
+      "act_section_number": "12",
+      "similarity": 0.926,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "13",
+      "bill_node_index": 186,
+      "act_node_index": 308,
+      "act_section_number": "13",
+      "similarity": 0.641,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "14",
+      "bill_node_index": 192,
+      "act_node_index": 316,
+      "act_section_number": "14",
+      "similarity": 0.829,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "15",
+      "bill_node_index": 199,
+      "act_node_index": 324,
+      "act_section_number": "15",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "16",
+      "bill_node_index": 206,
+      "act_node_index": 331,
+      "act_section_number": "16",
+      "similarity": 0.384,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "17",
+      "bill_node_index": 210,
+      "act_node_index": 335,
+      "act_section_number": "17",
+      "similarity": 0.978,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "18",
+      "bill_node_index": 221,
+      "act_node_index": 351,
+      "act_section_number": "18",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "19",
+      "bill_node_index": 224,
+      "act_node_index": 354,
+      "act_section_number": "19",
+      "similarity": 0.991,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "20",
+      "bill_node_index": 232,
+      "act_node_index": 362,
+      "act_section_number": "20",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "21",
+      "bill_node_index": 237,
+      "act_node_index": 367,
+      "act_section_number": "21",
+      "similarity": 0.982,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "22",
+      "bill_node_index": 254,
+      "act_node_index": 384,
+      "act_section_number": "22",
+      "similarity": 0.885,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "23",
+      "bill_node_index": 260,
+      "act_node_index": 390,
+      "act_section_number": "23",
+      "similarity": 0.979,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "24",
+      "bill_node_index": 267,
+      "act_node_index": 397,
+      "act_section_number": "24",
+      "similarity": 0.997,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "25",
+      "bill_node_index": 272,
+      "act_node_index": 402,
+      "act_section_number": "25",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "26",
+      "bill_node_index": 278,
+      "act_node_index": 408,
+      "act_section_number": "26",
+      "similarity": 0.94,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "27",
+      "bill_node_index": 281,
+      "act_node_index": 412,
+      "act_section_number": "27",
+      "similarity": 0.955,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "28",
+      "bill_node_index": 283,
+      "act_node_index": 414,
+      "act_section_number": "28",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "29",
+      "bill_node_index": 293,
+      "act_node_index": 424,
+      "act_section_number": "29",
+      "similarity": 0.997,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "30",
+      "bill_node_index": 313,
+      "act_node_index": 444,
+      "act_section_number": "30",
+      "similarity": 0.986,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "31",
+      "bill_node_index": 334,
+      "act_node_index": 466,
+      "act_section_number": "31",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "32",
+      "bill_node_index": 337,
+      "act_node_index": 469,
+      "act_section_number": "32",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "33",
+      "bill_node_index": 340,
+      "act_node_index": 472,
+      "act_section_number": "33",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "34",
+      "bill_node_index": 346,
+      "act_node_index": 478,
+      "act_section_number": "34",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "35",
+      "bill_node_index": 352,
+      "act_node_index": 484,
+      "act_section_number": "35",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "36",
+      "bill_node_index": 357,
+      "act_node_index": 489,
+      "act_section_number": "36",
+      "similarity": 0.997,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "37",
+      "bill_node_index": 365,
+      "act_node_index": 497,
+      "act_section_number": "37",
+      "similarity": 0.984,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "38",
+      "bill_node_index": 388,
+      "act_node_index": 521,
+      "act_section_number": "38",
+      "similarity": 0.752,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "39",
+      "bill_node_index": 395,
+      "act_node_index": 527,
+      "act_section_number": "39",
+      "similarity": 0.633,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "40",
+      "bill_node_index": 403,
+      "act_node_index": 537,
+      "act_section_number": "40",
+      "similarity": 0.997,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "41",
+      "bill_node_index": 411,
+      "act_node_index": 545,
+      "act_section_number": "41",
+      "similarity": 0.908,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "42",
+      "bill_node_index": 449,
+      "act_node_index": 608,
+      "act_section_number": "42",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "43",
+      "bill_node_index": 456,
+      "act_node_index": 615,
+      "act_section_number": "43",
+      "similarity": 0.988,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "44",
+      "bill_node_index": 467,
+      "act_node_index": 632,
+      "act_section_number": "44",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "45",
+      "bill_node_index": 470,
+      "act_node_index": 635,
+      "act_section_number": "45",
+      "similarity": 0.907,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "46",
+      "bill_node_index": 482,
+      "act_node_index": 650,
+      "act_section_number": "46",
+      "similarity": 0.695,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "47",
+      "bill_node_index": 487,
+      "act_node_index": 658,
+      "act_section_number": "47",
+      "similarity": 0.873,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "48",
+      "bill_node_index": 498,
+      "act_node_index": 669,
+      "act_section_number": "48",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "49",
+      "bill_node_index": 514,
+      "act_node_index": 685,
+      "act_section_number": "49",
+      "similarity": 0.916,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "50",
+      "bill_node_index": 532,
+      "act_node_index": 704,
+      "act_section_number": "50",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "51",
+      "bill_node_index": 542,
+      "act_node_index": 714,
+      "act_section_number": "51",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "52",
+      "bill_node_index": 562,
+      "act_node_index": 734,
+      "act_section_number": "52",
+      "similarity": 0.973,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "53",
+      "bill_node_index": 570,
+      "act_node_index": 742,
+      "act_section_number": "53",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "54",
+      "bill_node_index": 576,
+      "act_node_index": 761,
+      "act_section_number": "54",
+      "similarity": 0.725,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "55",
+      "bill_node_index": 592,
+      "act_node_index": 780,
+      "act_section_number": "55",
+      "similarity": 0.978,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "56",
+      "bill_node_index": 612,
+      "act_node_index": 801,
+      "act_section_number": "56",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "57",
+      "bill_node_index": 616,
+      "act_node_index": 805,
+      "act_section_number": "57",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "58",
+      "bill_node_index": 617,
+      "act_node_index": 806,
+      "act_section_number": "58",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "59",
+      "bill_node_index": 629,
+      "act_node_index": 818,
+      "act_section_number": "59",
+      "similarity": 0.967,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "60",
+      "bill_node_index": 651,
+      "act_node_index": 840,
+      "act_section_number": "60",
+      "similarity": 0.684,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "61",
+      "bill_node_index": 655,
+      "act_node_index": 847,
+      "act_section_number": "61",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "62",
+      "bill_node_index": 667,
+      "act_node_index": 859,
+      "act_section_number": "62",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "63",
+      "bill_node_index": 670,
+      "act_node_index": 862,
+      "act_section_number": "63",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "64",
+      "bill_node_index": 671,
+      "act_node_index": 863,
+      "act_section_number": "64",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "65",
+      "bill_node_index": 676,
+      "act_node_index": 877,
+      "act_section_number": "65",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "66",
+      "bill_node_index": 682,
+      "act_node_index": 883,
+      "act_section_number": "66",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "67",
+      "bill_node_index": 686,
+      "act_node_index": 887,
+      "act_section_number": "67",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "68",
+      "bill_node_index": 687,
+      "act_node_index": 888,
+      "act_section_number": "68",
+      "similarity": 0.986,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "69",
+      "bill_node_index": 694,
+      "act_node_index": 895,
+      "act_section_number": "69",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "70",
+      "bill_node_index": 697,
+      "act_node_index": 898,
+      "act_section_number": "70",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "71",
+      "bill_node_index": 702,
+      "act_node_index": 903,
+      "act_section_number": "71",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "72",
+      "bill_node_index": 707,
+      "act_node_index": 908,
+      "act_section_number": "72",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "73",
+      "bill_node_index": 714,
+      "act_node_index": 915,
+      "act_section_number": "73",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "74",
+      "bill_node_index": 719,
+      "act_node_index": 920,
+      "act_section_number": "74",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "75",
+      "bill_node_index": 724,
+      "act_node_index": 925,
+      "act_section_number": "75",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "76",
+      "bill_node_index": 729,
+      "act_node_index": 930,
+      "act_section_number": "76",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "77",
+      "bill_node_index": 731,
+      "act_node_index": 932,
+      "act_section_number": "77",
+      "similarity": 0.751,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "78",
+      "bill_node_index": 746,
+      "act_node_index": 954,
+      "act_section_number": "78",
+      "similarity": 0.923,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "79",
+      "bill_node_index": 755,
+      "act_node_index": 964,
+      "act_section_number": "79",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "80",
+      "bill_node_index": 759,
+      "act_node_index": 968,
+      "act_section_number": "80",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "81",
+      "bill_node_index": 772,
+      "act_node_index": 980,
+      "act_section_number": "81",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "82",
+      "bill_node_index": 775,
+      "act_node_index": 983,
+      "act_section_number": "82",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "83",
+      "bill_node_index": 781,
+      "act_node_index": 989,
+      "act_section_number": "83",
+      "similarity": 0.897,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "84",
+      "bill_node_index": 791,
+      "act_node_index": 998,
+      "act_section_number": "84",
+      "similarity": 0.943,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "85",
+      "bill_node_index": 806,
+      "act_node_index": 1012,
+      "act_section_number": "85",
+      "similarity": 0.928,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "86",
+      "bill_node_index": 811,
+      "act_node_index": 1015,
+      "act_section_number": "86",
+      "similarity": 0.968,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "87",
+      "bill_node_index": 822,
+      "act_node_index": 1026,
+      "act_section_number": "87",
+      "similarity": 0.98,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "88",
+      "bill_node_index": 835,
+      "act_node_index": 1040,
+      "act_section_number": "88",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "89",
+      "bill_node_index": 836,
+      "act_node_index": 1041,
+      "act_section_number": "89",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "90",
+      "bill_node_index": 839,
+      "act_node_index": 1044,
+      "act_section_number": "90",
+      "similarity": 0.994,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "91",
+      "bill_node_index": 842,
+      "act_node_index": 1047,
+      "act_section_number": "91",
+      "similarity": 0.724,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "92",
+      "bill_node_index": 851,
+      "act_node_index": 1058,
+      "act_section_number": "92",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "93",
+      "bill_node_index": 852,
+      "act_node_index": 1059,
+      "act_section_number": "93",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "94",
+      "bill_node_index": 853,
+      "act_node_index": 1060,
+      "act_section_number": "94",
+      "similarity": 0.986,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "95",
+      "bill_node_index": 860,
+      "act_node_index": 1068,
+      "act_section_number": "95",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "96",
+      "bill_node_index": 862,
+      "act_node_index": 1070,
+      "act_section_number": "96",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "97",
+      "bill_node_index": 865,
+      "act_node_index": 1073,
+      "act_section_number": "97",
+      "similarity": 0.764,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "98",
+      "bill_node_index": 875,
+      "act_node_index": 1083,
+      "act_section_number": "98",
+      "similarity": 0.976,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "99",
+      "bill_node_index": 878,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "100",
+      "bill_node_index": 891,
+      "act_node_index": 1087,
+      "act_section_number": "100",
+      "similarity": 0.411,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "102",
+      "bill_node_index": 905,
+      "act_node_index": 1108,
+      "act_section_number": "102",
+      "similarity": 0.235,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "104",
+      "bill_node_index": 926,
+      "act_node_index": 1131,
+      "act_section_number": "104",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "105",
+      "bill_node_index": 930,
+      "act_node_index": 1135,
+      "act_section_number": "105",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "106",
+      "bill_node_index": 940,
+      "act_node_index": 1145,
+      "act_section_number": "106",
+      "similarity": 0.75,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "108",
+      "bill_node_index": 953,
+      "act_node_index": 1160,
+      "act_section_number": "108",
+      "similarity": 0.879,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "109",
+      "bill_node_index": 963,
+      "act_node_index": 1170,
+      "act_section_number": "109",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "110",
+      "bill_node_index": 964,
+      "act_node_index": 1171,
+      "act_section_number": "110",
+      "similarity": 0.407,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "111",
+      "bill_node_index": 1002,
+      "act_node_index": 1239,
+      "act_section_number": "111",
+      "similarity": 0.997,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "112",
+      "bill_node_index": 1012,
+      "act_node_index": 1249,
+      "act_section_number": "112",
+      "similarity": 0.883,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "113",
+      "bill_node_index": 1022,
+      "act_node_index": 1260,
+      "act_section_number": "113",
+      "similarity": 0.854,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "114",
+      "bill_node_index": 1025,
+      "act_node_index": 1263,
+      "act_section_number": "114",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "115",
+      "bill_node_index": 1042,
+      "act_node_index": 1280,
+      "act_section_number": "115",
+      "similarity": 0.609,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "116",
+      "bill_node_index": 1043,
+      "act_node_index": 1282,
+      "act_section_number": "116",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "117",
+      "bill_node_index": 1053,
+      "act_node_index": 1292,
+      "act_section_number": "117",
+      "similarity": 0.625,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "119",
+      "bill_node_index": 1073,
+      "act_node_index": 1316,
+      "act_section_number": "119",
+      "similarity": 0.194,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "120",
+      "bill_node_index": 1087,
+      "act_node_index": 1337,
+      "act_section_number": "120",
+      "similarity": 0.839,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "121",
+      "bill_node_index": 1093,
+      "act_node_index": 1345,
+      "act_section_number": "121",
+      "similarity": 0.947,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "122",
+      "bill_node_index": 1104,
+      "act_node_index": 1357,
+      "act_section_number": "122",
+      "similarity": 0.964,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "123",
+      "bill_node_index": 1114,
+      "act_node_index": 1368,
+      "act_section_number": "123",
+      "similarity": 0.187,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "124",
+      "bill_node_index": 1118,
+      "act_node_index": 1375,
+      "act_section_number": "124",
+      "similarity": 0.454,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "126",
+      "bill_node_index": 1153,
+      "act_node_index": 1437,
+      "act_section_number": "126",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "127",
+      "bill_node_index": 1166,
+      "act_node_index": 1450,
+      "act_section_number": "127",
+      "similarity": 0.231,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "129",
+      "bill_node_index": 1176,
+      "act_node_index": 1503,
+      "act_section_number": "129",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "130",
+      "bill_node_index": 1181,
+      "act_node_index": 1508,
+      "act_section_number": "130",
+      "similarity": 0.988,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "131",
+      "bill_node_index": 1194,
+      "act_node_index": 1521,
+      "act_section_number": "131",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "132",
+      "bill_node_index": 1204,
+      "act_node_index": 1531,
+      "act_section_number": "132",
+      "similarity": 0.456,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "133",
+      "bill_node_index": 1210,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "134",
+      "bill_node_index": 1223,
+      "act_node_index": 1549,
+      "act_section_number": "134",
+      "similarity": 0.883,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "135",
+      "bill_node_index": 1229,
+      "act_node_index": 1556,
+      "act_section_number": "135",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "136",
+      "bill_node_index": 1236,
+      "act_node_index": 1563,
+      "act_section_number": "136",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "137",
+      "bill_node_index": 1240,
+      "act_node_index": 1567,
+      "act_section_number": "137",
+      "similarity": 0.111,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "138",
+      "bill_node_index": 1245,
+      "act_node_index": 1572,
+      "act_section_number": "138",
+      "similarity": 0.451,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "140",
+      "bill_node_index": 1262,
+      "act_node_index": 1591,
+      "act_section_number": "140",
+      "similarity": 0.267,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "142",
+      "bill_node_index": 1277,
+      "act_node_index": 1598,
+      "act_section_number": "142",
+      "similarity": 0.861,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "143",
+      "bill_node_index": 1282,
+      "act_node_index": 1603,
+      "act_section_number": "143",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "144",
+      "bill_node_index": 1291,
+      "act_node_index": 1612,
+      "act_section_number": "144",
+      "similarity": 0.801,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "145",
+      "bill_node_index": 1308,
+      "act_node_index": 1632,
+      "act_section_number": "145",
+      "similarity": 0.767,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "146",
+      "bill_node_index": 1317,
+      "act_node_index": 1640,
+      "act_section_number": "146",
+      "similarity": 0.929,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "147",
+      "bill_node_index": 1323,
+      "act_node_index": 1646,
+      "act_section_number": "147",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "148",
+      "bill_node_index": 1328,
+      "act_node_index": 1651,
+      "act_section_number": "148",
+      "similarity": 0.755,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "150",
+      "bill_node_index": 1335,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "151",
+      "bill_node_index": 1346,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "152",
+      "bill_node_index": 1350,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "154",
+      "bill_node_index": 1364,
+      "act_node_index": 1662,
+      "act_section_number": "154",
+      "similarity": 0.992,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "155",
+      "bill_node_index": 1369,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "156",
+      "bill_node_index": 1370,
+      "act_node_index": 1668,
+      "act_section_number": "156",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "157",
+      "bill_node_index": 1373,
+      "act_node_index": 1671,
+      "act_section_number": "157",
+      "similarity": 0.992,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "158",
+      "bill_node_index": 1383,
+      "act_node_index": 1682,
+      "act_section_number": "158",
+      "similarity": 0.255,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "160",
+      "bill_node_index": 1395,
+      "act_node_index": 1696,
+      "act_section_number": "160",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "161",
+      "bill_node_index": 1405,
+      "act_node_index": 1706,
+      "act_section_number": "161",
+      "similarity": 0.993,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "162",
+      "bill_node_index": 1410,
+      "act_node_index": 1711,
+      "act_section_number": "162",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "163",
+      "bill_node_index": 1411,
+      "act_node_index": 1712,
+      "act_section_number": "163",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "164",
+      "bill_node_index": 1421,
+      "act_node_index": 1722,
+      "act_section_number": "164",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "165",
+      "bill_node_index": 1427,
+      "act_node_index": 1728,
+      "act_section_number": "165",
+      "similarity": 0.886,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "166",
+      "bill_node_index": 1430,
+      "act_node_index": 1732,
+      "act_section_number": "166",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "167",
+      "bill_node_index": 1436,
+      "act_node_index": 1738,
+      "act_section_number": "167",
+      "similarity": 0.746,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "168",
+      "bill_node_index": 1441,
+      "act_node_index": 1744,
+      "act_section_number": "168",
+      "similarity": 0.65,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "169",
+      "bill_node_index": 1448,
+      "act_node_index": 1776,
+      "act_section_number": "169",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "170",
+      "bill_node_index": 1451,
+      "act_node_index": 1779,
+      "act_section_number": "170",
+      "similarity": 0.482,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "172",
+      "bill_node_index": 1460,
+      "act_node_index": 1790,
+      "act_section_number": "172",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "173",
+      "bill_node_index": 1463,
+      "act_node_index": 1793,
+      "act_section_number": "173",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "174",
+      "bill_node_index": 1470,
+      "act_node_index": 1800,
+      "act_section_number": "174",
+      "similarity": 0.993,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "175",
+      "bill_node_index": 1481,
+      "act_node_index": 1811,
+      "act_section_number": "175",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "176",
+      "bill_node_index": 1489,
+      "act_node_index": 1819,
+      "act_section_number": "176",
+      "similarity": 0.197,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "178",
+      "bill_node_index": 1505,
+      "act_node_index": 1837,
+      "act_section_number": "178",
+      "similarity": 0.962,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "179",
+      "bill_node_index": 1512,
+      "act_node_index": 1845,
+      "act_section_number": "179",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "180",
+      "bill_node_index": 1514,
+      "act_node_index": 1847,
+      "act_section_number": "180",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "181",
+      "bill_node_index": 1519,
+      "act_node_index": 1852,
+      "act_section_number": "181",
+      "similarity": 0.789,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "182",
+      "bill_node_index": 1537,
+      "act_node_index": 1882,
+      "act_section_number": "182",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "183",
+      "bill_node_index": 1549,
+      "act_node_index": 1894,
+      "act_section_number": "183",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "184",
+      "bill_node_index": 1558,
+      "act_node_index": 1903,
+      "act_section_number": "184",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "185",
+      "bill_node_index": 1561,
+      "act_node_index": 1906,
+      "act_section_number": "185",
+      "similarity": 0.992,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "186",
+      "bill_node_index": 1573,
+      "act_node_index": 1924,
+      "act_section_number": "186",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "187",
+      "bill_node_index": 1589,
+      "act_node_index": 1940,
+      "act_section_number": "187",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "188",
+      "bill_node_index": 1594,
+      "act_node_index": 1946,
+      "act_section_number": "188",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "189",
+      "bill_node_index": 1601,
+      "act_node_index": 1953,
+      "act_section_number": "189",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "190",
+      "bill_node_index": 1610,
+      "act_node_index": 1962,
+      "act_section_number": "190",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "191",
+      "bill_node_index": 1628,
+      "act_node_index": 1980,
+      "act_section_number": "191",
+      "similarity": 0.973,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "192",
+      "bill_node_index": 1636,
+      "act_node_index": 1988,
+      "act_section_number": "192",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "193",
+      "bill_node_index": 1639,
+      "act_node_index": 1991,
+      "act_section_number": "193",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "194",
+      "bill_node_index": 1652,
+      "act_node_index": 2003,
+      "act_section_number": "194",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "195",
+      "bill_node_index": 1656,
+      "act_node_index": 2007,
+      "act_section_number": "195",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "196",
+      "bill_node_index": 1657,
+      "act_node_index": 2008,
+      "act_section_number": "196",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "197",
+      "bill_node_index": 1658,
+      "act_node_index": 2009,
+      "act_section_number": "197",
+      "similarity": 0.988,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "198",
+      "bill_node_index": 1675,
+      "act_node_index": 2026,
+      "act_section_number": "198",
+      "similarity": 0.89,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "199",
+      "bill_node_index": 1688,
+      "act_node_index": 2075,
+      "act_section_number": "199",
+      "similarity": 0.952,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "200",
+      "bill_node_index": 1698,
+      "act_node_index": 2086,
+      "act_section_number": "200",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "201",
+      "bill_node_index": 1708,
+      "act_node_index": 2096,
+      "act_section_number": "201",
+      "similarity": 0.557,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "202",
+      "bill_node_index": 1718,
+      "act_node_index": 2110,
+      "act_section_number": "202",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "203",
+      "bill_node_index": 1719,
+      "act_node_index": 2111,
+      "act_section_number": "203",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "204",
+      "bill_node_index": 1720,
+      "act_node_index": 2112,
+      "act_section_number": "204",
+      "similarity": 0.791,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "205",
+      "bill_node_index": 1721,
+      "act_node_index": 2116,
+      "act_section_number": "205",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "206",
+      "bill_node_index": 1726,
+      "act_node_index": 2121,
+      "act_section_number": "206",
+      "similarity": 0.702,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "208",
+      "bill_node_index": 1733,
+      "act_node_index": 2178,
+      "act_section_number": "208",
+      "similarity": 0.319,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "209",
+      "bill_node_index": 1740,
+      "act_node_index": 2189,
+      "act_section_number": "209",
+      "similarity": 0.673,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "210",
+      "bill_node_index": 1752,
+      "act_node_index": 2206,
+      "act_section_number": "210",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "211",
+      "bill_node_index": 1756,
+      "act_node_index": 2210,
+      "act_section_number": "211",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "212",
+      "bill_node_index": 1761,
+      "act_node_index": 2215,
+      "act_section_number": "212",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "213",
+      "bill_node_index": 1766,
+      "act_node_index": 2220,
+      "act_section_number": "213",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "214",
+      "bill_node_index": 1769,
+      "act_node_index": 2223,
+      "act_section_number": "214",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "215",
+      "bill_node_index": 1775,
+      "act_node_index": 2229,
+      "act_section_number": "215",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "216",
+      "bill_node_index": 1780,
+      "act_node_index": 2234,
+      "act_section_number": "216",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "217",
+      "bill_node_index": 1788,
+      "act_node_index": 2242,
+      "act_section_number": "217",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "218",
+      "bill_node_index": 1793,
+      "act_node_index": 2247,
+      "act_section_number": "218",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "219",
+      "bill_node_index": 1794,
+      "act_node_index": 2248,
+      "act_section_number": "219",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "220",
+      "bill_node_index": 1797,
+      "act_node_index": 2251,
+      "act_section_number": "220",
+      "similarity": 0.978,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "221",
+      "bill_node_index": 1801,
+      "act_node_index": 2255,
+      "act_section_number": "221",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "222",
+      "bill_node_index": 1806,
+      "act_node_index": 2260,
+      "act_section_number": "222",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "223",
+      "bill_node_index": 1810,
+      "act_node_index": 2264,
+      "act_section_number": "223",
+      "similarity": 0.717,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "224",
+      "bill_node_index": 1827,
+      "act_node_index": 2309,
+      "act_section_number": "224",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "225",
+      "bill_node_index": 1833,
+      "act_node_index": 2315,
+      "act_section_number": "225",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "226",
+      "bill_node_index": 1842,
+      "act_node_index": 2324,
+      "act_section_number": "226",
+      "similarity": 0.537,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "227",
+      "bill_node_index": 1846,
+      "act_node_index": 2331,
+      "act_section_number": "227",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "228",
+      "bill_node_index": 1847,
+      "act_node_index": 2332,
+      "act_section_number": "228",
+      "similarity": 0.993,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "229",
+      "bill_node_index": 1854,
+      "act_node_index": 2339,
+      "act_section_number": "229",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "230",
+      "bill_node_index": 1860,
+      "act_node_index": 2345,
+      "act_section_number": "230",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "231",
+      "bill_node_index": 1865,
+      "act_node_index": 2350,
+      "act_section_number": "231",
+      "similarity": 0.772,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "232",
+      "bill_node_index": 1871,
+      "act_node_index": 2357,
+      "act_section_number": "232",
+      "similarity": 0.933,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "233",
+      "bill_node_index": 1881,
+      "act_node_index": 2378,
+      "act_section_number": "233",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "234",
+      "bill_node_index": 1892,
+      "act_node_index": 2389,
+      "act_section_number": "234",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "235",
+      "bill_node_index": 1898,
+      "act_node_index": 2395,
+      "act_section_number": "235",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "236",
+      "bill_node_index": 1903,
+      "act_node_index": 2400,
+      "act_section_number": "236",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "237",
+      "bill_node_index": 1907,
+      "act_node_index": 2404,
+      "act_section_number": "237",
+      "similarity": 0.48,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "238",
+      "bill_node_index": 1919,
+      "act_node_index": 2414,
+      "act_section_number": "238",
+      "similarity": 0.935,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "239",
+      "bill_node_index": 1921,
+      "act_node_index": 2417,
+      "act_section_number": "239",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "240",
+      "bill_node_index": 1924,
+      "act_node_index": 2420,
+      "act_section_number": "240",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "241",
+      "bill_node_index": 1926,
+      "act_node_index": 2422,
+      "act_section_number": "241",
+      "similarity": 0.981,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "242",
+      "bill_node_index": 1933,
+      "act_node_index": 2433,
+      "act_section_number": "242",
+      "similarity": 0.863,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "243",
+      "bill_node_index": 1946,
+      "act_node_index": 2448,
+      "act_section_number": "243",
+      "similarity": 0.874,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "244",
+      "bill_node_index": 1960,
+      "act_node_index": 2465,
+      "act_section_number": "244",
+      "similarity": 0.752,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "245",
+      "bill_node_index": 1975,
+      "act_node_index": 2487,
+      "act_section_number": "245",
+      "similarity": 0.936,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "246",
+      "bill_node_index": 1984,
+      "act_node_index": 2496,
+      "act_section_number": "246",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "247",
+      "bill_node_index": 1985,
+      "act_node_index": 2497,
+      "act_section_number": "247",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "248",
+      "bill_node_index": 1994,
+      "act_node_index": 2506,
+      "act_section_number": "248",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "249",
+      "bill_node_index": 1998,
+      "act_node_index": 2510,
+      "act_section_number": "249",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "250",
+      "bill_node_index": 2004,
+      "act_node_index": 2516,
+      "act_section_number": "250",
+      "similarity": 0.893,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "251",
+      "bill_node_index": 2007,
+      "act_node_index": 2519,
+      "act_section_number": "251",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "252",
+      "bill_node_index": 2011,
+      "act_node_index": 2523,
+      "act_section_number": "252",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "253",
+      "bill_node_index": 2014,
+      "act_node_index": 2526,
+      "act_section_number": "253",
+      "similarity": 0.97,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "254",
+      "bill_node_index": 2018,
+      "act_node_index": 2537,
+      "act_section_number": "254",
+      "similarity": 0.769,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "255",
+      "bill_node_index": 2022,
+      "act_node_index": 2543,
+      "act_section_number": "255",
+      "similarity": 0.328,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "256",
+      "bill_node_index": 2036,
+      "act_node_index": 2558,
+      "act_section_number": "256",
+      "similarity": 0.902,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "257",
+      "bill_node_index": 2046,
+      "act_node_index": 2569,
+      "act_section_number": "257",
+      "similarity": 0.566,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "258",
+      "bill_node_index": 2049,
+      "act_node_index": 2573,
+      "act_section_number": "258",
+      "similarity": 0.914,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "259",
+      "bill_node_index": 2057,
+      "act_node_index": 2581,
+      "act_section_number": "259",
+      "similarity": 0.824,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "260",
+      "bill_node_index": 2067,
+      "act_node_index": 2591,
+      "act_section_number": "260",
+      "similarity": 0.753,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "261",
+      "bill_node_index": 2072,
+      "act_node_index": 2598,
+      "act_section_number": "261",
+      "similarity": 0.742,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "262",
+      "bill_node_index": 2078,
+      "act_node_index": 2604,
+      "act_section_number": "262",
+      "similarity": 0.773,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "263",
+      "bill_node_index": 2085,
+      "act_node_index": 2611,
+      "act_section_number": "263",
+      "similarity": 0.467,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "264",
+      "bill_node_index": 2090,
+      "act_node_index": 2624,
+      "act_section_number": "264",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "265",
+      "bill_node_index": 2096,
+      "act_node_index": 2630,
+      "act_section_number": "265",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "266",
+      "bill_node_index": 2101,
+      "act_node_index": 2635,
+      "act_section_number": "266",
+      "similarity": 0.335,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "267",
+      "bill_node_index": 2112,
+      "act_node_index": 2648,
+      "act_section_number": "267",
+      "similarity": 0.697,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "268",
+      "bill_node_index": 2127,
+      "act_node_index": 2670,
+      "act_section_number": "268",
+      "similarity": 0.792,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "269",
+      "bill_node_index": 2133,
+      "act_node_index": 2676,
+      "act_section_number": "269",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "270",
+      "bill_node_index": 2134,
+      "act_node_index": 2677,
+      "act_section_number": "270",
+      "similarity": 0.946,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "271",
+      "bill_node_index": 2135,
+      "act_node_index": 2678,
+      "act_section_number": "271",
+      "similarity": 0.589,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "272",
+      "bill_node_index": 2137,
+      "act_node_index": 2684,
+      "act_section_number": "272",
+      "similarity": 0.945,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "273",
+      "bill_node_index": 2153,
+      "act_node_index": 2701,
+      "act_section_number": "273",
+      "similarity": 0.785,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "274",
+      "bill_node_index": 2155,
+      "act_node_index": 2704,
+      "act_section_number": "274",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "275",
+      "bill_node_index": 2157,
+      "act_node_index": 2706,
+      "act_section_number": "275",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "276",
+      "bill_node_index": 2160,
+      "act_node_index": 2709,
+      "act_section_number": "276",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "277",
+      "bill_node_index": 2166,
+      "act_node_index": 2715,
+      "act_section_number": "277",
+      "similarity": 0.966,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "278",
+      "bill_node_index": 2187,
+      "act_node_index": 2737,
+      "act_section_number": "278",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "279",
+      "bill_node_index": 2189,
+      "act_node_index": 2739,
+      "act_section_number": "279",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "280",
+      "bill_node_index": 2192,
+      "act_node_index": 2742,
+      "act_section_number": "280",
+      "similarity": 0.224,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "281",
+      "bill_node_index": 2197,
+      "act_node_index": 2752,
+      "act_section_number": "281",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "282",
+      "bill_node_index": 2203,
+      "act_node_index": 2758,
+      "act_section_number": "282",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "283",
+      "bill_node_index": 2211,
+      "act_node_index": 2766,
+      "act_section_number": "283",
+      "similarity": 0.818,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "284",
+      "bill_node_index": 2216,
+      "act_node_index": 2772,
+      "act_section_number": "284",
+      "similarity": 0.993,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "285",
+      "bill_node_index": 2219,
+      "act_node_index": 2785,
+      "act_section_number": "285",
+      "similarity": 0.92,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "286",
+      "bill_node_index": 2225,
+      "act_node_index": 2791,
+      "act_section_number": "286",
+      "similarity": 0.698,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "287",
+      "bill_node_index": 2233,
+      "act_node_index": 2799,
+      "act_section_number": "287",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "288",
+      "bill_node_index": 2236,
+      "act_node_index": 2802,
+      "act_section_number": "288",
+      "similarity": 0.999,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "289",
+      "bill_node_index": 2241,
+      "act_node_index": 2807,
+      "act_section_number": "289",
+      "similarity": 0.936,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "290",
+      "bill_node_index": 2247,
+      "act_node_index": 2813,
+      "act_section_number": "290",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "291",
+      "bill_node_index": 2251,
+      "act_node_index": 2840,
+      "act_section_number": "291",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "292",
+      "bill_node_index": 2254,
+      "act_node_index": 2843,
+      "act_section_number": "292",
+      "similarity": 0.998,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "293",
+      "bill_node_index": 2259,
+      "act_node_index": 2848,
+      "act_section_number": "293",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "294",
+      "bill_node_index": 2260,
+      "act_node_index": 2849,
+      "act_section_number": "294",
+      "similarity": 0.883,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "295",
+      "bill_node_index": 2267,
+      "act_node_index": 2857,
+      "act_section_number": "295",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "296",
+      "bill_node_index": 2278,
+      "act_node_index": 2868,
+      "act_section_number": "296",
+      "similarity": 0.848,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "297",
+      "bill_node_index": 2291,
+      "act_node_index": 2878,
+      "act_section_number": "297",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "298",
+      "bill_node_index": 2302,
+      "act_node_index": 2889,
+      "act_section_number": "298",
+      "similarity": 0.793,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "299",
+      "bill_node_index": 2311,
+      "act_node_index": 2895,
+      "act_section_number": "299",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "300",
+      "bill_node_index": 2312,
+      "act_node_index": 2896,
+      "act_section_number": "300",
+      "similarity": 0.937,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "301",
+      "bill_node_index": 2322,
+      "act_node_index": 2916,
+      "act_section_number": "301",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "302",
+      "bill_node_index": 2324,
+      "act_node_index": 2918,
+      "act_section_number": "302",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "303",
+      "bill_node_index": 2335,
+      "act_node_index": 2935,
+      "act_section_number": "303",
+      "similarity": 0.726,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "304",
+      "bill_node_index": 2336,
+      "act_node_index": 2938,
+      "act_section_number": "304",
+      "similarity": 0.994,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "305",
+      "bill_node_index": 2342,
+      "act_node_index": 2944,
+      "act_section_number": "305",
+      "similarity": 0.993,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "306",
+      "bill_node_index": 2346,
+      "act_node_index": 2948,
+      "act_section_number": "306",
+      "similarity": 0.992,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "307",
+      "bill_node_index": 2350,
+      "act_node_index": 2952,
+      "act_section_number": "307",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "308",
+      "bill_node_index": 2351,
+      "act_node_index": 2953,
+      "act_section_number": "308",
+      "similarity": 0.704,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "309",
+      "bill_node_index": 2359,
+      "act_node_index": 2962,
+      "act_section_number": "309",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "310",
+      "bill_node_index": 2365,
+      "act_node_index": 2968,
+      "act_section_number": "310",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "311",
+      "bill_node_index": 2369,
+      "act_node_index": 2972,
+      "act_section_number": "311",
+      "similarity": 0.99,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "312",
+      "bill_node_index": 2376,
+      "act_node_index": 2979,
+      "act_section_number": "312",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "313",
+      "bill_node_index": 2381,
+      "act_node_index": 2984,
+      "act_section_number": "313",
+      "similarity": 0.872,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "314",
+      "bill_node_index": 2386,
+      "act_node_index": 2989,
+      "act_section_number": "314",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "315",
+      "bill_node_index": 2387,
+      "act_node_index": 2990,
+      "act_section_number": "315",
+      "similarity": 0.209,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "316",
+      "bill_node_index": 2396,
+      "act_node_index": 3004,
+      "act_section_number": "316",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "317",
+      "bill_node_index": 2399,
+      "act_node_index": 3007,
+      "act_section_number": "317",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "318",
+      "bill_node_index": 2400,
+      "act_node_index": 3008,
+      "act_section_number": "318",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "319",
+      "bill_node_index": 2404,
+      "act_node_index": 3012,
+      "act_section_number": "319",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "320",
+      "bill_node_index": 2406,
+      "act_node_index": 3034,
+      "act_section_number": "320",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "321",
+      "bill_node_index": 2416,
+      "act_node_index": 3044,
+      "act_section_number": "321",
+      "similarity": 0.781,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "322",
+      "bill_node_index": 2422,
+      "act_node_index": 3053,
+      "act_section_number": "322",
+      "similarity": 0.739,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "323",
+      "bill_node_index": 2424,
+      "act_node_index": 3057,
+      "act_section_number": "323",
+      "similarity": 0.831,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "324",
+      "bill_node_index": 2425,
+      "act_node_index": 3059,
+      "act_section_number": "324",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "325",
+      "bill_node_index": 2426,
+      "act_node_index": 3060,
+      "act_section_number": "325",
+      "similarity": 0.893,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "326",
+      "bill_node_index": 2430,
+      "act_node_index": 3064,
+      "act_section_number": "326",
+      "similarity": 0.979,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "327",
+      "bill_node_index": 2435,
+      "act_node_index": 3139,
+      "act_section_number": "327",
+      "similarity": 0.96,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "328",
+      "bill_node_index": 2444,
+      "act_node_index": 3299,
+      "act_section_number": "328",
+      "similarity": 0.823,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "329",
+      "bill_node_index": 2451,
+      "act_node_index": 3306,
+      "act_section_number": "329",
+      "similarity": 0.958,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "330",
+      "bill_node_index": 2457,
+      "act_node_index": 3312,
+      "act_section_number": "330",
+      "similarity": 0.986,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "331",
+      "bill_node_index": 2472,
+      "act_node_index": 3327,
+      "act_section_number": "331",
+      "similarity": 0.86,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "332",
+      "bill_node_index": 2492,
+      "act_node_index": 3349,
+      "act_section_number": "332",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "333",
+      "bill_node_index": 2497,
+      "act_node_index": 3354,
+      "act_section_number": "333",
+      "similarity": 0.777,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "334",
+      "bill_node_index": 2507,
+      "act_node_index": 3370,
+      "act_section_number": "334",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "335",
+      "bill_node_index": 2520,
+      "act_node_index": 3383,
+      "act_section_number": "335",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "336",
+      "bill_node_index": 2523,
+      "act_node_index": 3386,
+      "act_section_number": "336",
+      "similarity": 1.0,
+      "status": "matched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "337",
+      "bill_node_index": 2524,
+      "act_node_index": 3390,
+      "act_section_number": "337",
+      "similarity": 0.316,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "339",
+      "bill_node_index": 2529,
+      "act_node_index": 3414,
+      "act_section_number": "339",
+      "similarity": 0.028,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "340",
+      "bill_node_index": 2541,
+      "act_node_index": 3418,
+      "act_section_number": "340",
+      "similarity": 0.017,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "341",
+      "bill_node_index": 2560,
+      "act_node_index": 3422,
+      "act_section_number": "341",
+      "similarity": 0.069,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "342",
+      "bill_node_index": 2570,
+      "act_node_index": 3423,
+      "act_section_number": "342",
+      "similarity": 0.032,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "343",
+      "bill_node_index": 2576,
+      "act_node_index": 3424,
+      "act_section_number": "343",
+      "similarity": 0.253,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "344",
+      "bill_node_index": 2577,
+      "act_node_index": 3425,
+      "act_section_number": "344",
+      "similarity": 0.02,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "345",
+      "bill_node_index": 2578,
+      "act_node_index": 3435,
+      "act_section_number": "345",
+      "similarity": 0.317,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "346",
+      "bill_node_index": 2579,
+      "act_node_index": 3436,
+      "act_section_number": "346",
+      "similarity": 0.038,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "347",
+      "bill_node_index": 2580,
+      "act_node_index": 3445,
+      "act_section_number": "347",
+      "similarity": 0.147,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "348",
+      "bill_node_index": 2592,
+      "act_node_index": 3446,
+      "act_section_number": "348",
+      "similarity": 0.293,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "349",
+      "bill_node_index": 2596,
+      "act_node_index": 3447,
+      "act_section_number": "349",
+      "similarity": 0.031,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "350",
+      "bill_node_index": 2602,
+      "act_node_index": 3453,
+      "act_section_number": "350",
+      "similarity": 0.021,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "351",
+      "bill_node_index": 2603,
+      "act_node_index": 3461,
+      "act_section_number": "351",
+      "similarity": 0.034,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "352",
+      "bill_node_index": 2608,
+      "act_node_index": 3466,
+      "act_section_number": "352",
+      "similarity": 0.005,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "353",
+      "bill_node_index": 2619,
+      "act_node_index": 3470,
+      "act_section_number": "353",
+      "similarity": 0.026,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "354",
+      "bill_node_index": 2623,
+      "act_node_index": 3476,
+      "act_section_number": "354",
+      "similarity": 0.021,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "355",
+      "bill_node_index": 2634,
+      "act_node_index": 3489,
+      "act_section_number": "355",
+      "similarity": 0.121,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "356",
+      "bill_node_index": 2639,
+      "act_node_index": 3490,
+      "act_section_number": "356",
+      "similarity": 0.163,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "357",
+      "bill_node_index": 2640,
+      "act_node_index": 3491,
+      "act_section_number": "357",
+      "similarity": 0.018,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "358",
+      "bill_node_index": 2645,
+      "act_node_index": 3500,
+      "act_section_number": "358",
+      "similarity": 0.014,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "360",
+      "bill_node_index": 2665,
+      "act_node_index": 3514,
+      "act_section_number": "360",
+      "similarity": 0.024,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "361",
+      "bill_node_index": 2666,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "362",
+      "bill_node_index": 2667,
+      "act_node_index": 3524,
+      "act_section_number": "362",
+      "similarity": 0.027,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "363",
+      "bill_node_index": 2672,
+      "act_node_index": 3529,
+      "act_section_number": "363",
+      "similarity": 0.024,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "364",
+      "bill_node_index": 2675,
+      "act_node_index": 3543,
+      "act_section_number": "364",
+      "similarity": 0.022,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "365",
+      "bill_node_index": 2678,
+      "act_node_index": 3546,
+      "act_section_number": "365",
+      "similarity": 0.024,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "366",
+      "bill_node_index": 2679,
+      "act_node_index": 3552,
+      "act_section_number": "366",
+      "similarity": 0.036,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "367",
+      "bill_node_index": 2682,
+      "act_node_index": 3565,
+      "act_section_number": "367",
+      "similarity": 0.007,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "368",
+      "bill_node_index": 2701,
+      "act_node_index": 3566,
+      "act_section_number": "368",
+      "similarity": 0.022,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "371",
+      "bill_node_index": 2731,
+      "act_node_index": 3626,
+      "act_section_number": "371",
+      "similarity": 0.029,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "372",
+      "bill_node_index": 2750,
+      "act_node_index": 3649,
+      "act_section_number": "372",
+      "similarity": 0.011,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "374",
+      "bill_node_index": 2772,
+      "act_node_index": 3664,
+      "act_section_number": "374",
+      "similarity": 0.04,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "376",
+      "bill_node_index": 2789,
+      "act_node_index": 3680,
+      "act_section_number": "376",
+      "similarity": 0.01,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "344B",
+      "bill_node_index": 2803,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "344C",
+      "bill_node_index": 2815,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "344D",
+      "bill_node_index": 2828,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "377",
+      "bill_node_index": 2835,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "15B",
+      "bill_node_index": 2862,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "15C",
+      "bill_node_index": 2869,
+      "act_node_index": null,
+      "act_section_number": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    },
+    {
+      "clause_number": "380",
+      "bill_node_index": 2876,
+      "act_node_index": 3701,
+      "act_section_number": "380",
+      "similarity": 0.058,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "381",
+      "bill_node_index": 2879,
+      "act_node_index": 3704,
+      "act_section_number": "381",
+      "similarity": 0.018,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "383",
+      "bill_node_index": 2889,
+      "act_node_index": 3716,
+      "act_section_number": "383",
+      "similarity": 0.254,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "384",
+      "bill_node_index": 2890,
+      "act_node_index": 3717,
+      "act_section_number": "384",
+      "similarity": 0.006,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "385",
+      "bill_node_index": 2895,
+      "act_node_index": 3723,
+      "act_section_number": "385",
+      "similarity": 0.018,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "1",
+      "bill_node_index": 2897,
+      "act_node_index": 4,
+      "act_section_number": "1",
+      "similarity": 0.013,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "2",
+      "bill_node_index": 2900,
+      "act_node_index": 18,
+      "act_section_number": "2",
+      "similarity": 0.067,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "3",
+      "bill_node_index": 2903,
+      "act_node_index": 23,
+      "act_section_number": "3",
+      "similarity": 0.011,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "4",
+      "bill_node_index": 2911,
+      "act_node_index": 180,
+      "act_section_number": "4",
+      "similarity": 0.013,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "5",
+      "bill_node_index": 2912,
+      "act_node_index": 211,
+      "act_section_number": "5",
+      "similarity": 0.059,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "6",
+      "bill_node_index": 2915,
+      "act_node_index": 217,
+      "act_section_number": "6",
+      "similarity": 0.046,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "7",
+      "bill_node_index": 2916,
+      "act_node_index": 231,
+      "act_section_number": "7",
+      "similarity": 0.012,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "8",
+      "bill_node_index": 2917,
+      "act_node_index": 261,
+      "act_section_number": "8",
+      "similarity": 0.051,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "9",
+      "bill_node_index": 2922,
+      "act_node_index": 269,
+      "act_section_number": "9",
+      "similarity": 0.026,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "10",
+      "bill_node_index": 2923,
+      "act_node_index": 275,
+      "act_section_number": "10",
+      "similarity": 0.037,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "11",
+      "bill_node_index": 2931,
+      "act_node_index": 283,
+      "act_section_number": "11",
+      "similarity": 0.021,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "12",
+      "bill_node_index": 2932,
+      "act_node_index": 292,
+      "act_section_number": "12",
+      "similarity": 0.015,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "13",
+      "bill_node_index": 2938,
+      "act_node_index": 308,
+      "act_section_number": "13",
+      "similarity": 0.025,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "2",
+      "bill_node_index": 2941,
+      "act_node_index": 18,
+      "act_section_number": "2",
+      "similarity": 0.009,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "3",
+      "bill_node_index": 2942,
+      "act_node_index": 23,
+      "act_section_number": "3",
+      "similarity": 0.032,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "4",
+      "bill_node_index": 2949,
+      "act_node_index": 180,
+      "act_section_number": "4",
+      "similarity": 0.008,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "5",
+      "bill_node_index": 2950,
+      "act_node_index": 211,
+      "act_section_number": "5",
+      "similarity": 0.03,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "6",
+      "bill_node_index": 2953,
+      "act_node_index": 217,
+      "act_section_number": "6",
+      "similarity": 0.052,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "7",
+      "bill_node_index": 2954,
+      "act_node_index": 231,
+      "act_section_number": "7",
+      "similarity": 0.015,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "8",
+      "bill_node_index": 2955,
+      "act_node_index": 261,
+      "act_section_number": "8",
+      "similarity": 0.016,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "9",
+      "bill_node_index": 2957,
+      "act_node_index": 269,
+      "act_section_number": "9",
+      "similarity": 0.032,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "10",
+      "bill_node_index": 2958,
+      "act_node_index": 275,
+      "act_section_number": "10",
+      "similarity": 0.02,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "11",
+      "bill_node_index": 2959,
+      "act_node_index": 283,
+      "act_section_number": "11",
+      "similarity": 0.018,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "12",
+      "bill_node_index": 2960,
+      "act_node_index": 292,
+      "act_section_number": "12",
+      "similarity": 0.018,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "13",
+      "bill_node_index": 2961,
+      "act_node_index": 308,
+      "act_section_number": "13",
+      "similarity": 0.022,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "14",
+      "bill_node_index": 2962,
+      "act_node_index": 316,
+      "act_section_number": "14",
+      "similarity": 0.02,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "15",
+      "bill_node_index": 2963,
+      "act_node_index": 324,
+      "act_section_number": "15",
+      "similarity": 0.06,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "16",
+      "bill_node_index": 2964,
+      "act_node_index": 331,
+      "act_section_number": "16",
+      "similarity": 0.016,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "17",
+      "bill_node_index": 2965,
+      "act_node_index": 335,
+      "act_section_number": "17",
+      "similarity": 0.015,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "18",
+      "bill_node_index": 2966,
+      "act_node_index": 351,
+      "act_section_number": "18",
+      "similarity": 0.027,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "19",
+      "bill_node_index": 2967,
+      "act_node_index": 354,
+      "act_section_number": "19",
+      "similarity": 0.005,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "20",
+      "bill_node_index": 2968,
+      "act_node_index": 362,
+      "act_section_number": "20",
+      "similarity": 0.024,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "21",
+      "bill_node_index": 2969,
+      "act_node_index": 367,
+      "act_section_number": "21",
+      "similarity": 0.005,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "22",
+      "bill_node_index": 2970,
+      "act_node_index": 384,
+      "act_section_number": "22",
+      "similarity": 0.014,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "23",
+      "bill_node_index": 2971,
+      "act_node_index": 390,
+      "act_section_number": "23",
+      "similarity": 0.042,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "24",
+      "bill_node_index": 2972,
+      "act_node_index": 397,
+      "act_section_number": "24",
+      "similarity": 0.027,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "25",
+      "bill_node_index": 2973,
+      "act_node_index": 402,
+      "act_section_number": "25",
+      "similarity": 0.02,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "26",
+      "bill_node_index": 2974,
+      "act_node_index": 408,
+      "act_section_number": "26",
+      "similarity": 0.253,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "27",
+      "bill_node_index": 2975,
+      "act_node_index": 412,
+      "act_section_number": "27",
+      "similarity": 0.065,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "28",
+      "bill_node_index": 2976,
+      "act_node_index": 414,
+      "act_section_number": "28",
+      "similarity": 0.037,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "29",
+      "bill_node_index": 2977,
+      "act_node_index": 424,
+      "act_section_number": "29",
+      "similarity": 0.009,
+      "status": "flagged",
+      "verified_at": null
+    }
+  ]
+}

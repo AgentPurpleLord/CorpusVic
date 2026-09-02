@@ -424,7 +424,13 @@ function statusClass(s) {
   return s.review_status;
 }
 
+const KIND_LABELS = { act: "Act", bill: "Bill", em: "Explanatory Memorandum" };
+
 function actCardHtml(s) {
+  // Bills and EMs browse and review exactly like an Act now, so the card
+  // has to say which one it is -- the slug alone doesn't always.
+  const kindBadge = s.parsed && s.kind !== "act"
+    ? `<span class="badge">${KIND_LABELS[s.kind] || s.kind}</span>` : "";
   const nodesBadge = s.parsed ? `<span class="badge">${s.node_count} nodes, ${s.unit_count} units</span>` : "";
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
@@ -432,7 +438,7 @@ function actCardHtml(s) {
     ? `<a class="btn small" href="/review/${s.slug}/" target="_blank">Review</a>`
     : `<button class="btn small" disabled title="Parse it first">Review</button>`;
   const browseBtn = s.parsed
-    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this Act reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
+    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
     : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
   const dlAkn = s.akn_exported
     ? `<a class="btn small" href="/api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
@@ -449,6 +455,7 @@ function actCardHtml(s) {
       <div class="head">
         <span class="slug">${s.slug}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
+        ${kindBadge}
         ${nodesBadge}
         ${aknBadge}
         ${mdBadge}

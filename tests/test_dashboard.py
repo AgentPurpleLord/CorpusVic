@@ -58,6 +58,7 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
         "has_pdf": False,
         "has_profile": False,
         "parsed": False,
+        "kind": "act",
         "node_count": None,
         "unit_count": None,
         "reviewed_units": None,

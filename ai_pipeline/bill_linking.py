@@ -118,9 +118,14 @@ def _unit_full_text(nodes: list[dict], root_idx: int) -> str:
 
 
 def match_bill_to_act(bill_nodes: list[dict], act_nodes: list[dict]) -> list[dict]:
-    """[{"clause_number", "bill_node_index", "act_node_index", "similarity",
-    "status", "verified_at"}, ...] for every Bill clause, in Bill document
-    order. status is "matched" (a same-numbered Act section exists and
+    """[{"clause_number", "bill_node_index", "act_node_index",
+    "act_section_number", "similarity", "status", "verified_at"}, ...] for
+    every Bill clause, in Bill document order. act_section_number is the
+    matched section's own number rather than only its position: a stored
+    node index goes stale the moment a reviewer merges a node away, and
+    anything reading these records back later (see
+    ai_pipeline/commentary.py) needs a handle on the section that
+    survives that. status is "matched" (a same-numbered Act section exists and
     reads similarly enough), "flagged" (a same-numbered section exists
     but the text has diverged enough that a human should look -- a House
     amendment likely touched this provision, or shifted what sits at this
@@ -140,6 +145,7 @@ def match_bill_to_act(bill_nodes: list[dict], act_nodes: list[dict]) -> list[dic
             "clause_number": node["number"],
             "bill_node_index": idx,
             "act_node_index": act_idx,
+            "act_section_number": act_nodes[act_idx]["number"] if act_idx is not None else None,
             "similarity": None,
             "status": "unmatched",
             "verified_at": None,
@@ -194,7 +200,7 @@ def resolve_em_links(
     act_registry: dict[str, dict] | None = None,
 ) -> list[dict]:
     """[{"em_node_index", "clause_number", "target", "verified_at"}, ...]
-    for every em_entry, in document order. `target` is one of:
+    for every EM entry, in document order. `target` is one of:
 
       - {"kind": "act_section", "act_slug", "act_title", "section_ref",
         "in_force"} -- an explicitly-named Act (found in `known_acts`,
@@ -242,7 +248,10 @@ def resolve_em_links(
     current_act_title: str | None = None
 
     for idx, node in enumerate(em_nodes):
-        if node["type"] != "em_entry":
+        # "em_entry" is what EMs parsed before the type change emitted --
+        # see em_parser.py's docstring; still accepted so an older parse
+        # links the same way.
+        if node["type"] not in ("clause", "em_entry"):
             continue
         found = extract_em_target(node.get("text") or "")
         target = None

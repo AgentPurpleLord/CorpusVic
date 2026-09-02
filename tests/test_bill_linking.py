@@ -12,7 +12,8 @@ def test_match_bill_to_act_matches_identical_text():
     act_nodes = [make_node("section", "5", "How commenced", "How a criminal proceeding is commenced.")]
     links = match_bill_to_act(bill_nodes, act_nodes)
     assert links == [
-        {"clause_number": "5", "bill_node_index": 0, "act_node_index": 0, "similarity": 1.0, "status": "matched", "verified_at": None}
+        {"clause_number": "5", "bill_node_index": 0, "act_node_index": 0, "act_section_number": "5",
+         "similarity": 1.0, "status": "matched", "verified_at": None}
     ]
 
 
@@ -142,8 +143,8 @@ def test_extract_em_target_returns_all_none_for_a_purely_explanatory_note():
 def test_resolve_em_links_resolves_a_named_act_and_tracks_it_as_current_scope():
     known_acts = {"confiscation-act": "Confiscation Act 1997"}
     em_nodes = [
-        make_node("em_entry", "11", None, "inserts new section 44A into the Confiscation Act 1997 to empower the Minister."),
-        make_node("em_entry", "12", None, "substitutes section 44B of the Principal Act to clarify the procedure."),
+        make_node("clause", "11", None, "inserts new section 44A into the Confiscation Act 1997 to empower the Minister."),
+        make_node("clause", "12", None, "substitutes section 44B of the Principal Act to clarify the procedure."),
     ]
     links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts=known_acts)
 
@@ -168,7 +169,7 @@ def test_resolve_em_links_enriches_with_in_force_status_from_the_act_registry():
     into) still gets its current in-force status from the comprehensive
     Act registry, when it's found there."""
     act_registry = {"Sentencing Act 1991": {"year": "1991", "act_no": "49", "repealed_by": None, "repealed_provision": None, "in_force": True}}
-    em_nodes = [make_node("em_entry", "380", None, "inserts a new section 112A into the Sentencing Act 1991 which sets a maximum fine.")]
+    em_nodes = [make_node("clause", "380", None, "inserts a new section 112A into the Sentencing Act 1991 which sets a maximum fine.")]
     links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts={}, act_registry=act_registry)
     assert links[0]["target"] == {
         "kind": "act_section",
@@ -180,14 +181,14 @@ def test_resolve_em_links_enriches_with_in_force_status_from_the_act_registry():
 
 
 def test_resolve_em_links_omits_in_force_when_the_act_is_in_neither_registry():
-    em_nodes = [make_node("em_entry", "5", None, "amends section 1 of the Obscure Made Up Act 2099 to clarify a term.")]
+    em_nodes = [make_node("clause", "5", None, "amends section 1 of the Obscure Made Up Act 2099 to clarify a term.")]
     links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts={}, act_registry={})
     assert "in_force" not in links[0]["target"]
 
 
 def test_resolve_em_links_defaults_to_the_bills_own_act_before_any_act_is_named():
     bill_to_act = [{"clause_number": "1"}]
-    em_nodes = [make_node("em_entry", "1", None, "sets out the purposes of this Act, which are to consolidate the law.")]
+    em_nodes = [make_node("clause", "1", None, "sets out the purposes of this Act, which are to consolidate the law.")]
     links = resolve_em_links(em_nodes, "my-bill", "my-bill-act", bill_to_act=bill_to_act, known_acts={})
     assert links[0]["target"] == {"kind": "act_section", "act_slug": "my-bill-act", "act_title": None, "section_ref": None}
 
@@ -195,9 +196,9 @@ def test_resolve_em_links_defaults_to_the_bills_own_act_before_any_act_is_named(
 def test_resolve_em_links_switches_scope_when_a_new_act_is_named():
     known_acts = {"water-act": "Water Act 2000", "roads-act": "Roads Act 2001"}
     em_nodes = [
-        make_node("em_entry", "5", None, "amends section 1 of the Water Act 2000 to update a reference."),
-        make_node("em_entry", "6", None, "amends section 2 of the Roads Act 2001 to update a reference."),
-        make_node("em_entry", "7", None, "amends section 3 of the Principal Act to update a reference."),
+        make_node("clause", "5", None, "amends section 1 of the Water Act 2000 to update a reference."),
+        make_node("clause", "6", None, "amends section 2 of the Roads Act 2001 to update a reference."),
+        make_node("clause", "7", None, "amends section 3 of the Principal Act to update a reference."),
     ]
     links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts=known_acts)
     assert links[0]["target"]["act_slug"] == "water-act"
@@ -212,26 +213,36 @@ def test_resolve_em_links_resolves_a_bare_clause_explanation_to_the_bill_itself(
     which is enough to resolve it as explaining that clause of the Bill
     itself."""
     bill_to_act = [{"clause_number": "1"}]
-    em_nodes = [make_node("em_entry", "1", None, "sets out the purposes of the Bill.")]
+    em_nodes = [make_node("clause", "1", None, "sets out the purposes of the Bill.")]
     links = resolve_em_links(em_nodes, "my-bill", "my-bill-act", bill_to_act=bill_to_act, known_acts={})
     assert links[0]["target"] == {"kind": "bill_clause", "act_slug": "my-bill-act", "clause_number": "1"}
 
     # A note with literally nothing -- no alias, no section, no act name,
     # and its own number isn't a known Bill clause -- resolves to nothing.
-    em_nodes2 = [make_node("em_entry", None, None, "General remarks about the policy background.")]
+    em_nodes2 = [make_node("clause", None, None, "General remarks about the policy background.")]
     links2 = resolve_em_links(em_nodes2, "my-bill", "my-bill-act", bill_to_act=[], known_acts={})
     assert links2[0]["target"] is None
 
 
 def test_resolve_em_links_unrecognised_act_name_keeps_title_without_a_slug():
-    em_nodes = [make_node("em_entry", "3", None, "amends section 1 of the Obscure Made Up Act 2099 to clarify a term.")]
+    em_nodes = [make_node("clause", "3", None, "amends section 1 of the Obscure Made Up Act 2099 to clarify a term.")]
     links = resolve_em_links(em_nodes, "some-bill", "some-bill-act", bill_to_act=[], known_acts={})
     assert links[0]["target"]["act_slug"] is None
     assert links[0]["target"]["act_title"] == "Obscure Made Up Act 2099"
 
 
 def test_resolve_em_links_skips_non_entry_nodes():
-    em_nodes = [make_node("heading_group", None, "CHAPTER 1", "CHAPTER 1"), make_node("em_entry", "1", None, "sets out the purposes.")]
+    em_nodes = [make_node("heading_group", None, "CHAPTER 1", "CHAPTER 1"), make_node("clause", "1", None, "sets out the purposes.")]
     links = resolve_em_links(em_nodes, "my-bill", "my-bill-act", bill_to_act=[], known_acts={})
     assert len(links) == 1
     assert links[0]["em_node_index"] == 1
+
+
+def test_resolve_em_links_still_reads_a_pre_change_em_entry_node():
+    # EMs parsed before entries became "clause" nodes (see em_parser.py's
+    # docstring) still carry the old type -- linking one must not silently
+    # produce nothing.
+    em_nodes = [make_node("em_entry", "5", None, "amends section 1 of the Water Act 2000 to update a reference.")]
+    links = resolve_em_links(em_nodes, "my-bill", "my-bill-act", bill_to_act=[], known_acts={"water-act": "Water Act 2000"})
+    assert len(links) == 1
+    assert links[0]["target"]["act_slug"] == "water-act"

@@ -12,10 +12,9 @@ Writes:
     data/ai_parsed/<em-slug>.json     -- the structured node list
 
 Next step: python review.py <em-slug>
-    (an em_entry has no children of its own -- an EM's structure is flat
+    (an EM entry has no children of its own -- an EM's structure is flat
     -- so group_into_units naturally gives each entry its own single-
-    piece review unit, same as review.py already does for any other
-    non-nesting node type.)
+    piece review unit.)
 """
 import argparse
 import json
@@ -24,6 +23,7 @@ from pathlib import Path
 
 from ai_pipeline.em_parser import parse_em
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
+from ai_pipeline.hierarchy import HIERARCHY_ORDER
 
 
 def main():
@@ -50,7 +50,21 @@ def main():
     parsed_dir.mkdir(parents=True, exist_ok=True)
     out_path = parsed_dir / f"{em_slug}.json"
     out_path.write_text(
-        json.dumps({"act": em_slug, "source": str(pdf_path), "engine": "em_rules", "nodes": result.nodes, "unattached_notes": []}, indent=2),
+        json.dumps(
+            {
+                "act": em_slug, "source": str(pdf_path), "engine": "em_rules", "document_type": "em",
+                # Recorded for the same reason run_pipeline.py records it:
+                # every downstream consumer (the exporters, the browse
+                # view) reads the resolved order back from here rather
+                # than re-deriving it. An EM has no containers of its own
+                # -- its Chapter/Part lines are heading_groups, not
+                # hierarchy levels -- so this is just the default order,
+                # under which its "clause" entries rank as sections do.
+                "hierarchy": list(HIERARCHY_ORDER),
+                "nodes": result.nodes, "unattached_notes": [],
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
     print(f"\nWrote {len(result.nodes)} nodes to {out_path}")

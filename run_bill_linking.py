@@ -11,9 +11,17 @@ Usage:
 Reads data/ai_parsed/<bill-slug>.json, <act-slug>.json, and (if --em is
 given) <em-slug>.json -- run run_pipeline.py/run_em_pipeline.py first.
 
-Writes:
+Writes (each file a {"...slug", ..., "links": [...]} document, so a
+consumer can tell what it relates without parsing the filename):
     data/bill_links/<bill-slug>-to-<act-slug>.json         -- clause<->section links
     data/bill_links/<em-slug>-links.json                   -- EM entry targets (if --em given)
+
+These files are committed, for the same reason data/ai_parsed/<slug>.json
+is (see .gitignore's own comment): each record is keyed by a positional
+index into a specific parse, and they're what the browse view's
+"Explained in" chips are built from (ai_pipeline/commentary.py), so a
+fresh clone that had the parses but not these would silently lose the
+cross-document links.
 
 Every link record carries verified_at=None -- nothing here is confirmed
 until a human reviewer says so (see bill_linking.py's own module
@@ -51,7 +59,15 @@ def main():
     out_dir = Path("data/bill_links")
     out_dir.mkdir(parents=True, exist_ok=True)
     bill_out = out_dir / f"{args.bill_slug}-to-{args.act_slug}.json"
-    bill_out.write_text(json.dumps(bill_links, indent=2), encoding="utf-8")
+    # Written as a document with its own header rather than a bare list:
+    # a consumer that finds one of these files (see
+    # ai_pipeline/commentary.py, which reads every file in this directory
+    # looking for the ones about a given Act) shouldn't have to infer
+    # which documents it relates from the filename.
+    bill_out.write_text(
+        json.dumps({"bill_slug": args.bill_slug, "act_slug": args.act_slug, "links": bill_links}, indent=2),
+        encoding="utf-8",
+    )
 
     status_counts = Counter(link["status"] for link in bill_links)
     print(f"[{args.bill_slug} -> {args.act_slug}] {len(bill_links)} clause link(s): {dict(status_counts)}")
@@ -63,7 +79,13 @@ def main():
         act_registry = load_act_registry()
         em_links = resolve_em_links(em_nodes, args.bill_slug, args.act_slug, bill_links, known_acts, act_registry)
         em_out = out_dir / f"{args.em}-links.json"
-        em_out.write_text(json.dumps(em_links, indent=2), encoding="utf-8")
+        em_out.write_text(
+            json.dumps(
+                {"em_slug": args.em, "bill_slug": args.bill_slug, "act_slug": args.act_slug, "links": em_links},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
         kind_counts = Counter((link["target"]["kind"] if link["target"] else "unresolved") for link in em_links)
         print(f"[{args.em}] {len(em_links)} entry link(s): {dict(kind_counts)}")

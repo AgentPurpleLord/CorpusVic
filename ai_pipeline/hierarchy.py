@@ -50,6 +50,16 @@ HIERARCHY_ORDER = [
 ]
 
 
+# The two types that sit at section rank: an Act's "section" and a Bill's
+# (or an Explanatory Memorandum's) "clause" -- see make_ranks below, which
+# aliases the second onto the first. Anything that asks "is this a
+# top-level provision?" -- which gets its own page in the browse view and
+# its own file in the Markdown export, which types don't repeat their
+# number as a heading inside their own page -- has to accept both, or a
+# Bill/EM browses as an empty document.
+SECTION_LEVEL_TYPES = ("section", "clause")
+
+
 def make_ranks(order: list[str]) -> dict[str, int]:
     """level -> its index in `order` (0 = shallowest), plus "clause" mapped
     onto "section"'s own rank -- see the module-level HIERARCHY_RANK's own

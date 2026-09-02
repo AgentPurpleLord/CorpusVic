@@ -68,7 +68,10 @@ ET.register_namespace("", AKN_NS)
 # The eight levels verified against the real OASIS schema (see the module
 # docstring). "schedule" and "sub_subparagraph" are also part of this
 # pipeline's own hierarchy_order (see hierarchy.py) but have no confirmed
-# native AKN element of their own -- a real Schedule is properly an AKN
+# native AKN element of their own. ("clause" is in the native set below on
+# the same footing as the rest: AKN 3.0 defines <clause> as a hierarchy
+# element -- verified against the schema in tests/fixtures, same as every
+# other name here.) -- a real Schedule is properly an AKN
 # <attachment>, a separate document component outside the main body's
 # hierarchy entirely, which this export doesn't attempt to model, and
 # nesting one level past AKN's own native subparagraph isn't a documented
@@ -78,7 +81,7 @@ ET.register_namespace("", AKN_NS)
 # participate fully in build_hierarchy_tree's own rank-based nesting
 # below, since that's a question of tree *structure*, independent of
 # which XML element ends up wrapping each node.
-_NATIVE_HIERARCHY_TYPES = {"chapter", "part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"}
+_NATIVE_HIERARCHY_TYPES = {"chapter", "part", "division", "subdivision", "section", "clause", "subsection", "paragraph", "subparagraph"}
 
 # Native AKN element name per hierarchy type (identical to the type name
 # here, but kept explicit in case a profile ever needs to remap one).
@@ -86,7 +89,7 @@ HIERARCHY_ELEMENT = {level: level for level in _NATIVE_HIERARCHY_TYPES}
 
 EID_PREFIX = {
     "schedule": "sched", "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
-    "section": "sec", "subsection": "subsec", "definition": "def",
+    "section": "sec", "clause": "cl", "subsection": "subsec", "definition": "def",
     "paragraph": "para", "subparagraph": "subpara", "sub_subparagraph": "subsubpara",
 }
 

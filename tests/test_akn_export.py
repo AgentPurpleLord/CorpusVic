@@ -119,3 +119,18 @@ def test_export_to_akn_with_a_reviewer_defined_custom_type_validates():
     tree = export_to_akn(parsed)
     assert_valid_akn(tree)
     assert tree.find(f".//{{{FINAL_NS}}}hcontainer[@name='penalty']") is not None
+
+
+def test_export_to_akn_of_a_bill_validates():
+    """A Bill's top-level provisions are "clause" nodes, not "section"
+    (see run_pipeline.py's top_level_type) -- which had no eId prefix and
+    no element at all, so exporting a parsed Bill raised outright."""
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("clause", "1", "Purposes", "The purposes of this Bill are—"),
+        make_node("paragraph", "a", None, "to do a thing; and"),
+        make_node("clause", "2", "Commencement", "This Bill comes into operation on Royal Assent."),
+    ]
+    tree = export_to_akn({"nodes": nodes, "act": "test-bill"})
+    assert_valid_akn(tree)
+    assert tree.find(f".//{{{FINAL_NS}}}clause") is not None

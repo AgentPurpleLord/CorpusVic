@@ -24,6 +24,10 @@ NODE_TYPES = [
     "note",
     "example",
     "repealed",
+    # No longer emitted -- an EM's entries are typed "clause" now (see
+    # em_parser.py's own docstring). Kept in the enum so an EM parsed
+    # before that change still validates and still offers its own type
+    # back in review.py's relabel dropdown.
     "em_entry",
 ]
 
