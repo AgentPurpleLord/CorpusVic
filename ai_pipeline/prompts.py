@@ -9,6 +9,12 @@ right-hand margin amendment-history notes already stripped out, and page
 boundaries marked inline as "<<<PAGE N>>>".
 
 Victorian Acts use these structural levels, in this nesting order:
+  schedule      e.g. "Schedule 1—Charges on a charge-sheet or indictment" --
+                a separate, self-contained sequence after the Act's own Parts/
+                Divisions/Sections that restarts its own numbering from 1.
+                Its own numbered items are still "section"/"subsection"/etc.
+                nodes, not schedule-specific ones -- only the heading itself
+                gets this type.
   chapter       e.g. "Chapter 2—Commencing a criminal proceeding" -- the
                 optional top level a few Acts group their Parts under
   part          e.g. "Part I—Offences" or "Part 3—Sentencing"
@@ -21,10 +27,17 @@ Victorian Acts use these structural levels, in this nesting order:
   subsection    numbered "(1)", "(2)" ... inside a section
   paragraph     lettered "(a)", "(b)" ... inside a subsection or section
   subparagraph  roman-numeral "(i)", "(ii)" ... inside a paragraph
+  sub_subparagraph
+                capital-letter "(A)", "(B)" ... inside a subparagraph --
+                rare (drafters avoid it where possible), but does appear
+                in heavily-amended sections
   definition    one defined term plus its meaning inside a "Definitions"
                 section, e.g. "medical procedure means ..."
   note          an explicit "Note" callout, or a row of "* * * * *" marking
                 repealed text
+  example       an explicit "Example" callout illustrating the provision
+                above it -- same shape as an unnumbered "Note", different
+                marker word
 
 Rules:
 - Re-flow wrapped lines into natural prose within each node's "text" field --

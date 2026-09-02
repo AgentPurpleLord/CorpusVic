@@ -356,7 +356,9 @@
   .piece[data-type="subsection"] { border-left: 3px solid #06b6d4; }
   .piece[data-type="paragraph"] { border-left: 3px solid #22c55e; }
   .piece[data-type="subparagraph"] { border-left: 3px solid #eab308; }
+  .piece[data-type="sub_subparagraph"] { border-left: 3px solid #f97316; }
   .piece[data-type="note"] { border-left: 3px solid #d946ef; }
+  .piece[data-type="example"] { border-left: 3px solid #14b8a6; }
   .piece[data-type="definition"] { border-left: 3px solid #3b82f6; }
   .piece[data-type="heading_group"] { border-left: 3px solid #111827; }
   .piece[data-type="repealed"] { border-left: 3px solid #6b7280; background: var(--repealed-bg); }
@@ -930,7 +932,10 @@ function renderUnit() {
       <div class="blind-form">
         <div class="blind-form-label">&#9888; Needs your own assessment before it can be accepted${piece.source === "ai" ? " (AI-sourced)" : ""}${(piece.findings || []).length ? " (flagged by diagnostics)" : ""} -- what do <em>you</em> think this piece is, from its text alone?</div>
         <div class="blind-form-row">
-          <select class="blind-type-input">${META.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}</select>
+          <select class="blind-type-input">
+            <option value="" disabled selected>Type&hellip;</option>
+            ${META.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
+          </select>
           <input class="blind-number-input" type="text" placeholder="Number (if any)">
         </div>
         <input class="blind-heading-input" type="text" placeholder="Heading (if any)">
@@ -1252,6 +1257,8 @@ async function afterMutation() {
 }
 
 async function submitBlindGuess(pieceDiv, nodeIndex) {
+  const type = pieceDiv.querySelector(".blind-type-input").value;
+  if (!type) { toast("Pick what you think this piece's type is.", true); return; }
   const reasoning = pieceDiv.querySelector(".blind-reasoning-input").value.trim();
   if (!reasoning) { toast("A short reason for your assessment is required.", true); return; }
   try {
@@ -1259,7 +1266,7 @@ async function submitBlindGuess(pieceDiv, nodeIndex) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        type: pieceDiv.querySelector(".blind-type-input").value,
+        type,
         number: pieceDiv.querySelector(".blind-number-input").value || null,
         heading: pieceDiv.querySelector(".blind-heading-input").value || null,
         reasoning,

@@ -32,17 +32,19 @@
 # does, which brings back exactly the backslash-doubling this format
 # exists to avoid.
 
+# schedule: '^Schedule\s+(\d+[A-Za-z]*)\s*[—–-]+\s*(.+)$'
 # chapter: '^Chapter\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
 # part: '^Part\s+([A-Z0-9]+[A-Z]?)\s*[—–-]\s*(.+)$'
 # division: '^Division\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
 
 # The one non-pattern key: 'hierarchy', the ordered list of container
-# levels. The default already includes "chapter" on top with the pattern
-# above, so an Act that groups Parts under Chapters needs nothing here.
-# Only set this to REORDER the heading levels or add a level with no
-# default pattern (define its pattern above too). section/subsection/
-# paragraph/subparagraph must stay in the list.
-# hierarchy: [chapter, part, division, subdivision, section, subsection, paragraph, subparagraph]
+# levels. The default already includes "schedule"/"chapter" on top with
+# the patterns above, so an Act with Schedules, or one that groups Parts
+# under Chapters, needs nothing here. Only set this to REORDER the
+# heading levels or add a level with no default pattern (define its
+# pattern above too). section/subsection/paragraph/subparagraph must
+# stay in the list; schedule/chapter/sub_subparagraph are optional.
+# hierarchy: [schedule, chapter, part, division, subdivision, section, subsection, paragraph, subparagraph, sub_subparagraph]
 
 # Subdivision is the one pattern with a real wrinkle: it has TWO
 # alternatives -- "(1) Title" (groups 1-2) and "Subdivision 2—Title"
@@ -58,5 +60,7 @@
 # subsection: '^\((\d+[A-Za-z]*)\)\s*(.*)$'
 # paragraph: '^\(([a-z]{1,3})\)\s*(.*)$'
 # subparagraph: '^\(([ivxlcdm]+)\)\s*(.*)$'
+# sub_subparagraph: '^\(([A-Z]{1,3})\)\s*(.*)$'
 # notes_marker: '^Notes?$'
 # note_item: '^(\d+)\s+(.+)$'
+# example_marker: '^Examples?$'

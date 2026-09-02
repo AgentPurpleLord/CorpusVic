@@ -71,8 +71,17 @@ _REQUIRED_LEVELS = {"section", "subsection", "paragraph", "subparagraph"}
 # Profile keys that aren't patterns.
 _RESERVED_KEYS = {"hierarchy"}
 
-# Every pattern must have exactly two capture groups: (number, heading/rest).
+# Every pattern must have exactly two capture groups: (number, heading/rest),
+# except notes_marker/example_marker (pure boundary checks, no groups).
 DEFAULT_PATTERNS = {
+    # A Schedule heading uses the same "Word N—Title" shape as Chapter/Part/
+    # Division, but the dash separator has been seen doubled in real Acts
+    # ("Schedule 1––Charges on a charge-sheet or indictment") as well as
+    # the ordinary single em-dash used everywhere else ("Schedule 5—
+    # Transitional provisions...") -- "+" rather than the single-character
+    # class the other Word-N-Title patterns use, so either form's title
+    # capture comes out clean instead of with a stray leading dash.
+    "schedule": r"^Schedule\s+(\d+[A-Za-z]*)\s*[—–-]+\s*(.+)$",
     # Chapter is the optional top level above Part. Most Victorian Acts have
     # none; some (e.g. the Criminal Procedure Act) group their Parts under
     # numbered Chapters. Same "Word N—Title" shape as Part/Division -- only
@@ -94,8 +103,20 @@ DEFAULT_PATTERNS = {
     "subsection": r"^\((\d+[A-Za-z]*)\)\s*(.*)$",
     "paragraph": r"^\(([a-z]{1,3})\)\s*(.*)$",
     "subparagraph": r"^\(([ivxlcdm]+)\)\s*(.*)$",
+    # Bracketed capital letters -- "(A)", "(B)" -- one level deeper than a
+    # subparagraph's lowercase roman numerals. Drafters avoid this level
+    # where possible (see basic-structure.yaml), but it does appear in
+    # heavily-amended sections. Case alone (upper vs lower) keeps this
+    # unambiguous against paragraph/subparagraph -- unlike those two, which
+    # can both match a bare "(i)" and need _bracket_level's own sequence-
+    # continuity check to disambiguate, a capital letter never does.
+    "sub_subparagraph": r"^\(([A-Z]{1,3})\)\s*(.*)$",
     "notes_marker": r"^Notes?$",
     "note_item": r"^(\d+)\s+(.+)$",
+    # An "Example" callout is set exactly like a singular, unnumbered
+    # "Note" (see rule_parser.py's _handle_marked_block) -- same bold,
+    # body-sized, standalone-line convention, just a different marker word.
+    "example_marker": r"^Examples?$",
 }
 
 # Every key is matched case-sensitively except these -- a Chapter/Part/
@@ -116,10 +137,10 @@ class ProfileError(ValueError):
 
 
 # Every key needs (number, heading/rest) -- two groups -- except
-# notes_marker, which is a pure boundary check ("does this line say
-# "Notes"?"); rule_parser.py only tests it for truthiness and never reads
-# a group from it.
-_MIN_GROUPS = {"notes_marker": 0}
+# notes_marker/example_marker, pure boundary checks ("does this line say
+# "Notes"/"Example"?"); rule_parser.py only tests them for truthiness and
+# never reads a group from either.
+_MIN_GROUPS = {"notes_marker": 0, "example_marker": 0}
 
 
 def _validate_pattern(source: str, key: str, pattern: str) -> None:

@@ -84,7 +84,28 @@ def test_annotate_paths_does_not_leak_a_definition_into_a_later_subsection_in_th
 
 
 def test_annotate_paths_respects_a_custom_hierarchy_order():
-    custom = ["chapter", *HIERARCHY_ORDER]
-    nodes = [make_node("chapter", "1", "Preliminary"), make_node("section", "1", "Purposes")]
+    custom = ["volume", *HIERARCHY_ORDER]
+    nodes = [make_node("volume", "1", "Preliminary"), make_node("section", "1", "Purposes")]
     annotate_paths(nodes, custom)
-    assert nodes[1]["path"]["chapter"] == "1"
+    assert nodes[1]["path"]["volume"] == "1"
+
+
+def test_annotate_paths_places_schedule_and_sub_subparagraph_by_default():
+    """Both new default levels (see hierarchy.py) participate in the same
+    path-tracking with no special-casing needed -- "schedule" resets
+    every deeper level the same way "section" does, and
+    "sub_subparagraph" is just one level past "subparagraph"."""
+    nodes = [
+        make_node("section", "1", "Purposes"),
+        make_node("schedule", "1", "Forms"),
+        make_node("section", "1", "Form of charge-sheet"),
+        make_node("subsection", "1", None, "text"),
+        make_node("paragraph", "a", None, "text"),
+        make_node("subparagraph", "i", None, "text"),
+        make_node("sub_subparagraph", "A", None, "text"),
+    ]
+    annotate_paths(nodes)
+    assert nodes[1]["path"]["section"] is None  # the schedule closed out the earlier section
+    assert nodes[2]["path"]["schedule"] == "1"
+    assert nodes[6]["path"]["sub_subparagraph"] == "A"
+    assert nodes[6]["path"]["subparagraph"] == "i"

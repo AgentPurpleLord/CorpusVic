@@ -88,11 +88,40 @@ def test_chapter_is_a_default_pattern():
     assert m and m.group(1) == "2" and m.group(2) == "Commencing a criminal proceeding"
 
 
+def test_schedule_is_a_default_pattern_and_tolerates_a_doubled_dash():
+    """Real Acts have been seen using both a single em-dash and a doubled
+    en-dash as the Schedule heading's separator (Criminal Procedure Act
+    Schedules 1-4 use "––", Schedule 5 uses "—") -- the pattern needs "+"
+    rather than the single-char class Chapter/Part/Division use, so the
+    title comes out clean either way."""
+    patterns = profiles.load_profile(None)
+    m = patterns["schedule"].match("Schedule 1––Charges on a charge-sheet or indictment")
+    assert m and m.group(1) == "1" and m.group(2) == "Charges on a charge-sheet or indictment"
+    m2 = patterns["schedule"].match("Schedule 5—Transitional provisions")
+    assert m2 and m2.group(1) == "5" and m2.group(2) == "Transitional provisions"
+
+
+def test_sub_subparagraph_is_a_default_pattern():
+    patterns = profiles.load_profile(None)
+    m = patterns["sub_subparagraph"].match("(A) records of any medical examination")
+    assert m and m.group(1) == "A"
+    # Case alone must keep it from also matching a lowercase paragraph/
+    # subparagraph marker.
+    assert not patterns["sub_subparagraph"].match("(a) a lowercase paragraph")
+
+
+def test_example_marker_is_a_default_pattern():
+    patterns = profiles.load_profile(None)
+    assert patterns["example_marker"].match("Example")
+    assert patterns["example_marker"].match("Examples")
+    assert not patterns["example_marker"].match("Example to s. 4")
+
+
 # --- hierarchy: resolution --------------------------------------------------
 
 def test_load_hierarchy_defaults_when_no_profile():
     assert profiles.load_hierarchy(None) == profiles.HIERARCHY_ORDER
-    assert profiles.load_hierarchy(None)[0] == "chapter"
+    assert profiles.load_hierarchy(None)[0] == "schedule"
 
 
 def test_load_hierarchy_defaults_when_profile_omits_the_key(isolated_profiles_dir):

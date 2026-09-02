@@ -73,10 +73,14 @@ def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str,
     page) and {number.lower(): filename} for the *first* section with that
     number (used for "section N" prose cross-references).
 
-    Section numbers aren't always unique document-wide: the rule parser
-    doesn't yet model Schedules as their own container (see akn_export.py's
-    docstring for the same caveat), so a Schedule reproducing the full text
-    of a historical amending Act can introduce its own "3", "4", etc.
+    Section numbers aren't always unique document-wide: a Schedule is its
+    own container (see hierarchy.py's own note on "schedule"'s rank), but
+    its internal numbered items still reuse the ordinary "section" node
+    type rather than getting a schedule-specific one -- real Schedules
+    number their own clauses "in the same way as sections" (see
+    basic-structure.yaml) -- so a Schedule reproducing the full text of a
+    historical amending Act, or just numbering its own items 1, 2, 3...,
+    can introduce a "3", "4", etc. that collides with the Act's own.
     Silently overwriting one section's page with another's would be exactly
     the kind of data loss this pipeline is built to avoid, so a repeat
     number gets a disambiguating suffix for its own page instead -- and

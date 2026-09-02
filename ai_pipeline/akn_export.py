@@ -18,10 +18,17 @@ not recalled from memory):
   heading_group (a bare topical heading with no number, e.g. "Fraud and
       blackmail") -> <crossHeading>, AKN's element for exactly this: "a
       heading placed side by side with hierarchical containers."
-  note / definition (types the rules engine doesn't currently produce, but
-      the AI backend's schema allows) -> <hcontainer name="...">, the
-      generic escape hatch for a jurisdiction-specific container with no
-      matching core element.
+  note / definition / example / repealed / schedule / sub_subparagraph ->
+      <hcontainer name="...">, the generic escape hatch for a
+      jurisdiction-specific container with no matching core element.
+      schedule and sub_subparagraph are part of this pipeline's own
+      hierarchy_order (see hierarchy.py -- both still nest with full
+      parent/child fidelity via build_hierarchy_tree's own rank-based
+      logic below) but have no *confirmed* native AKN element: a real
+      Schedule properly belongs in AKN as a separate <attachment>
+      document component, not a body hierarchy element, and nesting one
+      level past AKN's own native subparagraph isn't a documented
+      element either -- see _NATIVE_HIERARCHY_TYPES.
   A node's own text becomes <intro> if it has children (text introducing
   the nested list) or <content><p> if it's a leaf.
 
@@ -58,22 +65,38 @@ from .hierarchy import HIERARCHY_ORDER, make_ranks
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
 ET.register_namespace("", AKN_NS)
 
+# The eight levels verified against the real OASIS schema (see the module
+# docstring). "schedule" and "sub_subparagraph" are also part of this
+# pipeline's own hierarchy_order (see hierarchy.py) but have no confirmed
+# native AKN element of their own -- a real Schedule is properly an AKN
+# <attachment>, a separate document component outside the main body's
+# hierarchy entirely, which this export doesn't attempt to model, and
+# nesting one level past AKN's own native subparagraph isn't a documented
+# element either. Both render as the same generic <hcontainer> escape
+# hatch "note"/"definition"/"example" already use (see render_tree_node)
+# rather than guessing at an unverified element name -- they still
+# participate fully in build_hierarchy_tree's own rank-based nesting
+# below, since that's a question of tree *structure*, independent of
+# which XML element ends up wrapping each node.
+_NATIVE_HIERARCHY_TYPES = {"chapter", "part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"}
+
 # Native AKN element name per hierarchy type (identical to the type name
 # here, but kept explicit in case a profile ever needs to remap one).
-HIERARCHY_ELEMENT = {level: level for level in HIERARCHY_ORDER}
+HIERARCHY_ELEMENT = {level: level for level in _NATIVE_HIERARCHY_TYPES}
 
 EID_PREFIX = {
-    "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
+    "schedule": "sched", "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
     "section": "sec", "subsection": "subsec", "definition": "def",
-    "paragraph": "para", "subparagraph": "subpara",
+    "paragraph": "para", "subparagraph": "subpara", "sub_subparagraph": "subsubpara",
 }
 
-# Part/Division/Section numbers are written bare in the source ("Part I",
-# "Division 1", "3 Punishment for murder"); Subdivision/Subsection/
-# Paragraph/Subparagraph are always bracketed ("(1)", "(a)", "(i)") -- the
-# rule parser strips the brackets when capturing the number, so restore
-# them here to match both the source text and standard AKN <num> style.
-BRACKETED_LEVELS = {"subdivision", "subsection", "paragraph", "subparagraph"}
+# Part/Division/Section/Schedule numbers are written bare in the source
+# ("Part I", "Division 1", "3 Punishment for murder", "Schedule 1");
+# Subdivision/Subsection/Paragraph/Subparagraph/Sub-subparagraph are
+# always bracketed ("(1)", "(a)", "(i)", "(A)") -- the rule parser strips
+# the brackets when capturing the number, so restore them here to match
+# both the source text and standard AKN <num> style.
+BRACKETED_LEVELS = {"subdivision", "subsection", "paragraph", "subparagraph", "sub_subparagraph"}
 
 
 def _format_num(node_type: str, number: str) -> str:
@@ -160,7 +183,7 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
             # entirely; the ordinary case is handled by the `if t in
             # rank:` branch above instead, with proper popping/nesting so
             # a defined term's own (a)/(b) list attaches under it.
-            prefix = {"note": "note", "heading_group": "hd", "definition": "def"}.get(t, "el")
+            prefix = {"note": "note", "example": "ex", "heading_group": "hd", "definition": "def"}.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
             parent["children"].append({"node": node, "eid": eid, "children": []})
@@ -177,7 +200,7 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
     node = tree_node["node"]
     t = node["type"]
 
-    if t in hierarchy_order:
+    if t in _NATIVE_HIERARCHY_TYPES:
         el = ET.Element(_q(HIERARCHY_ELEMENT.get(t, t)), {"eId": tree_node["eid"]})
     elif t == "heading_group" and not top_level:
         # <crossHeading> ("a heading placed side by side with hierarchical

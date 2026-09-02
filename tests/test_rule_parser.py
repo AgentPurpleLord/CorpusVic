@@ -407,7 +407,7 @@ def test_act_with_no_chapter_lines_produces_no_chapter_nodes():
     ]
     result = _parse(lines)
     assert not any(n["type"] == "chapter" for n in result.nodes)
-    assert result.hierarchy[0] == "chapter"  # available, just unused
+    assert "chapter" in result.hierarchy  # available, just unused
 
 
 def test_hanging_list_does_not_fire_on_genuine_nested_wrap():
@@ -678,3 +678,165 @@ def test_skip_front_matter_leaves_act_parsing_unaffected():
     assert not result.warnings
     section = find(result.nodes, "section", "1")
     assert section["heading"] == "Purposes"
+
+
+def test_sub_subparagraph_nests_under_subparagraph():
+    """Regression (Criminal Procedure Act, e.g. s. 41): bracketed capital
+    letters -- "(A)", "(B)", "(C)" -- one level deeper than a
+    subparagraph's lowercase roman numerals, per basic-structure.yaml's
+    own note on this rare-but-real level. Case alone disambiguates it
+    from paragraph (lowercase letters) and subparagraph (lowercase roman
+    numerals), so there's no sequence-continuity ambiguity to resolve the
+    way _bracket_level needs for those two."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("41 Contents of full brief", bold=True),
+        line("(1) A full brief must contain—", x0=HEAD_X0),
+        line("(a) a copy of—", x0=PARA_X0),
+        line("(i) records of any medical examination; and", x0=SUBPARA_X0),
+        line("(ii) a copy of—", x0=SUBPARA_X0),
+        line("(A) records of any forensic procedure; and", x0=SUBPARA_X0 + 20),
+        line("(B) the results of any tests.", x0=SUBPARA_X0 + 20),
+    ]
+    result = _parse(lines)
+    sub_a = find(result.nodes, "sub_subparagraph", "A")
+    assert "forensic procedure" in sub_a["text"]
+    sub_b = find(result.nodes, "sub_subparagraph", "B")
+    assert "results of any tests" in sub_b["text"]
+    # Document order -- A and B nest right after subparagraph (ii), the
+    # actual parent/child reconstruction (tree.py's annotate_paths) is
+    # covered by tests/test_tree.py, not here.
+    types_in_order = [n["type"] for n in result.nodes]
+    subpara_ii_idx = next(i for i, n in enumerate(result.nodes) if n["type"] == "subparagraph" and n["number"] == "ii")
+    assert types_in_order[subpara_ii_idx + 1 : subpara_ii_idx + 3] == ["sub_subparagraph", "sub_subparagraph"]
+
+
+def test_bracket_paragraph_and_subparagraph_unaffected_by_sub_subparagraph_addition():
+    """Regression guard: adding the sub_subparagraph pattern must not
+    change how an ordinary lowercase paragraph/subparagraph pair (with no
+    sub_subparagraph anywhere nearby) is classified."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Murder", bold=True),
+        line("(1) A person who—", x0=HEAD_X0),
+        line("(a) does X; or", x0=PARA_X0),
+        line("(b) does Y—", x0=PARA_X0),
+        line("(i) knowingly; or", x0=SUBPARA_X0),
+        line("(ii) recklessly,", x0=SUBPARA_X0),
+        line("is guilty of an offence.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    assert find(result.nodes, "paragraph", "a")
+    assert find(result.nodes, "paragraph", "b")
+    assert find(result.nodes, "subparagraph", "i")
+    assert find(result.nodes, "subparagraph", "ii")
+    assert not any(n["type"] == "sub_subparagraph" for n in result.nodes)
+
+
+def test_example_marker_becomes_its_own_example_node():
+    """Regression (Criminal Procedure Act, e.g. s. 41): a standalone bold
+    "Example" line followed by prose is set exactly like a singular
+    unnumbered "Note" -- same shape, different marker word (see
+    basic-structure.yaml) -- and shares _handle_marked_block's own state
+    machine rather than getting a separate implementation."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("41 Contents of full brief", bold=True),
+        line("A full brief must contain a notice.", x0=HEAD_X0),
+        line("Example", bold=True),
+        line("The informant may agree with the accused's legal", x0=HEAD_X0),
+        line("practitioner on a time and place for inspection.", x0=HEAD_X0),
+        line("42 Contents of preliminary brief", bold=True),
+        line("A preliminary brief must include the following.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    section_41 = find(result.nodes, "section", "41")
+    assert section_41["text"] == "A full brief must contain a notice."
+    example = find(result.nodes, "example", None)
+    assert example["text"] == (
+        "The informant may agree with the accused's legal\npractitioner on a time and place for inspection."
+    )
+    section_42 = find(result.nodes, "section", "42")
+    assert "informant may agree" not in section_42["text"]
+
+
+def test_example_ends_at_a_fresh_definition_start():
+    """The same unnumbered-block gap as
+    test_singular_unnumbered_note_ends_at_a_fresh_definition_start, but
+    for an Example block instead of a Note."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("3 Definitions", bold=True),
+        line("In this Act—", x0=HEAD_X0),
+        line("sentence includes—", x0=HEAD_X0, leading_bold_italic="sentence"),
+        line("(a) the recording of a conviction; and", x0=PARA_X0),
+        line("Example", bold=True),
+        line("A suspended sentence is still a sentence.", x0=HEAD_X0),
+        line("sexual offence has the meaning given by section 4;", x0=HEAD_X0, leading_bold_italic="sexual offence"),
+    ]
+    result = _parse(lines)
+    example = find(result.nodes, "example", None)
+    assert example["text"] == "A suspended sentence is still a sentence."
+    sexual_offence = [n for n in result.nodes if n["type"] == "definition" and n["heading"] == "sexual offence"][0]
+    assert sexual_offence["text"] == "has the meaning given by section 4;"
+
+
+def test_schedule_heading_opens_a_schedule_and_nests_its_own_sections():
+    """Regression (Criminal Procedure Act Schedule 1): a Schedule heading
+    uses the same bold "Word N—Title" shape as Part/Division, wraps
+    across bold lines the same way, and its own numbered items reuse the
+    ordinary "section" type (real Schedules number their own clauses "in
+    the same way as sections", per basic-structure.yaml) rather than
+    getting a schedule-specific type -- so the existing section/
+    subsection/paragraph patterns already give a Schedule's substantive
+    content full structural fidelity with no extra code."""
+    lines = [
+        line("Schedule 1––Charges on a charge-sheet", bold=True, size=16.0),
+        line("or indictment", bold=True, size=16.0),
+        line("Sections 6(3), 159(3)", x0=HEAD_X0, size=10.0),
+        line("1 Statement of offence", bold=True),
+        line("(1) A charge must contain a statement of the offence.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    schedule = find(result.nodes, "schedule", "1")
+    assert schedule["heading"] == "Charges on a charge-sheet or indictment (Sections 6(3), 159(3))"
+    assert schedule["text"] == ""
+    section = find(result.nodes, "section", "1")
+    assert section["heading"] == "Statement of offence"
+    subsection = find(result.nodes, "subsection", "1")
+    assert "statement of the offence" in subsection["text"]
+
+
+def test_schedule_with_no_hangs_off_line_still_opens_its_first_section():
+    """Not every Schedule names which section(s) it hangs off right under
+    its own heading -- the fresh-start check for the first numbered item
+    must still work with nothing but the heading itself in between."""
+    lines = [
+        line("Schedule 5—Transitional provisions", bold=True, size=16.0),
+        line("1 Definitions", bold=True),
+        line("In this Schedule—", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    find(result.nodes, "schedule", "5")
+    section = find(result.nodes, "section", "1")
+    assert section["heading"] == "Definitions"
+
+
+def test_schedule_own_items_do_not_collide_with_earlier_act_sections():
+    """A Schedule's own "1", "2", ... numbering restarts independently of
+    the Act's own section numbers -- both must coexist as distinct nodes
+    rather than one overwriting or merging into the other."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are stated here.", x0=HEAD_X0),
+        line("Schedule 1—Forms", bold=True, size=16.0),
+        line("1 Form of charge-sheet", bold=True),
+        line("A charge-sheet must be in this form.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+    act_section = find(result.nodes, "section", "1")
+    assert "purposes of this Act" in act_section["text"]
+    schedule_items = [n for n in result.nodes if n["type"] == "section" and n["number"] == "1"]
+    assert len(schedule_items) == 2
+    assert any("Form of charge-sheet" == n["heading"] for n in schedule_items)

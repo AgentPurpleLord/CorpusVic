@@ -298,15 +298,16 @@ def compute_unit_tree_info(unit_root_types: list[str], hierarchy_order: list[str
 # Renesting a piece means "make it this other piece's own direct child" --
 # expressed as a type change (the child rank exactly one level deeper than
 # the target), not a position change: see renest_endpoint's own docstring
-# for why document order is left untouched. "subparagraph" and the non-
-# hierarchy types (note/repealed/heading_group) have no entry -- nothing
-# can be renested to become *their* child.
+# for why document order is left untouched. "sub_subparagraph" and the
+# non-hierarchy types (note/repealed/example/heading_group) have no entry
+# -- nothing can be renested to become *their* child.
 NEST_CHILD_TYPE = {
     "section": "subsection",
     "clause": "subsection",
     "subsection": "paragraph",
     "definition": "paragraph",
     "paragraph": "subparagraph",
+    "subparagraph": "sub_subparagraph",
 }
 
 
@@ -395,9 +396,11 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     labels = ["SECTION"]
     counters: dict[str, int] = {}
     for node in unit_nodes[1:]:
-        if node["type"] in ("subsection", "paragraph", "subparagraph") and node.get("number"):
+        if node["type"] in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") and node.get("number"):
             path = node.get("path") or {}
-            chain = "".join(f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph") if path.get(level))
+            chain = "".join(
+                f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") if path.get(level)
+            )
             chain = chain or f"({node['number']})"
             if path.get("definition"):
                 chain = f"{path['definition']} {chain}"
@@ -521,7 +524,7 @@ def _append_text_to_node(i: int, addition: str) -> dict:
     return _mutate_node(i, text=new_text)
 
 
-_CASCADING_PATH_LEVELS = ("subsection", "paragraph", "subparagraph")
+_CASCADING_PATH_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
 
 
 def _patch_path_level(i: int, level: str, value: str | None) -> None:
@@ -588,21 +591,21 @@ def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: d
         save_verified(_act, _verified)
 
 
-_NESTABLE_LEVELS = ("subsection", "paragraph", "subparagraph", "definition")
+_NESTABLE_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph", "definition")
 
 
 def _recompute_unit_paths(unit_no: int) -> None:
     """Rebuilds path[level] for subsection/paragraph/subparagraph/
-    definition across every (non-merged-away) piece in this unit, in
-    current document order -- the exact algorithm tree.py's annotate_paths
-    runs once for the whole document at parse time, just re-run here for
-    one unit after renest_endpoint changes a piece's type (a type change
-    is exactly the kind of thing annotate_paths needs to see to place a
-    piece -- and everything *after* it in the unit -- under the right
-    parent). The unit's own shallower levels (chapter/part/.../section)
-    never change from a renest, so the root's own already-correct path is
-    carried forward unmodified; only the four nestable levels are reset
-    and replayed.
+    sub_subparagraph/definition across every (non-merged-away) piece in
+    this unit, in current document order -- the exact algorithm tree.py's
+    annotate_paths runs once for the whole document at parse time, just
+    re-run here for one unit after renest_endpoint changes a piece's type
+    (a type change is exactly the kind of thing annotate_paths needs to
+    see to place a piece -- and everything *after* it in the unit --
+    under the right parent). The unit's own shallower levels (chapter/
+    part/.../section) never change from a renest, so the root's own
+    already-correct path is carried forward unmodified; only the five
+    nestable levels are reset and replayed.
 
     "definition" gets its own explicit reset, same as tree.py's
     annotate_paths does and for the same reason: it's aliased onto
