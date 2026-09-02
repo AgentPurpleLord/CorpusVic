@@ -106,9 +106,17 @@ def act_status(slug: str) -> dict:
     acts_dir = BASE_DIR / "acts"
     has_pdf = acts_dir.exists() and any(acts_dir.glob(f"{slug}.*"))
     parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    profiles_dir = BASE_DIR / "ai_pipeline" / "profiles"
     status = {
         "slug": slug,
         "has_pdf": has_pdf,
+        # Whether this Act has a pattern profile of its own to pass to
+        # run_pipeline.py -- the reparse modal pre-fills it, since
+        # forgetting it silently produces a worse parse (the Criminal
+        # Procedure Act's own Parts fall through to generic heading_group
+        # nodes without it -- see its profile's own comment) rather than
+        # any kind of error.
+        "has_profile": any((profiles_dir / f"{slug}{ext}").exists() for ext in (".yaml", ".yml")),
         "parsed": parsed_path.exists(),
         "node_count": None,
         "unit_count": None,
@@ -185,6 +193,15 @@ def _shutdown_review_processes() -> None:
     for entry in _review_procs.values():
         if entry["proc"].poll() is None:
             entry["proc"].terminate()
+
+
+def _kill_review_process(slug: str) -> None:
+    """Stops this Act's running review.py child (if any) and forgets it,
+    so the next "Review" click starts a fresh one -- see reparse_act,
+    which calls this after successfully regenerating that Act's parse."""
+    entry = _review_procs.pop(slug, None)
+    if entry and entry["proc"].poll() is None:
+        entry["proc"].terminate()
 
 
 # ---------------------------------------------------------------------------
@@ -486,6 +503,75 @@ def list_acts():
     return [act_status(slug) for slug in discover_slugs()]
 
 
+def _validate_parse_params(kind: str, profile: str, engine: str, backend: str, start_page: str, end_page: str) -> None:
+    if kind not in ("act", "bill", "em"):
+        raise HTTPException(400, f"Invalid kind: {kind!r}")
+    if engine not in ("rules", "ai"):
+        raise HTTPException(400, f"Invalid engine: {engine!r}")
+    if backend not in ("ollama", "claude"):
+        raise HTTPException(400, f"Invalid backend: {backend!r}")
+    if profile.strip() and not _SLUG_RE.match(profile.strip()):
+        raise HTTPException(400, f"Invalid profile name: {profile!r}")
+    for field_name, value in (("start_page", start_page), ("end_page", end_page)):
+        if value.strip() and not value.strip().isdigit():
+            raise HTTPException(400, f"{field_name} must be a positive integer")
+
+
+def _repo_relative(path: Path) -> str:
+    """run_pipeline.py records the PDF path it was given verbatim into
+    data/ai_parsed/<slug>.json's own "source" field, and that file is
+    committed to git (see .gitignore's own comment) -- so hand it a
+    repo-relative path, the same thing a human running it from the CLI
+    would type. An absolute one would bake this particular machine's
+    checkout location into the committed output, rewriting that field to
+    a different meaningless value on every machine that ever reparses.
+    Safe because every subprocess below runs with cwd=BASE_DIR anyway."""
+    try:
+        return str(path.resolve().relative_to(BASE_DIR.resolve()))
+    except ValueError:
+        return str(path)  # outside the repo entirely -- nothing relative to say
+
+
+def _build_parse_command(
+    pdf_path: Path, kind: str, profile: str, engine: str, backend: str, model: str, start_page: str, end_page: str
+) -> list[str]:
+    """Shared by new_act (a freshly uploaded PDF) and reparse_act (an
+    already-uploaded one, re-run to pick up a different engine/profile or
+    to regenerate after a parser change) -- same options either way, only
+    which PDF path they point at differs."""
+    source = _repo_relative(pdf_path)
+    if kind == "em":
+        return [sys.executable, "run_em_pipeline.py", source]
+    cmd = [sys.executable, "run_pipeline.py", source, "--document-type", "bill" if kind == "bill" else "act"]
+    if profile.strip():
+        cmd += ["--profile", profile.strip()]
+    if start_page.strip():
+        cmd += ["--start-page", start_page.strip()]
+    if end_page.strip():
+        cmd += ["--end-page", end_page.strip()]
+    if engine == "ai":
+        cmd += ["--engine", "ai", "--backend", backend]
+        if model.strip():
+            cmd += ["--model", model.strip()]
+    return cmd
+
+
+def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
+    try:
+        result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired as e:
+        return False, None, f"Timed out after 30 minutes.\n{e.stdout or ''}\n{e.stderr or ''}"
+    return result.returncode == 0, result.returncode, result.stdout + result.stderr
+
+
+def _find_source_pdf(slug: str) -> "Path | None":
+    acts_dir = BASE_DIR / "acts"
+    if not acts_dir.exists():
+        return None
+    matches = sorted(p for p in acts_dir.glob(f"{slug}.*") if p.suffix.lower() == ".pdf")
+    return matches[0] if matches else None
+
+
 @app.post("/api/acts/new")
 async def new_act(
     pdf: UploadFile = File(...),
@@ -497,19 +583,9 @@ async def new_act(
     start_page: str = Form(""),
     end_page: str = Form(""),
 ):
-    if kind not in ("act", "bill", "em"):
-        raise HTTPException(400, f"Invalid kind: {kind!r}")
-    if engine not in ("rules", "ai"):
-        raise HTTPException(400, f"Invalid engine: {engine!r}")
-    if backend not in ("ollama", "claude"):
-        raise HTTPException(400, f"Invalid backend: {backend!r}")
+    _validate_parse_params(kind, profile, engine, backend, start_page, end_page)
     if not (pdf.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are supported")
-    for field_name, value in (("profile", profile), ("start_page", start_page), ("end_page", end_page)):
-        if value.strip() and field_name == "profile" and not _SLUG_RE.match(value.strip()):
-            raise HTTPException(400, f"Invalid profile name: {value!r}")
-        if field_name in ("start_page", "end_page") and value.strip() and not value.strip().isdigit():
-            raise HTTPException(400, f"{field_name} must be a positive integer")
 
     acts_dir = BASE_DIR / "acts"
     acts_dir.mkdir(parents=True, exist_ok=True)
@@ -518,26 +594,63 @@ async def new_act(
     slug = slugify(dest.stem)
     _act_title_cache.pop(slug, None)  # a re-upload under this slug may have a different title
 
-    if kind == "em":
-        cmd = [sys.executable, "run_em_pipeline.py", str(dest)]
-    else:
-        cmd = [sys.executable, "run_pipeline.py", str(dest), "--document-type", "bill" if kind == "bill" else "act"]
-        if profile.strip():
-            cmd += ["--profile", profile.strip()]
-        if start_page.strip():
-            cmd += ["--start-page", start_page.strip()]
-        if end_page.strip():
-            cmd += ["--end-page", end_page.strip()]
-        if engine == "ai":
-            cmd += ["--engine", "ai", "--backend", backend]
-            if model.strip():
-                cmd += ["--model", model.strip()]
+    cmd = _build_parse_command(dest, kind, profile, engine, backend, model, start_page, end_page)
+    ok, returncode, log = _run_parse_subprocess(cmd)
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
 
-    try:
-        result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=1800)
-    except subprocess.TimeoutExpired as e:
-        return {"ok": False, "slug": slug, "log": f"Timed out after 30 minutes.\n{e.stdout or ''}\n{e.stderr or ''}"}
-    return {"ok": result.returncode == 0, "slug": slug, "returncode": result.returncode, "log": result.stdout + result.stderr}
+
+@app.post("/api/acts/{slug}/reparse")
+def reparse_act(
+    slug: str,
+    kind: str = Form("act"),
+    profile: str = Form(""),
+    engine: str = Form("rules"),
+    backend: str = Form("ollama"),
+    model: str = Form(""),
+    start_page: str = Form(""),
+    end_page: str = Form(""),
+    confirm: str = Form(""),
+):
+    """Re-runs the pipeline against an already-uploaded PDF -- no new
+    upload needed -- so an Act can be re-parsed with a different engine
+    (rules vs AI) or profile, or just regenerated after a parser code
+    change, without starting over from "Add Act/Bill/EM".
+
+    data/ai_parsed/<slug>.json is plain regenerable output on its own,
+    but review.py's own verified rows in data/legislation.db are keyed by
+    a *positional* index into that exact file (see .gitignore's own
+    comment on why the two are committed as a pair) -- so overwriting it
+    while real review progress already exists is exactly the "replacing
+    the previous data" this needs an explicit nod for, not a silent
+    default. Refuses (409) unless `confirm` is set, once there's any
+    reviewed progress to actually put at risk."""
+    _validate_slug(slug)
+    _validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+
+    pdf_path = _find_source_pdf(slug)
+    if pdf_path is None:
+        raise HTTPException(404, f"No source PDF found for {slug!r} in acts/ -- add it via 'Add Act/Bill/EM' first.")
+
+    status = act_status(slug)
+    reviewed = status.get("reviewed_units") or 0
+    if status["parsed"] and reviewed > 0 and confirm.strip().lower() != "true":
+        raise HTTPException(
+            409,
+            f"{slug} has {reviewed} of {status['unit_count']} unit(s) already reviewed. Re-parsing regenerates "
+            "the raw structure from the PDF -- if node positions shift, existing review progress can silently "
+            "misalign with the wrong provisions. Confirm to replace it anyway.",
+        )
+
+    _act_title_cache.pop(slug, None)
+    cmd = _build_parse_command(pdf_path, kind, profile, engine, backend, model, start_page, end_page)
+    ok, returncode, log = _run_parse_subprocess(cmd)
+    if ok:
+        # The parse this Act's review.py process (if any) loaded into
+        # memory at startup is now stale -- force a fresh one on the next
+        # "Review" click rather than let it keep serving the old node
+        # list against a database that may no longer line up with it.
+        _kill_review_process(slug)
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
 
 
 @app.post("/api/acts/{slug}/export/akn")

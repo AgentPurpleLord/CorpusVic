@@ -438,6 +438,7 @@
   <span class="stat" id="corrections-stat"></span>
   <span class="stat" id="unattached-stat" title="Click to open the history-notes panel" style="cursor:pointer"></span>
   <span class="stat" id="blind-review-stat" title="How often a reviewer's own first, independent guess matched the parser's answer"></span>
+  <button class="btn" id="undo-nest-btn" style="display:none">&#8617; Undo nest</button>
   <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
   <button class="btn" id="history-toggle-btn">History notes</button>
   <button class="btn" id="theme-toggle-btn">&#127769;</button>
@@ -609,6 +610,15 @@ document.getElementById("history-toggle-btn").onclick = () => {
 };
 document.getElementById("unattached-stat").onclick = () => setHistoryPanelOpen(true);
 
+document.getElementById("undo-nest-btn").onclick = async () => {
+  try {
+    const result = await api("api/renest/undo", { method: "POST" });
+    toast(`Nesting undone (piece ${result.node_index} is now "${result.type}").`);
+    await loadMeta();
+    await loadUnit(result.unit_no);
+  } catch (e) { toast(e.message, true); }
+};
+
 function escapeHtml(s) {
   const div = document.createElement("div");
   div.textContent = s == null ? "" : s;
@@ -705,6 +715,9 @@ async function loadMeta() {
   document.getElementById("blind-review-stat").textContent = br && br.total
     ? `Independent review: ${Math.round((br.type_matched / br.total) * 100)}% type match (${br.total} reviewed)` : "";
   document.getElementById("pdf-toggle-btn").style.display = META.has_source_pdf ? "" : "none";
+  const undoBtn = document.getElementById("undo-nest-btn");
+  undoBtn.style.display = META.renest_undo ? "" : "none";
+  if (META.renest_undo) undoBtn.title = `Restores piece ${META.renest_undo.node_index} back to type "${META.renest_undo.restores_type}"`;
   renderSidebar();
 
   const banner = document.getElementById("resume-banner");

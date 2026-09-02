@@ -464,6 +464,7 @@ _verified_by_source_index: dict[int, dict] = {}
 _pending_edits: dict[int, dict] = {}
 _merged_away: set[int] = set()
 _merged_into_unit: dict[int, int] = {}  # source unit_no -> the unit_no its content ended up in (this session only)
+_renest_history: list[dict] = []  # LIFO undo stack for renest_endpoint (this session only) -- see undo_renest_endpoint
 _definition_index: dict[str, int] = {}
 _findings_by_node: dict[int, list[dict]] = {}
 _unattached_notes: list[dict] = []  # startup snapshot, plus anything detach_history_endpoint has since returned to it (this session only)
@@ -909,6 +910,10 @@ def get_meta():
         "corrections": stats(),
         "unattached_notes": len(_currently_unattached_indices()),
         "blind_review_stats": db.blind_review_stats(_act),
+        "renest_undo": (
+            {"node_index": _renest_history[-1]["node_index"], "restores_type": _renest_history[-1]["previous_type"]}
+            if _renest_history else None
+        ),
         "units": units_summary,
         "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
         "act_title": _act_title,
@@ -1209,10 +1214,45 @@ def renest_endpoint(req: RenestRequest):
     if not can_renest_under(unit_types, target_pos, node_pos, _hierarchy):
         raise HTTPException(400, f"Can't nest here -- another {target_type} (or shallower) opens between them first")
 
+    previous_type = _current_node(i)["type"]
     _mutate_node(i, type=new_type)
     _recompute_unit_paths(unit_no)
+    # Recording just enough to reverse the *type* change (previous_type)
+    # is enough on its own to also undo its knock-on effect on every
+    # later piece's own displayed label in this unit: those never had
+    # their own type changed, only their path recomputed off of this
+    # piece's new one (see _recompute_unit_paths) -- restoring this one
+    # piece's type and recomputing again naturally un-cascades all of it,
+    # with nothing else to track.
+    _renest_history.append({"node_index": i, "previous_type": previous_type, "unit_no": unit_no})
     updated = _current_node(i)
     return {"node_index": i, "type": updated["type"], "path": updated.get("path")}
+
+
+@app.post("/api/renest/undo")
+def undo_renest_endpoint():
+    """Reverses the most recent successful renest (LIFO -- repeated calls
+    walk back through several in a row), restoring the piece's own prior
+    type and recomputing the unit's paths again so every other piece's
+    label that shifted as a knock-on effect (see renest_endpoint) reverts
+    right along with it. This is specifically why a whole-unit
+    _recompute_unit_paths, not a hand-patched single path entry, is the
+    right undo primitive here: nothing downstream of the renested piece
+    ever had its own *type* changed in the first place, only its
+    *displayed* nesting, which a fresh recompute off the restored type
+    fixes for all of them at once, the same way it did going forward."""
+    if not _renest_history:
+        raise HTTPException(400, "Nothing to undo")
+    entry = _renest_history[-1]
+    i, previous_type, unit_no = entry["node_index"], entry["previous_type"], entry["unit_no"]
+    if i in _merged_away:
+        _renest_history.pop()
+        raise HTTPException(400, "That piece has since been merged away and can't be un-nested")
+    _renest_history.pop()
+    _mutate_node(i, type=previous_type)
+    _recompute_unit_paths(unit_no)
+    updated = _current_node(i)
+    return {"node_index": i, "unit_no": unit_no, "type": updated["type"], "path": updated.get("path")}
 
 
 @app.post("/api/nodes/{node_index}/blind-guess")
