@@ -1,5 +1,5 @@
 """
-Reconstructs hierarchy from the AI's flat, ordered node list (rather than
+Reconstructs hierarchy from the parser's flat, ordered node list (rather than
 asking the model to emit nested JSON or explicit parent paths, which is more
 error-prone) and attaches parsed amendment-history notes to the node they
 belong to.

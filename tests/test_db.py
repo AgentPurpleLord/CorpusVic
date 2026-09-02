@@ -97,23 +97,12 @@ def test_base_dir_isolates_verified_data_from_the_current_directory(tmp_path):
 
 
 def test_add_correction_and_stats():
-    ai = {"type": "paragraph", "number": "a", "heading": None, "text": "orig"}
+    parsed = {"type": "paragraph", "number": "a", "heading": None, "text": "orig"}
     human = {"type": "paragraph", "number": "a", "heading": None, "text": "fixed"}
-    db.add_correction("crimes-act", ai_output=ai, human_output=human, changed=True)
-    db.add_correction("crimes-act", ai_output=ai, human_output=ai, changed=False)
+    db.add_correction("crimes-act", parser_output=parsed, human_output=human, changed=True)
+    db.add_correction("crimes-act", parser_output=parsed, human_output=parsed, changed=False)
 
     assert db.stats() == {"total": 2, "changed": 1}
-
-
-def test_load_examples_returns_changed_before_unchanged():
-    ai = {"type": "paragraph", "number": "a", "heading": None, "text": "orig"}
-    human = {"type": "paragraph", "number": "a", "heading": None, "text": "fixed"}
-    db.add_correction("crimes-act", ai_output=ai, human_output=ai, changed=False)
-    db.add_correction("crimes-act", ai_output=ai, human_output=human, changed=True)
-
-    examples = db.load_examples(k=6)
-    assert examples[0]["changed"] is True
-    assert examples[0]["human_output"]["text"] == "fixed"
 
 
 def test_stats_with_no_corrections_yet():

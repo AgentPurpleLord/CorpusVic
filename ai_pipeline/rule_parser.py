@@ -12,7 +12,8 @@ the drafter's own hierarchy signal, already sitting in the PDF, rather than
 something inferred from geometry that can coincidentally misfire on a short
 wrapped body line.
 
-The output is the same flat, ordered node shape the AI backend produces, so
+The output is a flat, ordered node list (tree.py reconstructs the
+hierarchy from it), so
 review.py and tree.py work unchanged.
 
 The key guarantee an LLM can't give you: every input line is consumed by

@@ -1062,7 +1062,11 @@
     {
       "em_node_index": 114,
       "clause_number": "101",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "101"
+      },
       "verified_at": null
     },
     {
@@ -1122,7 +1126,11 @@
     {
       "em_node_index": 122,
       "clause_number": "107",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "107"
+      },
       "verified_at": null
     },
     {
@@ -1169,7 +1177,11 @@
     {
       "em_node_index": 128,
       "clause_number": "118",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "118"
+      },
       "verified_at": null
     },
     {
@@ -1237,7 +1249,11 @@
     {
       "em_node_index": 136,
       "clause_number": "125",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "125"
+      },
       "verified_at": null
     },
     {
@@ -1267,7 +1283,11 @@
     {
       "em_node_index": 140,
       "clause_number": "128",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "128"
+      },
       "verified_at": null
     },
     {
@@ -1376,7 +1396,11 @@
     {
       "em_node_index": 152,
       "clause_number": "139",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "139"
+      },
       "verified_at": null
     },
     {
@@ -1394,7 +1418,11 @@
     {
       "em_node_index": 155,
       "clause_number": "141",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "141"
+      },
       "verified_at": null
     },
     {
@@ -1507,7 +1535,11 @@
     {
       "em_node_index": 169,
       "clause_number": "153",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "153"
+      },
       "verified_at": null
     },
     {
@@ -1637,7 +1669,11 @@
     {
       "em_node_index": 186,
       "clause_number": "171",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "171"
+      },
       "verified_at": null
     },
     {
@@ -1695,7 +1731,11 @@
     {
       "em_node_index": 193,
       "clause_number": "177",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "177"
+      },
       "verified_at": null
     },
     {
@@ -1963,7 +2003,11 @@
     {
       "em_node_index": 220,
       "clause_number": "207",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "207"
+      },
       "verified_at": null
     },
     {
@@ -3346,7 +3390,11 @@
     {
       "em_node_index": 362,
       "clause_number": "338",
-      "target": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "criminal-procedure-act",
+        "clause_number": "338"
+      },
       "verified_at": null
     },
     {

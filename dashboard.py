@@ -521,13 +521,9 @@ def list_acts():
     return [act_status(slug) for slug in discover_slugs()]
 
 
-def _validate_parse_params(kind: str, profile: str, engine: str, backend: str, start_page: str, end_page: str) -> None:
+def _validate_parse_params(kind: str, profile: str, start_page: str, end_page: str) -> None:
     if kind not in ("act", "bill", "em"):
         raise HTTPException(400, f"Invalid kind: {kind!r}")
-    if engine not in ("rules", "ai"):
-        raise HTTPException(400, f"Invalid engine: {engine!r}")
-    if backend not in ("ollama", "claude"):
-        raise HTTPException(400, f"Invalid backend: {backend!r}")
     if profile.strip() and not _SLUG_RE.match(profile.strip()):
         raise HTTPException(400, f"Invalid profile name: {profile!r}")
     for field_name, value in (("start_page", start_page), ("end_page", end_page)):
@@ -550,13 +546,11 @@ def _repo_relative(path: Path) -> str:
         return str(path)  # outside the repo entirely -- nothing relative to say
 
 
-def _build_parse_command(
-    pdf_path: Path, kind: str, profile: str, engine: str, backend: str, model: str, start_page: str, end_page: str
-) -> list[str]:
+def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: str, end_page: str) -> list[str]:
     """Shared by new_act (a freshly uploaded PDF) and reparse_act (an
-    already-uploaded one, re-run to pick up a different engine/profile or
-    to regenerate after a parser change) -- same options either way, only
-    which PDF path they point at differs."""
+    already-uploaded one, re-run to pick up a profile or to regenerate
+    after a parser change) -- same options either way, only which PDF path
+    they point at differs."""
     source = _repo_relative(pdf_path)
     if kind == "em":
         return [sys.executable, "run_em_pipeline.py", source]
@@ -567,10 +561,6 @@ def _build_parse_command(
         cmd += ["--start-page", start_page.strip()]
     if end_page.strip():
         cmd += ["--end-page", end_page.strip()]
-    if engine == "ai":
-        cmd += ["--engine", "ai", "--backend", backend]
-        if model.strip():
-            cmd += ["--model", model.strip()]
     return cmd
 
 
@@ -595,13 +585,10 @@ async def new_act(
     pdf: UploadFile = File(...),
     kind: str = Form("act"),
     profile: str = Form(""),
-    engine: str = Form("rules"),
-    backend: str = Form("ollama"),
-    model: str = Form(""),
     start_page: str = Form(""),
     end_page: str = Form(""),
 ):
-    _validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+    _validate_parse_params(kind, profile, start_page, end_page)
     if not (pdf.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are supported")
 
@@ -612,7 +599,7 @@ async def new_act(
     slug = slugify(dest.stem)
     _act_title_cache.pop(slug, None)  # a re-upload under this slug may have a different title
 
-    cmd = _build_parse_command(dest, kind, profile, engine, backend, model, start_page, end_page)
+    cmd = _build_parse_command(dest, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
 
@@ -622,17 +609,14 @@ def reparse_act(
     slug: str,
     kind: str = Form("act"),
     profile: str = Form(""),
-    engine: str = Form("rules"),
-    backend: str = Form("ollama"),
-    model: str = Form(""),
     start_page: str = Form(""),
     end_page: str = Form(""),
     confirm: str = Form(""),
 ):
     """Re-runs the pipeline against an already-uploaded PDF -- no new
-    upload needed -- so an Act can be re-parsed with a different engine
-    (rules vs AI) or profile, or just regenerated after a parser code
-    change, without starting over from "Add Act/Bill/EM".
+    upload needed -- so an Act can be re-parsed with a profile it was
+    missing, or just regenerated after a parser code change, without
+    starting over from "Add Act/Bill/EM".
 
     data/ai_parsed/<slug>.json is plain regenerable output on its own,
     but review.py's own verified rows in data/legislation.db are keyed by
@@ -643,7 +627,7 @@ def reparse_act(
     default. Refuses (409) unless `confirm` is set, once there's any
     reviewed progress to actually put at risk."""
     _validate_slug(slug)
-    _validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+    _validate_parse_params(kind, profile, start_page, end_page)
 
     pdf_path = _find_source_pdf(slug)
     if pdf_path is None:
@@ -660,7 +644,7 @@ def reparse_act(
         )
 
     _act_title_cache.pop(slug, None)
-    cmd = _build_parse_command(pdf_path, kind, profile, engine, backend, model, start_page, end_page)
+    cmd = _build_parse_command(pdf_path, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
     if ok:
         # The parse this Act's review.py process (if any) loaded into

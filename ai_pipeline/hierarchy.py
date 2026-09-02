@@ -13,8 +13,8 @@ take the resolved order as a parameter (the rule parser threads it in from
 the profile; run_pipeline.py persists it into data/ai_parsed/<act>.json so
 the exporters can read it back without re-loading the profile). The
 module-level HIERARCHY_ORDER / HIERARCHY_RANK / HEADING_LEVELS are the
-defaults, used for the AI-engine path and as the fallback when a node
-list carries no hierarchy of its own.
+defaults, used as the fallback when a node list carries no hierarchy of
+its own.
 
 "schedule" sits shallower than "chapter", not nested under it: a Schedule
 doesn't belong to any enclosing Part/Division the way the rest of the
@@ -95,7 +95,7 @@ def heading_levels(order: list[str]) -> set[str]:
     return set(order)
 
 
-# Defaults, for the AI-engine path and as a fallback.
+# Defaults, for a node list that carries no hierarchy of its own.
 HIERARCHY_RANK = make_ranks(HIERARCHY_ORDER)
 # "clause" is a Bill's own name for the same top-level numbered provision
 # an Act calls a "section" -- same drafting shape, same nesting rank

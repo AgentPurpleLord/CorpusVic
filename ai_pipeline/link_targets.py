@@ -90,7 +90,7 @@ def build_definition_index(nodes: list[dict]) -> dict[str, int]:
     from body text, since a split definition's own text starts straight
     at "means ..."/"includes ..." with the term itself no longer inline
     for extract_terms's own pattern to find. Anything not already split
-    this way (the AI-engine path, or a node whose typesetting didn't
+    this way (a node whose typesetting didn't
     carry the bold+italic signal) still falls back to extract_terms."""
     index: dict[str, int] = {}
 

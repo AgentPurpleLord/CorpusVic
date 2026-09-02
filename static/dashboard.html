@@ -223,28 +223,6 @@
             <input type="number" name="end_page" min="1">
           </div>
         </div>
-
-        <label>Engine</label>
-        <select name="engine" id="add-engine" onchange="onEngineChange()">
-          <option value="rules">Rules (default -- free, instant)</option>
-          <option value="ai">AI (model backend)</option>
-        </select>
-
-        <div id="ai-fields" style="display:none">
-          <div class="row">
-            <div>
-              <label>Backend</label>
-              <select name="backend">
-                <option value="ollama">ollama</option>
-                <option value="claude">claude</option>
-              </select>
-            </div>
-            <div>
-              <label>Model (optional)</label>
-              <input type="text" name="model" placeholder="backend default">
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="footer">
@@ -284,28 +262,6 @@
           <div>
             <label>End page (optional)</label>
             <input type="number" name="end_page" min="1">
-          </div>
-        </div>
-
-        <label>Engine</label>
-        <select name="engine" id="parse-engine" onchange="onParseEngineChange()">
-          <option value="rules">Rules (default -- free, instant)</option>
-          <option value="ai">AI (model backend)</option>
-        </select>
-
-        <div id="parse-ai-fields" style="display:none">
-          <div class="row">
-            <div>
-              <label>Backend</label>
-              <select name="backend">
-                <option value="ollama">ollama</option>
-                <option value="claude">claude</option>
-              </select>
-            </div>
-            <div>
-              <label>Model (optional)</label>
-              <input type="text" name="model" placeholder="backend default">
-            </div>
           </div>
         </div>
       </div>
@@ -399,18 +355,10 @@ function onKindChange() {
   const isEm = document.getElementById("add-kind").value === "em";
   document.getElementById("act-bill-fields").style.display = isEm ? "none" : "block";
 }
-function onEngineChange() {
-  const isAi = document.getElementById("add-engine").value === "ai";
-  document.getElementById("ai-fields").style.display = isAi ? "block" : "none";
-}
 
 function onParseKindChange() {
   const isEm = document.getElementById("parse-kind").value === "em";
   document.getElementById("parse-act-bill-fields").style.display = isEm ? "none" : "block";
-}
-function onParseEngineChange() {
-  const isAi = document.getElementById("parse-engine").value === "ai";
-  document.getElementById("parse-ai-fields").style.display = isAi ? "block" : "none";
 }
 
 function statusLabel(s) {
@@ -534,7 +482,6 @@ function openParseModal(slug) {
   // act_status's has_profile).
   if (s.has_profile) document.querySelector("#parse-form input[name=profile]").value = slug;
   onParseKindChange();
-  onParseEngineChange();
   openModal("parse-modal");
 }
 
