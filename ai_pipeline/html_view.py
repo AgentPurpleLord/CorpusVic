@@ -27,6 +27,14 @@ structure with, so markdown_export.py turns every one of those into a
 heading and pools the history at the foot -- that's a limitation of the
 format, not the intended reading.
 
+The Act's own Endnotes get a page of their own (render_endnotes): the
+General information block, the Table of Amendments read as a real table --
+each amending Act with its assent and commencement dates and the
+provisions of this Act it actually touched -- and the Explanatory details.
+Each margin note on a Section page links into it, naming the Act behind
+its citation, because a note only ever says "No. 68/2009" and no reader
+holds a hundred Act numbers in their head.
+
 A Section page also carries an "Explained in" bar: the Bill clause it was
 enacted from and the Explanatory Memorandum's note on it, worked out by
 ai_pipeline/commentary.py from run_bill_linking.py's link records and
@@ -62,6 +70,7 @@ import html
 import re
 
 from .akn_export import build_hierarchy_tree
+from .amendments import anchor_id, describe, resolve_note
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES
 from .markdown_export import (
     _DIVISION_REF_RE,
@@ -200,18 +209,31 @@ def _verification_badge(verification: dict) -> str:
     return f'<div class="verify-badge verify-{status}">{_esc(label)}</div>'
 
 
-def _margin_notes_html(node: dict) -> str:
+def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | None = None) -> str:
     """This one provision's own amendment-history notes, for the right-hand
     margin column beside it -- the same place the source PDF prints them,
     rather than pooled into one list at the foot of the page. A note whose
     own attachment was a guess (confidence "low" -- see tree.py's
     attach_history) is marked, so a reader can tell "the drafter put this
-    here" apart from "the parser worked out where this probably goes"."""
+    here" apart from "the parser worked out where this probably goes".
+
+    Given an amendment_index (see ai_pipeline/amendments.py), each note also
+    names the Act behind its citation. The note itself only ever says
+    "No. 68/2009"; the Act's own Table of Amendments says which Act that is
+    and when it commenced, and a reader shouldn't have to hold 100 Act
+    numbers in their head to read a margin."""
     bits = []
     for h in node.get("history") or []:
-        cls = "hist-note low" if h.get("confidence") == "low" else "hist-note"
-        title = ' title="Attached to this provision as the closest match, not an exact citation"' if h.get("confidence") == "low" else ""
+        low = h.get("confidence") == "low"
+        cls = "hist-note low" if low else "hist-note"
+        title = ' title="Attached to this provision as the closest match, not an exact citation"' if low else ""
         bits.append(f'<span class="{cls}"{title}>{_esc(h["raw"])}</span>')
+        for record in resolve_note(h["raw"], amendment_index) if amendment_index else []:
+            href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
+            bits.append(
+                f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">'
+                f'{_esc(record["title"] or record["cited_as"])}</a>'
+            )
     return "".join(bits)
 
 
@@ -247,6 +269,11 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
     verification = _collect_verification(tree_roots)
 
     out = [f"<h1>{_esc(act_title)}</h1>", _verification_badge(verification)]
+    if parsed.get("endnotes"):
+        out.append(
+            f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
+            "&mdash; general information, the Table of Amendments, explanatory details</div>"
+        )
     list_open = False
 
     def close_list():
@@ -302,13 +329,17 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
     return f'<div class="crossrefs"><span class="crossrefs-label">Explained in</span>{chips}</div>'
 
 
-def render_section(parsed: dict, act_title: str, base_url: str, section_slug: str, crossrefs: list[dict] | None = None) -> str | None:
+def render_section(
+    parsed: dict, act_title: str, base_url: str, section_slug: str,
+    crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
+) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
     Section matches -- the caller (dashboard.py) turns that into a 404.
 
     crossrefs, if given, are the related-document chips described in
-    _crossrefs_html."""
+    _crossrefs_html; amendment_index, if given, is what lets each margin
+    note name the Act behind its citation (see _margin_notes_html)."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -383,7 +414,7 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
         # One margin cell per provision, empty or not: the two columns are
         # auto-placed rows of the same grid, so a note only stays level with
         # the provision it belongs to if every provision contributes a cell.
-        notes = _margin_notes_html(unit_node) if unit["clause_index"] == 0 else ""
+        notes = _margin_notes_html(unit_node, base_url, amendment_index) if unit["clause_index"] == 0 else ""
         out.append(f'<div class="prov-notes">{notes}</div>')
     out.append("</div>")
 
@@ -397,6 +428,109 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
         nav.append(f'<a href="{base_url}/section/{_strip_md(next_filename)}">Next &raquo;</a>')
     out.append(f'<div class="section-nav">{" | ".join(nav)}</div>')
 
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Endnotes
+# ---------------------------------------------------------------------------
+# How many of an amending Act's own provision-changes to list before the
+# rest go behind a count. The Criminal Procedure Act's busiest amending Act
+# touched 228 provisions; printing all of them for all 73 of them would
+# make this page longer than several of the Act's own Parts.
+_AMENDMENT_PROVISION_LIMIT = 40
+
+
+def _amending_act_html(entry: dict, section_files: dict[str, str], base_url: str) -> str:
+    record = entry["record"]
+    rows = []
+    for label, keys in (
+        ("Assent", ("assent_date",)),
+        ("Made", ("date_of_making",)),
+        ("Commencement", ("commencement_date", "date_of_commencement")),
+        ("Note", ("note",)),
+        ("Current state", ("current_state",)),
+    ):
+        value = next((record[k] for k in keys if record.get(k)), None)
+        if value:
+            rows.append(f"<dt>{_esc(label)}</dt><dd>{_esc(value)}</dd>")
+    if record.get("source") == "registry":
+        # Named from the general Act registry rather than this Act's own
+        # Table of Amendments, so it carries no assent or commencement --
+        # say which, instead of showing an entry that just looks incomplete.
+        rows.append("<dt>Source</dt><dd>Named from the Act registry &mdash; not listed in this Act's own Table of Amendments</dd>")
+
+    provisions = entry["provisions"]
+    listed = provisions[:_AMENDMENT_PROVISION_LIMIT]
+    chips = []
+    for provision in listed:
+        filename = section_files.get(str(provision["section_number"] or "").lower())
+        label = _esc(provision["label"])
+        chips.append(
+            f'<a class="amend-prov" href="{base_url}/section/{_strip_md(filename)}">{label}</a>'
+            if filename else f'<span class="amend-prov">{label}</span>'
+        )
+    more = f' <span class="amend-more">and {len(provisions) - len(listed)} more</span>' if len(provisions) > len(listed) else ""
+    touched = (
+        f'<details class="amend-provisions"><summary>{len(provisions)} provision(s) in this Act</summary>'
+        f'<div class="amend-prov-list">{"".join(chips)}{more}</div></details>'
+        if provisions else ""
+    )
+    cite = f'<span class="amend-cite">No. {_esc(record.get("citation") or "?")}</span>' if record.get("citation") else ""
+    return (
+        f'<div class="amend" id="{_esc(anchor_id(record.get("citation")))}">'
+        f'<div class="amend-head">{cite}{_esc(record.get("title") or "")}</div>'
+        f'<dl class="amend-fields">{"".join(rows)}</dl>{touched}</div>'
+    )
+
+
+def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[dict] | None = None) -> str | None:
+    """The Act's own Endnotes, read as the printed page reads them rather
+    than as the wall of text they extract to: General information, the
+    Table of Amendments as an actual table, and Explanatory details.
+
+    `summary` is ai_pipeline/amendments.summarise_by_act's output -- every
+    amending Act this Act's margin notes actually cite, with the provisions
+    each one touched. That is the Table of Amendments read the other way
+    round, and the question a reader actually has; the Acts in the table
+    that no margin note cites are listed after it, unchanged.
+
+    Returns None when this document has no endnotes (a Bill, an Explanatory
+    Memorandum, an Act parsed before this was extracted), which the caller
+    turns into a 404."""
+    endnotes = parsed.get("endnotes")
+    if not endnotes:
+        return None
+    ctx = _build_context(parsed, act_title)
+    section_files = ctx["section_files"]
+    summary = summary or []
+    cited = {entry["citation"] for entry in summary}
+
+    out = [
+        f'<div class="breadcrumb"><a href="{base_url}/">{_esc(ctx["index_link_text"])}</a> &raquo; Endnotes</div>',
+        "<h1>Endnotes</h1>",
+    ]
+    for section in endnotes.get("sections") or []:
+        out.append(f'<h2 id="endnote-{_esc(section["number"])}">{_esc(section["number"])} {_esc(section["heading"])}</h2>')
+        if section.get("text"):
+            out.append(f'<div class="endnote-text">{_esc(section["text"])}</div>')
+        if "table of amendments" not in (section["heading"] or "").lower():
+            continue
+        if summary:
+            out.append('<h3>Acts that amended provisions of this Act</h3>')
+            out.extend(_amending_act_html(entry, section_files, base_url) for entry in summary)
+        uncited = [
+            {"record": record, "provisions": []}
+            for record in endnotes.get("amending_acts") or []
+            if record.get("citation") not in cited
+        ]
+        if uncited:
+            out.append(
+                f'<h3>Also in the Table of Amendments ({len(uncited)})</h3>'
+                '<p class="endnote-aside">Listed in the printed table, but not cited by any margin note in this '
+                "Act &mdash; typically an amendment to a provision that has since been repealed.</p>"
+            )
+            out.extend(_amending_act_html(entry, section_files, base_url) for entry in uncited)
     return "\n".join(out)
 
 
@@ -619,6 +753,29 @@ a:hover { text-decoration: underline; }
 /* A note the parser placed by proximity rather than by an explicit
    citation -- flagged so a reader can tell a guess from a certainty. */
 .hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
+
+/* Endnotes page: the Table of Amendments as a table. */
+.index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
+.endnote-text { white-space: pre-line; margin-bottom: 18px; }
+.endnote-aside { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
+.amend { border-top: 1px solid var(--border); padding: 12px 0 4px; }
+.amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.amend-cite {
+  display: inline-block; font-weight: 500; font-size: 11.5px; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; margin-right: 8px;
+}
+.amend-fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 14px; margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px; }
+.amend-fields dt { color: var(--muted); }
+.amend-fields dd { margin: 0; }
+.amend-provisions { font-family: var(--sans); font-size: 12.5px; }
+.amend-provisions summary { cursor: pointer; color: var(--accent); }
+.amend-prov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--fg); }
+a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
+/* The amending Act's name, printed in the margin under the note that cites
+   it -- the note itself only ever gives a number. */
+.hist-act { display: block; margin: -2px 0 6px; font-size: 11px; line-height: 1.35; }
 
 /* "Explained in" chips under a Section's title: the Bill clause it was
    enacted from, and the Explanatory Memorandum's note on it. Ordinary

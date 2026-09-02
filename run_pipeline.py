@@ -35,9 +35,14 @@ drafting conventions, so pass that Act's --profile too where one exists
 (as above) rather than duplicating the same overrides under a new name --
 nothing here ties a profile's filename to the PDF slug it's used with.
 
+An Act's closing Endnotes are split off before the body parse and handed
+to ai_pipeline/endnotes.py, which reads the Table of Amendments as a real
+table (see its own docstring for why that needs geometry, not text). The
+result rides along in data/ai_parsed/<act-slug>.json under "endnotes".
+
 Writes:
     data/extracted/<act-slug>.json     -- cleaned per-page text
-    data/ai_parsed/<act-slug>.json     -- the structured node list
+    data/ai_parsed/<act-slug>.json     -- the structured node list + endnotes
     data/diagnostics/<act-slug>.json   -- (rules engine) the anomaly report
 
 Next step: python review.py <act-slug>
@@ -48,6 +53,7 @@ import sys
 from pathlib import Path
 
 from ai_pipeline.diagnostics import run_diagnostics
+from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import HIERARCHY_ORDER
 from ai_pipeline.rule_parser import parse_act
@@ -103,8 +109,20 @@ def main():
         start = detected - 1
         print(f"Auto-detected body start at page {detected} (override with --start-page)")
     end = args.end_page if args.end_page is not None else len(all_pages)
-    pages = all_pages[start:end]
-    print(f"Using pages {start + 1}-{end} ({len(pages)} pages)")
+
+    # The Endnotes are a different document with a different layout (a
+    # two-column table), and their own section headings ("1 General
+    # information", "2 Table of Amendments") are shaped exactly like the
+    # Act's -- so left in the body parse they collide with the Act's real
+    # sections 1 and 2 and swallow every remaining page into one node.
+    # Split them out and hand them to their own parser instead.
+    endnotes_start = detect_endnotes_start(all_pages)
+    body_end = min(end, endnotes_start - 1) if endnotes_start else end
+    pages = all_pages[start:body_end]
+    endnote_pages = all_pages[endnotes_start - 1 : end] if endnotes_start else []
+    print(f"Using pages {start + 1}-{body_end} ({len(pages)} pages)")
+    if endnote_pages:
+        print(f"Endnotes detected at page {endnotes_start} -- parsed separately ({len(endnote_pages)} pages)")
 
     extracted_dir = Path("data/extracted")
     extracted_dir.mkdir(parents=True, exist_ok=True)
@@ -122,6 +140,17 @@ def main():
         engine_meta = {"engine": "ai", "backend": args.backend, "model": backend.model}
         hierarchy_order = list(HIERARCHY_ORDER)
 
+    endnotes = None
+    if endnote_pages:
+        endnotes_result = parse_endnotes(endnote_pages)
+        endnotes = endnotes_result.to_dict()
+        print(
+            f"[{act_slug}] endnotes -> {len(endnotes_result.amending_acts)} amending Act(s) in the Table of "
+            f"Amendments, {endnotes_result.lines_consumed}/{endnotes_result.lines_total} lines consumed"
+        )
+        for w in endnotes_result.warnings[:5]:
+            print(f"  ! {w}")
+
     print("Attaching amendment-history margin notes ...")
     unattached_notes = attach_history(nodes, pages, hierarchy_order)
     if unattached_notes:
@@ -136,6 +165,7 @@ def main():
                 "act": act_slug, "source": str(pdf_path), **engine_meta,
                 "hierarchy": hierarchy_order,
                 "nodes": nodes, "unattached_notes": unattached_notes,
+                "endnotes": endnotes,
             },
             indent=2,
         ),

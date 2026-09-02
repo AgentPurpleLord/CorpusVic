@@ -69,6 +69,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from pydantic import BaseModel
 
 from ai_pipeline import db, html_view
+from ai_pipeline.act_registry import load_act_registry
+from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
 from ai_pipeline.extract import slugify
 from review import _resume_point, build_current_nodes, group_into_units
@@ -874,6 +876,33 @@ def _section_crossrefs(act_slug: str, section_number: str | None) -> list[dict]:
     return chips
 
 
+_amendment_cache: dict[str, tuple[tuple, dict]] = {}
+
+
+def _amendments(slug: str) -> dict:
+    """{"index", "summary"} for one Act: the lookup that turns a margin
+    note's "No. 68/2009" into a named Act with its assent and commencement
+    dates, and that same table read the other way round (per amending Act,
+    which provisions it touched). Cached against the same signature the
+    browse pages use -- the summary is derived from the current nodes, so a
+    reviewer's edit has to be able to change it."""
+    signature = _browse_state_signature(slug)
+    cached = _amendment_cache.get(slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    endnotes = None
+    try:
+        endnotes = json.loads(parsed_path.read_text(encoding="utf-8")).get("endnotes")
+    except (OSError, ValueError):
+        pass
+    index = build_amendment_index(endnotes, load_act_registry())
+    nodes, _unattached, _hierarchy = _current_nodes(slug) if parsed_path.exists() else ([], [], [])
+    result = {"index": index, "summary": summarise_by_act(nodes, index), "endnotes": endnotes}
+    _amendment_cache[slug] = (signature, result)
+    return result
+
+
 _act_title_cache: dict[str, str] = {}
 
 
@@ -957,7 +986,10 @@ def browse_index(slug: str):
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
     nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
-    body = html_view.render_index({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}")
+    body = html_view.render_index(
+        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"]},
+        title, f"/browse/{slug}",
+    )
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
 
@@ -982,10 +1014,32 @@ def browse_section(slug: str, section_slug: str):
     body = html_view.render_section(
         {"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug,
         crossrefs=_section_crossrefs(slug, section_number),
+        amendment_index=_amendments(slug)["index"],
     )
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+
+
+@app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)
+def browse_endnotes(slug: str):
+    """The Act's own Endnotes -- General information, the Table of
+    Amendments read as a real table, and Explanatory details. 404s for a
+    document that has none (a Bill, an Explanatory Memorandum, or an Act
+    parsed before ai_pipeline/endnotes.py existed -- re-parse it)."""
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    nodes, _unattached, hierarchy = _current_nodes(slug)
+    amendments = _amendments(slug)
+    title = _act_title(slug)
+    body = html_view.render_endnotes(
+        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
+        title, f"/browse/{slug}", amendments["summary"],
+    )
+    if body is None:
+        raise HTTPException(404, f"{slug!r} has no endnotes -- re-parse it if it's an Act.")
+    return HTMLResponse(html_view.page_shell(f"{title} \u2014 Endnotes", body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
 
 @app.get("/api/browse/{slug}/preview")

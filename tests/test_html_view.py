@@ -3,7 +3,14 @@ render_preview, which decides what one hover card gets to show. The
 dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
-from ai_pipeline.html_view import build_page_index, render_index, render_preview, render_section
+from ai_pipeline.amendments import build_amendment_index
+from ai_pipeline.html_view import (
+    build_page_index,
+    render_endnotes,
+    render_index,
+    render_preview,
+    render_section,
+)
 
 from conftest import make_node
 
@@ -169,3 +176,78 @@ def test_build_page_index_maps_provisions_to_their_pages():
 
     assert index["by_node_index"] == {1: "c1", 3: "c2"}
     assert index["by_number"] == {"1": "c1", "2": "c2"}
+
+
+_ENDNOTES = {
+    "sections": [
+        {"number": "1", "heading": "General information", "text": "See www.legislation.vic.gov.au.",
+         "page_start": 1, "page_end": 1},
+        {"number": "2", "heading": "Table of Amendments", "text": "This publication incorporates amendments.",
+         "page_start": 2, "page_end": 2},
+    ],
+    "amending_acts": [
+        {"title": "Amending Act 2009", "citation": "68/2009", "act_no": "68", "year": "2009",
+         "is_statutory_rule": False, "fields": {"assent_date": "24.11.09"}},
+        {"title": "Uncited Act 2011", "citation": "29/2011", "act_no": "29", "year": "2011",
+         "is_statutory_rule": False, "fields": {"assent_date": "21.6.11"}},
+    ],
+}
+
+
+def _act_with_endnotes():
+    return {"nodes": _definitions_act(), "hierarchy": None, "endnotes": _ENDNOTES}
+
+
+def test_render_endnotes_lists_each_amending_act_with_its_dates():
+    summary = [{
+        "citation": "68/2009",
+        "record": {"title": "Amending Act 2009", "citation": "68/2009", "assent_date": "24.11.09",
+                   "commencement_date": "1.1.10", "source": "endnotes"},
+        "provisions": [{"label": "s. 3", "note": "S. 3 amended by No. 68/2009.", "section_number": "3"}],
+        "count": 1,
+    }]
+    html = render_endnotes(_act_with_endnotes(), "Test Act", "/browse/a", summary)
+
+    assert '<div class="amend" id="act-68-2009">' in html
+    assert "<dt>Assent</dt><dd>24.11.09</dd>" in html
+    assert "1 provision(s) in this Act" in html
+    # a provision links to its own page
+    assert '<a class="amend-prov" href="/browse/a/section/s3">s. 3</a>' in html
+
+
+def test_render_endnotes_separates_acts_no_margin_note_cites():
+    # In the printed table but never cited -- typically an amendment to a
+    # provision since repealed. Shown, but not mixed in with the rest.
+    html = render_endnotes(_act_with_endnotes(), "Test Act", "/browse/a", summary=[])
+
+    assert "Also in the Table of Amendments (2)" in html
+    assert 'id="act-29-2011"' in html
+
+
+def test_render_endnotes_returns_none_without_endnotes():
+    # A Bill, an EM, or an Act parsed before endnotes were extracted.
+    assert render_endnotes(_parsed(_definitions_act()), "Test Act", "/browse/a") is None
+
+
+def test_render_index_links_to_the_endnotes_when_there_are_some():
+    assert '/browse/a/endnotes' in render_index(_act_with_endnotes(), "Test Act", "/browse/a")
+    assert "endnotes" not in render_index(_parsed(_definitions_act()), "Test Act", "/browse/a")
+
+
+def test_a_margin_note_names_the_act_behind_its_citation():
+    nodes = _definitions_act()
+    nodes[1]["history"] = [{"raw": "S. 3 amended by No. 68/2009 s. 51."}]
+    index = build_amendment_index(_ENDNOTES, {})
+    body = render_section({"nodes": nodes, "hierarchy": None}, "Test Act", "/browse/a", "s3", amendment_index=index)
+
+    assert 'href="/browse/a/endnotes#act-68-2009"' in body
+    assert ">Amending Act 2009</a>" in body
+
+
+def test_a_margin_note_without_an_index_is_left_as_the_bare_citation():
+    nodes = _definitions_act()
+    nodes[1]["history"] = [{"raw": "S. 3 amended by No. 68/2009 s. 51."}]
+    body = render_section({"nodes": nodes, "hierarchy": None}, "Test Act", "/browse/a", "s3")
+
+    assert "hist-act" not in body
+    assert "S. 3 amended by No. 68/2009 s. 51." in body

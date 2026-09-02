@@ -240,8 +240,20 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
 # Amendment history -> lifecycle / analysis / references / notes
 # ---------------------------------------------------------------------------
 
-_MODERN_CITATION_RE = re.compile(r"No\.?\s*(\d+)\s*/\s*(\d{4})")
-_OLD_CITATION_RE = re.compile(r"No\.?\s*(\d{3,6})\b(?!\s*/)")
+# A modern citation is matched on its "NN/YYYY" shape alone, without
+# requiring the "No." in front: a note citing several Acts writes the word
+# once and then lists bare numbers ("amended by Nos 26/2014 s. 455(Sch.
+# item 8.1), 19/2019 s. 258(a), 39/2022 s. 39"), so a prefix-anchored
+# pattern silently found only the first -- or, with "Nos", none at all.
+# Nothing else in a margin note takes this shape (checked against every
+# note in the Criminal Procedure Act: 52 distinct bare matches, all of them
+# real Acts in its own Table of Amendments).
+_MODERN_CITATION_RE = re.compile(r"\b(\d{1,5})\s*/\s*((?:18|19|20)\d{2})\b")
+# A pre-1970s Act has no year in its number at all, and a bare 4-5 digit
+# number is not safely a citation on its own -- so this one does need the
+# "No."/"Nos" in front, and a second, unprefixed number in such a list
+# ("Nos 8679, 9576") is left unmatched rather than guessed at.
+_OLD_CITATION_RE = re.compile(r"Nos?\.?\s*(\d{3,6})\b(?!\s*/)")
 
 _MOD_TYPE_KEYWORDS = [
     ("inserted", "insertion"),
