@@ -1,18 +1,27 @@
-# Regenerable pipeline outputs (re-run run_pipeline.py / export_akn.py to recreate)
+# Pure regenerable pipeline outputs -- re-run run_pipeline.py / export_akn.py
+# / export_markdown.py to recreate, never needed just to run review.py, so
+# there's nothing to gain from committing them.
 data/extracted/
-data/ai_parsed/
 data/diagnostics/
 data/akn/
 data/markdown/
 
-# The durable, human-created review data (verified state, link
-# annotations, the correction log -- see ai_pipeline/db.py's module
-# docstring) now lives in this one SQLite file instead of data/verified/,
-# data/links/, and data/corrections.jsonl. Not committed here either --
-# a binary database file doesn't diff/merge meaningfully in git -- but
-# unlike the regenerable outputs above, this one genuinely can't be
-# recreated if lost, so back it up separately (see deploy/README.md).
-data/legislation.db
+# data/ai_parsed/<act>.json (the raw parse) and data/legislation.db (the
+# durable, human-created review state overlaid on it -- verified rows,
+# link annotations, the correction log; see ai_pipeline/db.py's module
+# docstring) ARE committed, deliberately, as a pair: review.py's verified
+# rows are keyed by a *positional* index into that exact parse, so a
+# clone that had the DB but regenerated ai_parsed from a later parser
+# version could silently misalign verified content with the wrong
+# provisions. Committing both together means a fresh clone (e.g. a
+# temporary cloud dev environment) can open review.py immediately with
+# your actual progress intact, no pipeline re-run and no drift risk. See
+# deploy/README.md's "Working from a remote dev environment" section.
+#
+# Run `python checkpoint_db.py` before committing data/legislation.db --
+# it's opened in WAL mode, so a recent write can sit in the -wal file
+# below (gitignored, along with -shm) rather than the main file yet;
+# checkpointing folds it in so the committed file is always complete.
 data/legislation.db-wal
 data/legislation.db-shm
 

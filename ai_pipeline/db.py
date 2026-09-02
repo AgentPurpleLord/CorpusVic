@@ -4,19 +4,25 @@ to live in data/verified/<act>.json, data/links/<act>.json, and
 data/corrections.jsonl -- one shared file, data/legislation.db, holding
 every Act.
 
-Deliberately scoped to *only* that data, not the whole pipeline: data/
-ai_parsed/<act>.json (and extracted/, diagnostics/, akn/, markdown/) stay
-exactly as they are, plain JSON files under data/, because they're
-regenerable pipeline output -- re-running run_pipeline.py recreates them
-from the source PDF, so there's nothing there that "longevity" is actually
-about. What genuinely needs it is the other three: hours of a human's own
+Deliberately scoped to *only* that data, not the whole pipeline:
+data/extracted/, data/diagnostics/, data/akn/, and data/markdown/ stay
+exactly as they are, plain JSON/XML/Markdown files under data/, because
+they're pure regenerable pipeline output -- re-running run_pipeline.py /
+export_akn.py / export_markdown.py recreates them from the source PDF,
+so there's nothing there that "longevity" is actually about. What
+genuinely needs it is the other three: hours of a human's own
 accept/flag/edit decisions, span-level link annotations, and the
 correction log run_pipeline.py reads back in as few-shot examples --
 exactly the things a crash mid `path.write_text(json.dumps(whole_file))`
-could previously corrupt outright, and the things this project's own
-.gitignore already singled out as "meant to be kept" even though nothing
-ever actually committed them (see migrate_json_to_sqlite.py for bringing
-any such existing JSON data into this file).
+could previously corrupt outright.
+
+data/ai_parsed/<act>.json (the raw parse) is technically regenerable the
+same way, but is committed to git *alongside* data/legislation.db as a
+deliberate pair -- see .gitignore's own comment on this -- since this
+file's own verified rows are keyed by a positional index into that exact
+parse, and a mismatched regeneration would silently misalign them (see
+migrate_json_to_sqlite.py for bringing any pre-migration JSON review data
+into this file, and checkpoint_db.py before committing this one).
 
 Every function here keeps the exact name and dict/list shape its old
 JSON-backed counterpart had (load_verified/save_verified in review.py,
