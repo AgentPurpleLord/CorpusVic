@@ -108,7 +108,7 @@ from ai_pipeline.examples_store import add_correction, stats
 from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from ai_pipeline.link_targets import build_definition_index, resolve_link
-from ai_pipeline.schema import NODE_TYPES
+from ai_pipeline.schema import NODE_TYPES, types_for_document
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -177,6 +177,17 @@ def load_source_pdf_path(act: str) -> str | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("source")
+
+
+def load_document_type(act: str) -> "str | None":
+    """Whether this is an Act, a Bill or an Explanatory Memorandum, as
+    run_pipeline.py/run_em_pipeline.py recorded it. None for a parse from
+    before that field existed -- see schema.types_for_document, which
+    treats that as "offer everything" rather than guessing."""
+    path = Path("data/ai_parsed") / f"{act}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8")).get("document_type")
 
 
 def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
@@ -520,6 +531,7 @@ _hierarchy: list[str] = []
 _relabel_types: list[str] = []
 _startup_resume_unit = 0
 _source_pdf_path: str | None = None
+_document_type: str | None = None
 _act_title: str | None = None
 _pdf_doc: "fitz.Document | None" = None
 _page_image_cache: "dict[tuple[int, float], bytes]" = {}
@@ -1392,11 +1404,19 @@ def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
 # Node types ("legislation part" types)
 # ---------------------------------------------------------------------------
 def _builtin_type_names() -> list[str]:
-    """This Act's own hierarchy levels first (a custom top level like
-    "chapter" declared in its profile won't be in the built-in list),
-    then the fixed schema enum -- the exact order main() has always
-    built _relabel_types in."""
-    return list(dict.fromkeys([*_hierarchy, *NODE_TYPES]))
+    """The types this document can be labelled with: any level its own
+    profile declares that the schema doesn't know about, then the set for
+    its kind of document -- an Act is never asked whether something is a
+    "clause", and a Bill is never offered "section" (see
+    schema.TYPES_BY_DOCUMENT).
+
+    Anything a node actually carries is appended regardless. Filtering
+    must never leave a piece's own type missing from the list it would be
+    relabelled with: that would make the dropdown silently reassign it on
+    the reviewer's next edit."""
+    custom_levels = [t for t in _hierarchy if t not in NODE_TYPES]
+    in_use = [t for t in _type_usage() if t]
+    return list(dict.fromkeys([*custom_levels, *types_for_document(_document_type), *in_use]))
 
 
 def _refresh_relabel_types() -> None:
@@ -1622,7 +1642,7 @@ def remove_link(link_id: str):
 def main():
     global _act, _nodes, _units, _unit_of_index, _verified, _definition_index
     global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
-    global _source_pdf_path, _act_title
+    global _source_pdf_path, _act_title, _document_type
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("act")
@@ -1633,6 +1653,7 @@ def main():
     _act = args.act
     _nodes, _unattached_notes, _hierarchy, _parse_fingerprint = load_parsed(args.act)
     _source_pdf_path = load_source_pdf_path(args.act)
+    _document_type = load_document_type(args.act)
     # Computed once here, not per-request: _detect_act_citation re-reads
     # and re-extracts the *whole* source PDF via PyMuPDF just to find the
     # title on its first couple of pages (see dashboard.py's own
@@ -1646,9 +1667,6 @@ def main():
         for i in indices:
             _unit_of_index[i] = u
     _definition_index = build_definition_index(_nodes)
-    # Built-in types plus whatever extra ones this Act's reviewer has
-    # defined for themselves (see the node-types endpoints).
-    _refresh_relabel_types()
 
     for finding in load_diagnostics(args.act):
         if finding.get("node_index") is not None:
@@ -1663,6 +1681,10 @@ def main():
         # belongs to this parse -- record that now, rather than leaving
         # the first session's work unattributable to any parse at all.
         db.save_parse_fingerprint(args.act, _parse_fingerprint)
+    # After the verified rows are in: the type list includes every type
+    # actually in use (see _builtin_type_names), and a reviewer's own
+    # relabel lives in those rows, not in the parse.
+    _refresh_relabel_types()
     _positions_trusted = positions_are_trustworthy(args.act, _parse_fingerprint)
     _startup_resume_unit = _resume_point(_units, _verified, markers_are_complete=_positions_trusted)
     # Reconstruct which nodes were merged away in a prior session: any
