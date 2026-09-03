@@ -163,3 +163,30 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
         else:
             units.append([i])
     return units
+
+
+def schedule_numbers(nodes: list[dict]) -> list["str | None"]:
+    """Which Schedule each node sits in, by position -- the Schedule's own
+    number, or None for a node in the document's body.
+
+    A Schedule numbers its own provisions from 1 again (an Act's Schedule
+    items are numbered "in the same way as sections", per
+    acts/profiles/basic-structure.yaml), so a number alone does not
+    identify a provision: the Criminal Procedure Act has a section 11 and
+    a Schedule 1 clause 11, and its Bill and Explanatory Memorandum each
+    have both too. Anything matching provisions between documents has to
+    key on this as well as the number, or every Schedule provision
+    collides with the body provision sharing its number.
+
+    A node that records its own Schedule is believed (an Explanatory
+    Memorandum's entries carry one, since its Schedule headings are plain
+    heading_groups rather than container nodes -- see em_parser.py);
+    otherwise the enclosing Schedule is the last "schedule" node above it.
+    """
+    out: list[str | None] = []
+    current: str | None = None
+    for node in nodes:
+        if node["type"] == "schedule":
+            current = node.get("number")
+        out.append(node.get("schedule") or current)
+    return out

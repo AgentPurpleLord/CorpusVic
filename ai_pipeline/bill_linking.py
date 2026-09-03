@@ -43,7 +43,7 @@ link_annotations.py), whatever its confidence.
 import difflib
 import re
 
-from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES
+from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, schedule_numbers
 
 # A Victorian Act's short title is always "Title Words... Act YYYY" (see
 # the OCPC guide's own section 6.2: "Victorian Acts are referred to by
@@ -118,34 +118,47 @@ def _unit_full_text(nodes: list[dict], root_idx: int) -> str:
 
 
 def match_bill_to_act(bill_nodes: list[dict], act_nodes: list[dict]) -> list[dict]:
-    """[{"clause_number", "bill_node_index", "act_node_index",
-    "act_section_number", "similarity", "status", "verified_at"}, ...] for
-    every Bill clause, in Bill document order. act_section_number is the
-    matched section's own number rather than only its position: a stored
-    node index goes stale the moment a reviewer merges a node away, and
-    anything reading these records back later (see
-    ai_pipeline/commentary.py) needs a handle on the section that
-    survives that. status is "matched" (a same-numbered Act section exists and
-    reads similarly enough), "flagged" (a same-numbered section exists
-    but the text has diverged enough that a human should look -- a House
-    amendment likely touched this provision, or shifted what sits at this
-    number), or "unmatched" (no section with this number exists in the
-    Act at all)."""
-    act_by_number: dict[str, int] = {}
+    """[{"clause_number", "schedule", "bill_node_index", "act_node_index",
+    "act_section_number", "act_schedule", "similarity", "status",
+    "verified_at"}, ...] for every Bill clause, in Bill document order.
+
+    A clause is matched to the Act provision with the same number *in the
+    same Schedule* -- "schedule" is the Bill Schedule the clause sits in
+    (None in the body), "act_schedule" the Act's. A Schedule numbers its
+    own provisions from 1 again, so number alone matched the Bill's
+    Schedule 1 clause 1 to the Act's section 1: 68 of this Bill's clauses
+    were pointed at the wrong provision, and every Schedule clause's
+    commentary landed on an unrelated section of the Act.
+
+    act_section_number is the matched provision's own number rather than
+    only its position: a stored node index goes stale the moment a
+    reviewer merges a node away, and anything reading these records back
+    later (see ai_pipeline/commentary.py) needs a handle that survives
+    that. status is "matched" (a counterpart exists and reads similarly
+    enough), "flagged" (a counterpart exists but the text has diverged
+    enough that a human should look -- a House amendment likely touched
+    this provision, or shifted what sits at this number), or "unmatched"
+    (the Act has no provision of that number in that Schedule)."""
+    act_schedules = schedule_numbers(act_nodes)
+    act_by_key: dict[tuple, int] = {}
     for idx, node in enumerate(act_nodes):
         if node["type"] in UNIT_ROOT_TYPES and node.get("number"):
-            act_by_number.setdefault(node["number"].lower(), idx)
+            act_by_key.setdefault((act_schedules[idx], node["number"].lower()), idx)
 
+    bill_schedules = schedule_numbers(bill_nodes)
     links = []
     for idx, node in enumerate(bill_nodes):
         if node["type"] not in UNIT_ROOT_TYPES or not node.get("number"):
             continue
-        act_idx = act_by_number.get(node["number"].lower())
+        schedule = bill_schedules[idx]
+        act_idx = act_by_key.get((schedule, node["number"].lower()))
         record = {
             "clause_number": node["number"],
+            "schedule": schedule,
             "bill_node_index": idx,
             "act_node_index": act_idx,
             "act_section_number": act_nodes[act_idx]["number"] if act_idx is not None else None,
+            "act_schedule": act_schedules[act_idx] if act_idx is not None else None,
             "similarity": None,
             "status": "unmatched",
             "verified_at": None,
@@ -213,10 +226,12 @@ def resolve_em_links(
         different one is named. "in_force" is only present when the name
         was also found in `act_registry` (see below) -- not every real
         Act citation will be.
-      - {"kind": "bill_clause", "act_slug", "clause_number"} -- no Act
-        name and no alias were found, so this entry is explaining one of
-        the Bill's own provisions; resolved to the Act this Bill itself
-        becomes via `bill_to_act`.
+      - {"kind": "bill_clause", "act_slug", "clause_number", "schedule"}
+        -- no Act name and no alias were found, so this entry is
+        explaining one of the Bill's own provisions; resolved to the Act
+        this Bill itself becomes via `bill_to_act`. "schedule" is the Bill
+        Schedule that clause sits in (None in the body), which is what
+        distinguishes Schedule 1's clause 11 from the body's.
       - None -- nothing in the entry's text identified a target at all
         (a general/overview note, for instance).
 
@@ -233,7 +248,11 @@ def resolve_em_links(
     known_acts = known_acts or {}
     act_registry = act_registry or {}
     title_to_slug = {title: slug for slug, title in known_acts.items()}
-    bill_clause_numbers = {link["clause_number"] for link in bill_to_act}
+    # (Schedule, clause number) of every clause the Bill actually has --
+    # keyed on both, since a Schedule numbers its own clauses from 1
+    # again and an entry on "Schedule 1 clause 11" is not about the body's
+    # clause 11.
+    bill_clause_keys = {(link.get("schedule"), str(link["clause_number"])) for link in bill_to_act}
 
     def act_section_target(slug: str | None, title: str | None, section_ref: str | None) -> dict:
         target = {"kind": "act_section", "act_slug": slug, "act_title": title, "section_ref": section_ref}
@@ -268,11 +287,14 @@ def resolve_em_links(
             # no Act named at all -- both mean whichever Act is currently
             # in scope.
             target = act_section_target(current_act_slug, current_act_title, found["section_ref"])
-        elif node.get("number") in bill_clause_numbers:
+        elif (node.get("schedule"), str(node.get("number"))) in bill_clause_keys:
             # No Act named, no section referenced, but this entry's own
-            # number matches a real Bill clause -- it's explaining the
-            # Bill's own provision at that clause.
-            target = {"kind": "bill_clause", "act_slug": act_slug, "clause_number": node["number"]}
+            # number matches a real Bill clause in the same Schedule --
+            # it's explaining the Bill's own provision at that clause.
+            target = {
+                "kind": "bill_clause", "act_slug": act_slug,
+                "clause_number": node["number"], "schedule": node.get("schedule"),
+            }
 
         links.append({
             "em_node_index": idx, "clause_number": node.get("number"),

@@ -12,7 +12,8 @@ def test_match_bill_to_act_matches_identical_text():
     act_nodes = [make_node("section", "5", "How commenced", "How a criminal proceeding is commenced.")]
     links = match_bill_to_act(bill_nodes, act_nodes)
     assert links == [
-        {"clause_number": "5", "bill_node_index": 0, "act_node_index": 0, "act_section_number": "5",
+        {"clause_number": "5", "schedule": None, "bill_node_index": 0, "act_node_index": 0,
+         "act_section_number": "5", "act_schedule": None,
          "similarity": 1.0, "status": "matched", "verified_at": None}
     ]
 
@@ -215,7 +216,9 @@ def test_resolve_em_links_resolves_a_bare_clause_explanation_to_the_bill_itself(
     bill_to_act = [{"clause_number": "1"}]
     em_nodes = [make_node("clause", "1", None, "sets out the purposes of the Bill.")]
     links = resolve_em_links(em_nodes, "my-bill", "my-bill-act", bill_to_act=bill_to_act, known_acts={})
-    assert links[0]["target"] == {"kind": "bill_clause", "act_slug": "my-bill-act", "clause_number": "1"}
+    assert links[0]["target"] == {
+        "kind": "bill_clause", "act_slug": "my-bill-act", "clause_number": "1", "schedule": None,
+    }
 
     # A note with literally nothing -- no alias, no section, no act name,
     # and its own number isn't a known Bill clause -- resolves to nothing.

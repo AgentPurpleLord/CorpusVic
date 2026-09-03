@@ -4,6 +4,7 @@ dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
 from ai_pipeline.amendments import build_amendment_index
+from ai_pipeline.commentary import provision_key
 from ai_pipeline.html_view import (
     build_page_index,
     render_endnotes,
@@ -175,7 +176,24 @@ def test_build_page_index_maps_provisions_to_their_pages():
     index = build_page_index(parsed, "Test Bill")
 
     assert index["by_node_index"] == {1: "c1", 3: "c2"}
-    assert index["by_number"] == {"1": "c1", "2": "c2"}
+    assert index["by_key"] == {provision_key(None, "1"): "c1", provision_key(None, "2"): "c2"}
+    assert index["schedule_by_node_index"] == {1: None, 3: None}
+
+
+def test_build_page_index_keeps_a_schedules_own_clause_off_the_body_page():
+    # A Schedule numbers its own provisions from 1 again, so this Bill has
+    # a clause 1 and a Schedule 1 clause 1 -- on different pages. Keyed by
+    # number alone the lookup returned the body page for both, which is
+    # how an EM note on Schedule 1 clause 11 ended up on section 11.
+    nodes = _bill_nodes() + [
+        make_node("schedule", "1", "Charges on a charge-sheet"),
+        make_node("clause", "1", "Statement of offence", "A charge must state the offence."),
+    ]
+    index = build_page_index(_parsed(nodes), "Test Bill")
+
+    assert index["by_key"][provision_key(None, "1")] == "c1"
+    assert index["by_key"][provision_key("1", "1")] == "c1_2"
+    assert index["schedule_by_node_index"][5] == "1"
 
 
 _ENDNOTES = {

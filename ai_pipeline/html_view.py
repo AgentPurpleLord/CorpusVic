@@ -71,7 +71,8 @@ import re
 
 from .akn_export import build_hierarchy_tree
 from .amendments import anchor_id, describe, linkify_note
-from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES
+from .commentary import provision_key
+from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_numbers
 from .markdown_export import (
     _DIVISION_REF_RE,
     _PART_REF_RE,
@@ -247,18 +248,33 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     caller building links *into* it from somewhere else (dashboard.py,
     turning an Act section's Bill/EM links into hrefs). Returns
     {"by_node_index": {position in parsed["nodes"] -> page id},
-     "by_number": {provision number, lower-cased -> page id}} -- page id
-    being what render_index links to and render_section matches on."""
+     "by_key": {commentary.provision_key(schedule, number) -> page id},
+     "schedule_by_node_index": {position -> the Schedule it sits in}} --
+    page id being what render_index links to and render_section matches
+    on.
+
+    Keyed by Schedule as well as number because a Schedule numbers its own
+    provisions from 1 again: this Act has a section 11 and a Schedule 1
+    clause 11, on different pages ("s11" and "s11_2"), and a lookup by
+    number alone silently returned the first of them for both."""
     ctx = _build_context(parsed, act_title)
     position_of = {id(node): i for i, node in enumerate(parsed["nodes"])}
+    schedules = schedule_numbers(parsed["nodes"])
     by_node_index = {}
+    by_key = {}
+    schedule_by_node_index = {}
     for tree_node, _breadcrumb in ctx["sections"]:
         position = position_of.get(id(tree_node["node"]))
-        if position is not None:
-            by_node_index[position] = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
+        if position is None:
+            continue
+        page = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
+        by_node_index[position] = page
+        schedule_by_node_index[position] = schedules[position]
+        by_key.setdefault(provision_key(schedules[position], tree_node["node"].get("number")), page)
     return {
         "by_node_index": by_node_index,
-        "by_number": {number: _strip_md(name) for number, name in ctx["section_files"].items()},
+        "by_key": by_key,
+        "schedule_by_node_index": schedule_by_node_index,
     }
 
 

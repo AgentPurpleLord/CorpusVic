@@ -68,7 +68,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import db, html_view
+from ai_pipeline import commentary, db, html_view
 from ai_pipeline.act_registry import load_act_registry
 from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
@@ -808,7 +808,7 @@ def _page_index(slug: str) -> dict:
     if cached is not None and cached[0] == signature:
         return cached[1]
     if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
-        index = {"by_node_index": {}, "by_number": {}}
+        index = {"by_node_index": {}, "by_key": {}, "schedule_by_node_index": {}}
     else:
         nodes, _unattached, hierarchy = _current_nodes(slug)
         index = html_view.build_page_index({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug))
@@ -816,29 +816,40 @@ def _page_index(slug: str) -> dict:
     return index
 
 
-def _section_crossrefs(act_slug: str, section_number: str | None) -> list[dict]:
-    """The "Explained in" chips for one Act section: the Bill clause it was
-    enacted from, and each Explanatory Memorandum note about it, as
+def _section_crossrefs(act_slug: str, section_number: str | None, schedule: str | None = None) -> list[dict]:
+    """The "Explained in" chips for one Act provision: the Bill clause it
+    was enacted from, and each Explanatory Memorandum note about it, as
     ordinary links into those documents' own browse pages (so the hover
     preview reads them like any other link). A related document that
     hasn't been parsed has no page to link to and is simply left out --
-    the link record is about a document this pipeline may not hold."""
+    the link record is about a document this pipeline may not hold.
+
+    `schedule` is the Act Schedule this provision sits in, or None for one
+    in the body. A Schedule numbers its own provisions from 1 again, so
+    without it section 11 and Schedule 1 clause 11 are the same lookup:
+    section 11 collected both their chips and the reader was shown the
+    same clause twice."""
     if not section_number:
         return []
-    entry = _commentary_index(act_slug).get(section_number.lower())
+    entry = _commentary_index(act_slug).get(commentary.provision_key(schedule, section_number))
     if not entry:
         return []
     chips = []
     for bill in entry["bill"]:
-        page = _page_index(bill["bill_slug"])["by_number"].get(str(bill["clause_number"]).lower())
+        where = commentary.provision_key(bill.get("schedule"), bill["clause_number"])
+        page = _page_index(bill["bill_slug"])["by_key"].get(where)
         if not page:
             continue
         title = f"{_act_title(bill['bill_slug'])} \u2014 the clause this section was enacted from"
         if bill.get("status") == "flagged":
             title += f" (wording diverged; {bill['similarity']} text similarity -- worth checking)"
+        label = (
+            f"Bill Schedule {bill['schedule']} clause {bill['clause_number']}"
+            if bill.get("schedule") else f"Bill clause {bill['clause_number']}"
+        )
         chips.append({
             "kind": "bill",
-            "label": f"Bill clause {bill['clause_number']}",
+            "label": label,
             "href": f"/browse/{bill['bill_slug']}/section/{page}",
             "title": title,
         })
@@ -1002,12 +1013,15 @@ def browse_section(slug: str, section_slug: str):
     title = _act_title(slug)
     # Which provision this page is, so its Bill/EM commentary can be looked
     # up by number (see ai_pipeline/commentary.py for why by number).
-    by_node_index = _page_index(slug)["by_node_index"]
-    node_index = next((i for i, page in by_node_index.items() if page == section_slug), None)
+    page_index = _page_index(slug)
+    node_index = next((i for i, page in page_index["by_node_index"].items() if page == section_slug), None)
     section_number = nodes[node_index].get("number") if node_index is not None else None
+    # Which Schedule (if any) this page's own provision sits in -- see
+    # _section_crossrefs on why the number alone doesn't identify it.
+    schedule = page_index["schedule_by_node_index"].get(node_index)
     body = html_view.render_section(
         {"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug,
-        crossrefs=_section_crossrefs(slug, section_number),
+        crossrefs=_section_crossrefs(slug, section_number, schedule),
         amendment_index=_amendments(slug)["index"],
     )
     if body is None:
