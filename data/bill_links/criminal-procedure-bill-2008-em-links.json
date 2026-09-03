@@ -10,7 +10,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "1"
+        "clause_number": "1",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -47,7 +48,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "4"
+        "clause_number": "4",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -58,7 +60,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "5"
+        "clause_number": "5",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -66,11 +69,7 @@
       "em_node_index": 36,
       "clause_number": "6",
       "schedule": null,
-      "target": {
-        "kind": "bill_clause",
-        "act_slug": "criminal-procedure-act",
-        "clause_number": "6"
-      },
+      "target": null,
       "verified_at": null
     },
     {
@@ -87,7 +86,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "7"
+        "clause_number": "7",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -111,7 +111,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "9"
+        "clause_number": "9",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -122,7 +123,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "10"
+        "clause_number": "10",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -133,7 +135,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "11"
+        "clause_number": "11",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -144,7 +147,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "12"
+        "clause_number": "12",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -155,7 +159,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "13"
+        "clause_number": "13",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -166,7 +171,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "14"
+        "clause_number": "14",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -177,7 +183,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "15"
+        "clause_number": "15",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -188,7 +195,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "16"
+        "clause_number": "16",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -199,7 +207,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "17"
+        "clause_number": "17",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -210,7 +219,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "18"
+        "clause_number": "18",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -221,7 +231,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "19"
+        "clause_number": "19",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -232,7 +243,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "20"
+        "clause_number": "20",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -243,7 +255,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "21"
+        "clause_number": "21",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -254,7 +267,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "22"
+        "clause_number": "22",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -265,7 +279,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "23"
+        "clause_number": "23",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -276,7 +291,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "24"
+        "clause_number": "24",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -287,7 +303,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "25"
+        "clause_number": "25",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -298,7 +315,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "26"
+        "clause_number": "26",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -309,7 +327,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "27"
+        "clause_number": "27",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -320,7 +339,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "28"
+        "clause_number": "28",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -331,7 +351,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "29"
+        "clause_number": "29",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -342,7 +363,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "30"
+        "clause_number": "30",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -353,7 +375,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "31"
+        "clause_number": "31",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -377,7 +400,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "32"
+        "clause_number": "32",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -401,7 +425,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "34"
+        "clause_number": "34",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -412,7 +437,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "35"
+        "clause_number": "35",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -423,7 +449,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "36"
+        "clause_number": "36",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -447,7 +474,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "38"
+        "clause_number": "38",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -458,7 +486,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "39"
+        "clause_number": "39",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -469,7 +498,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "39"
+        "clause_number": "39",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -480,7 +510,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "40"
+        "clause_number": "40",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -504,7 +535,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "45"
+        "clause_number": "45",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -515,7 +547,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "45"
+        "clause_number": "45",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -539,7 +572,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "47"
+        "clause_number": "47",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -550,7 +584,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "48"
+        "clause_number": "48",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -561,7 +596,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "49"
+        "clause_number": "49",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -585,7 +621,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "51"
+        "clause_number": "51",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -596,7 +633,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "52"
+        "clause_number": "52",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -607,7 +645,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "53"
+        "clause_number": "53",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -618,7 +657,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "54"
+        "clause_number": "54",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -629,7 +669,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "55"
+        "clause_number": "55",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -640,7 +681,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "55"
+        "clause_number": "55",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -651,7 +693,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "56"
+        "clause_number": "56",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -662,7 +705,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "57"
+        "clause_number": "57",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -673,7 +717,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "58"
+        "clause_number": "58",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -697,7 +742,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "60"
+        "clause_number": "60",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -708,7 +754,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "61"
+        "clause_number": "61",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -719,7 +766,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "62"
+        "clause_number": "62",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -730,7 +778,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "63"
+        "clause_number": "63",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -741,7 +790,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "64"
+        "clause_number": "64",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -765,7 +815,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "66"
+        "clause_number": "66",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -776,7 +827,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "67"
+        "clause_number": "67",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -787,7 +839,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "68"
+        "clause_number": "68",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -798,7 +851,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "69"
+        "clause_number": "69",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -809,7 +863,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "70"
+        "clause_number": "70",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -820,7 +875,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "71"
+        "clause_number": "71",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -831,7 +887,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "72"
+        "clause_number": "72",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -842,7 +899,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "73"
+        "clause_number": "73",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -853,7 +911,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "74"
+        "clause_number": "74",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -864,7 +923,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "75"
+        "clause_number": "75",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -875,7 +935,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "76"
+        "clause_number": "76",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -886,7 +947,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "77"
+        "clause_number": "77",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -910,7 +972,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "79"
+        "clause_number": "79",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -921,7 +984,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "80"
+        "clause_number": "80",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -932,7 +996,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "81"
+        "clause_number": "81",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -943,7 +1008,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "82"
+        "clause_number": "82",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -967,7 +1033,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "84"
+        "clause_number": "84",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -991,7 +1058,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "86"
+        "clause_number": "86",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1015,7 +1083,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "88"
+        "clause_number": "88",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1026,7 +1095,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "89"
+        "clause_number": "89",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1037,7 +1107,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "90"
+        "clause_number": "90",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1048,7 +1119,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "91"
+        "clause_number": "91",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1059,7 +1131,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "92"
+        "clause_number": "92",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1070,7 +1143,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "93"
+        "clause_number": "93",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1081,7 +1155,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "94"
+        "clause_number": "94",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1092,7 +1167,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "95"
+        "clause_number": "95",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1116,7 +1192,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "97"
+        "clause_number": "97",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1127,7 +1204,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "98"
+        "clause_number": "98",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1138,7 +1216,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "99"
+        "clause_number": "99",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1149,7 +1228,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "100"
+        "clause_number": "100",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1167,7 +1247,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "102"
+        "clause_number": "102",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1191,7 +1272,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "104"
+        "clause_number": "104",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1215,7 +1297,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "106"
+        "clause_number": "106",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1233,7 +1316,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "108"
+        "clause_number": "108",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1244,7 +1328,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "109"
+        "clause_number": "109",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1255,7 +1340,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "110"
+        "clause_number": "110",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1293,7 +1379,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "120"
+        "clause_number": "120",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1304,7 +1391,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "121"
+        "clause_number": "121",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1315,7 +1403,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "122"
+        "clause_number": "122",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1326,7 +1415,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "123"
+        "clause_number": "123",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1337,7 +1427,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "124"
+        "clause_number": "124",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1413,7 +1504,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "131"
+        "clause_number": "131",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1424,7 +1516,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "132"
+        "clause_number": "132",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1435,7 +1528,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "133"
+        "clause_number": "133",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1446,7 +1540,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "134"
+        "clause_number": "134",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1457,7 +1552,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "135"
+        "clause_number": "135",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1468,7 +1564,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "136"
+        "clause_number": "136",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1479,7 +1576,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "137"
+        "clause_number": "137",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1490,7 +1588,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "138"
+        "clause_number": "138",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1541,7 +1640,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "144"
+        "clause_number": "144",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1552,7 +1652,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "145"
+        "clause_number": "145",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1563,7 +1664,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "146"
+        "clause_number": "146",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1574,7 +1676,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "147"
+        "clause_number": "147",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1585,7 +1688,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "148"
+        "clause_number": "148",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1609,7 +1713,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "150"
+        "clause_number": "150",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1620,7 +1725,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "151"
+        "clause_number": "151",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1651,7 +1757,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "154"
+        "clause_number": "154",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1662,7 +1769,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "155"
+        "clause_number": "155",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1673,7 +1781,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "156"
+        "clause_number": "156",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1684,7 +1793,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "157"
+        "clause_number": "157",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1695,7 +1805,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "158"
+        "clause_number": "158",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1719,7 +1830,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "160"
+        "clause_number": "160",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1730,7 +1842,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "161"
+        "clause_number": "161",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1741,7 +1854,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "162"
+        "clause_number": "162",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1752,7 +1866,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "163"
+        "clause_number": "163",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1763,7 +1878,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "164"
+        "clause_number": "164",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1794,7 +1910,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "172"
+        "clause_number": "172",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1805,7 +1922,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "173"
+        "clause_number": "173",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1829,7 +1947,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "175"
+        "clause_number": "175",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1840,7 +1959,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "176"
+        "clause_number": "176",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1858,7 +1978,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "178"
+        "clause_number": "178",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1869,7 +1990,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "179"
+        "clause_number": "179",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1880,7 +2002,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "180"
+        "clause_number": "180",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1904,7 +2027,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "182"
+        "clause_number": "182",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1915,7 +2039,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "183"
+        "clause_number": "183",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1926,7 +2051,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "184"
+        "clause_number": "184",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1937,7 +2063,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "185"
+        "clause_number": "185",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1948,7 +2075,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "186"
+        "clause_number": "186",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1959,7 +2087,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "187"
+        "clause_number": "187",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1970,7 +2099,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "188"
+        "clause_number": "188",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -1994,7 +2124,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "190"
+        "clause_number": "190",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2031,7 +2162,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "193"
+        "clause_number": "193",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2055,7 +2187,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "195"
+        "clause_number": "195",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2066,7 +2199,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "196"
+        "clause_number": "196",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2090,7 +2224,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "197"
+        "clause_number": "197",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2114,7 +2249,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "199"
+        "clause_number": "199",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2145,7 +2281,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "208"
+        "clause_number": "208",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2156,7 +2293,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "209"
+        "clause_number": "209",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2180,7 +2318,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "211"
+        "clause_number": "211",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2191,7 +2330,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "212"
+        "clause_number": "212",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2202,7 +2342,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "213"
+        "clause_number": "213",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2213,7 +2354,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "214"
+        "clause_number": "214",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2224,7 +2366,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "215"
+        "clause_number": "215",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2235,7 +2378,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "216"
+        "clause_number": "216",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2246,7 +2390,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "217"
+        "clause_number": "217",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2270,7 +2415,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "219"
+        "clause_number": "219",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2281,7 +2427,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "220"
+        "clause_number": "220",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2292,7 +2439,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "221"
+        "clause_number": "221",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2316,7 +2464,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "223"
+        "clause_number": "223",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2327,7 +2476,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "224"
+        "clause_number": "224",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2364,7 +2514,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "227"
+        "clause_number": "227",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2388,7 +2539,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "229"
+        "clause_number": "229",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2399,7 +2551,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "229"
+        "clause_number": "229",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2410,7 +2563,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "230"
+        "clause_number": "230",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2434,7 +2588,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "232"
+        "clause_number": "232",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2445,7 +2600,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "233"
+        "clause_number": "233",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2456,7 +2612,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "234"
+        "clause_number": "234",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2467,7 +2624,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "235"
+        "clause_number": "235",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2478,7 +2636,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "236"
+        "clause_number": "236",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2489,7 +2648,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "237"
+        "clause_number": "237",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2500,7 +2660,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "238"
+        "clause_number": "238",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2511,7 +2672,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "239"
+        "clause_number": "239",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2548,7 +2710,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "242"
+        "clause_number": "242",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2559,7 +2722,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "243"
+        "clause_number": "243",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2596,7 +2760,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "246"
+        "clause_number": "246",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2620,7 +2785,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "248"
+        "clause_number": "248",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2631,7 +2797,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "249"
+        "clause_number": "249",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2642,7 +2809,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "250"
+        "clause_number": "250",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2653,7 +2821,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "251"
+        "clause_number": "251",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2664,7 +2833,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "252"
+        "clause_number": "252",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2675,7 +2845,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "253"
+        "clause_number": "253",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2699,7 +2870,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "254"
+        "clause_number": "254",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2710,7 +2882,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "255"
+        "clause_number": "255",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2721,7 +2894,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "256"
+        "clause_number": "256",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2732,7 +2906,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "257"
+        "clause_number": "257",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2743,7 +2918,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "258"
+        "clause_number": "258",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2754,7 +2930,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "259"
+        "clause_number": "259",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2765,7 +2942,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "260"
+        "clause_number": "260",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2776,7 +2954,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "261"
+        "clause_number": "261",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2787,7 +2966,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "262"
+        "clause_number": "262",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2798,7 +2978,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "263"
+        "clause_number": "263",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2835,7 +3016,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "266"
+        "clause_number": "266",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2846,7 +3028,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "267"
+        "clause_number": "267",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2857,7 +3040,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "268"
+        "clause_number": "268",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2868,7 +3052,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "269"
+        "clause_number": "269",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2905,7 +3090,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "272"
+        "clause_number": "272",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2916,7 +3102,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "273"
+        "clause_number": "273",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2927,7 +3114,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "274"
+        "clause_number": "274",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2951,7 +3139,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "276"
+        "clause_number": "276",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2962,7 +3151,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "276"
+        "clause_number": "276",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2973,7 +3163,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "277"
+        "clause_number": "277",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2984,7 +3175,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "278"
+        "clause_number": "278",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -2995,7 +3187,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "279"
+        "clause_number": "279",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3006,7 +3199,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "280"
+        "clause_number": "280",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3017,7 +3211,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "280"
+        "clause_number": "280",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3028,7 +3223,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "280"
+        "clause_number": "280",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3052,7 +3248,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "282"
+        "clause_number": "282",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3063,7 +3260,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "283"
+        "clause_number": "283",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3074,7 +3272,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "284"
+        "clause_number": "284",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3085,7 +3284,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "285"
+        "clause_number": "285",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3096,7 +3296,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "286"
+        "clause_number": "286",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3107,7 +3308,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "287"
+        "clause_number": "287",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3118,7 +3320,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "288"
+        "clause_number": "288",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3129,7 +3332,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "289"
+        "clause_number": "289",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3140,7 +3344,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "290"
+        "clause_number": "290",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3151,7 +3356,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "291"
+        "clause_number": "291",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3162,7 +3368,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "292"
+        "clause_number": "292",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3173,7 +3380,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "293"
+        "clause_number": "293",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3184,7 +3392,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "294"
+        "clause_number": "294",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3195,7 +3404,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "295"
+        "clause_number": "295",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3206,7 +3416,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "296"
+        "clause_number": "296",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3217,7 +3428,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "297"
+        "clause_number": "297",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3228,7 +3440,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "298"
+        "clause_number": "298",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3239,7 +3452,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "299"
+        "clause_number": "299",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3250,7 +3464,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "300"
+        "clause_number": "300",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3261,7 +3476,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "301"
+        "clause_number": "301",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3285,7 +3501,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "303"
+        "clause_number": "303",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3296,7 +3513,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "304"
+        "clause_number": "304",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3307,7 +3525,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "305"
+        "clause_number": "305",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3318,7 +3537,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "306"
+        "clause_number": "306",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3329,7 +3549,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "307"
+        "clause_number": "307",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3353,7 +3574,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "309"
+        "clause_number": "309",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3403,7 +3625,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "313"
+        "clause_number": "313",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3414,7 +3637,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "314"
+        "clause_number": "314",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3425,7 +3649,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "315"
+        "clause_number": "315",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3449,7 +3674,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "317"
+        "clause_number": "317",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3460,7 +3686,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "318"
+        "clause_number": "318",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3471,7 +3698,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "319"
+        "clause_number": "319",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3482,7 +3710,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "320"
+        "clause_number": "320",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3506,7 +3735,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "322"
+        "clause_number": "322",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3517,7 +3747,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "323"
+        "clause_number": "323",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3528,7 +3759,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "324"
+        "clause_number": "324",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3539,7 +3771,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "325"
+        "clause_number": "325",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3550,7 +3783,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "326"
+        "clause_number": "326",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3561,7 +3795,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "327"
+        "clause_number": "327",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3585,7 +3820,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "329"
+        "clause_number": "329",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3596,7 +3832,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "330"
+        "clause_number": "330",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3633,7 +3870,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "337"
+        "clause_number": "337",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3651,7 +3889,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "339"
+        "clause_number": "339",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3662,7 +3901,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "340"
+        "clause_number": "340",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3699,7 +3939,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "343"
+        "clause_number": "343",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3710,7 +3951,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "344"
+        "clause_number": "344",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3721,7 +3963,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "345"
+        "clause_number": "345",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3732,7 +3975,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "346"
+        "clause_number": "346",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3743,7 +3987,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "347"
+        "clause_number": "347",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3754,7 +3999,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "348"
+        "clause_number": "348",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3765,7 +4011,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "349"
+        "clause_number": "349",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3776,7 +4023,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "350"
+        "clause_number": "350",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3787,7 +4035,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "351"
+        "clause_number": "351",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3798,7 +4047,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "352"
+        "clause_number": "352",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3809,7 +4059,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "353"
+        "clause_number": "353",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3832,7 +4083,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "355"
+        "clause_number": "355",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3843,7 +4095,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "356"
+        "clause_number": "356",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3854,7 +4107,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "357"
+        "clause_number": "357",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3865,7 +4119,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "358"
+        "clause_number": "358",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3889,7 +4144,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "360"
+        "clause_number": "360",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3900,7 +4156,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "361"
+        "clause_number": "361",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3911,7 +4168,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "362"
+        "clause_number": "362",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3922,7 +4180,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "363"
+        "clause_number": "363",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3933,7 +4192,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "364"
+        "clause_number": "364",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -3969,7 +4229,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "367"
+        "clause_number": "367",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -4148,7 +4409,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "380"
+        "clause_number": "380",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -4211,7 +4473,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "385"
+        "clause_number": "385",
+        "schedule": null
       },
       "verified_at": null
     },
@@ -4222,7 +4485,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "1"
+        "clause_number": "1",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4233,7 +4497,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "2"
+        "clause_number": "2",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4244,7 +4509,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "3"
+        "clause_number": "3",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4255,7 +4521,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "4"
+        "clause_number": "4",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4266,7 +4533,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "5"
+        "clause_number": "5",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4277,7 +4545,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "6"
+        "clause_number": "6",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4288,7 +4557,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "7"
+        "clause_number": "7",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4299,7 +4569,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "8"
+        "clause_number": "8",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4310,7 +4581,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "9"
+        "clause_number": "9",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4321,7 +4593,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "10"
+        "clause_number": "10",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4332,7 +4605,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "11"
+        "clause_number": "11",
+        "schedule": "1"
       },
       "verified_at": null
     },
@@ -4356,7 +4630,8 @@
       "target": {
         "kind": "bill_clause",
         "act_slug": "criminal-procedure-act",
-        "clause_number": "13"
+        "clause_number": "13",
+        "schedule": "1"
       },
       "verified_at": null
     },
