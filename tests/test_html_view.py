@@ -284,14 +284,20 @@ def test_render_index_links_to_the_endnotes_when_there_are_some():
     assert "endnotes" not in render_index(_parsed(_definitions_act()), "Test Act", "/browse/a")
 
 
-def test_a_margin_note_names_the_act_behind_its_citation():
+def test_a_margin_note_links_the_citation_where_it_stands():
+    # The note itself is what the source prints in the margin; the
+    # citation inside it is the link, and the Act's full name is the
+    # tooltip -- not a second line spelling the Act out beside every note.
     nodes = _definitions_act()
     nodes[1]["history"] = [{"raw": "S. 3 amended by No. 68/2009 s. 51."}]
     index = build_amendment_index(_ENDNOTES, {})
     body = render_section({"nodes": nodes, "hierarchy": None}, "Test Act", "/browse/a", "s3", amendment_index=index)
 
-    assert 'href="/browse/a/endnotes#act-68-2009"' in body
-    assert ">Amending Act 2009</a>" in body
+    assert (
+        'S. 3 amended by <a class="hist-act" href="/browse/a/endnotes#act-68-2009" '
+        'title="Amending Act 2009 — assented 24.11.09">No. 68/2009</a> s. 51.'
+    ) in body
+    assert "Amending Act 2009</a>" not in body  # the name is in the tooltip, not the margin
 
 
 def test_a_margin_note_without_an_index_is_left_as_the_bare_citation():

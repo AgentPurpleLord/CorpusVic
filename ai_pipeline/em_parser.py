@@ -69,6 +69,25 @@ _CLAUSE_RE = re.compile(r"^Clause\s+(\d+[A-Za-z]*(?:\(\w+\))?)\s*(.*)$")
 # gets caught. See _is_plausible_next_clause.
 _MAX_FORWARD_GAP = 30
 
+# An EM sets a bulleted list with the marker alone on its own extracted
+# line and the item's text beside it at a deeper indent, so the marker
+# never arrives attached to what it introduces.
+_BULLET_RE = re.compile(r"^[\u2022\u00b7\u25cf\u25e6\u2023]$")
+
+# Two indents count as the same column within this many points. Measured
+# off the real EM: its body text sits at x0 195.5, its first-level list
+# items at 226.8 and second-level ones at 255.1, so the columns are ~28pt
+# apart and this is nowhere near ambiguous.
+_INDENT_TOLERANCE = 6.0
+
+# What a bulleted item becomes, by nesting depth. An EM's lists are the
+# same construct an Act's own paragraph lists are, so they get the same
+# types: they then nest, indent, group into review units and export to
+# Markdown and AKN with no special handling anywhere downstream. Deeper
+# than three levels has never been seen; anything beyond stays at the
+# innermost type rather than being dropped.
+_LIST_TYPES = ("paragraph", "subparagraph", "sub_subparagraph")
+
 
 def _base_number(number: str | None) -> int | None:
     m = re.match(r"\d+", number or "")
@@ -126,13 +145,60 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
     nodes: list[dict] = []
     current: dict | None = None
     open_heading: dict | None = None
+    open_schedule: str | None = None
     last_base: int | None = None
     cursor = 0
     lines_consumed = 0
 
+    # One open bulleted list, as (item text indent, node) per nesting
+    # level. An item's own indent is read off the line *after* its marker,
+    # since the marker arrives alone (see _BULLET_RE) -- and it is the
+    # item text's column, not the marker's, that separates the levels: the
+    # marker of a first-level item sits within 3pt of the body column it
+    # interrupts, while its text sits a clear 30pt right of it.
+    item_stack: list[tuple[float, dict]] = []
+    awaiting_item_text = False
+    # Where plain continuation text goes. The clause's own node until a
+    # list opens under it; after that the clause's text is closed, so
+    # prose resuming at the body column starts a fresh node instead of
+    # being appended back onto a paragraph that now prints above the list.
+    sink: dict | None = None
+
     def close_current():
         if current is not None:
             current["text"] = current["text"].strip()
+
+    def start_list_item(line, text: str, char_start: int, char_end: int) -> dict:
+        """Opens one bulleted item at the nesting level its indent implies:
+        deeper than the level above it starts a new one, back at an
+        outer level's column closes everything inside it."""
+        while item_stack and line.x0 < item_stack[-1][0] - _INDENT_TOLERANCE:
+            item_stack.pop()
+        if item_stack and line.x0 <= item_stack[-1][0] + _INDENT_TOLERANCE:
+            item_stack.pop()  # a sibling of the item that just closed, not a child
+        node = {
+            "type": _LIST_TYPES[min(len(item_stack), len(_LIST_TYPES) - 1)],
+            "number": None, "heading": None, "text": text,
+            "page_start": line.page_no, "page_end": line.page_no,
+            "char_start": char_start, "char_end": char_end, "source": "rules",
+        }
+        item_stack.append((line.x0, node))
+        nodes.append(node)
+        return node
+
+    def _continues_list_item(line, stack: list) -> bool:
+        """Whether this line carries on the item it follows. A line back at
+        an outer level's own column closes everything nested inside it and
+        continues *that* item -- "... described as being—" then its own
+        sub-list, then more of the same item."""
+        while stack and line.x0 < stack[-1][0] - _INDENT_TOLERANCE:
+            stack.pop()
+        return bool(stack) and line.x0 <= stack[-1][0] + _INDENT_TOLERANCE
+
+    def extend(node: dict, text: str, line, char_end: int) -> None:
+        node["text"] = (node["text"] + "\n" + text) if node["text"] else text
+        node["page_end"] = line.page_no
+        node["char_end"] = char_end
 
     for idx, line in enumerate(lines):
         text = line.text.strip()
@@ -159,15 +225,30 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             close_current()
             current = None
             last_base = None
+            item_stack.clear()
+            awaiting_item_text = False
+            sink = None
+            schedule_m = _SCHEDULE_RE.match(text)
+            # A Schedule restarts clause numbering from 1, so an EM's
+            # "Clause 11" under Schedule 1 and its body "Clause 11" are
+            # different provisions sharing a number. Recording which
+            # Schedule an entry sits under is what lets a reader (and the
+            # cross-reference chips on an Act section) tell them apart --
+            # see bill_linking and dashboard's _section_crossrefs.
+            open_schedule = schedule_m.group(1) if schedule_m else None
             open_heading = {
                 "type": "heading_group", "number": None, "heading": text, "text": text,
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
+            if open_schedule:
+                open_heading["schedule"] = open_schedule
             nodes.append(open_heading)
         elif clause_m:
             close_current()
             open_heading = None
+            item_stack.clear()
+            awaiting_item_text = False
             number, rest = clause_m.group(1), clause_m.group(2).strip()
             last_base = _base_number(number)
             current = {
@@ -175,7 +256,10 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
+            if open_schedule:
+                current["schedule"] = open_schedule
             nodes.append(current)
+            sink = current
         elif line.bold and open_heading is not None and current is None:
             # A Chapter/Part title that wrapped onto a second bold line
             # (e.g. "CHAPTER 2—COMMENCING A CRIMINAL" / "PROCEEDING") --
@@ -186,7 +270,20 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             open_heading["heading"] = f"{open_heading['heading']} {text}"
             open_heading["text"] = open_heading["heading"]
             open_heading["char_end"] = char_end
+        elif _BULLET_RE.match(text):
+            # The marker alone. Which level the item belongs to is a
+            # question about its *text's* indent, which is on the next
+            # line -- so nothing is decided until that arrives.
+            awaiting_item_text = True
+        elif awaiting_item_text:
+            start_list_item(line, text, char_start, char_end)
+            awaiting_item_text = False
+            sink = None  # the clause's own text is closed once a list opens under it
+        elif item_stack and _continues_list_item(line, item_stack):
+            extend(item_stack[-1][1], text, line, char_end)
         else:
+            # Back at the body column: whatever list was open ends here.
+            item_stack.clear()
             if current is None:
                 # Shouldn't happen -- the front-matter skip above already
                 # advances past everything before the first "Clause N"
@@ -200,10 +297,26 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
                     "char_start": char_start, "char_end": char_start, "source": "rules",
                 }
                 nodes.append(current)
+                sink = current
                 warnings.append(f"page {line.page_no}: text before any recognised clause entry -- filed under a synthetic entry")
-            current["text"] = (current["text"] + "\n" + text) if current["text"] else text
-            current["page_end"] = line.page_no
-            current["char_end"] = char_end
+            if sink is None:
+                # Prose resuming after a list. It belongs to this entry but
+                # comes *after* its items, and the clause's own text prints
+                # above them -- so it gets a node of its own rather than
+                # being folded back into text that would then read out of
+                # order. "note" is the type an Act's own parser gives the
+                # same shape (trailing commentary under a provision that
+                # has just finished a list), so it nests and renders the
+                # same way here.
+                sink = {
+                    "type": "note", "number": None, "heading": None, "text": "",
+                    "page_start": line.page_no, "page_end": line.page_no,
+                    "char_start": char_start, "char_end": char_start, "source": "rules",
+                }
+                if open_schedule:
+                    sink["schedule"] = open_schedule
+                nodes.append(sink)
+            extend(sink, text, line, char_end)
 
     close_current()
     return EMParseResult(nodes=nodes, lines_total=len(lines), lines_consumed=lines_consumed, warnings=warnings)

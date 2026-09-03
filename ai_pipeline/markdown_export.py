@@ -184,6 +184,18 @@ def _github_slug(text: str, counts: dict[str, int]) -> str:
     return f"{s}-{counts[s]}"
 
 
+# A list item whose source prints a bullet rather than a letter, so it has
+# no number of its own to head it with. An Act letters every item it lists;
+# an Explanatory Memorandum bullets them (see em_parser.py), and rendering
+# those as bare paragraphs loses the fact that they are a list at all.
+_BULLETED_TYPES = ("paragraph", "subparagraph", "sub_subparagraph")
+
+
+def _is_bulleted_item(unit: dict) -> bool:
+    node = unit["tree_node"]["node"]
+    return unit["header_text"] is None and not node.get("number") and node["type"] in _BULLETED_TYPES
+
+
 def _clause_header_text(label: str | None, index: int, total: int) -> str | None:
     if total <= 1:
         return label
@@ -537,7 +549,14 @@ def _render_body(
             out.append("")
         if unit["text"] is not None:
             key = (unit["tree_node"]["eid"], unit["clause_index"])
-            out.append(linkify(unit["text"], current_file, slugs.get(key)))
+            body = linkify(unit["text"], current_file, slugs.get(key))
+            if _is_bulleted_item(unit):
+                # A Markdown list item, indented by its nesting depth, so a
+                # sub-list nests instead of flattening. The blank line after
+                # each keeps the list "loose" -- it still reads as one list.
+                out.append(f"{'  ' * unit['depth']}- {body}")
+            else:
+                out.append(body)
             out.append("")
 
 

@@ -789,6 +789,19 @@ a:hover { text-decoration: underline; }
    numbered sibling's text does, rather than its first line poking out
    into the empty number column. */
 .prov-nolabel { text-indent: 0; }
+/* Except a list item, which has no number because its source prints a
+   bullet instead of one (an Explanatory Memorandum's lists are set that
+   way -- see em_parser.py). It gets its marker back, hanging in the same
+   column a lettered sibling's "(a)" would. */
+.prov-paragraph.prov-nolabel,
+.prov-subparagraph.prov-nolabel,
+.prov-sub_subparagraph.prov-nolabel { text-indent: -2.4em; }
+.prov-paragraph.prov-nolabel::before,
+.prov-subparagraph.prov-nolabel::before,
+.prov-sub_subparagraph.prov-nolabel::before {
+  content: "•";
+  display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
+}
 .prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
 .prov-term { font-weight: 600; font-style: italic; }
 .prov-heading {
