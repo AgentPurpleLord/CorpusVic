@@ -822,6 +822,67 @@ def test_schedule_with_no_hangs_off_line_still_opens_its_first_section():
     assert section["heading"] == "Definitions"
 
 
+def test_a_bare_schedule_number_takes_its_title_from_the_line_below():
+    """Regression (Criminal Procedure Bill 2008): a Bill's introduction
+    print sets "SCHEDULE 1" alone, then the sections it hangs off, then
+    the title -- where an Act writes "Schedule 1--Title" on one line. Left
+    undetected the Bill had no Schedules at all, and its Schedule clauses
+    (which restart at 1) read as a second clause 1, 2, 3 in the body."""
+    lines = [
+        line("SCHEDULES", bold=True),
+        line("SCHEDULE 1", bold=True, size=11.0),
+        line("Sections 6(3), 159(3)", x0=HEAD_X0, size=10.0),
+        line("CHARGES ON A CHARGE-SHEET OR INDICTMENT", bold=True, size=11.0),
+        line("1 Statement of offence", bold=True),
+        line("A charge must state the offence.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+
+    schedule = find(result.nodes, "schedule", "1")
+    assert schedule["heading"] == "CHARGES ON A CHARGE-SHEET OR INDICTMENT (Sections 6(3), 159(3))"
+    assert find(result.nodes, "section", "1")["heading"] == "Statement of offence"
+
+
+def test_a_bare_schedule_title_that_wraps_keeps_the_hangs_off_note_last():
+    # The note is printed between the number and the title, so it has to
+    # be held until the title -- which can wrap over two bold lines -- has
+    # finished arriving, rather than appended as it comes.
+    lines = [
+        line("SCHEDULE 2", bold=True, size=11.0),
+        line("Section 28(1)", x0=HEAD_X0, size=10.0),
+        line("INDICTABLE OFFENCES THAT MAY BE HEARD AND", bold=True, size=11.0),
+        line("DETERMINED SUMMARILY", bold=True, size=11.0),
+        line("1 Common law", bold=True),
+        line("Offences at common law of conspiracy to cheat.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+
+    assert find(result.nodes, "schedule", "2")["heading"] == (
+        "INDICTABLE OFFENCES THAT MAY BE HEARD AND DETERMINED SUMMARILY (Section 28(1))"
+    )
+
+
+def test_a_bare_schedule_heading_ends_an_open_notes_block():
+    # The Schedules follow the last clause of the Bill's body, which can
+    # end in a Note -- and a note block swallows everything that isn't a
+    # recognised boundary, which is how the very first Schedule went
+    # missing while the other two were found.
+    lines = [
+        line("385 Repeal of Chapter", bold=True),
+        line("Note", bold=True),
+        line("The repeal does not affect the continuing operation of the amendments.", x0=HEAD_X0),
+        line("SCHEDULE 1", bold=True, size=11.0),
+        line("CHARGES ON A CHARGE-SHEET", bold=True, size=11.0),
+        line("1 Statement of offence", bold=True),
+        line("A charge must state the offence.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+
+    schedule = find(result.nodes, "schedule", "1")
+    assert schedule["heading"] == "CHARGES ON A CHARGE-SHEET"
+    assert "SCHEDULE 1" not in find(result.nodes, "note")["text"]
+
+
 def test_schedule_own_items_do_not_collide_with_earlier_act_sections():
     """A Schedule's own "1", "2", ... numbering restarts independently of
     the Act's own section numbers -- both must coexist as distinct nodes
