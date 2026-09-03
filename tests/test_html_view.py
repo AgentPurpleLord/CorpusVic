@@ -224,6 +224,56 @@ def test_render_endnotes_separates_acts_no_margin_note_cites():
     assert 'id="act-29-2011"' in html
 
 
+_BLOCK_ENDNOTES = {
+    "sections": [{
+        "number": "1", "heading": "General information", "page_start": 1, "page_end": 1,
+        "text": "ignored when blocks are present",
+        "blocks": [
+            {"kind": "paragraph", "text": "See www.legislation.vic.gov.au."},
+            {"kind": "heading", "text": "Style changes"},
+            {"kind": "bullet", "text": "sections were renumbered;"},
+            {"kind": "bullet", "text": "cross-references were updated."},
+            {"kind": "paragraph", "text": "Section 64 reads as follows\u2014"},
+            {"kind": "quote", "text": "64 How appeal is commenced"},
+            {"kind": "quote", "text": "In section 255(5)(ab), insert a thing."},
+        ],
+    }],
+    "amending_acts": [],
+}
+
+
+def test_render_endnotes_sets_each_block_as_the_printed_page_does():
+    html = render_endnotes({"nodes": [], "hierarchy": None, "endnotes": _BLOCK_ENDNOTES}, "Test Act", "/browse/a")
+
+    assert "<p>See www.legislation.vic.gov.au.</p>" in html
+    assert '<div class="endnote-heading">Style changes</div>' in html
+
+
+def test_render_endnotes_sets_a_run_of_bullets_as_one_list():
+    html = render_endnotes({"nodes": [], "hierarchy": None, "endnotes": _BLOCK_ENDNOTES}, "Test Act", "/browse/a")
+
+    assert html.count('<ul class="endnote-bullets">') == 1
+    assert html.count("<li>") == 2
+
+
+def test_render_endnotes_sets_a_run_of_quoted_lines_as_one_quotation():
+    # A reproduced provision is one indented block on the printed page,
+    # not a stack of unrelated paragraphs.
+    html = render_endnotes({"nodes": [], "hierarchy": None, "endnotes": _BLOCK_ENDNOTES}, "Test Act", "/browse/a")
+
+    assert html.count('<blockquote class="endnote-quote">') == 1
+    assert "<p>64 How appeal is commenced</p><p>In section 255(5)(ab), insert a thing.</p></blockquote>" in html
+
+
+def test_render_endnotes_falls_back_to_the_raw_text_without_blocks():
+    # An Act parsed before the block builder existed: its stored text
+    # still carries the source PDF's own wrap points, so those are
+    # honoured rather than run together.
+    html = render_endnotes(_act_with_endnotes(), "Test Act", "/browse/a", summary=[])
+
+    assert 'class="endnote-text endnote-raw"' in html
+
+
 def test_render_endnotes_returns_none_without_endnotes():
     # A Bill, an EM, or an Act parsed before endnotes were extracted.
     assert render_endnotes(_parsed(_definitions_act()), "Test Act", "/browse/a") is None
