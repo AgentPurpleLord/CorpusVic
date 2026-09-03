@@ -273,20 +273,43 @@ _MOD_TYPE_KEYWORDS = [
 ]
 
 
+# The "No."/"Nos" a modern citation is usually introduced by. Not part of
+# _MODERN_CITATION_RE itself -- the plural form writes it once and then
+# lists bare numbers ("Nos 26/2014 s. 455, 68/2009 s. 3"), so requiring it
+# would find only the first. Matched separately, purely to widen a
+# citation's reported *span* over the words a reader would call part of it.
+_CITATION_PREFIX_RE = re.compile(r"Nos?\.?\s*$")
+
+
 def _extract_citations(raw: str) -> list[dict]:
     """Every amending-Act citation named in one note, each as {label, act_no,
-    year (or None if undatable)}. A note commonly cites more than one Act
-    ("substituted by Nos 8679 s. 2, 37/1986 s. 8, amended by ...")."""
+    year (or None if undatable), start, end}. A note commonly cites more
+    than one Act ("substituted by Nos 8679 s. 2, 37/1986 s. 8, amended by
+    ...").
+
+    start/end bound the citation as it is actually written in `raw`, which
+    is not the same string as `label`: the label is normalised to
+    "No. 68/2009", while the note itself may write "Nos 26/2014, 68/2009"
+    and give the second citation no "No." of its own. A caller marking up
+    the note (linking each citation where it stands -- see
+    amendments.linkify_note) needs the span, not the label."""
     citations = []
     seen_spans = set()
     for m in _MODERN_CITATION_RE.finditer(raw):
-        citations.append({"label": f"No. {m.group(1)}/{m.group(2)}", "act_no": m.group(1), "year": int(m.group(2))})
+        prefix = _CITATION_PREFIX_RE.search(raw, 0, m.start())
+        citations.append({
+            "label": f"No. {m.group(1)}/{m.group(2)}", "act_no": m.group(1), "year": int(m.group(2)),
+            "start": prefix.start() if prefix else m.start(), "end": m.end(),
+        })
         seen_spans.add(m.span())
     for m in _OLD_CITATION_RE.finditer(raw):
         if any(s[0] <= m.start() < s[1] for s in seen_spans):
             continue  # already captured as part of a modern "NN/YYYY" match
-        citations.append({"label": f"No. {m.group(1)}", "act_no": m.group(1), "year": None})
-    return citations
+        citations.append({
+            "label": f"No. {m.group(1)}", "act_no": m.group(1), "year": None,
+            "start": m.start(), "end": m.end(),
+        })
+    return sorted(citations, key=lambda c: c["start"])
 
 
 def _mod_type_for(raw: str) -> str:

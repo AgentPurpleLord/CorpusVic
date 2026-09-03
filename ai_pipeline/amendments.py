@@ -153,6 +153,41 @@ def resolve_note(raw: str, index: dict) -> list[dict]:
     return out
 
 
+def linkify_note(raw: str, index: "dict | None") -> list[dict]:
+    """One margin note broken into the pieces a renderer needs to link it:
+    a list of {"text"} runs, where a run that names an amending Act this
+    index knows also carries {"record"}.
+
+    The note itself only ever writes the bare citation ("No. 68/2009"),
+    and that citation is the thing a reader wants to click -- the Act's
+    own Table of Amendments is what says which Act that is. Naming the Act
+    in full beside every note instead pushes the note itself out of the
+    margin it is printed in, for a name the reader mostly already knows;
+    the full name and its dates belong in the link's own tooltip.
+
+    Runs are returned in order and concatenate back to `raw` exactly, so a
+    renderer escapes each one and never has to do span arithmetic of its
+    own. Without an index (or with none of the citations resolvable), the
+    result is simply the whole note as one unlinked run."""
+    resolved = {}
+    for record in resolve_note(raw, index) if index else []:
+        resolved[record["cited_as"]] = record
+
+    runs: list[dict] = []
+    cursor = 0
+    for citation in citations_in(raw):
+        record = resolved.get(citation["label"])
+        if record is None:
+            continue
+        if citation["start"] > cursor:
+            runs.append({"text": raw[cursor : citation["start"]]})
+        runs.append({"text": raw[citation["start"] : citation["end"]], "record": record})
+        cursor = citation["end"]
+    if cursor < len(raw):
+        runs.append({"text": raw[cursor:]})
+    return runs
+
+
 _PROVISION_SUBLEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
 
 
