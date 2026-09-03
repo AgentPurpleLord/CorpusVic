@@ -870,7 +870,7 @@ THEME_BODY_SCRIPT = """
 # link mid-sentence. It also opens on keyboard focus, where there's no
 # accidental-hover problem to guard against, so a card is reachable
 # without a pointer.
-PREVIEW_SCRIPT = """
+PREVIEW_SCRIPT = r"""
 (function () {
   var BASE = document.body.dataset.baseUrl;
   if (!BASE) return;
