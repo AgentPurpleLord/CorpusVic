@@ -50,6 +50,7 @@ from .definitions import (
     looks_like_definitions_section,
     split_definition_clauses,
 )
+from .extract import reflow
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks
 
 SECTIONS_DIR = "sections"
@@ -211,7 +212,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     else:
         label = _format_num(t, node["number"]) if node.get("number") else None
 
-    text = (node.get("text") or "").strip()
+    text = reflow(node.get("text"))
     heading = node.get("heading")
     level = min(depth + 2, 6)
 
@@ -236,7 +237,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # split on that same boundary so each clause becomes its own
         # paragraph (and, when there's more than one, its own header)
         # instead of one run-on line.
-        clauses = split_definition_clauses(text) if in_definitions else [text.replace("\n", " ")]
+        clauses = split_definition_clauses(text) if in_definitions else [text]
         needs_header = t not in SECTION_LEVEL_TYPES or len(clauses) > 1
         for i, clause in enumerate(clauses):
             header_text = _clause_header_text(label, i, len(clauses)) if needs_header else None
