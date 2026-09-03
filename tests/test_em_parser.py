@@ -27,9 +27,9 @@ def test_basic_entries_and_completeness():
     result = _parse(lines)
     assert result.lines_consumed == result.lines_total
     assert not result.warnings
-    e1 = find(result.nodes, "em_entry", "1")
+    e1 = find(result.nodes, "clause", "1")
     assert e1["text"] == "sets out the purposes of the Bill."
-    e2 = find(result.nodes, "em_entry", "2")
+    e2 = find(result.nodes, "clause", "2")
     assert e2["text"] == "provides for the commencement of the Bill."
 
 
@@ -38,7 +38,7 @@ def test_inline_clause_number_on_same_line_as_explanation():
     as a standalone "Clause N" -- both must produce the same shape."""
     lines = [line("Clause 155 provides that the Bill does not change the"), line("nature of a committal proceeding.")]
     result = _parse(lines)
-    entry = find(result.nodes, "em_entry", "155")
+    entry = find(result.nodes, "clause", "155")
     assert entry["text"] == "provides that the Bill does not change the\nnature of a committal proceeding."
 
 
@@ -50,9 +50,9 @@ def test_pinpoint_clause_reference_gets_its_own_entry():
         line("offence, additional matters apply."),
     ]
     result = _parse(lines)
-    base = find(result.nodes, "em_entry", "6")
+    base = find(result.nodes, "clause", "6")
     assert base["text"] == "sets out how a criminal proceeding is commenced."
-    pinpoint = find(result.nodes, "em_entry", "6(4)")
+    pinpoint = find(result.nodes, "clause", "6(4)")
     assert "additional matters apply." in pinpoint["text"]
 
 
@@ -66,7 +66,7 @@ def test_a_clause_mentioned_mid_sentence_is_not_a_new_entry():
         line("The accused. Clause 3 defines direct indictment."),
     ]
     result = _parse(lines)
-    entry = find(result.nodes, "em_entry", "3")
+    entry = find(result.nodes, "clause", "3")
     assert "The accused. Clause 3 defines direct indictment." in entry["text"]
     assert not any(n.get("number") == "3" and n is not entry for n in result.nodes)
 
@@ -83,7 +83,7 @@ def test_chapter_and_part_headers_are_organisational_only():
     assert len(headings) == 2
     assert headings[0]["heading"] == "CHAPTER 2—COMMENCING A CRIMINAL PROCEEDING"
     assert headings[1]["heading"] == "PART 2.1—WAYS IN WHICH A CRIMINAL PROCEEDING IS COMMENCED"
-    entry = find(result.nodes, "em_entry", "5")
+    entry = find(result.nodes, "clause", "5")
     assert entry["text"] == "sets out how a proceeding is commenced."
 
 
@@ -141,10 +141,10 @@ def test_a_clause_cross_reference_far_ahead_is_not_mistaken_for_a_new_entry():
         line("defines various words and expressions used in the Bill."),
     ]
     result = _parse(lines)
-    entry_2 = find(result.nodes, "em_entry", "2")
+    entry_2 = find(result.nodes, "clause", "2")
     assert "Clause 384 comes into operation on 1 July 2010." in entry_2["text"]
     assert not any(n.get("number") == "384" for n in result.nodes)
-    entry_3 = find(result.nodes, "em_entry", "3")
+    entry_3 = find(result.nodes, "clause", "3")
     assert entry_3["text"] == "defines various words and expressions used in the Bill."
 
 
@@ -161,7 +161,7 @@ def test_a_clause_cross_reference_is_still_accepted_right_after_a_heading():
         line("is the first item explained in this Schedule."),
     ]
     result = _parse(lines)
-    entry_384 = find(result.nodes, "em_entry", "384")
+    entry_384 = find(result.nodes, "clause", "384")
     assert entry_384["text"] == "is the first item explained in this Schedule."
 
 
@@ -175,5 +175,5 @@ def test_bullet_points_stay_inline_as_continuation_text():
         line("to simplify procedure."),
     ]
     result = _parse(lines)
-    entry = find(result.nodes, "em_entry", "1")
+    entry = find(result.nodes, "clause", "1")
     assert "•\nto clarify the law; and\n•\nto simplify procedure." in entry["text"]

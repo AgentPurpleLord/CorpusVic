@@ -1,4 +1,10 @@
 # Only needed to run the test suite (pytest tests/), not the pipeline itself.
 -r requirements.txt
+# tests/test_review.py and tests/test_dashboard.py import review.py and
+# dashboard.py directly (for their pure logic -- unit grouping, slug
+# validation, parse-command building), and importing either pulls in
+# FastAPI/httpx at module level. Without this the whole suite fails at
+# collection, which is exactly what CI had been doing.
+-r requirements-gui.txt
 pytest
 xmlschema

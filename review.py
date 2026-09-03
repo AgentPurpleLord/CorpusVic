@@ -1,5 +1,5 @@
 """
-Local web GUI to human-verify the AI's structural parse of an Act, and to
+Local web GUI to human-verify the structural parse of an Act, and to
 tag spans of its text that should become links -- one merged tool, where
 link_review.py and review.py's own CLI used to be two separate ones.
 
@@ -52,10 +52,11 @@ gives a Part/Division/heading_group its own single-piece unit and every
 piece within a Section is already individually addressable.
 
 Accepting or flagging a unit writes it into data/legislation.db and logs
-each decision (the AI's original guess vs. what a human approved) there
-too, which future run_pipeline.py runs read back in as few-shot examples
--- so the parser is meant to get better at this over time, without any
-fine-tuning step. An edit made directly to an already-reviewed piece
+each decision (what the parser produced vs. what a human approved) there
+too -- a record of where the parser actually gets things wrong, which is
+the signal to add a profile override for that Act
+(ai_pipeline/profiles.py) rather than correcting the same pattern by hand
+for the rest of the Act. An edit made directly to an already-reviewed piece
 (browsing back to fix something) persists and logs immediately, since
 there's no later Accept step to do it for. Progress is saved
 continuously, so the server can be stopped and restarted from wherever
@@ -481,7 +482,7 @@ def commit_unit(
             node["verified_at"] = _now_iso()
         verified.append(node)
         changed = any(node.get(k) != original.get(k) for k in ("type", "number", "heading", "text"))
-        add_correction(act, ai_output=original, human_output=node, changed=changed)
+        add_correction(act, parser_output=original, human_output=node, changed=changed)
     if unit_index is not None and verified:
         verified[-1]["_unit_end_index"] = unit_index
 
@@ -517,7 +518,7 @@ _PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible after the browser scales the <img
 def _current_node(i: int) -> dict:
     """Node i as this session currently sees it: a pending (not yet
     Accepted/Flagged) edit first, else its already-reviewed state if the
-    unit containing it has been committed, else the original AI parse."""
+    unit containing it has been committed, else the original parse."""
     if i in _pending_edits:
         return _pending_edits[i]
     if i in _verified_by_source_index:
@@ -546,7 +547,7 @@ def _mutate_node(i: int, **fields) -> dict:
         target.update(merged)
         target["verified_at"] = _now_iso()
         target.pop("needs_followup", None)
-        add_correction(_act, ai_output=original_snapshot, human_output=target, changed=True)
+        add_correction(_act, parser_output=original_snapshot, human_output=target, changed=True)
         save_verified(_act, _verified)
         return target
     _pending_edits[i] = merged
@@ -729,7 +730,7 @@ def _accept_node(i: int, flagged: bool) -> dict:
     _pending_edits.pop(i, None)
 
     changed = any(node.get(k) != original.get(k) for k in ("type", "number", "heading", "text"))
-    add_correction(_act, ai_output=original, human_output=node, changed=changed)
+    add_correction(_act, parser_output=original, human_output=node, changed=changed)
     _maybe_mark_unit_complete(_unit_of_index[i])
     save_verified(_act, _verified)
     return node
@@ -775,20 +776,23 @@ def _links_by_node(act: str) -> dict[int, list[dict]]:
     return by_node
 
 
-def _is_elevated_risk(node_index: int, node: dict) -> bool:
+def _is_elevated_risk(node_index: int) -> bool:
     """Whether this piece is at elevated risk of automation blindness --
     a reviewer anchoring on whatever classification is already sitting
-    there instead of actually forming their own view of the text. Two
-    concrete signals, both already computed elsewhere for other reasons:
-    node["source"] == "ai" (the probabilistic model backend, rather than
-    the deterministic rules engine most nodes come from -- see
-    ai_pipeline/structure.py), or a diagnostics finding already attached
-    to this specific node (duplicate numbering, an empty leaf, a
-    low-confidence history match). Deliberately narrow: gating every one
-    of an Act's thousands of unambiguous, cleanly-parsed pieces the same
-    way would just make rote friction reviewers click through without
-    reading, which is the exact failure mode this is meant to prevent."""
-    return node.get("source") == "ai" or bool(_findings_by_node.get(node_index))
+    there instead of actually forming their own view of the text. The
+    signal is a diagnostics finding already attached to this specific node
+    (duplicate numbering, an empty leaf, a low-confidence history match),
+    computed at parse time for its own reasons. Deliberately narrow:
+    gating every one of an Act's thousands of unambiguous, cleanly-parsed
+    pieces the same way would just make rote friction reviewers click
+    through without reading, which is the exact failure mode this is meant
+    to prevent.
+
+    There was a second signal, node["source"] == "ai", for the
+    model-backed parser that used to exist alongside the rules engine.
+    That engine is gone (see run_pipeline.py's own docstring), and no node
+    was ever actually tagged with it, so it gated nothing."""
+    return bool(_findings_by_node.get(node_index))
 
 
 def _blind_review_gate_indices(indices: list[int]) -> list[int]:
@@ -799,7 +803,7 @@ def _blind_review_gate_indices(indices: list[int]) -> list[int]:
     "I'm not confident, this needs follow-up", which is already the
     opposite of blindly agreeing -- adding friction to it would only
     punish exactly the caution this whole mechanism exists to encourage."""
-    return [i for i in indices if _is_elevated_risk(i, _current_node(i)) and db.get_blind_review(_act, i) is None]
+    return [i for i in indices if _is_elevated_risk(i) and db.get_blind_review(_act, i) is None]
 
 
 def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[int, list[dict]]) -> dict:
@@ -825,7 +829,7 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "links": piece_links,
         "history": node.get("history") or [],
         "source": node.get("source"),
-        "elevated_risk": _is_elevated_risk(node_index, node),
+        "elevated_risk": _is_elevated_risk(node_index),
         "blind_review": db.get_blind_review(_act, node_index),
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),

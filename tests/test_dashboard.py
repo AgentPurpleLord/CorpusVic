@@ -58,6 +58,7 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
         "has_pdf": False,
         "has_profile": False,
         "parsed": False,
+        "kind": "act",
         "node_count": None,
         "unit_count": None,
         "reviewed_units": None,
@@ -229,48 +230,38 @@ def test_resolve_auth_prefers_explicit_credentials_over_the_persisted_store(tmp_
 
 
 def test_validate_parse_params_accepts_defaults():
-    dashboard._validate_parse_params("act", "", "rules", "ollama", "", "")  # no exception
+    dashboard._validate_parse_params("act", "", "", "")  # no exception
 
 
 @pytest.mark.parametrize(
-    "kind,profile,engine,backend,start_page,end_page",
+    "kind,profile,start_page,end_page",
     [
-        ("play", "", "rules", "ollama", "", ""),
-        ("act", "Not A Slug", "rules", "ollama", "", ""),
-        ("act", "", "not-an-engine", "ollama", "", ""),
-        ("act", "", "rules", "not-a-backend", "", ""),
-        ("act", "", "rules", "ollama", "not-a-number", ""),
-        ("act", "", "rules", "ollama", "", "not-a-number"),
+        ("play", "", "", ""),
+        ("act", "Not A Slug", "", ""),
+        ("act", "", "not-a-number", ""),
+        ("act", "", "", "not-a-number"),
     ],
 )
-def test_validate_parse_params_rejects_bad_input(kind, profile, engine, backend, start_page, end_page):
+def test_validate_parse_params_rejects_bad_input(kind, profile, start_page, end_page):
     with pytest.raises(Exception):
-        dashboard._validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+        dashboard._validate_parse_params(kind, profile, start_page, end_page)
 
 
 def test_build_parse_command_for_an_em_ignores_every_other_option():
-    cmd = dashboard._build_parse_command(Path("acts/some-bill-em.pdf"), "em", "profile", "ai", "claude", "opus", "5", "10")
+    cmd = dashboard._build_parse_command(Path("acts/some-bill-em.pdf"), "em", "profile", "5", "10")
     assert cmd == [sys.executable, "run_em_pipeline.py", "acts/some-bill-em.pdf"]
 
 
 def test_build_parse_command_for_a_bill_sets_document_type():
-    cmd = dashboard._build_parse_command(Path("acts/some-bill.pdf"), "bill", "", "rules", "ollama", "", "", "")
+    cmd = dashboard._build_parse_command(Path("acts/some-bill.pdf"), "bill", "", "", "")
     assert cmd == [sys.executable, "run_pipeline.py", "acts/some-bill.pdf", "--document-type", "bill"]
 
 
 def test_build_parse_command_includes_profile_and_page_range_when_given():
-    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "my-profile", "rules", "ollama", "", "5", "20")
+    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "my-profile", "5", "20")
     assert cmd == [
         sys.executable, "run_pipeline.py", "acts/x.pdf", "--document-type", "act",
         "--profile", "my-profile", "--start-page", "5", "--end-page", "20",
-    ]
-
-
-def test_build_parse_command_ai_engine_includes_backend_and_optional_model():
-    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "", "ai", "claude", "opus", "", "")
-    assert cmd == [
-        sys.executable, "run_pipeline.py", "acts/x.pdf", "--document-type", "act",
-        "--engine", "ai", "--backend", "claude", "--model", "opus",
     ]
 
 

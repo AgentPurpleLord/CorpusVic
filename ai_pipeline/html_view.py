@@ -27,6 +27,35 @@ structure with, so markdown_export.py turns every one of those into a
 heading and pools the history at the foot -- that's a limitation of the
 format, not the intended reading.
 
+The Act's own Endnotes get a page of their own (render_endnotes): the
+General information block, the Table of Amendments read as a real table --
+each amending Act with its assent and commencement dates and the
+provisions of this Act it actually touched -- and the Explanatory details.
+Each margin note on a Section page links into it, naming the Act behind
+its citation, because a note only ever says "No. 68/2009" and no reader
+holds a hundred Act numbers in their head.
+
+A Section page also carries an "Explained in" bar: the Bill clause it was
+enacted from and the Explanatory Memorandum's note on it, worked out by
+ai_pipeline/commentary.py from run_bill_linking.py's link records and
+handed here as ready-made chips. They're ordinary links into those
+documents' own browse pages, so hovering one answers "what does the EM
+say about this provision?" without leaving the section.
+
+The same renderers serve a Bill and an Explanatory Memorandum, not just
+an Act: those call their top-level provisions clauses rather than
+sections (see hierarchy.SECTION_LEVEL_TYPES), and an EM's entries carry
+no headings at all, so an index row falls back to the opening of the
+entry's own text.
+
+Every link on those pages also has a hover preview: pause on a defined
+term, a "section N" reference or a "Part N" reference and a small card
+shows what's behind it -- the definition and its own paragraphs, the
+Section's opening provisions, the Sections under that Part. Checking what
+a term means is the single most common reason to follow a link here, and
+following it costs you your place; render_preview builds those cards, and
+PREVIEW_SCRIPT is the browser side.
+
 Kept intentionally independent of review.py's own live server process:
 rendering a page here needs no interactive state (no edit/split/merge),
 just whatever build_current_nodes reads off disk, so a Section page can
@@ -41,11 +70,11 @@ import html
 import re
 
 from .akn_export import build_hierarchy_tree
-from .hierarchy import HIERARCHY_ORDER
+from .amendments import anchor_id, describe, resolve_note
+from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES
 from .markdown_export import (
     _DIVISION_REF_RE,
     _PART_REF_RE,
-    _SECTION_REF_RE,
     _collect_verification,
     _display_title,
     _heading_level,
@@ -57,6 +86,9 @@ from .markdown_export import (
     collect_sections,
     compute_index_slugs,
     compute_section_slugs,
+    index_label,
+    page_title,
+    section_ref_pattern,
 )
 
 
@@ -77,6 +109,14 @@ def _build_context(parsed: dict, act_title: str) -> dict:
     filenames_by_eid, section_files = assign_filenames(sections)
     definitions = collect_definitions(sections, filenames_by_eid, section_files)
     index_slugs = compute_index_slugs(tree_roots, act_title, structural_types)
+    # "section N" in an Act, "clause N" in a Bill or an EM -- decided from
+    # the document's own provisions (see markdown_export's own comment on
+    # why not simply always matching both words).
+    secref_re = section_ref_pattern(sections)
+    # A Bill's or an EM's front page isn't an "Act index" -- and calling it
+    # one on every page of both was the sort of small wrongness that makes
+    # a reader doubt everything else on the page.
+    index_link_text = "Contents" if any(tn["node"]["type"] == "clause" for tn, _b in sections) else "Act index"
 
     # Part/Division eId lookups for prose "Part N" / "Division N" links --
     # same one-pass walk export_to_markdown does for the same reason.
@@ -102,10 +142,12 @@ def _build_context(parsed: dict, act_title: str) -> dict:
         "index_slugs": index_slugs,
         "part_eids": part_eids,
         "division_eids": division_eids,
+        "secref_re": secref_re,
+        "index_link_text": index_link_text,
     }
 
 
-def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str):
+def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str):
     """Same regex/priority scheme as markdown_export._build_linkifier, but
     emits <a href> tags instead of Markdown link syntax. Must only ever be
     called on text that's *already* been HTML-escaped (see _esc) -- the
@@ -117,7 +159,7 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     if definitions:
         term_alt = "|".join(re.escape(t) for t in sorted(definitions, key=lambda t: (-len(t), t)))
         parts.append(f"(?P<def>\\b(?:{term_alt})\\b)")
-    parts.append(f"(?P<secref>{_SECTION_REF_RE})")
+    parts.append(f"(?P<secref>{secref_re})")
     parts.append(f"(?P<partref>{_PART_REF_RE})")
     parts.append(f"(?P<divref>{_DIVISION_REF_RE})")
     master = re.compile("|".join(parts), re.IGNORECASE)
@@ -167,19 +209,52 @@ def _verification_badge(verification: dict) -> str:
     return f'<div class="verify-badge verify-{status}">{_esc(label)}</div>'
 
 
-def _margin_notes_html(node: dict) -> str:
+def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | None = None) -> str:
     """This one provision's own amendment-history notes, for the right-hand
     margin column beside it -- the same place the source PDF prints them,
     rather than pooled into one list at the foot of the page. A note whose
     own attachment was a guess (confidence "low" -- see tree.py's
     attach_history) is marked, so a reader can tell "the drafter put this
-    here" apart from "the parser worked out where this probably goes"."""
+    here" apart from "the parser worked out where this probably goes".
+
+    Given an amendment_index (see ai_pipeline/amendments.py), each note also
+    names the Act behind its citation. The note itself only ever says
+    "No. 68/2009"; the Act's own Table of Amendments says which Act that is
+    and when it commenced, and a reader shouldn't have to hold 100 Act
+    numbers in their head to read a margin."""
     bits = []
     for h in node.get("history") or []:
-        cls = "hist-note low" if h.get("confidence") == "low" else "hist-note"
-        title = ' title="Attached to this provision as the closest match, not an exact citation"' if h.get("confidence") == "low" else ""
+        low = h.get("confidence") == "low"
+        cls = "hist-note low" if low else "hist-note"
+        title = ' title="Attached to this provision as the closest match, not an exact citation"' if low else ""
         bits.append(f'<span class="{cls}"{title}>{_esc(h["raw"])}</span>')
+        for record in resolve_note(h["raw"], amendment_index) if amendment_index else []:
+            href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
+            bits.append(
+                f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">'
+                f'{_esc(record["title"] or record["cited_as"])}</a>'
+            )
     return "".join(bits)
+
+
+def build_page_index(parsed: dict, act_title: str) -> dict:
+    """Where each of this document's top-level provisions lives, for a
+    caller building links *into* it from somewhere else (dashboard.py,
+    turning an Act section's Bill/EM links into hrefs). Returns
+    {"by_node_index": {position in parsed["nodes"] -> page id},
+     "by_number": {provision number, lower-cased -> page id}} -- page id
+    being what render_index links to and render_section matches on."""
+    ctx = _build_context(parsed, act_title)
+    position_of = {id(node): i for i, node in enumerate(parsed["nodes"])}
+    by_node_index = {}
+    for tree_node, _breadcrumb in ctx["sections"]:
+        position = position_of.get(id(tree_node["node"]))
+        if position is not None:
+            by_node_index[position] = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
+    return {
+        "by_node_index": by_node_index,
+        "by_number": {number: _strip_md(name) for number, name in ctx["section_files"].items()},
+    }
 
 
 def render_index(parsed: dict, act_title: str, base_url: str) -> str:
@@ -194,6 +269,11 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
     verification = _collect_verification(tree_roots)
 
     out = [f"<h1>{_esc(act_title)}</h1>", _verification_badge(verification)]
+    if parsed.get("endnotes"):
+        out.append(
+            f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
+            "&mdash; general information, the Table of Amendments, explanatory details</div>"
+        )
     list_open = False
 
     def close_list():
@@ -206,9 +286,9 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
         nonlocal list_open
         node = tree_node["node"]
         t = node["type"]
-        if t == "section":
+        if t in SECTION_LEVEL_TYPES:
             href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
-            label = f"{node['number']} {node.get('heading') or ''}".strip()
+            label = index_label(node)
             if not list_open:
                 out.append('<ul class="section-list">')
                 list_open = True
@@ -231,10 +311,35 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
     return "\n".join(out)
 
 
-def render_section(parsed: dict, act_title: str, base_url: str, section_slug: str) -> str | None:
+def _crossrefs_html(crossrefs: list[dict]) -> str:
+    """The "where else this provision is explained" bar -- one chip per
+    related document (the Bill clause this section was enacted from, an
+    Explanatory Memorandum note about it). Each chip is an ordinary link
+    into that document's own page, so hovering one previews it the same
+    way every other link on the page does; the caller (dashboard.py, via
+    ai_pipeline/commentary.py) works out what belongs here."""
+    if not crossrefs:
+        return ""
+    chips = "".join(
+        f'<a class="crossref crossref-{_esc(ref.get("kind") or "other")}" href="{_esc(ref["href"])}"'
+        f'{f" title=" + chr(34) + _esc(ref["title"]) + chr(34) if ref.get("title") else ""}>'
+        f'{_esc(ref["label"])}</a>'
+        for ref in crossrefs
+    )
+    return f'<div class="crossrefs"><span class="crossrefs-label">Explained in</span>{chips}</div>'
+
+
+def render_section(
+    parsed: dict, act_title: str, base_url: str, section_slug: str,
+    crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
+) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
-    Section matches -- the caller (dashboard.py) turns that into a 404."""
+    Section matches -- the caller (dashboard.py) turns that into a 404.
+
+    crossrefs, if given, are the related-document chips described in
+    _crossrefs_html; amendment_index, if given, is what lets each margin
+    note name the Act behind its citation (see _margin_notes_html)."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -246,16 +351,17 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
     tree_node, breadcrumb = sections[match_index]
     node = tree_node["node"]
 
-    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], ctx["definitions"], base_url)
-    title = f"{node['number']} {node.get('heading') or ''}".strip()
+    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], ctx["definitions"], base_url, ctx["secref_re"])
+    title = page_title(node)
     verification = _collect_verification([tree_node])
 
     out = []
-    crumb_bits = [f'<a href="{base_url}/">Act index</a>']
+    crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
     crumb_bits.extend(_esc(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading"))) for b in breadcrumb)
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
     out.append(_verification_badge(verification))
     out.append(f"<h1>{_esc(title)}</h1>")
+    out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads as the Act itself does: each provision indented by its
     # own nesting depth with its number hanging in the left margin, rather
@@ -277,6 +383,11 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
         classes = ["prov", f"prov-{_esc(unit_node['type'])}"]
         if unit["text"] is None:
             classes.append("prov-heading")  # a heading-only provision (a Subdivision caption, say)
+        elif unit["header_text"] is None:
+            # Body text with no number of its own -- a section's lead-in, a
+            # note, a paragraph the parser couldn't number. Nothing to hang
+            # in the margin, so it just sits in the text column.
+            classes.append("prov-nolabel")
 
         bits = []
         if unit["header_text"] is not None:
@@ -303,7 +414,7 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
         # One margin cell per provision, empty or not: the two columns are
         # auto-placed rows of the same grid, so a note only stays level with
         # the provision it belongs to if every provision contributes a cell.
-        notes = _margin_notes_html(unit_node) if unit["clause_index"] == 0 else ""
+        notes = _margin_notes_html(unit_node, base_url, amendment_index) if unit["clause_index"] == 0 else ""
         out.append(f'<div class="prov-notes">{notes}</div>')
     out.append("</div>")
 
@@ -311,13 +422,258 @@ def render_section(parsed: dict, act_title: str, base_url: str, section_slug: st
     if match_index > 0:
         prev_filename = filenames_by_eid[sections[match_index - 1][0]["eid"]]
         nav.append(f'<a href="{base_url}/section/{_strip_md(prev_filename)}">&laquo; Previous</a>')
-    nav.append(f'<a href="{base_url}/">Act index</a>')
+    nav.append(f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>')
     if match_index + 1 < len(sections):
         next_filename = filenames_by_eid[sections[match_index + 1][0]["eid"]]
         nav.append(f'<a href="{base_url}/section/{_strip_md(next_filename)}">Next &raquo;</a>')
     out.append(f'<div class="section-nav">{" | ".join(nav)}</div>')
 
     return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Endnotes
+# ---------------------------------------------------------------------------
+# How many of an amending Act's own provision-changes to list before the
+# rest go behind a count. The Criminal Procedure Act's busiest amending Act
+# touched 228 provisions; printing all of them for all 73 of them would
+# make this page longer than several of the Act's own Parts.
+_AMENDMENT_PROVISION_LIMIT = 40
+
+
+def _amending_act_html(entry: dict, section_files: dict[str, str], base_url: str) -> str:
+    record = entry["record"]
+    rows = []
+    for label, keys in (
+        ("Assent", ("assent_date",)),
+        ("Made", ("date_of_making",)),
+        ("Commencement", ("commencement_date", "date_of_commencement")),
+        ("Note", ("note",)),
+        ("Current state", ("current_state",)),
+    ):
+        value = next((record[k] for k in keys if record.get(k)), None)
+        if value:
+            rows.append(f"<dt>{_esc(label)}</dt><dd>{_esc(value)}</dd>")
+    if record.get("source") == "registry":
+        # Named from the general Act registry rather than this Act's own
+        # Table of Amendments, so it carries no assent or commencement --
+        # say which, instead of showing an entry that just looks incomplete.
+        rows.append("<dt>Source</dt><dd>Named from the Act registry &mdash; not listed in this Act's own Table of Amendments</dd>")
+
+    provisions = entry["provisions"]
+    listed = provisions[:_AMENDMENT_PROVISION_LIMIT]
+    chips = []
+    for provision in listed:
+        filename = section_files.get(str(provision["section_number"] or "").lower())
+        label = _esc(provision["label"])
+        chips.append(
+            f'<a class="amend-prov" href="{base_url}/section/{_strip_md(filename)}">{label}</a>'
+            if filename else f'<span class="amend-prov">{label}</span>'
+        )
+    more = f' <span class="amend-more">and {len(provisions) - len(listed)} more</span>' if len(provisions) > len(listed) else ""
+    touched = (
+        f'<details class="amend-provisions"><summary>{len(provisions)} provision(s) in this Act</summary>'
+        f'<div class="amend-prov-list">{"".join(chips)}{more}</div></details>'
+        if provisions else ""
+    )
+    cite = f'<span class="amend-cite">No. {_esc(record.get("citation") or "?")}</span>' if record.get("citation") else ""
+    return (
+        f'<div class="amend" id="{_esc(anchor_id(record.get("citation")))}">'
+        f'<div class="amend-head">{cite}{_esc(record.get("title") or "")}</div>'
+        f'<dl class="amend-fields">{"".join(rows)}</dl>{touched}</div>'
+    )
+
+
+def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[dict] | None = None) -> str | None:
+    """The Act's own Endnotes, read as the printed page reads them rather
+    than as the wall of text they extract to: General information, the
+    Table of Amendments as an actual table, and Explanatory details.
+
+    `summary` is ai_pipeline/amendments.summarise_by_act's output -- every
+    amending Act this Act's margin notes actually cite, with the provisions
+    each one touched. That is the Table of Amendments read the other way
+    round, and the question a reader actually has; the Acts in the table
+    that no margin note cites are listed after it, unchanged.
+
+    Returns None when this document has no endnotes (a Bill, an Explanatory
+    Memorandum, an Act parsed before this was extracted), which the caller
+    turns into a 404."""
+    endnotes = parsed.get("endnotes")
+    if not endnotes:
+        return None
+    ctx = _build_context(parsed, act_title)
+    section_files = ctx["section_files"]
+    summary = summary or []
+    cited = {entry["citation"] for entry in summary}
+
+    out = [
+        f'<div class="breadcrumb"><a href="{base_url}/">{_esc(ctx["index_link_text"])}</a> &raquo; Endnotes</div>',
+        "<h1>Endnotes</h1>",
+    ]
+    for section in endnotes.get("sections") or []:
+        out.append(f'<h2 id="endnote-{_esc(section["number"])}">{_esc(section["number"])} {_esc(section["heading"])}</h2>')
+        if section.get("text"):
+            out.append(f'<div class="endnote-text">{_esc(section["text"])}</div>')
+        if "table of amendments" not in (section["heading"] or "").lower():
+            continue
+        if summary:
+            out.append('<h3>Acts that amended provisions of this Act</h3>')
+            out.extend(_amending_act_html(entry, section_files, base_url) for entry in summary)
+        uncited = [
+            {"record": record, "provisions": []}
+            for record in endnotes.get("amending_acts") or []
+            if record.get("citation") not in cited
+        ]
+        if uncited:
+            out.append(
+                f'<h3>Also in the Table of Amendments ({len(uncited)})</h3>'
+                '<p class="endnote-aside">Listed in the printed table, but not cited by any margin note in this '
+                "Act &mdash; typically an amendment to a provision that has since been repealed.</p>"
+            )
+            out.extend(_amending_act_html(entry, section_files, base_url) for entry in uncited)
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Hover previews
+# ---------------------------------------------------------------------------
+# How many provisions (and how much text) a preview card is allowed before
+# it stops being a glance and becomes the page it's previewing. A card that
+# hits either limit says so and offers the link.
+_PREVIEW_MAX_UNITS = 6
+_PREVIEW_MAX_CHARS = 650
+
+
+def _preview_prov_html(unit: dict, base_depth: int) -> str:
+    """One provision, in the same shape render_section emits -- minus the
+    anchor id and the linkifier. A preview is a glance at where a link
+    goes, not a second page: links inside one would invite previews of
+    previews, and its ids would collide with the real page's own."""
+    node = unit["tree_node"]["node"]
+    classes = ["prov", f"prov-{_esc(node['type'])}"]
+    if unit["text"] is None:
+        classes.append("prov-heading")
+    elif unit["header_text"] is None:
+        classes.append("prov-nolabel")
+    bits = []
+    if unit["header_text"] is not None:
+        label_class = "prov-term" if node["type"] == "definition" else "prov-num"
+        bits.append(f'<span class="{label_class}">{_esc(unit["header_text"])}</span>')
+    if unit["text"] is not None:
+        if node["type"] == "definition" and bits and not unit["text"].lstrip().startswith((",", ".", ";", ":", ")", "\u2014", "-")):
+            bits.append(" ")
+        bits.append(_esc(unit["text"]))
+    depth = max(unit["depth"] - base_depth, 0)
+    return f'<div class="{" ".join(classes)}" style="--depth:{depth}">{"".join(bits)}</div>'
+
+
+def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fragment: "str | None") -> "dict | None":
+    """The content behind one link, small enough to read in a hover card.
+
+    Three shapes, matching the three kinds of link _build_linkifier_html
+    produces: a defined term or a numbered provision (section_slug plus the
+    fragment its anchor uses -- the provision itself and whatever nests
+    under it), a bare "section N" reference (section_slug alone -- the
+    Section's opening provisions), and a "Part N"/"Division N" reference
+    (fragment alone -- that heading and the Sections beneath it).
+
+    Returns {title, subtitle, html, truncated}, or None when the target
+    doesn't resolve -- the caller turns that into a 404 and the hover card
+    simply doesn't appear, which is the right outcome for a link into
+    something that isn't there.
+    """
+    ctx = _build_context(parsed, act_title)
+
+    if section_slug:
+        sections = ctx["sections"]
+        filenames_by_eid = ctx["filenames_by_eid"]
+        target_filename = f"{section_slug}.md"
+        match = next(((tn, b) for tn, b in sections if filenames_by_eid[tn["eid"]] == target_filename), None)
+        if match is None:
+            return None
+        tree_node, breadcrumb = match
+        node = tree_node["node"]
+        title = page_title(node)
+        subtitle = " » ".join(
+            _display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading")) for b in breadcrumb
+        )
+
+        units = list(_iter_body_units(tree_node))
+        if fragment:
+            slugs = compute_section_slugs(tree_node)
+            start = next(
+                (
+                    i for i, u in enumerate(units)
+                    if slugs.get((u["tree_node"]["eid"], u["clause_index"])) == fragment
+                ),
+                None,
+            )
+            if start is None:
+                return None
+            # The provision itself plus everything nested under it, which is
+            # what makes a definition useful at a glance: a term whose
+            # meaning is a list of (a)/(b) paragraphs is only answered by
+            # showing them too.
+            base_depth = units[start]["depth"]
+            selected = [units[start]]
+            for u in units[start + 1 :]:
+                if u["depth"] <= base_depth:
+                    break
+                selected.append(u)
+            if units[start]["header_text"]:
+                title = units[start]["header_text"]
+                subtitle = page_title(node)
+        else:
+            base_depth = 0
+            selected = units
+
+        truncated = len(selected) > _PREVIEW_MAX_UNITS
+        selected = selected[:_PREVIEW_MAX_UNITS]
+        html_bits, chars = [], 0
+        for unit in selected:
+            if chars >= _PREVIEW_MAX_CHARS:
+                truncated = True
+                break
+            html_bits.append(_preview_prov_html(unit, base_depth))
+            chars += len(unit["text"] or unit["header_text"] or "")
+        return {"document": act_title, "title": title, "subtitle": subtitle, "html": "".join(html_bits), "truncated": truncated}
+
+    if not fragment:
+        return None
+
+    # An index anchor: a Part/Division/Chapter heading. What's useful here
+    # isn't its text (it has none) but what it contains, so the card lists
+    # the Sections under it.
+    index_slugs = ctx["index_slugs"]
+    target = None
+    for root in ctx["tree_roots"]:
+        for tn in _iter_tree(root):
+            if index_slugs.get(tn["eid"]) == fragment:
+                target = tn
+                break
+        if target is not None:
+            break
+    if target is None:
+        return None
+
+    node = target["node"]
+    listed = [
+        tn["node"] for tn in _iter_tree(target)
+        if tn["node"]["type"] == "section" and tn is not target
+    ]
+    truncated = len(listed) > _PREVIEW_MAX_UNITS
+    rows = "".join(
+        f'<div class="prov" style="--depth:0">'
+        f'<span class="prov-num">{_esc(sec["number"])}</span>{_esc(sec.get("heading") or "")}</div>'
+        for sec in listed[:_PREVIEW_MAX_UNITS]
+    )
+    return {
+        "document": act_title,
+        "title": _display_title(node["type"], node.get("number"), node.get("heading")),
+        "subtitle": f"{len(listed)} section(s)" if listed else "",
+        "html": rows,
+        "truncated": truncated,
+    }
 
 
 PAGE_CSS = """
@@ -381,6 +737,10 @@ a:hover { text-decoration: underline; }
   padding-left: calc(var(--depth, 0) * 26px + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
 }
+/* No number to hang, so no hanging indent -- the text just starts where a
+   numbered sibling's text does, rather than its first line poking out
+   into the empty number column. */
+.prov-nolabel { text-indent: 0; }
 .prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
 .prov-term { font-weight: 600; font-style: italic; }
 .prov-heading {
@@ -393,6 +753,69 @@ a:hover { text-decoration: underline; }
 /* A note the parser placed by proximity rather than by an explicit
    citation -- flagged so a reader can tell a guess from a certainty. */
 .hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
+
+/* Endnotes page: the Table of Amendments as a table. */
+.index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
+.endnote-text { white-space: pre-line; margin-bottom: 18px; }
+.endnote-aside { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
+.amend { border-top: 1px solid var(--border); padding: 12px 0 4px; }
+.amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.amend-cite {
+  display: inline-block; font-weight: 500; font-size: 11.5px; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; margin-right: 8px;
+}
+.amend-fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 14px; margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px; }
+.amend-fields dt { color: var(--muted); }
+.amend-fields dd { margin: 0; }
+.amend-provisions { font-family: var(--sans); font-size: 12.5px; }
+.amend-provisions summary { cursor: pointer; color: var(--accent); }
+.amend-prov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--fg); }
+a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
+/* The amending Act's name, printed in the margin under the note that cites
+   it -- the note itself only ever gives a number. */
+.hist-act { display: block; margin: -2px 0 6px; font-size: 11px; line-height: 1.35; }
+
+/* "Explained in" chips under a Section's title: the Bill clause it was
+   enacted from, and the Explanatory Memorandum's note on it. Ordinary
+   links, so the hover preview above reads them like any other -- which is
+   the whole point, since the question ("what does the EM say about this?")
+   is one a reader wants answered without leaving the section. */
+.crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
+.crossrefs-label { font-size: 11.5px; color: var(--muted); }
+.crossref {
+  font-size: 11.5px; padding: 2px 9px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+}
+.crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.crossref-em { border-style: dashed; }
+
+/* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
+   coordinates (not fixed) so it scrolls with the link it belongs to. */
+.linkpeek {
+  position: absolute; z-index: 40; display: none;
+  width: min(420px, 90vw); max-height: 340px; overflow-y: auto;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+  font-size: 13.5px; line-height: 1.55;
+}
+.linkpeek.open { display: block; }
+.linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.linkpeek .peek-sub { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
+.linkpeek .prov { margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + 2.2em); text-indent: -2.2em; }
+.linkpeek .prov-nolabel { text-indent: 0; }
+.linkpeek .prov:last-child { margin-bottom: 0; }
+.linkpeek .prov-num { min-width: 1.7em; padding-right: 0.5em; }
+.linkpeek .peek-more {
+  position: sticky; bottom: -12px;   /* cancels the card's own bottom padding */
+  background: var(--panel);
+  font-family: var(--sans); font-size: 11.5px; color: var(--muted);
+  margin-top: 9px; padding: 7px 0 12px; border-top: 1px solid var(--border);
+}
+.linkpeek .peek-loading { font-family: var(--sans); font-size: 12px; color: var(--muted); }
 
 .theme-toggle {
   position: fixed; top: 10px; right: 14px; z-index: 30;
@@ -438,14 +861,171 @@ THEME_BODY_SCRIPT = """
 """
 
 
-def page_shell(title: str, body_html: str, previewbar_html: str = "") -> str:
+# Hover previews. Every link on a browse page points either at a Section
+# page (optionally with a provision's anchor) or at an index anchor, so the
+# href alone says what to preview -- no data has to be embedded in the page.
+# Deliberately hover-with-a-delay rather than click: the point is checking
+# what a defined term means without losing your place, and a card that
+# appeared instantly would flash open every time the pointer crossed a
+# link mid-sentence. It also opens on keyboard focus, where there's no
+# accidental-hover problem to guard against, so a card is reachable
+# without a pointer.
+PREVIEW_SCRIPT = r"""
+(function () {
+  var BASE = document.body.dataset.baseUrl;
+  if (!BASE) return;
+  // Everything above this document's own slug, e.g. "/browse". Previews
+  // work for any document under it, not just this one -- a Section's
+  // "Explained in" chips point at the Bill and its Explanatory
+  // Memorandum, and those are exactly the links most worth previewing.
+  var ROOT = BASE.slice(0, BASE.lastIndexOf("/"));
+  var OPEN_DELAY = 500;   // long enough that skimming past a link doesn't trigger one
+  var CLOSE_DELAY = 220;  // long enough to move the pointer from the link into the card
+  var card = document.createElement("div");
+  card.className = "linkpeek";
+  document.body.appendChild(card);
+
+  var cache = {};
+  var openTimer = null, closeTimer = null, activeLink = null, requestSeq = 0;
+
+  // Which link target this is, as the preview endpoint's two parameters.
+  // Anything that isn't a link into this Act (the preview bar's own links,
+  // an external href) returns null and is left alone.
+  function targetOf(a) {
+    var url;
+    try { url = new URL(a.getAttribute("href"), location.href); } catch (e) { return null; }
+    if (url.origin !== location.origin) return null;
+    var fragment = decodeURIComponent(url.hash.replace(/^#/, ""));
+    if (url.pathname.slice(0, ROOT.length + 1) !== ROOT + "/") return null;
+    var parts = url.pathname.slice(ROOT.length + 1).replace(/\/$/, "").split("/");
+    if (parts.length === 3 && parts[1] === "section") {
+      return { base: ROOT + "/" + parts[0], section: parts[2], fragment: fragment };
+    }
+    if (parts.length === 1 && parts[0] && fragment) {
+      return { base: ROOT + "/" + parts[0], section: "", fragment: fragment };
+    }
+    return null;
+  }
+
+  function render(data, crossDocument) {
+    card.classList.add("open");  // must be laid out before the overflow check below can measure it
+    var more = data.truncated
+      ? '<div class="peek-more">Continues &mdash; open the link to read the rest.</div>' : "";
+    // A link into another document (a Bill clause, an EM note) is named
+    // by that document as well as by the provision -- without it a card
+    // reading "Clause 5" gives no clue which of the three it came from.
+    var subBits = [];
+    if (crossDocument && data.document) subBits.push(data.document);
+    if (data.subtitle) subBits.push(data.subtitle);
+    var sub = subBits.length ? '<div class="peek-sub">' + escapeText(subBits.join(" \u00b7 ")) + "</div>" : "";
+    card.innerHTML = '<div class="peek-title">' + escapeText(data.title) + "</div>" + sub + data.html + more;
+    // A card can also overflow without the server having truncated
+    // anything -- short provisions that simply wrap past its height. Say so
+    // there too, so a clipped last line always reads as "there's more",
+    // never as a rendering glitch.
+    if (!more && card.scrollHeight > card.clientHeight) {
+      card.insertAdjacentHTML("beforeend", '<div class="peek-more">Continues &mdash; scroll, or open the link.</div>');
+    }
+  }
+
+  function escapeText(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : s;
+    return d.innerHTML;
+  }
+
+  // Anchored to the link in page coordinates so the card scrolls with it,
+  // flipped above when there isn't room below and nudged back inside the
+  // viewport horizontally.
+  function place(a) {
+    var r = a.getBoundingClientRect();
+    card.style.left = "0px";
+    card.style.top = "0px";
+    card.classList.add("open");
+    var w = card.offsetWidth, h = card.offsetHeight;
+    var left = Math.min(Math.max(r.left, 8), Math.max(window.innerWidth - w - 8, 8));
+    var below = r.bottom + 8;
+    var top = (below + h > window.innerHeight && r.top - h - 8 > 0) ? r.top - h - 8 : below;
+    card.style.left = (left + window.scrollX) + "px";
+    card.style.top = (top + window.scrollY) + "px";
+  }
+
+  function show(a) {
+    var target = targetOf(a);
+    if (!target) return;
+    var href = a.getAttribute("href");
+    activeLink = a;
+    var seq = ++requestSeq;
+    if (cache[href]) { render(cache[href], target.base !== BASE); place(a); return; }
+    card.innerHTML = '<div class="peek-loading">Loading&hellip;</div>';
+    place(a);
+    var query = "section=" + encodeURIComponent(target.section) + "&fragment=" + encodeURIComponent(target.fragment);
+    fetch("/api" + target.base + "/preview?" + query)
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (seq !== requestSeq || activeLink !== a) return;  // pointer moved on before this landed
+        if (!data) { hide(); return; }
+        cache[href] = data;
+        render(data, target.base !== BASE);
+        place(a);
+      })
+      .catch(function () { if (seq === requestSeq) hide(); });
+  }
+
+  function hide() {
+    card.classList.remove("open");
+    activeLink = null;
+    requestSeq++;
+  }
+
+  function scheduleShow(a) {
+    clearTimeout(closeTimer);
+    clearTimeout(openTimer);
+    if (activeLink === a) return;
+    openTimer = setTimeout(function () { show(a); }, OPEN_DELAY);
+  }
+
+  function scheduleHide() {
+    clearTimeout(openTimer);
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(hide, CLOSE_DELAY);
+  }
+
+  document.addEventListener("mouseover", function (e) {
+    var a = e.target.closest ? e.target.closest("a[href]") : null;
+    if (a && a.closest(".page")) scheduleShow(a);
+    else if (!e.target.closest || !e.target.closest(".linkpeek")) scheduleHide();
+  });
+  document.addEventListener("mouseout", function (e) {
+    if (e.target.closest && (e.target.closest("a[href]") || e.target.closest(".linkpeek"))) scheduleHide();
+  });
+  card.addEventListener("mouseenter", function () { clearTimeout(closeTimer); });
+  card.addEventListener("mouseleave", scheduleHide);
+  document.addEventListener("focusin", function (e) {
+    var a = e.target.closest ? e.target.closest("a[href]") : null;
+    if (a && a.closest(".page")) scheduleShow(a);
+  });
+  document.addEventListener("focusout", scheduleHide);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
+  window.addEventListener("scroll", function () { if (activeLink) place(activeLink); }, { passive: true });
+})();
+"""
+
+
+def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: str | None = None) -> str:
+    """base_url is this Act's own root (e.g. "/browse/crimes-act"). Given
+    one, the page also gets link hover previews -- the script needs it to
+    tell a link into this Act from any other href on the page. Omitted,
+    the page renders exactly as before, without them."""
+    body_attr = f' data-base-url="{_esc(base_url)}"' if base_url else ""
+    preview_script = f"<script>{PREVIEW_SCRIPT}</script>\n" if base_url else ""
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
         f"<title>{_esc(title)}</title>\n<style>{PAGE_CSS}</style>\n"
-        f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body>\n"
+        f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body{body_attr}>\n"
         f"{previewbar_html}"
         "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"
         f"<div class=\"page\">\n{body_html}\n</div>\n"
-        f"<script>{THEME_BODY_SCRIPT}</script>\n</body>\n</html>"
+        f"<script>{THEME_BODY_SCRIPT}</script>\n{preview_script}</body>\n</html>"
     )

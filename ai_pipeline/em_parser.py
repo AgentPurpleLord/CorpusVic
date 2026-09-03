@@ -8,6 +8,15 @@ group the clauses under them for a reader's benefit without changing the
 underlying flat sequence -- an EM Chapter/Part heading has no explanatory
 text of its own, unlike the Bill/Act's own Part/Division, which do.
 
+Each entry is typed "clause" -- the same type the Bill's own provisions
+get (see run_pipeline.py's top_level_type) -- because that is what an
+entry is about and is numbered by. It used to get a type of its own,
+"em_entry", which made every EM node an unranked type: hierarchy.py had
+no rank for it, so grouping, nesting, indentation and the browse view all
+treated a whole EM as a flat run of unrelated fragments. "clause" is
+aliased onto "section"'s rank (see hierarchy.make_ranks), so an entry now
+sits under the Chapter/Part heading above it and reads as a provision.
+
 Detection is almost entirely textual rather than font-based, unlike
 rule_parser.py's Act/Bill parser: "Clause N" (optionally with a pinpoint,
 "Clause 6(4)") is set in plain body text, not bold -- the only reliable
@@ -162,7 +171,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             number, rest = clause_m.group(1), clause_m.group(2).strip()
             last_base = _base_number(number)
             current = {
-                "type": "em_entry", "number": number, "heading": None, "text": rest,
+                "type": "clause", "number": number, "heading": None, "text": rest,
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
@@ -186,7 +195,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
                 # rather than dropping it (see rule_parser.py's own
                 # synthetic-preamble fallback for the same reasoning).
                 current = {
-                    "type": "em_entry", "number": None, "heading": None, "text": "",
+                    "type": "clause", "number": None, "heading": None, "text": "",
                     "page_start": line.page_no, "page_end": line.page_no,
                     "char_start": char_start, "char_end": char_start, "source": "rules",
                 }

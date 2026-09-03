@@ -12,9 +12,9 @@ export_akn.py / export_markdown.py recreates them from the source PDF,
 so there's nothing there that "longevity" is actually about. What
 genuinely needs it is the other three: hours of a human's own
 accept/flag/edit decisions, span-level link annotations, and the
-correction log run_pipeline.py reads back in as few-shot examples --
-exactly the things a crash mid `path.write_text(json.dumps(whole_file))`
-could previously corrupt outright.
+correction log recording what a human actually changed -- exactly the
+things a crash mid `path.write_text(json.dumps(whole_file))` could
+previously corrupt outright.
 
 data/ai_parsed/<act>.json (the raw parse) is technically regenerable the
 same way, but is committed to git *alongside* data/legislation.db as a
@@ -27,7 +27,7 @@ into this file, and checkpoint_db.py before committing this one).
 Every function here keeps the exact name and dict/list shape its old
 JSON-backed counterpart had (load_verified/save_verified in review.py,
 load_links/save_links/add_link/delete_link in link_annotations.py,
-add_correction/load_examples/stats in examples_store.py) -- callers
+add_correction/stats in examples_store.py) -- callers
 elsewhere in the pipeline don't change at all, only where this data
 actually lives.
 
@@ -96,6 +96,10 @@ CREATE TABLE IF NOT EXISTS corrections (
     act TEXT NOT NULL,
     ts REAL NOT NULL,
     changed INTEGER NOT NULL,
+    -- What the parser produced, before the human changed it. The column
+    -- keeps its original name: it predates the removal of the
+    -- model-backed parser this project used to also offer, and renaming
+    -- it would mean migrating every committed database for no gain.
     ai_output_json TEXT NOT NULL,
     human_output_json TEXT NOT NULL
 );
@@ -328,7 +332,7 @@ def delete_link(act: str, link_id: str) -> bool:
 # Correction log (was data/corrections.jsonl, shared across every Act)
 # ---------------------------------------------------------------------------
 
-def add_correction(act: str, ai_output: dict, human_output: dict, changed: bool) -> None:
+def add_correction(act: str, parser_output: dict, human_output: dict, changed: bool) -> None:
     fields = ("type", "number", "heading", "text")
     conn = _connect()
     with conn:
@@ -336,32 +340,10 @@ def add_correction(act: str, ai_output: dict, human_output: dict, changed: bool)
             "INSERT INTO corrections (act, ts, changed, ai_output_json, human_output_json) VALUES (?, ?, ?, ?, ?)",
             (
                 act, time.time(), 1 if changed else 0,
-                json.dumps({k: ai_output.get(k) for k in fields}),
+                json.dumps({k: parser_output.get(k) for k in fields}),
                 json.dumps({k: human_output.get(k) for k in fields}),
             ),
         )
-
-
-def _correction_row_to_dict(row: sqlite3.Row) -> dict:
-    return {
-        "ts": row["ts"], "act": row["act"], "changed": bool(row["changed"]),
-        "ai_output": json.loads(row["ai_output_json"]), "human_output": json.loads(row["human_output_json"]),
-    }
-
-
-def load_examples(k: int = 6) -> list[dict]:
-    """Most recent corrected examples first, plus a few confirmed-correct
-    ones -- same selection commit_unit's few-shot prompt-building always
-    used, across every Act (not just one), since a correction from any
-    Act is still a useful example of what a human actually approved."""
-    conn = _connect()
-    changed_rows = conn.execute(
-        "SELECT * FROM corrections WHERE changed = 1 ORDER BY ts DESC LIMIT ?", (k,)
-    ).fetchall()
-    unchanged_rows = conn.execute(
-        "SELECT * FROM corrections WHERE changed = 0 ORDER BY ts DESC LIMIT ?", (max(0, k // 2),)
-    ).fetchall()
-    return [_correction_row_to_dict(r) for r in changed_rows] + [_correction_row_to_dict(r) for r in unchanged_rows]
 
 
 def stats() -> dict:
@@ -371,7 +353,7 @@ def stats() -> dict:
 
 # ---------------------------------------------------------------------------
 # Blind reviews -- a reviewer's own, independent classification of an
-# elevated-risk piece (AI-engine-sourced, or carrying a diagnostics
+# elevated-risk piece (one carrying a diagnostics
 # finding), recorded *before* review.py's UI reveals what the parser
 # actually produced. New in this project: there's no prior JSON-file
 # equivalent, so it goes straight into the DB rather than following an

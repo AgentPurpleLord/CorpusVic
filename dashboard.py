@@ -69,6 +69,9 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from pydantic import BaseModel
 
 from ai_pipeline import db, html_view
+from ai_pipeline.act_registry import load_act_registry
+from ai_pipeline.amendments import build_amendment_index, summarise_by_act
+from ai_pipeline.commentary import build_commentary_index
 from ai_pipeline.extract import slugify
 from review import _resume_point, build_current_nodes, group_into_units
 
@@ -118,6 +121,11 @@ def act_status(slug: str) -> dict:
         # any kind of error.
         "has_profile": any((profiles_dir / f"{slug}{ext}").exists() for ext in (".yaml", ".yml")),
         "parsed": parsed_path.exists(),
+        # "act" / "bill" / "em" -- what the pipeline recorded when it
+        # parsed this one (filled in below, from the parse this function
+        # already reads). Surfaced so a dashboard card says which of the
+        # three it is, since all three browse and review the same way now.
+        "kind": "act",
         "node_count": None,
         "unit_count": None,
         "reviewed_units": None,
@@ -128,6 +136,7 @@ def act_status(slug: str) -> dict:
     if not parsed_path.exists():
         return status
     data = json.loads(parsed_path.read_text(encoding="utf-8"))
+    status["kind"] = data.get("document_type") or "act"
     nodes = data.get("nodes", [])
     units = group_into_units(nodes)
     status["node_count"] = len(nodes)
@@ -512,13 +521,9 @@ def list_acts():
     return [act_status(slug) for slug in discover_slugs()]
 
 
-def _validate_parse_params(kind: str, profile: str, engine: str, backend: str, start_page: str, end_page: str) -> None:
+def _validate_parse_params(kind: str, profile: str, start_page: str, end_page: str) -> None:
     if kind not in ("act", "bill", "em"):
         raise HTTPException(400, f"Invalid kind: {kind!r}")
-    if engine not in ("rules", "ai"):
-        raise HTTPException(400, f"Invalid engine: {engine!r}")
-    if backend not in ("ollama", "claude"):
-        raise HTTPException(400, f"Invalid backend: {backend!r}")
     if profile.strip() and not _SLUG_RE.match(profile.strip()):
         raise HTTPException(400, f"Invalid profile name: {profile!r}")
     for field_name, value in (("start_page", start_page), ("end_page", end_page)):
@@ -541,13 +546,11 @@ def _repo_relative(path: Path) -> str:
         return str(path)  # outside the repo entirely -- nothing relative to say
 
 
-def _build_parse_command(
-    pdf_path: Path, kind: str, profile: str, engine: str, backend: str, model: str, start_page: str, end_page: str
-) -> list[str]:
+def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: str, end_page: str) -> list[str]:
     """Shared by new_act (a freshly uploaded PDF) and reparse_act (an
-    already-uploaded one, re-run to pick up a different engine/profile or
-    to regenerate after a parser change) -- same options either way, only
-    which PDF path they point at differs."""
+    already-uploaded one, re-run to pick up a profile or to regenerate
+    after a parser change) -- same options either way, only which PDF path
+    they point at differs."""
     source = _repo_relative(pdf_path)
     if kind == "em":
         return [sys.executable, "run_em_pipeline.py", source]
@@ -558,10 +561,6 @@ def _build_parse_command(
         cmd += ["--start-page", start_page.strip()]
     if end_page.strip():
         cmd += ["--end-page", end_page.strip()]
-    if engine == "ai":
-        cmd += ["--engine", "ai", "--backend", backend]
-        if model.strip():
-            cmd += ["--model", model.strip()]
     return cmd
 
 
@@ -586,13 +585,10 @@ async def new_act(
     pdf: UploadFile = File(...),
     kind: str = Form("act"),
     profile: str = Form(""),
-    engine: str = Form("rules"),
-    backend: str = Form("ollama"),
-    model: str = Form(""),
     start_page: str = Form(""),
     end_page: str = Form(""),
 ):
-    _validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+    _validate_parse_params(kind, profile, start_page, end_page)
     if not (pdf.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are supported")
 
@@ -603,7 +599,7 @@ async def new_act(
     slug = slugify(dest.stem)
     _act_title_cache.pop(slug, None)  # a re-upload under this slug may have a different title
 
-    cmd = _build_parse_command(dest, kind, profile, engine, backend, model, start_page, end_page)
+    cmd = _build_parse_command(dest, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
 
@@ -613,17 +609,14 @@ def reparse_act(
     slug: str,
     kind: str = Form("act"),
     profile: str = Form(""),
-    engine: str = Form("rules"),
-    backend: str = Form("ollama"),
-    model: str = Form(""),
     start_page: str = Form(""),
     end_page: str = Form(""),
     confirm: str = Form(""),
 ):
     """Re-runs the pipeline against an already-uploaded PDF -- no new
-    upload needed -- so an Act can be re-parsed with a different engine
-    (rules vs AI) or profile, or just regenerated after a parser code
-    change, without starting over from "Add Act/Bill/EM".
+    upload needed -- so an Act can be re-parsed with a profile it was
+    missing, or just regenerated after a parser code change, without
+    starting over from "Add Act/Bill/EM".
 
     data/ai_parsed/<slug>.json is plain regenerable output on its own,
     but review.py's own verified rows in data/legislation.db are keyed by
@@ -634,7 +627,7 @@ def reparse_act(
     default. Refuses (409) unless `confirm` is set, once there's any
     reviewed progress to actually put at risk."""
     _validate_slug(slug)
-    _validate_parse_params(kind, profile, engine, backend, start_page, end_page)
+    _validate_parse_params(kind, profile, start_page, end_page)
 
     pdf_path = _find_source_pdf(slug)
     if pdf_path is None:
@@ -651,7 +644,7 @@ def reparse_act(
         )
 
     _act_title_cache.pop(slug, None)
-    cmd = _build_parse_command(pdf_path, kind, profile, engine, backend, model, start_page, end_page)
+    cmd = _build_parse_command(pdf_path, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
     if ok:
         # The parse this Act's review.py process (if any) loaded into
@@ -710,7 +703,207 @@ def bill_link(bill_slug: str = Form(...), act_slug: str = Form(...), em_slug: st
     return {"ok": result.returncode == 0, "log": result.stdout + result.stderr}
 
 
+_current_nodes_cache: dict[str, tuple[tuple, tuple]] = {}
+
+
+def _browse_state_signature(slug: str) -> tuple:
+    """A cheap stamp of everything build_current_nodes reads: this Act's
+    parse plus the review database (whose -wal file is where a write
+    actually lands first under WAL, so the .db's own mtime alone would
+    miss an edit a reviewer just made)."""
+    paths = [
+        BASE_DIR / "data" / "ai_parsed" / f"{slug}.json",
+        db.db_path(BASE_DIR),
+        Path(f"{db.db_path(BASE_DIR)}-wal"),
+    ]
+    stamp = []
+    for path in paths:
+        try:
+            st = path.stat()
+            stamp.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            stamp.append(None)
+    return tuple(stamp)
+
+
+def _current_nodes(slug: str) -> tuple[list[dict], list[dict], list[str]]:
+    """build_current_nodes re-reads the parse and re-merges every verified
+    row on each call -- ~0.2s for a large Act, which was fine when only a
+    page view paid it, but the hover-preview endpoint can be hit several
+    times while a reader skims one page. Cached against the signature
+    above, so a reviewer's edit still shows up on the very next request
+    (the whole point of this view being live) without re-reading the Act
+    for every hover."""
+    signature = _browse_state_signature(slug)
+    cached = _current_nodes_cache.get(slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    state = build_current_nodes(slug)
+    _current_nodes_cache[slug] = (signature, state)
+    return state
+
+
+_commentary_cache: dict[str, tuple[tuple, dict]] = {}
+_page_index_cache: dict[str, tuple[tuple, dict]] = {}
+
+
+def _bill_links_signature() -> tuple:
+    """A stamp of the whole data/bill_links/ directory -- these files are
+    rewritten wholesale by run_bill_linking.py, so the set of names plus
+    their mtimes is enough to know the answer below has changed."""
+    links_dir = BASE_DIR / "data" / "bill_links"
+    if not links_dir.is_dir():
+        return ()
+    stamp = []
+    for path in sorted(links_dir.glob("*.json")):
+        try:
+            st = path.stat()
+        except OSError:
+            continue
+        stamp.append((path.name, st.st_mtime_ns, st.st_size))
+    return tuple(stamp)
+
+
+def _load_bill_link_docs() -> tuple[list[dict], list[dict]]:
+    """(bill->act documents, EM documents) from data/bill_links/. An
+    unreadable or malformed file is skipped rather than failing the page:
+    these are an optional enrichment of a browse view, not something it
+    depends on to render."""
+    bill_docs, em_docs = [], []
+    links_dir = BASE_DIR / "data" / "bill_links"
+    if not links_dir.is_dir():
+        return bill_docs, em_docs
+    for path in sorted(links_dir.glob("*.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict) or "links" not in doc:
+            continue  # pre-header format (a bare list) -- nothing to relate it by
+        (em_docs if doc.get("em_slug") else bill_docs).append(doc)
+    return bill_docs, em_docs
+
+
+def _commentary_index(act_slug: str) -> dict:
+    signature = _bill_links_signature()
+    cached = _commentary_cache.get(act_slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    bill_docs, em_docs = _load_bill_link_docs()
+    index = build_commentary_index(act_slug, bill_docs, em_docs)
+    _commentary_cache[act_slug] = (signature, index)
+    return index
+
+
+def _page_index(slug: str) -> dict:
+    """Where each of another document's provisions lives, so this Act's
+    pages can link into it. Cached against the same signature the browse
+    pages use, since it's derived from that document's own parse."""
+    signature = _browse_state_signature(slug)
+    cached = _page_index_cache.get(slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        index = {"by_node_index": {}, "by_number": {}}
+    else:
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        index = html_view.build_page_index({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug))
+    _page_index_cache[slug] = (signature, index)
+    return index
+
+
+def _section_crossrefs(act_slug: str, section_number: str | None) -> list[dict]:
+    """The "Explained in" chips for one Act section: the Bill clause it was
+    enacted from, and each Explanatory Memorandum note about it, as
+    ordinary links into those documents' own browse pages (so the hover
+    preview reads them like any other link). A related document that
+    hasn't been parsed has no page to link to and is simply left out --
+    the link record is about a document this pipeline may not hold."""
+    if not section_number:
+        return []
+    entry = _commentary_index(act_slug).get(section_number.lower())
+    if not entry:
+        return []
+    chips = []
+    for bill in entry["bill"]:
+        page = _page_index(bill["bill_slug"])["by_number"].get(str(bill["clause_number"]).lower())
+        if not page:
+            continue
+        title = f"{_act_title(bill['bill_slug'])} \u2014 the clause this section was enacted from"
+        if bill.get("status") == "flagged":
+            title += f" (wording diverged; {bill['similarity']} text similarity -- worth checking)"
+        chips.append({
+            "kind": "bill",
+            "label": f"Bill clause {bill['clause_number']}",
+            "href": f"/browse/{bill['bill_slug']}/section/{page}",
+            "title": title,
+        })
+    # An EM can carry more than one note about the same clause (a second
+    # one after a Chapter heading, a pinpoint note on "clause 6(4)"), so
+    # number the repeats rather than showing identical chips.
+    seen_clause: dict[str, int] = {}
+    for em in entry["em"]:
+        page = _page_index(em["em_slug"])["by_node_index"].get(em["em_node_index"])
+        if not page:
+            continue
+        if em["clause_number"]:
+            nth = seen_clause[em["clause_number"]] = seen_clause.get(em["clause_number"], 0) + 1
+            label = f"EM on clause {em['clause_number']}" + (f" ({nth})" if nth > 1 else "")
+        else:
+            label = "EM note"
+        chips.append({
+            "kind": "em",
+            "label": label,
+            "href": f"/browse/{em['em_slug']}/section/{page}",
+            "title": f"{_act_title(em['em_slug'])} \u2014 the note on this provision",
+        })
+    return chips
+
+
+_amendment_cache: dict[str, tuple[tuple, dict]] = {}
+
+
+def _amendments(slug: str) -> dict:
+    """{"index", "summary"} for one Act: the lookup that turns a margin
+    note's "No. 68/2009" into a named Act with its assent and commencement
+    dates, and that same table read the other way round (per amending Act,
+    which provisions it touched). Cached against the same signature the
+    browse pages use -- the summary is derived from the current nodes, so a
+    reviewer's edit has to be able to change it."""
+    signature = _browse_state_signature(slug)
+    cached = _amendment_cache.get(slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    endnotes = None
+    try:
+        endnotes = json.loads(parsed_path.read_text(encoding="utf-8")).get("endnotes")
+    except (OSError, ValueError):
+        pass
+    index = build_amendment_index(endnotes, load_act_registry())
+    nodes, _unattached, _hierarchy = _current_nodes(slug) if parsed_path.exists() else ([], [], [])
+    result = {"index": index, "summary": summarise_by_act(nodes, index), "endnotes": endnotes}
+    _amendment_cache[slug] = (signature, result)
+    return result
+
+
 _act_title_cache: dict[str, str] = {}
+
+
+# _detect_act_citation looks for an Act's own "Xxx Act YYYY" citation
+# block, which a Bill or an Explanatory Memorandum simply doesn't have --
+# so those used to fall back to their raw slug, and a Bill's browse page
+# was headed "criminal-procedure-bill-2008". The slug is derived from the
+# source PDF's filename, which for these documents is already the
+# document's name; turning the hyphens back into spaces recovers a
+# readable title without guessing at anything.
+_EM_SLUG_SUFFIX = "-em"
+
+
+def _title_from_slug(slug: str) -> str:
+    name = slug[: -len(_EM_SLUG_SUFFIX)] if slug.endswith(_EM_SLUG_SUFFIX) else slug
+    title = " ".join(word if word.isdigit() else word.capitalize() for word in name.split("-"))
+    return f"{title} \u2014 Explanatory Memorandum" if slug.endswith(_EM_SLUG_SUFFIX) else title
 
 
 def _act_title(slug: str) -> str:
@@ -734,15 +927,31 @@ def _act_title(slug: str) -> str:
             source = json.loads(parsed_path.read_text(encoding="utf-8")).get("source")
         except (OSError, ValueError):
             pass
-    title = _detect_act_citation(source).get("title") or slug
+    title = _detect_act_citation(source).get("title") or _title_from_slug(slug)
     _act_title_cache[slug] = title
     return title
 
 
+_KIND_LABELS = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}
+
+
+def _document_kind(slug: str) -> str:
+    """"act" / "bill" / "em", from what the pipeline recorded when it
+    parsed this document (run_pipeline.py and run_em_pipeline.py both
+    write document_type). Anything parsed before that was recorded reads
+    as an Act, which is what it will have been."""
+    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    try:
+        return json.loads(parsed_path.read_text(encoding="utf-8")).get("document_type") or "act"
+    except (OSError, ValueError):
+        return "act"
+
+
 def _preview_bar(slug: str) -> str:
+    kind = _KIND_LABELS.get(_document_kind(slug), "Act")
     return (
         '<div class="previewbar">'
-        f"Live preview of {slug} &mdash; reflects your saved review progress, not just what's fully reviewed &middot; "
+        f"Live preview of this {kind} &mdash; reflects your saved review progress, not just what's fully reviewed &middot; "
         f'<a href="/">Dashboard</a> &middot; <a href="/review/{slug}/">Review</a>'
         "</div>"
     )
@@ -759,10 +968,13 @@ def browse_index(slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = build_current_nodes(slug)
+    nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
-    body = html_view.render_index({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}")
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug)))
+    body = html_view.render_index(
+        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"]},
+        title, f"/browse/{slug}",
+    )
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
 
 @app.get("/browse/{slug}/section/{section_slug}", response_class=HTMLResponse)
@@ -776,12 +988,60 @@ def browse_section(slug: str, section_slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = build_current_nodes(slug)
+    nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
-    body = html_view.render_section({"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug)
+    # Which provision this page is, so its Bill/EM commentary can be looked
+    # up by number (see ai_pipeline/commentary.py for why by number).
+    by_node_index = _page_index(slug)["by_node_index"]
+    node_index = next((i for i, page in by_node_index.items() if page == section_slug), None)
+    section_number = nodes[node_index].get("number") if node_index is not None else None
+    body = html_view.render_section(
+        {"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug,
+        crossrefs=_section_crossrefs(slug, section_number),
+        amendment_index=_amendments(slug)["index"],
+    )
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug)))
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+
+
+@app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)
+def browse_endnotes(slug: str):
+    """The Act's own Endnotes -- General information, the Table of
+    Amendments read as a real table, and Explanatory details. 404s for a
+    document that has none (a Bill, an Explanatory Memorandum, or an Act
+    parsed before ai_pipeline/endnotes.py existed -- re-parse it)."""
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    nodes, _unattached, hierarchy = _current_nodes(slug)
+    amendments = _amendments(slug)
+    title = _act_title(slug)
+    body = html_view.render_endnotes(
+        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
+        title, f"/browse/{slug}", amendments["summary"],
+    )
+    if body is None:
+        raise HTTPException(404, f"{slug!r} has no endnotes -- re-parse it if it's an Act.")
+    return HTMLResponse(html_view.page_shell(f"{title} \u2014 Endnotes", body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+
+
+@app.get("/api/browse/{slug}/preview")
+def browse_preview(slug: str, section: str | None = None, fragment: str | None = None):
+    """Backs the hover cards on a browse page: the content one link leads
+    to, small enough to read without leaving the page. `section` and
+    `fragment` are the two halves of a link the page itself rendered (see
+    html_view.render_preview) -- neither touches the filesystem, both are
+    only ever matched in memory against computed ids, so an unknown one is
+    a plain 404 and the card simply doesn't appear."""
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    nodes, _unattached, hierarchy = _current_nodes(slug)
+    preview = html_view.render_preview({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug), section, fragment)
+    if preview is None:
+        raise HTTPException(404, "No such link target")
+    return preview
 
 
 @app.get("/review/{slug}")

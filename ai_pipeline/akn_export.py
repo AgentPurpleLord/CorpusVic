@@ -68,7 +68,10 @@ ET.register_namespace("", AKN_NS)
 # The eight levels verified against the real OASIS schema (see the module
 # docstring). "schedule" and "sub_subparagraph" are also part of this
 # pipeline's own hierarchy_order (see hierarchy.py) but have no confirmed
-# native AKN element of their own -- a real Schedule is properly an AKN
+# native AKN element of their own. ("clause" is in the native set below on
+# the same footing as the rest: AKN 3.0 defines <clause> as a hierarchy
+# element -- verified against the schema in tests/fixtures, same as every
+# other name here.) -- a real Schedule is properly an AKN
 # <attachment>, a separate document component outside the main body's
 # hierarchy entirely, which this export doesn't attempt to model, and
 # nesting one level past AKN's own native subparagraph isn't a documented
@@ -78,7 +81,7 @@ ET.register_namespace("", AKN_NS)
 # participate fully in build_hierarchy_tree's own rank-based nesting
 # below, since that's a question of tree *structure*, independent of
 # which XML element ends up wrapping each node.
-_NATIVE_HIERARCHY_TYPES = {"chapter", "part", "division", "subdivision", "section", "subsection", "paragraph", "subparagraph"}
+_NATIVE_HIERARCHY_TYPES = {"chapter", "part", "division", "subdivision", "section", "clause", "subsection", "paragraph", "subparagraph"}
 
 # Native AKN element name per hierarchy type (identical to the type name
 # here, but kept explicit in case a profile ever needs to remap one).
@@ -86,7 +89,7 @@ HIERARCHY_ELEMENT = {level: level for level in _NATIVE_HIERARCHY_TYPES}
 
 EID_PREFIX = {
     "schedule": "sched", "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
-    "section": "sec", "subsection": "subsec", "definition": "def",
+    "section": "sec", "clause": "cl", "subsection": "subsec", "definition": "def",
     "paragraph": "para", "subparagraph": "subpara", "sub_subparagraph": "subsubpara",
 }
 
@@ -237,8 +240,20 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
 # Amendment history -> lifecycle / analysis / references / notes
 # ---------------------------------------------------------------------------
 
-_MODERN_CITATION_RE = re.compile(r"No\.?\s*(\d+)\s*/\s*(\d{4})")
-_OLD_CITATION_RE = re.compile(r"No\.?\s*(\d{3,6})\b(?!\s*/)")
+# A modern citation is matched on its "NN/YYYY" shape alone, without
+# requiring the "No." in front: a note citing several Acts writes the word
+# once and then lists bare numbers ("amended by Nos 26/2014 s. 455(Sch.
+# item 8.1), 19/2019 s. 258(a), 39/2022 s. 39"), so a prefix-anchored
+# pattern silently found only the first -- or, with "Nos", none at all.
+# Nothing else in a margin note takes this shape (checked against every
+# note in the Criminal Procedure Act: 52 distinct bare matches, all of them
+# real Acts in its own Table of Amendments).
+_MODERN_CITATION_RE = re.compile(r"\b(\d{1,5})\s*/\s*((?:18|19|20)\d{2})\b")
+# A pre-1970s Act has no year in its number at all, and a bare 4-5 digit
+# number is not safely a citation on its own -- so this one does need the
+# "No."/"Nos" in front, and a second, unprefixed number in such a list
+# ("Nos 8679, 9576") is left unmatched rather than guessed at.
+_OLD_CITATION_RE = re.compile(r"Nos?\.?\s*(\d{3,6})\b(?!\s*/)")
 
 _MOD_TYPE_KEYWORDS = [
     ("inserted", "insertion"),

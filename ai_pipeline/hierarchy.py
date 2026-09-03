@@ -13,8 +13,8 @@ take the resolved order as a parameter (the rule parser threads it in from
 the profile; run_pipeline.py persists it into data/ai_parsed/<act>.json so
 the exporters can read it back without re-loading the profile). The
 module-level HIERARCHY_ORDER / HIERARCHY_RANK / HEADING_LEVELS are the
-defaults, used for the AI-engine path and as the fallback when a node
-list carries no hierarchy of its own.
+defaults, used as the fallback when a node list carries no hierarchy of
+its own.
 
 "schedule" sits shallower than "chapter", not nested under it: a Schedule
 doesn't belong to any enclosing Part/Division the way the rest of the
@@ -48,6 +48,16 @@ HIERARCHY_ORDER = [
     "subparagraph",
     "sub_subparagraph",
 ]
+
+
+# The two types that sit at section rank: an Act's "section" and a Bill's
+# (or an Explanatory Memorandum's) "clause" -- see make_ranks below, which
+# aliases the second onto the first. Anything that asks "is this a
+# top-level provision?" -- which gets its own page in the browse view and
+# its own file in the Markdown export, which types don't repeat their
+# number as a heading inside their own page -- has to accept both, or a
+# Bill/EM browses as an empty document.
+SECTION_LEVEL_TYPES = ("section", "clause")
 
 
 def make_ranks(order: list[str]) -> dict[str, int]:
@@ -85,7 +95,7 @@ def heading_levels(order: list[str]) -> set[str]:
     return set(order)
 
 
-# Defaults, for the AI-engine path and as a fallback.
+# Defaults, for a node list that carries no hierarchy of its own.
 HIERARCHY_RANK = make_ranks(HIERARCHY_ORDER)
 # "clause" is a Bill's own name for the same top-level numbered provision
 # an Act calls a "section" -- same drafting shape, same nesting rank

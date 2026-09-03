@@ -28,8 +28,6 @@
     --hover-bg: #f0f0f0;
     --danger: #b91c1c;
     --danger-border: #f0c0c0;
-    --resume-bg: #eff6ff;
-    --resume-border: #bfdbfe;
     --selected-bg: #eff6ff;
     --toast-bg: #1f2937;
     --toast-error-bg: #991b1b;
@@ -71,8 +69,6 @@
     --hover-bg: #2a2e35;
     --danger: #f87171;
     --danger-border: #5c2626;
-    --resume-bg: #16233a;
-    --resume-border: #294a72;
     --selected-bg: #1c2c42;
     --toast-bg: #05070a;
     --toast-error-bg: #7f1d1d;
@@ -121,17 +117,6 @@
   .btn.primary:hover { background: var(--accent-hover); }
   .btn.danger { color: var(--danger); border-color: var(--danger-border); }
   .btn.small { padding: 2px 8px; font-size: 12px; }
-  #resume-banner {
-    background: var(--resume-bg);
-    border-bottom: 1px solid var(--resume-border);
-    padding: 6px 16px;
-    font-size: 12.5px;
-    display: none;
-    align-items: center;
-    gap: 10px;
-  }
-  #resume-banner a { color: var(--accent); cursor: pointer; }
-
   #layout { flex: 1; display: flex; min-height: 0; }
 
   #sidebar {
@@ -278,6 +263,19 @@
     margin-bottom: 10px;
     position: relative;
   }
+  /* The merge drag starts from this strip down the piece's left edge, not
+     from the piece's body -- a draggable body makes the text inside it
+     unselectable, which broke labelling a link span (the other thing a
+     reviewer does by dragging across a piece). The strip sits over the
+     type-accent border, is the full height of the piece, and shows a grab
+     cursor; see attachPieceDragAndDrop for the draggable toggling. */
+  .piece-grip {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
+    border-radius: 8px 0 0 8px;
+    cursor: grab;
+  }
+  .piece-grip:hover { background: var(--hover-bg); }
+  .piece-grip:active { cursor: grabbing; }
   .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
   .piece.merge-source { background: var(--piece-merge-source-bg); }
   .piece.nest-target { outline: 2px dashed var(--accent); outline-offset: -1px; background: var(--hover-bg); }
@@ -297,8 +295,8 @@
   .piece.piece-accepted { background: var(--piece-accepted-bg); border-color: var(--piece-accepted-border); }
   .piece.piece-flagged { background: var(--piece-flagged-bg); border-color: var(--piece-flagged-border); }
 
-  /* Blind-review gate for elevated-risk pieces (AI-sourced, or carrying
-     a diagnostics finding) -- see _is_elevated_risk in review.py. Reuses
+  /* Blind-review gate for elevated-risk pieces (those carrying a
+     diagnostics finding) -- see _is_elevated_risk in review.py. Reuses
      the flagged palette (this *is* a "needs your attention" state, just
      before rather than after a decision) rather than a whole new colour
      family. */
@@ -324,10 +322,6 @@
   .blind-match.yes { color: var(--accepted-text); }
   .blind-match.no { color: var(--flagged-text); }
   .blind-reasoning { color: var(--muted); font-style: italic; margin-top: 4px; }
-  .source-badge {
-    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px;
-    border-radius: 8px; font-weight: 700; background: var(--piece-flagged-bg); color: var(--flagged-text);
-  }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .piece-label { font-weight: 700; font-size: 13px; }
   .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
@@ -472,8 +466,6 @@
   <span class="stat"><mark class="label-bill_reference">&nbsp;</mark> Bill ref</span>
   <span class="stat"><mark class="label-em_reference">&nbsp;</mark> EM ref</span>
 </header>
-<div id="resume-banner"><span id="resume-text"></span> <a id="resume-link">Go there</a> <a id="resume-dismiss" style="margin-left:8px;">Dismiss</a></div>
-
 <div id="layout">
   <div id="sidebar">
     <div id="sidebar-controls">
@@ -502,7 +494,7 @@
         <button class="btn" id="merge-open-btn">Merge pieces&hellip;</button>
         <button class="btn primary" id="accept-btn">Accept unit</button>
         <button class="btn" id="flag-btn">Flag for follow-up</button>
-        <span style="margin-left:auto; font-size:11.5px; color:var(--muted);">Drag a piece onto another to merge &middot; drag its &#8676; Nest handle onto another to nest under it</span>
+        <span style="margin-left:auto; font-size:11.5px; color:var(--muted);">Drag a piece by its left edge onto another to merge &middot; drag its &#8676; Nest handle onto another to nest under it</span>
       </div>
       <div id="empty-state">Loading&hellip;</div>
     </div>
@@ -764,16 +756,6 @@ async function loadMeta() {
   undoBtn.style.display = META.renest_undo ? "" : "none";
   if (META.renest_undo) undoBtn.title = `Restores piece ${META.renest_undo.node_index} back to type "${META.renest_undo.restores_type}"`;
   renderSidebar();
-
-  const banner = document.getElementById("resume-banner");
-  if (META.resume_unit < META.unit_count && !sessionStorage.getItem("resume-dismissed")) {
-    document.getElementById("resume-text").textContent =
-      `Resume where you left off: unit ${META.resume_unit + 1} of ${META.unit_count}.`;
-    document.getElementById("resume-link").onclick = () => loadUnit(META.resume_unit);
-    banner.style.display = "flex";
-  } else {
-    banner.style.display = "none";
-  }
 }
 
 function unitRowLabel(u) {
@@ -863,11 +845,6 @@ document.getElementById("jump-input").addEventListener("keydown", (e) => {
   const n = parseInt(document.getElementById("jump-input").value, 10);
   if (!isNaN(n) && n >= 1 && n <= META.unit_count) loadUnit(n - 1);
 });
-document.getElementById("resume-dismiss").onclick = () => {
-  sessionStorage.setItem("resume-dismissed", "1");
-  document.getElementById("resume-banner").style.display = "none";
-};
-
 // ---------------------------------------------------------------------
 // Unit loading / rendering
 // ---------------------------------------------------------------------
@@ -956,8 +933,8 @@ function renderUnit() {
     const div = document.createElement("div");
     const isAccepted = !!piece.verified_at;
     const isFlagged = !!piece.needs_followup;
-    // Elevated-risk (AI-sourced, or carrying a diagnostics finding) and
-    // not yet independently assessed -- see _is_elevated_risk in
+    // Elevated-risk (carrying a diagnostics finding) and not yet
+    // independently assessed -- see _is_elevated_risk in
     // review.py. Its own classification (type/number/heading) and
     // findings stay hidden below until the reviewer forms and submits
     // their own view, so seeing them can't anchor it; the raw text
@@ -985,10 +962,9 @@ function renderUnit() {
     const pageJumpHtml = META.has_source_pdf && piece.page_start
       ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
       : "";
-    const sourceBadgeHtml = piece.source === "ai" ? `<span class="source-badge" title="Classified by the AI-engine backend, not the deterministic rules engine">AI</span>` : "";
     const blindFormHtml = blindPending ? `
       <div class="blind-form">
-        <div class="blind-form-label">&#9888; Needs your own assessment before it can be accepted${piece.source === "ai" ? " (AI-sourced)" : ""}${(piece.findings || []).length ? " (flagged by diagnostics)" : ""} -- what do <em>you</em> think this piece is, from its text alone?</div>
+        <div class="blind-form-label">&#9888; Needs your own assessment before it can be accepted${(piece.findings || []).length ? " (flagged by diagnostics)" : ""} -- what do <em>you</em> think this piece is, from its text alone?</div>
         <div class="blind-form-row">
           <select class="blind-type-input">
             <option value="" disabled selected>Type&hellip;</option>
@@ -1027,7 +1003,6 @@ function renderUnit() {
       <div class="piece-top">
         <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
         <span class="piece-type">${blindPending ? "awaiting your assessment" : escapeHtml(piece.type)}</span>
-        ${sourceBadgeHtml}
         ${statusBadgeHtml}
         <div class="piece-toolbar">
           ${nestHandleHtml}
@@ -1052,7 +1027,12 @@ function renderUnit() {
     if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
     const blindSubmitBtn = div.querySelector(".blind-submit-btn");
     if (blindSubmitBtn) blindSubmitBtn.onclick = () => submitBlindGuess(div, piece.node_index);
-    if (idx > 0) div.draggable = true;
+    if (idx > 0) {
+      const grip = document.createElement("div");
+      grip.className = "piece-grip";
+      grip.title = "Drag onto another piece to merge this one into it";
+      div.appendChild(grip);
+    }
     attachPieceDragAndDrop(div, piece.node_index);
     container.appendChild(div);
   });
@@ -1068,18 +1048,32 @@ function renderUnit() {
 }
 
 // ---------------------------------------------------------------------
-// Drag and drop: dragging a piece's body onto another piece merges it in
-// (same call the "Merge pieces..." button/modal above makes); dragging
-// its "Nest" handle onto another piece nests it under that piece instead
-// (see review.py's renest_endpoint -- a type change, never a reorder).
-// Two different draggable elements per piece, rather than one gesture
-// disambiguated some other way (a modifier key, say), so the intent is
-// visible up front and works the same with mouse or trackpad.
+// Drag and drop: dragging a piece by its left-edge grip onto another
+// piece merges it in (same call the "Merge pieces..." button/modal above
+// makes); dragging its "Nest" handle onto another piece nests it under
+// that piece instead (see review.py's renest_endpoint -- a type change,
+// never a reorder). Two different grab points per piece, rather than one
+// gesture disambiguated some other way (a modifier key, say), so the
+// intent is visible up front and works the same with mouse or trackpad.
+//
+// Both are narrow, deliberate grab points because a piece whose *body*
+// is draggable can't have its text selected -- and selecting a span of a
+// piece's text is how a reviewer labels a link or splits a piece, i.e.
+// the thing they do far more often than merging. So `draggable` is off
+// by default and switched on only for the duration of a press that
+// started on the grip.
 // ---------------------------------------------------------------------
 
 let dragState = null; // { nodeIndex, mode: "merge" | "nest" }
 
 function attachPieceDragAndDrop(div, nodeIndex) {
+  const grip = div.querySelector(".piece-grip");
+  if (grip) {
+    grip.addEventListener("mousedown", () => { div.draggable = true; });
+    // Covers both the press that never became a drag and the one that
+    // did -- either way the piece goes back to being selectable text.
+    div.addEventListener("mouseup", () => { div.draggable = false; });
+  }
   div.addEventListener("dragstart", (e) => {
     dragState = { nodeIndex, mode: "merge" };
     e.dataTransfer.effectAllowed = "move";
@@ -1087,6 +1081,7 @@ function attachPieceDragAndDrop(div, nodeIndex) {
     div.classList.add("dragging");
   });
   div.addEventListener("dragend", () => {
+    div.draggable = false;
     div.classList.remove("dragging");
     dragState = null;
     clearDragHighlights();

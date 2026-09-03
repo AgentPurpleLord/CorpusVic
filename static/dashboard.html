@@ -223,28 +223,6 @@
             <input type="number" name="end_page" min="1">
           </div>
         </div>
-
-        <label>Engine</label>
-        <select name="engine" id="add-engine" onchange="onEngineChange()">
-          <option value="rules">Rules (default -- free, instant)</option>
-          <option value="ai">AI (model backend)</option>
-        </select>
-
-        <div id="ai-fields" style="display:none">
-          <div class="row">
-            <div>
-              <label>Backend</label>
-              <select name="backend">
-                <option value="ollama">ollama</option>
-                <option value="claude">claude</option>
-              </select>
-            </div>
-            <div>
-              <label>Model (optional)</label>
-              <input type="text" name="model" placeholder="backend default">
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="footer">
@@ -284,28 +262,6 @@
           <div>
             <label>End page (optional)</label>
             <input type="number" name="end_page" min="1">
-          </div>
-        </div>
-
-        <label>Engine</label>
-        <select name="engine" id="parse-engine" onchange="onParseEngineChange()">
-          <option value="rules">Rules (default -- free, instant)</option>
-          <option value="ai">AI (model backend)</option>
-        </select>
-
-        <div id="parse-ai-fields" style="display:none">
-          <div class="row">
-            <div>
-              <label>Backend</label>
-              <select name="backend">
-                <option value="ollama">ollama</option>
-                <option value="claude">claude</option>
-              </select>
-            </div>
-            <div>
-              <label>Model (optional)</label>
-              <input type="text" name="model" placeholder="backend default">
-            </div>
           </div>
         </div>
       </div>
@@ -399,18 +355,10 @@ function onKindChange() {
   const isEm = document.getElementById("add-kind").value === "em";
   document.getElementById("act-bill-fields").style.display = isEm ? "none" : "block";
 }
-function onEngineChange() {
-  const isAi = document.getElementById("add-engine").value === "ai";
-  document.getElementById("ai-fields").style.display = isAi ? "block" : "none";
-}
 
 function onParseKindChange() {
   const isEm = document.getElementById("parse-kind").value === "em";
   document.getElementById("parse-act-bill-fields").style.display = isEm ? "none" : "block";
-}
-function onParseEngineChange() {
-  const isAi = document.getElementById("parse-engine").value === "ai";
-  document.getElementById("parse-ai-fields").style.display = isAi ? "block" : "none";
 }
 
 function statusLabel(s) {
@@ -424,7 +372,13 @@ function statusClass(s) {
   return s.review_status;
 }
 
+const KIND_LABELS = { act: "Act", bill: "Bill", em: "Explanatory Memorandum" };
+
 function actCardHtml(s) {
+  // Bills and EMs browse and review exactly like an Act now, so the card
+  // has to say which one it is -- the slug alone doesn't always.
+  const kindBadge = s.parsed && s.kind !== "act"
+    ? `<span class="badge">${KIND_LABELS[s.kind] || s.kind}</span>` : "";
   const nodesBadge = s.parsed ? `<span class="badge">${s.node_count} nodes, ${s.unit_count} units</span>` : "";
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
@@ -432,7 +386,7 @@ function actCardHtml(s) {
     ? `<a class="btn small" href="/review/${s.slug}/" target="_blank">Review</a>`
     : `<button class="btn small" disabled title="Parse it first">Review</button>`;
   const browseBtn = s.parsed
-    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this Act reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
+    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
     : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
   const dlAkn = s.akn_exported
     ? `<a class="btn small" href="/api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
@@ -449,6 +403,7 @@ function actCardHtml(s) {
       <div class="head">
         <span class="slug">${s.slug}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
+        ${kindBadge}
         ${nodesBadge}
         ${aknBadge}
         ${mdBadge}
@@ -527,7 +482,6 @@ function openParseModal(slug) {
   // act_status's has_profile).
   if (s.has_profile) document.querySelector("#parse-form input[name=profile]").value = slug;
   onParseKindChange();
-  onParseEngineChange();
   openModal("parse-modal");
 }
 

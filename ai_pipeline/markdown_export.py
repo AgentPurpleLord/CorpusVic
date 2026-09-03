@@ -2,7 +2,9 @@
 Renders a parsed Act into a browsable set of Markdown files -- one per
 Section plus an Act-level index linking them in order, with defined terms
 and "section N" / "Part N" / "Division N" references hyperlinked between
-pages. The goal is the AustLII browsing experience (open an Act, click
+pages. A Bill or an Explanatory Memorandum exports the same way; those
+call their top-level provisions clauses rather than sections (see
+hierarchy.SECTION_LEVEL_TYPES) and cross-reference them as "clause N". The goal is the AustLII browsing experience (open an Act, click
 through to a section, follow a cross-reference or a defined term) as plain
 Markdown files instead of a database-backed website.
 
@@ -48,7 +50,7 @@ from .definitions import (
     looks_like_definitions_section,
     split_definition_clauses,
 )
-from .hierarchy import HIERARCHY_ORDER, make_ranks
+from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks
 
 SECTIONS_DIR = "sections"
 
@@ -63,9 +65,13 @@ def _structural_types(hierarchy_order: list[str]) -> tuple[str, ...]:
     return tuple(l for l in hierarchy_order if rank[l] < rank["section"])
 
 
-def _section_filename(number: str | None) -> str:
+def _section_filename(number: str | None, node_type: str = "section") -> str:
+    """"s3.md" for an Act's section 3, "c3.md" for a Bill's (or an EM's)
+    clause 3 -- the prefix follows what the document actually calls its
+    top-level provisions, so a link or a URL reads as the citation does."""
     slug = re.sub(r"[^a-z0-9]+", "", (number or "x").lower())
-    return f"s{slug or 'x'}.md"
+    prefix = "c" if node_type == "clause" else "s"
+    return f"{prefix}{slug or 'x'}.md"
 
 
 def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str, str], dict[str, str]]:
@@ -92,7 +98,7 @@ def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str,
 
     for tree_node, _breadcrumb in sections:
         number = tree_node["node"].get("number")
-        base = _section_filename(number)
+        base = _section_filename(number, tree_node["node"]["type"])
         filename = base
         n = 2
         while filename in used:
@@ -104,6 +110,44 @@ def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str,
             first_by_number[number.lower()] = filename
 
     return filenames_by_eid, first_by_number
+
+
+def page_title(node: dict) -> str:
+    """The H1 of a top-level provision's own page. An Act's section keeps
+    its bare "3 Definitions" form -- that is how a section is actually
+    cited. A Bill's or an EM's provision gets its type spelled out
+    ("Clause 5 Purposes"), because a bare number is how nothing is cited
+    and an EM's entries have no headings to disambiguate them."""
+    label = f"{node.get('number') or ''} {node.get('heading') or ''}".strip()
+    if node["type"] == "clause" and node.get("number"):
+        return f"Clause {label}"
+    return label
+
+
+_INDEX_SNIPPET_CHARS = 90
+
+
+def index_label(node: dict) -> str:
+    """How a top-level provision reads in an index listing. An Act's or a
+    Bill's is "3 Definitions" -- number plus heading, the Table of
+    Provisions form. An Explanatory Memorandum's entries have no headings
+    at all (see em_parser.py), so a list of them would otherwise be a
+    column of bare numbers; those fall back to "Clause N" plus the opening
+    of the entry's own text, which is exactly what a reader needs to pick
+    one out."""
+    if node.get("heading"):
+        return f"{node.get('number') or ''} {node['heading']}".strip()
+    # No heading: the snippet has to carry the row. It reads as a sentence
+    # ("sets out the purposes of the Bill..."), so the number in front of
+    # it needs its type spelled out or the two run together -- which is
+    # exactly how the source document writes it: "Clause 1 sets out...".
+    label = page_title(node)
+    snippet = " ".join((node.get("text") or "").split())
+    if not snippet:
+        return label or "(untitled)"
+    if len(snippet) > _INDEX_SNIPPET_CHARS:
+        snippet = snippet[:_INDEX_SNIPPET_CHARS].rsplit(" ", 1)[0] + "\u2026"
+    return f"{label} {snippet}".strip()
 
 
 def _heading_level(node_type: str) -> int:
@@ -161,7 +205,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     node = tree_node["node"]
     t = node["type"]
 
-    if t == "section":
+    if t in SECTION_LEVEL_TYPES:
         label = None  # the section's own num/heading are the page's H1, not repeated in the body
         in_definitions = in_definitions or looks_like_definitions_section(node.get("heading"))
     else:
@@ -182,7 +226,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # nothing here is left for extract_terms to find any more, since
         # the term is no longer inline at the text's own start.
         yield {"tree_node": tree_node, "clause_index": 0, "text": text or None, "header_text": heading, "level": level, "depth": depth}
-    elif heading and t != "section":
+    elif heading and t not in SECTION_LEVEL_TYPES:
         header_text = f"{label} {heading}".strip() if label else heading
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level, "depth": depth}
     elif text:
@@ -193,14 +237,14 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # paragraph (and, when there's more than one, its own header)
         # instead of one run-on line.
         clauses = split_definition_clauses(text) if in_definitions else [text.replace("\n", " ")]
-        needs_header = t != "section" or len(clauses) > 1
+        needs_header = t not in SECTION_LEVEL_TYPES or len(clauses) > 1
         for i, clause in enumerate(clauses):
             header_text = _clause_header_text(label, i, len(clauses)) if needs_header else None
             yield {"tree_node": tree_node, "clause_index": i, "text": clause, "header_text": header_text, "level": level, "depth": depth}
     elif label:
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": label, "level": level, "depth": depth}
 
-    child_depth = depth + 1 if t != "section" else depth
+    child_depth = depth + 1 if t not in SECTION_LEVEL_TYPES else depth
     for child in tree_node["children"]:
         yield from _iter_body_units(child, child_depth, in_definitions)
 
@@ -212,7 +256,7 @@ def compute_section_slugs(tree_node: dict) -> dict[tuple[str, int], str | None]:
     by the page's own H1, so a link to it just omits the fragment)."""
     node = tree_node["node"]
     counts: dict[str, int] = {}
-    _github_slug(f"{node['number']} {node.get('heading') or ''}".strip(), counts)  # reserve the page's own H1 slug first
+    _github_slug(page_title(node), counts)  # reserve the page's own H1 slug first
     slugs: dict[tuple[str, int], str | None] = {}
     for unit in _iter_body_units(tree_node):
         key = (unit["tree_node"]["eid"], unit["clause_index"])
@@ -299,7 +343,7 @@ def _display_title(node_type: str, number: str | None, heading: str | None) -> s
     keeps its bare "3 Punishment for murder" form -- that already matches
     how sections are actually cited, so no type-name prefix there."""
     heading = heading or ""
-    if node_type == "section" or not number:
+    if node_type in SECTION_LEVEL_TYPES or not number:
         return f"{number or ''} {heading}".strip()
     return f"{node_type.capitalize()} {_format_num(node_type, number)} - {heading}".strip(" -")
 
@@ -312,13 +356,15 @@ def _display_title(node_type: str, number: str | None, heading: str | None) -> s
 
 def collect_sections(tree_roots: list[dict], structural_types: tuple[str, ...]) -> list[tuple[dict, list[dict]]]:
     """[(section_tree_node, breadcrumb_of_ancestor_tree_nodes), ...] in
-    document order. Doesn't descend into a section's own children -- those
-    belong to that section's own page, not the index."""
+    document order -- every top-level provision, whether this document
+    calls them sections or clauses (see hierarchy.SECTION_LEVEL_TYPES).
+    Doesn't descend into a section's own children -- those belong to that
+    section's own page, not the index."""
     sections = []
 
     def walk(tree_node, breadcrumb):
         node = tree_node["node"]
-        if node["type"] == "section":
+        if node["type"] in SECTION_LEVEL_TYPES:
             sections.append((tree_node, breadcrumb))
             return
         next_breadcrumb = breadcrumb + [tree_node] if node["type"] in structural_types else breadcrumb
@@ -400,16 +446,34 @@ _SECTION_REF_RE = (
     r"\bsections?\s+\d+[A-Za-z]*\b"
     r"(?!(?:\s*\([^)]*\))?(?:\s+and\s+\d+[A-Za-z]*)?\s+of\s+(?:the|that|any)\b)"
 )
+# The same, for a document whose own provisions are clauses. Kept separate
+# and chosen per document (see section_ref_pattern) rather than always
+# matching both words: an Act that says "clause 3" means a clause of a
+# Schedule or of an agreement it reproduces, not its own section 3, so
+# linking that to section 3 would be actively wrong.
+_CLAUSE_REF_RE = (
+    r"\bclauses?\s+\d+[A-Za-z]*\b"
+    r"(?!(?:\s*\([^)]*\))?(?:\s+and\s+\d+[A-Za-z]*)?\s+of\s+(?:the|that|any)\b)"
+)
+
+
+def section_ref_pattern(sections: list[tuple[dict, list[dict]]]) -> str:
+    """Which word this document's own cross-references use, decided by
+    what its top-level provisions actually are rather than by a flag the
+    caller has to remember to set."""
+    if any(tn["node"]["type"] == "clause" for tn, _b in sections):
+        return _CLAUSE_REF_RE
+    return _SECTION_REF_RE
 _PART_REF_RE = r"\bPart\s+(?:[IVXLCDM]+|\d+[A-Za-z]*)\b"
 _DIVISION_REF_RE = r"\bDivision\s+\d+[A-Za-z]*\b"
 
 
-def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict]):
+def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], secref_re: str = _SECTION_REF_RE):
     parts = []
     if definitions:
         term_alt = "|".join(re.escape(t) for t in sorted(definitions, key=lambda t: (-len(t), t)))
         parts.append(f"(?P<def>\\b(?:{term_alt})\\b)")
-    parts.append(f"(?P<secref>{_SECTION_REF_RE})")
+    parts.append(f"(?P<secref>{secref_re})")
     parts.append(f"(?P<partref>{_PART_REF_RE})")
     parts.append(f"(?P<divref>{_DIVISION_REF_RE})")
     master = re.compile("|".join(parts), re.IGNORECASE)
@@ -486,7 +550,7 @@ def render_section_page(
     act_title: str,
 ) -> str:
     node = tree_node["node"]
-    title = f"{node['number']} {node.get('heading') or ''}".strip()
+    title = page_title(node)
     citation = f"{act_title} s {node['number']}".strip() if node.get("number") else act_title
     description = f"{citation}: {node['heading']}" if node.get("heading") else citation
     verification = _collect_verification([tree_node])
@@ -547,9 +611,9 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
     def walk(tree_node, out):
         node = tree_node["node"]
         t = node["type"]
-        if t == "section":
+        if t in SECTION_LEVEL_TYPES:
             filename = f"{SECTIONS_DIR}/{filenames_by_eid[tree_node['eid']]}"
-            out.append(f"- [{node['number']} {node.get('heading') or ''}]({filename})".rstrip())
+            out.append(f"- [{index_label(node)}]({filename})")
             return
         if t in (*structural_types, "heading_group"):
             level = _heading_level(t)
@@ -596,7 +660,7 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
                 part_eids[number.lower()] = index_slugs[tree_node["eid"]]
             elif tree_node["node"]["type"] == "division":
                 division_eids[number.lower()] = index_slugs[tree_node["eid"]]
-    linkify = _build_linkifier(section_files, part_eids, division_eids, definitions)
+    linkify = _build_linkifier(section_files, part_eids, division_eids, definitions, section_ref_pattern(sections))
 
     out_path = Path(out_dir)
     (out_path / SECTIONS_DIR).mkdir(parents=True, exist_ok=True)
