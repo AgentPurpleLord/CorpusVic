@@ -470,8 +470,9 @@ function openParseModal(slug) {
   if (s.parsed && reviewed > 0) {
     warn.style.display = "block";
     warn.textContent = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Re-parsing `
-      + "regenerates the raw structure from the PDF -- if node positions shift, existing review progress "
-      + "can silently misalign with the wrong provisions.";
+      + "regenerates the raw structure from the PDF. Your reviewed pieces are carried across onto the "
+      + "provisions they describe, but any whose wording the parser now reads differently will have their "
+      + "acceptance withdrawn for you to look at again.";
     confirmLabel.style.display = "flex";
   } else {
     warn.style.display = "none";

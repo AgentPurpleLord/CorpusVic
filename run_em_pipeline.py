@@ -23,7 +23,8 @@ from pathlib import Path
 
 from ai_pipeline.em_parser import parse_em
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
-from ai_pipeline.hierarchy import HIERARCHY_ORDER
+from ai_pipeline.hierarchy import HIERARCHY_ORDER, group_into_units
+from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
 
 
 def main():
@@ -61,6 +62,10 @@ def main():
                 # hierarchy levels -- so this is just the default order,
                 # under which its "clause" entries rank as sections do.
                 "hierarchy": list(HIERARCHY_ORDER),
+                # See run_pipeline.py's own note: this is what tells a
+                # stored review row whether its node position still means
+                # what it meant when a human accepted it.
+                "fingerprint": parse_fingerprint(result.nodes),
                 "nodes": result.nodes, "unattached_notes": [],
             },
             indent=2,
@@ -68,6 +73,10 @@ def main():
         encoding="utf-8",
     )
     print(f"\nWrote {len(result.nodes)} nodes to {out_path}")
+
+    remap = apply_remap(em_slug, result.nodes, group_into_units(result.nodes))
+    if remap is not None:
+        print(f"Review progress: {describe_remap(remap)}")
 
     complete = result.lines_consumed == result.lines_total
     print(f"Completeness: {result.lines_consumed}/{result.lines_total} lines accounted for ({'OK' if complete else 'MISMATCH'})")

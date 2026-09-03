@@ -621,11 +621,14 @@ def reparse_act(
     data/ai_parsed/<slug>.json is plain regenerable output on its own,
     but review.py's own verified rows in data/legislation.db are keyed by
     a *positional* index into that exact file (see .gitignore's own
-    comment on why the two are committed as a pair) -- so overwriting it
-    while real review progress already exists is exactly the "replacing
-    the previous data" this needs an explicit nod for, not a silent
-    default. Refuses (409) unless `confirm` is set, once there's any
-    reviewed progress to actually put at risk."""
+    comment on why the two are committed as a pair). run_pipeline.py now
+    re-anchors those rows onto the new parse rather than leaving them
+    pointing at whatever moved into their old positions (see
+    ai_pipeline/reparse.py), so this no longer silently corrupts review
+    progress -- but it can still withdraw acceptance from a provision the
+    parser now reads differently, and that is a real change to somebody's
+    work. Refuses (409) unless `confirm` is set, once there's any
+    reviewed progress to re-anchor."""
     _validate_slug(slug)
     _validate_parse_params(kind, profile, start_page, end_page)
 
@@ -639,8 +642,9 @@ def reparse_act(
         raise HTTPException(
             409,
             f"{slug} has {reviewed} of {status['unit_count']} unit(s) already reviewed. Re-parsing regenerates "
-            "the raw structure from the PDF -- if node positions shift, existing review progress can silently "
-            "misalign with the wrong provisions. Confirm to replace it anyway.",
+            "the raw structure from the PDF; your reviewed pieces are carried across onto the provisions they "
+            "describe, but any whose wording the parser now reads differently will have their acceptance "
+            "withdrawn for you to look at again. Confirm to re-parse.",
         )
 
     _act_title_cache.pop(slug, None)

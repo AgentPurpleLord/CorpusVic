@@ -127,3 +127,39 @@ HEADING_LEVELS = heading_levels(HIERARCHY_ORDER)
 # unit via UNIT_ROOT_TYPES below with no help needed here.
 UNIT_BOUNDARY_TYPES = {"schedule", "chapter", "part", "division", "subdivision", "section", "clause", "heading_group"}
 UNIT_ROOT_TYPES = {"section", "clause"}
+
+
+def group_into_units(nodes: list[dict]) -> list[list[int]]:
+    """Splits a node list into the "review units" a human works through
+    one at a time: a Section (or a Bill's Clause) together with every
+    subsection, paragraph, definition and note nested under it, and a
+    standalone unit for each Chapter/Part/Division heading in between.
+    Returns node *indices*, in order, covering every node exactly once.
+
+    Every other node type is a boundary that starts (and, for Part/
+    Division/Subdivision/heading_group, immediately ends) its own
+    single-node unit. This mirrors exactly how the rules engine's own
+    stack nests things -- see rule_parser.py's HIERARCHY_ORDER -- without
+    needing to reconstruct the full tree (build_hierarchy_tree in
+    akn_export.py) just to find "everything under this Section": the flat
+    node list is already in document order, so a single pass is enough.
+
+    Lives here rather than in review.py because it is the unit layout,
+    not the GUI: run_pipeline.py needs it to re-anchor stored review work
+    after a re-parse (see ai_pipeline/reparse.py), and must not have to
+    import a FastAPI app to get it."""
+    units: list[list[int]] = []
+    current: list[int] | None = None
+    for i, node in enumerate(nodes):
+        t = node["type"]
+        if t in UNIT_ROOT_TYPES:
+            current = [i]
+            units.append(current)
+        elif t in UNIT_BOUNDARY_TYPES:
+            current = None
+            units.append([i])
+        elif current is not None:
+            current.append(i)
+        else:
+            units.append([i])
+    return units

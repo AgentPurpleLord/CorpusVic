@@ -126,6 +126,32 @@ CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 -- These are labels, not hierarchy levels -- an Act's nesting order comes
 -- from its profile (see ai_pipeline/hierarchy.py), so a type added here
 -- doesn't nest and can't be nested under.
+-- Which parse the rows in `verified` were reviewed against.
+-- Those rows are keyed by a *position* into data/ai_parsed/<act>.json, so
+-- they only mean anything against the exact parse that produced them.
+-- Storing that parse's fingerprint (ai_pipeline/reparse.parse_fingerprint)
+-- makes a mismatch detectable instead of silent -- review.py refuses to
+-- infer anything from positions it can't vouch for, and run_pipeline.py
+-- knows when a re-parse needs its rows re-anchored.
+CREATE TABLE IF NOT EXISTS parse_state (
+    act TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Reviewed pieces a re-parse could no longer find anywhere in the new
+-- node list. They have no position left to be keyed by, so they can't
+-- stay in `verified` -- but they are a human's work, and deleting them
+-- because the parser changed its mind is the exact failure re-anchoring
+-- exists to prevent. Kept here, reported, and never silently dropped.
+CREATE TABLE IF NOT EXISTS orphaned_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    act TEXT NOT NULL,
+    node_json TEXT NOT NULL,
+    orphaned_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_orphaned_reviews_act ON orphaned_reviews(act);
+
 CREATE TABLE IF NOT EXISTS custom_types (
     act TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -232,6 +258,52 @@ def save_verified(act: str, verified: list[dict], base_dir: "str | Path | None" 
                 )
                 for node in verified
             ],
+        )
+
+
+# ---------------------------------------------------------------------------
+# Which parse the verified rows above belong to
+# ---------------------------------------------------------------------------
+
+def load_parse_fingerprint(act: str, base_dir: "str | Path | None" = None) -> "str | None":
+    """The fingerprint of the parse this Act's verified rows were reviewed
+    against, or None for rows stored before fingerprints existed -- which
+    is not the same as "matches": a caller that needs to trust a stored
+    `_source_node_index` must treat None as "can't vouch for this"."""
+    row = _connect(base_dir).execute(
+        "SELECT fingerprint FROM parse_state WHERE act = ?", (act,)
+    ).fetchone()
+    return row["fingerprint"] if row else None
+
+
+def save_parse_fingerprint(act: str, fingerprint: str, base_dir: "str | Path | None" = None) -> None:
+    conn = _connect(base_dir)
+    with conn:
+        conn.execute(
+            "INSERT INTO parse_state (act, fingerprint, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(act) DO UPDATE SET fingerprint = excluded.fingerprint, updated_at = excluded.updated_at",
+            (act, fingerprint, _now_iso()),
+        )
+
+
+def load_orphaned_reviews(act: str, base_dir: "str | Path | None" = None) -> list[dict]:
+    rows = _connect(base_dir).execute(
+        "SELECT id, node_json, orphaned_at FROM orphaned_reviews WHERE act = ? ORDER BY id", (act,)
+    ).fetchall()
+    return [{**json.loads(r["node_json"]), "_orphan_id": r["id"], "_orphaned_at": r["orphaned_at"]} for r in rows]
+
+
+def add_orphaned_reviews(act: str, nodes: list[dict], base_dir: "str | Path | None" = None) -> None:
+    """Appends, never replaces: two successive re-parses can each strand a
+    different piece, and the second must not erase the first."""
+    if not nodes:
+        return
+    conn = _connect(base_dir)
+    at = _now_iso()
+    with conn:
+        conn.executemany(
+            "INSERT INTO orphaned_reviews (act, node_json, orphaned_at) VALUES (?, ?, ?)",
+            [(act, json.dumps(node), at) for node in nodes],
         )
 
 
