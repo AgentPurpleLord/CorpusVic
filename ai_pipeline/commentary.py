@@ -69,9 +69,11 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
     confidence carried through so the reader can see a "flagged" match for
     what it is rather than being told a shaky guess as fact.
 
-    An "em" entry is {em_slug, em_node_index, clause_number, via} --
-    "via" being "bill_clause" or "act_section", i.e. which of the two
-    routes above reached this section.
+    An "em" entry is {em_slug, em_node_index, clause_number, schedule,
+    via} -- "via" being "bill_clause" or "act_section", i.e. which of the
+    two routes above reached this section, and "schedule" the Bill
+    Schedule the EM entry sits under (None in the body), since a Schedule
+    numbers its own clauses from 1 again.
 
     Both input lists are the documents run_bill_linking.py writes; docs
     about other Acts are ignored, so a caller can simply hand over
@@ -139,6 +141,7 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
                     "em_slug": em_slug,
                     "em_node_index": link["em_node_index"],
                     "clause_number": link.get("clause_number"),
+                    "schedule": link.get("schedule"),
                     "via": via,
                 })
 

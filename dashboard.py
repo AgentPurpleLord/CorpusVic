@@ -842,17 +842,23 @@ def _section_crossrefs(act_slug: str, section_number: str | None) -> list[dict]:
             "href": f"/browse/{bill['bill_slug']}/section/{page}",
             "title": title,
         })
-    # An EM can carry more than one note about the same clause (a second
-    # one after a Chapter heading, a pinpoint note on "clause 6(4)"), so
-    # number the repeats rather than showing identical chips.
+    # Two EM notes can name the same clause number without being about the
+    # same provision: a Bill's Schedule numbers its own clauses from 1
+    # again, so "clause 11" in the body and "clause 11" of Schedule 1 are
+    # different things. Say which, rather than showing the reader the same
+    # words twice. Genuine repeats within one Schedule (a second note
+    # after a Chapter heading, a pinpoint note on "clause 6(4)") are still
+    # numbered.
     seen_clause: dict[str, int] = {}
     for em in entry["em"]:
         page = _page_index(em["em_slug"])["by_node_index"].get(em["em_node_index"])
         if not page:
             continue
         if em["clause_number"]:
-            nth = seen_clause[em["clause_number"]] = seen_clause.get(em["clause_number"], 0) + 1
-            label = f"EM on clause {em['clause_number']}" + (f" ({nth})" if nth > 1 else "")
+            where = f"Schedule {em['schedule']} clause" if em.get("schedule") else "clause"
+            key = f"{em.get('schedule') or ''}/{em['clause_number']}"
+            nth = seen_clause[key] = seen_clause.get(key, 0) + 1
+            label = f"EM on {where} {em['clause_number']}" + (f" ({nth})" if nth > 1 else "")
         else:
             label = "EM note"
         chips.append({

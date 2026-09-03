@@ -49,7 +49,7 @@ def test_an_em_note_on_a_bill_clause_lands_on_the_section_that_clause_became():
     index = build_commentary_index("my-act", [bill], [em])
 
     assert index["7"]["em"] == [
-        {"em_slug": "my-bill-em", "em_node_index": 12, "clause_number": "5", "via": "bill_clause"}
+        {"em_slug": "my-bill-em", "em_node_index": 12, "clause_number": "5", "schedule": None, "via": "bill_clause"}
     ]
     assert index["7"]["bill"] == [
         {"bill_slug": "my-bill", "clause_number": "5", "status": "matched", "similarity": 1.0}
@@ -125,3 +125,21 @@ def test_several_em_notes_can_reach_the_same_section():
     index = build_commentary_index("my-act", [bill], [em])
 
     assert [e["em_node_index"] for e in index["6"]["em"]] == [8, 9]
+
+
+def test_an_em_note_carries_the_schedule_it_sits_under():
+    # A Bill's Schedule numbers its own clauses from 1 again, so an Act
+    # section can end up with two EM notes both calling themselves
+    # "clause 11". Which Schedule each sits under is what tells them
+    # apart -- see dashboard's own "EM on Schedule 1 clause 11" chip.
+    bill = _bill_doc(links=[_bill_link("11", "11")])
+    em = _em_doc(links=[
+        {"em_node_index": 20, "clause_number": "11", "schedule": None,
+         "target": {"kind": "bill_clause", "act_slug": "my-act", "clause_number": "11"}},
+        {"em_node_index": 90, "clause_number": "11", "schedule": "1",
+         "target": {"kind": "bill_clause", "act_slug": "my-act", "clause_number": "11"}},
+    ])
+
+    index = build_commentary_index("my-act", [bill], [em])
+
+    assert [e["schedule"] for e in index["11"]["em"]] == [None, "1"]

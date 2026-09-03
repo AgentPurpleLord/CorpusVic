@@ -199,8 +199,11 @@ def resolve_em_links(
     known_acts: dict[str, str] | None = None,
     act_registry: dict[str, dict] | None = None,
 ) -> list[dict]:
-    """[{"em_node_index", "clause_number", "target", "verified_at"}, ...]
-    for every EM entry, in document order. `target` is one of:
+    """[{"em_node_index", "clause_number", "schedule", "target",
+    "verified_at"}, ...] for every EM entry, in document order.
+    "schedule" is the Bill Schedule the entry sits under, or None for one
+    in the body -- a Schedule numbers its own clauses from 1 again, so the
+    number alone doesn't identify the provision. `target` is one of:
 
       - {"kind": "act_section", "act_slug", "act_title", "section_ref",
         "in_force"} -- an explicitly-named Act (found in `known_acts`,
@@ -271,6 +274,15 @@ def resolve_em_links(
             # Bill's own provision at that clause.
             target = {"kind": "bill_clause", "act_slug": act_slug, "clause_number": node["number"]}
 
-        links.append({"em_node_index": idx, "clause_number": node.get("number"), "target": target, "verified_at": None})
+        links.append({
+            "em_node_index": idx, "clause_number": node.get("number"),
+            # Which Schedule of the Bill this entry sits under, if any (see
+            # em_parser.py). A Schedule restarts clause numbering, so
+            # without this an entry on Schedule 1 clause 11 and one on the
+            # body's clause 11 are indistinguishable to anything reading
+            # these records back.
+            "schedule": node.get("schedule"),
+            "target": target, "verified_at": None,
+        })
 
     return links
