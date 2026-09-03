@@ -484,6 +484,50 @@ def _amending_act_html(entry: dict, section_files: dict[str, str], base_url: str
     )
 
 
+def _endnote_blocks_html(section: dict) -> str:
+    """One endnote section's prose, as the printed page sets it: paragraphs
+    reflowed out of the PDF's own line wraps, its sub-headings as headings,
+    its bulleted list as a list, and any provision it quotes set apart from
+    the commentary around it (see ai_pipeline/endnotes.py's block builder).
+
+    Falls back to the flat "text" field for an Act parsed before blocks
+    existed -- that text still carries the source's wrap points, so it
+    keeps the pre-line rendering that at least preserves its line breaks
+    rather than running them all together."""
+    blocks = section.get("blocks")
+    if not blocks:
+        text = section.get("text")
+        return f'<div class="endnote-text endnote-raw">{_esc(text)}</div>' if text else ""
+    # A run of bullets is one list and a run of quoted lines is one
+    # quotation -- the printed page sets a reproduced provision as a
+    # single indented block, not as a stack of unrelated paragraphs.
+    wrappers = {"bullet": ('<ul class="endnote-bullets">', "</ul>"),
+                "quote": ('<blockquote class="endnote-quote">', "</blockquote>")}
+    out = ['<div class="endnote-text">']
+    run = None
+    for block in blocks:
+        kind = block.get("kind")
+        if run and run != kind:
+            out.append(wrappers[run][1])
+            run = None
+        if kind in wrappers and not run:
+            out.append(wrappers[kind][0])
+            run = kind
+        body = _esc(block.get("text") or "")
+        if kind == "bullet":
+            out.append(f"<li>{body}</li>")
+        elif kind == "quote":
+            out.append(f"<p>{body}</p>")
+        elif kind == "heading":
+            out.append(f'<div class="endnote-heading">{body}</div>')
+        else:
+            out.append(f"<p>{body}</p>")
+    if run:
+        out.append(wrappers[run][1])
+    out.append("</div>")
+    return "".join(out)
+
+
 def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[dict] | None = None) -> str | None:
     """The Act's own Endnotes, read as the printed page reads them rather
     than as the wall of text they extract to: General information, the
@@ -512,8 +556,7 @@ def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[d
     ]
     for section in endnotes.get("sections") or []:
         out.append(f'<h2 id="endnote-{_esc(section["number"])}">{_esc(section["number"])} {_esc(section["heading"])}</h2>')
-        if section.get("text"):
-            out.append(f'<div class="endnote-text">{_esc(section["text"])}</div>')
+        out.append(_endnote_blocks_html(section))
         if "table of amendments" not in (section["heading"] or "").lower():
             continue
         if summary:
@@ -756,7 +799,25 @@ a:hover { text-decoration: underline; }
 
 /* Endnotes page: the Table of Amendments as a table. */
 .index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
-.endnote-text { white-space: pre-line; margin-bottom: 18px; }
+.endnote-text { margin-bottom: 18px; }
+.endnote-text p { margin: 0 0 11px; }
+/* Only an Act parsed before the endnote block builder existed falls back
+   to this: its text still carries the source PDF's own wrap points, so
+   honouring them beats running every line together. */
+.endnote-raw { white-space: pre-line; }
+.endnote-heading { font-family: var(--sans); font-weight: 600; font-size: 13.5px; margin: 18px 0 7px; }
+.endnote-bullets { margin: 0 0 11px; padding-left: 20px; }
+.endnote-bullets li { margin-bottom: 9px; }
+/* A provision the endnotes reproduce verbatim -- the Act's own words, not
+   the endnote's commentary about them. */
+.endnote-quote {
+  margin: 0 0 11px; padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--border); color: var(--fg);
+}
+/* The first line of a reproduced provision is its own heading ("64 How
+   appeal is commenced"), the way the printed page sets it. */
+.endnote-quote p:first-child { font-weight: 600; }
+.endnote-quote p:last-child { margin-bottom: 0; }
 .endnote-aside { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
 .amend { border-top: 1px solid var(--border); padding: 12px 0 4px; }
 .amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }

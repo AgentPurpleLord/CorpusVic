@@ -57,6 +57,8 @@ from pathlib import Path
 from ai_pipeline.diagnostics import run_diagnostics
 from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
+from ai_pipeline.hierarchy import group_into_units
+from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
 from ai_pipeline.rule_parser import parse_act
 from ai_pipeline.toc import detect_body_start
 from ai_pipeline.tree import attach_history
@@ -145,6 +147,12 @@ def main():
             {
                 "act": act_slug, "source": str(pdf_path), **engine_meta,
                 "hierarchy": hierarchy_order,
+                # A digest of this node list's own structure. Review rows
+                # are keyed by position into it, so this is what lets
+                # anything reading them tell "these positions still mean
+                # what they meant" from "this parse has moved underneath
+                # them" -- see ai_pipeline/reparse.py.
+                "fingerprint": parse_fingerprint(nodes),
                 "nodes": nodes, "unattached_notes": unattached_notes,
                 "endnotes": endnotes,
             },
@@ -153,6 +161,19 @@ def main():
         encoding="utf-8",
     )
     print(f"\nWrote {len(nodes)} nodes to {out_path}")
+
+    # Re-parsing an Act somebody has already reviewed used to quietly
+    # invalidate their work: every stored row points at a node *position*,
+    # and a parser change that adds or re-splits one node shifts every
+    # position after it. Move the rows onto the provisions they actually
+    # describe instead, before anything reads them again.
+    remap = apply_remap(act_slug, nodes, group_into_units(nodes))
+    if remap is not None:
+        print(f"Review progress: {describe_remap(remap)}")
+        for label in remap["changed"][:5]:
+            print(f"  ~ wording changed, acceptance withdrawn: {label}")
+        for label in remap["orphans"][:5]:
+            print(f"  ! no longer in the parse, kept for you to re-file: {label}")
 
     report = run_diagnostics(parse_result, nodes, unattached_notes)
     diag_dir = Path("data/diagnostics")

@@ -142,3 +142,160 @@ def test_a_record_title_that_wraps_onto_a_second_line_is_joined():
     assert result.amending_acts[0]["title"] == (
         "Criminal Procedure Amendment (Consequential and Transitional Provisions) Act 2009"
     )
+
+
+# ---------------------------------------------------------------------
+# Reading an endnote section's prose as the printed page sets it
+#
+# "1 General information" and "3 Explanatory details" are not tables --
+# they are prose, with sub-headings, a bulleted list, and provisions
+# reproduced verbatim. Read line by line they come back as a ragged
+# column of half-sentences, because the only breaks in the PDF are its
+# own wrap points. These read the leading between lines instead: a run
+# one line-height apart is one paragraph, a wider gap starts the next
+# block. PROSE_X/PROSE_SIZE are the General information column off the
+# Criminal Procedure Act's own endnote pages; QUOTE_X/QUOTE_SIZE are the
+# indented 12pt provision reproduced under Explanatory details.
+# ---------------------------------------------------------------------
+
+PROSE_X = 141.7
+PROSE_SIZE = 10.0
+WRAP = 11.5   # measured leading within one paragraph at 10pt
+BREAK = 17.5  # measured gap between two paragraphs at 10pt
+QUOTE_X = 170.0
+QUOTE_SIZE = 12.0
+
+
+def _prose(items, page_no=1, start_y=100.0):
+    """(text, gap-before-this-line) pairs under a section heading."""
+    lines = [at("1 General information", SECTION_X, start_y, bold=True, size=11.0, page_no=page_no)]
+    y = start_y + 20
+    for text, gap, *rest in items:
+        x0, size = (rest + [(PROSE_X, PROSE_SIZE)])[0]
+        y += gap
+        lines.append(at(text, x0, y, size=size, page_no=page_no))
+    return page(lines, page_no=page_no)
+
+
+def _blocks(pages):
+    return parse_endnotes(pages).sections[0]["blocks"]
+
+
+def test_a_paragraphs_own_line_wraps_are_not_part_of_its_text():
+    blocks = _blocks([_prose([
+        ("The long title for the Bill for this Act was", 0),
+        ("\"A Bill for an Act to provide for procedures", WRAP),
+        ("for the conduct of criminal proceedings.\"", WRAP),
+    ])])
+
+    assert len(blocks) == 1
+    assert blocks[0]["kind"] == "paragraph"
+    assert blocks[0]["text"] == (
+        'The long title for the Bill for this Act was "A Bill for an Act to provide for procedures '
+        'for the conduct of criminal proceedings."'
+    )
+
+
+def test_a_wider_gap_starts_the_next_paragraph():
+    blocks = _blocks([_prose([
+        ("Legislative Assembly: 4 December 2008", 0),
+        ("Legislative Council: 5 February 2009", BREAK),
+    ])])
+
+    assert [b["text"] for b in blocks] == [
+        "Legislative Assembly: 4 December 2008", "Legislative Council: 5 February 2009"
+    ]
+
+
+def test_a_line_that_introduces_what_follows_is_read_as_a_heading():
+    blocks = _blocks([_prose([
+        ("Minister's second reading speech\u2014", 0),
+        ("Legislative Assembly: 4 December 2008", BREAK),
+    ])])
+
+    assert [(b["kind"], b["text"]) for b in blocks] == [
+        ("heading", "Minister's second reading speech\u2014"),
+        ("paragraph", "Legislative Assembly: 4 December 2008"),
+    ]
+
+
+def test_a_labelled_fact_is_not_mistaken_for_a_heading():
+    # "Legislative Assembly: 4 December 2008" has a colon but also a value
+    # after it -- it states something rather than introducing anything.
+    blocks = _blocks([_prose([("Legislative Assembly: 4 December 2008", 0)])])
+
+    assert blocks[0]["kind"] == "paragraph"
+
+
+def test_a_bullet_marker_and_its_own_text_become_one_list_item():
+    # The marker and the item's text are typeset on the same printed row,
+    # so extraction hands them over as two separate lines.
+    blocks = _blocks([_prose([
+        ("\u2022", BREAK),
+        ("all sections and Schedules were renumbered;", 0, (PROSE_X + 20, PROSE_SIZE)),
+        ("\u2022", BREAK),
+        ("cross-references were updated.", 0, (PROSE_X + 20, PROSE_SIZE)),
+    ])])
+
+    assert [(b["kind"], b["text"]) for b in blocks] == [
+        ("bullet", "all sections and Schedules were renumbered;"),
+        ("bullet", "cross-references were updated."),
+    ]
+
+
+def test_a_provision_quoted_under_explanatory_details_is_set_apart():
+    # Indented past the body column *and* set larger: the Act's own words,
+    # not the endnote's commentary about them.
+    blocks = _blocks([_prose([
+        ("Section 64 reads as follows\u2014", 0),
+        ("64 How appeal is commenced", BREAK, (QUOTE_X, QUOTE_SIZE)),
+    ])])
+
+    assert [(b["kind"], b["text"]) for b in blocks] == [
+        ("heading", "Section 64 reads as follows\u2014"),  # introduces what follows
+        ("quote", "64 How appeal is commenced"),
+    ]
+
+
+def test_a_centred_banner_is_not_mistaken_for_a_quotation():
+    # It indents like a quotation but stays in the prose size.
+    blocks = _blocks([_prose([
+        ("INTERPRETATION OF LEGISLATION ACT 1984 (ILA)", 0, (PROSE_X + 60, PROSE_SIZE)),
+    ])])
+
+    assert blocks[0]["kind"] != "quote"
+
+
+def test_a_paragraph_running_over_a_page_break_stays_one_paragraph():
+    # There is no leading to measure across the break, so the sentence is
+    # read instead: an unfinished line continued by a lower-case one.
+    pages = [
+        _prose([("Section 54A of the ILA authorises the making of the style", 0)], page_no=1),
+        page([at("changes set out in Schedule 1 to that Act.", PROSE_X, 60.0, size=PROSE_SIZE, page_no=2)], page_no=2),
+    ]
+    blocks = _blocks(pages)
+
+    assert [b["text"] for b in blocks] == [
+        "Section 54A of the ILA authorises the making of the style changes set out in Schedule 1 to that Act."
+    ]
+
+
+def test_the_flat_text_field_still_holds_the_whole_section():
+    # Kept alongside the blocks for every reader that predates them.
+    result = parse_endnotes([_prose([
+        ("Minister's second reading speech\u2014", 0),
+        ("Legislative Assembly: 4 December 2008", BREAK),
+    ])])
+
+    assert "Legislative Assembly: 4 December 2008" in result.sections[0]["text"]
+
+
+def test_every_prose_line_is_still_accounted_for():
+    result = parse_endnotes([_prose([
+        ("Minister's second reading speech\u2014", 0),
+        ("\u2022", BREAK),
+        ("a bulleted point;", 0, (PROSE_X + 20, PROSE_SIZE)),
+        ("64 How appeal is commenced", BREAK, (QUOTE_X, QUOTE_SIZE)),
+    ])])
+
+    assert result.lines_consumed == result.lines_total

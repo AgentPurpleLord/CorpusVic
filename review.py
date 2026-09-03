@@ -83,9 +83,9 @@ pieces carrying it.
 
 A "Show source PDF" toggle in the header renders the actual source page
 each piece came from (page_start on the piece, GET /api/pages/{n}.png --
-a plain PyMuPDF rasterisation of that page, cached in memory) alongside
-or in place of the parsed text, three view modes cycled by the one
-button: text only, side-by-side split, PDF only. This is read-only --
+a PyMuPDF rasterisation of that page at the panel's own zoom level,
+cached in memory) alongside or in place of the parsed text, three view
+modes cycled by the one button: text only, side-by-side split, PDF only. This is read-only --
 purely a check against the real page, nothing here feeds back into the
 parse -- available only when data/ai_parsed/<act>.json still has the
 source PDF at the path it was parsed from (see load_source_pdf_path);
@@ -105,7 +105,7 @@ from pydantic import BaseModel
 
 from ai_pipeline import db
 from ai_pipeline.examples_store import add_correction, stats
-from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, make_ranks
+from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from ai_pipeline.link_targets import build_definition_index, resolve_link
 from ai_pipeline.schema import NODE_TYPES
@@ -126,15 +126,36 @@ def _now_iso() -> str:
 
 
 def load_parsed(act: str):
+    """(nodes, unattached_notes, hierarchy, fingerprint). The fingerprint
+    identifies the parse itself (see ai_pipeline/reparse.py) and is None
+    for output written before run_pipeline.py recorded one."""
     path = Path("data/ai_parsed") / f"{act}.json"
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
     data = json.loads(path.read_text(encoding="utf-8"))
-    return data["nodes"], data.get("unattached_notes", []), data.get("hierarchy", [])
+    return data["nodes"], data.get("unattached_notes", []), data.get("hierarchy", []), data.get("fingerprint")
 
 
 load_verified = db.load_verified
 save_verified = db.save_verified
+
+
+def positions_are_trustworthy(act: str, parse_fingerprint: "str | None") -> bool:
+    """Whether this Act's stored review rows can still be read as
+    positions into the parse `parse_fingerprint` identifies.
+
+    Every verified row is keyed by `_source_node_index` -- an index into
+    data/ai_parsed/<act>.json -- and a re-parse that adds, drops or
+    re-splits a single node shifts every index after it. run_pipeline.py
+    records which parse a set of rows belongs to and re-anchors them onto
+    the new one when it changes (see ai_pipeline/reparse.py), so normally
+    this is True. It is False for rows stored before fingerprints
+    existed, or if the parse was replaced by something that didn't
+    re-anchor them -- and the callers below then decline to *infer*
+    anything from a position rather than guess wrong. Rows still show
+    against whatever node they name; what stops is treating a node with
+    no row as one the reviewer deliberately merged away."""
+    return parse_fingerprint is not None and db.load_parse_fingerprint(act) == parse_fingerprint
 
 
 def load_diagnostics(act: str) -> list[dict]:
@@ -171,21 +192,28 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     instead of their own all-or-nothing verified-vs-ai_parsed choice, but
     that's a separate change from introducing it here.
 
-    Returns (nodes, unattached_notes, hierarchy) in the same shape as
-    load_parsed, with merged-away nodes simply absent, so any consumer
-    that already builds a hierarchy tree from load_parsed's output works
-    unchanged against this instead."""
-    nodes, unattached_notes, hierarchy = load_parsed(act)
+    Returns (nodes, unattached_notes, hierarchy), the first three of
+    load_parsed's own return, with merged-away nodes simply absent, so
+    any consumer that already builds a hierarchy tree from load_parsed's
+    output works unchanged against this instead."""
+    nodes, unattached_notes, hierarchy, fingerprint = load_parsed(act)
     units = group_into_units(nodes)
     verified = load_verified(act)
     verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
-    resume_unit = _resume_point(units, list(verified))
 
+    # "Merged away" is an inference, not a record: nothing marks a node
+    # the reviewer folded into another, so it's deduced from the node
+    # having no verified row despite sitting in an already-finished unit.
+    # That deduction is only as good as the positions it reads, and
+    # against a parse the rows don't belong to it silently deletes real
+    # provisions from the browse view and from both exports. So when the
+    # positions can't be vouched for, infer nothing and show every node.
     merged_away: set[int] = set()
-    for u in range(resume_unit):
-        for i in units[u]:
-            if i not in verified_by_source_index:
-                merged_away.add(i)
+    if positions_are_trustworthy(act, fingerprint):
+        for u in range(_resume_point(units, list(verified), markers_are_complete=True)):
+            for i in units[u]:
+                if i not in verified_by_source_index:
+                    merged_away.add(i)
 
     current_nodes = [verified_by_source_index.get(i, node) for i, node in enumerate(nodes) if i not in merged_away]
     return current_nodes, unattached_notes, hierarchy
@@ -198,10 +226,10 @@ def reflow_with_map(text: str) -> tuple[str, list[int]]:
     """The stored text's "\\n"s are just the source PDF's own line-wrap
     points, not paragraph breaks -- displaying them raw makes every piece
     look like a jagged list of half-sentences. Collapses each wrap into a
-    single space for display, same transform review.py's old CLI-only
-    _reflow did, but also returns the raw-offset each reflowed character
-    came from (one longer than the reflowed text, for the position just
-    past its last character) -- callers use this to translate a browser
+    single space for display -- the same transform every renderer and
+    exporter applies (ai_pipeline.extract.reflow) -- but also returns the
+    raw-offset each reflowed character came from (one longer than the
+    reflowed text, for the position just past its last character) -- callers use this to translate a browser
     text selection made against the *displayed* string back into an
     offset into the *stored* one (what link/split actions actually index
     into), and to place an already-saved link's raw-offset span back onto
@@ -238,40 +266,12 @@ def _raw_to_reflowed(raw_offset: int, offset_map: list[int]) -> int:
     return bisect.bisect_left(offset_map, raw_offset)
 
 
-# A Section's own lead-in text plus everything nested under it (Subsection/
-# Paragraph/Subparagraph/Note/Definition) forms one review unit; every other
-# node type is a boundary that starts (and, for Part/Division/Subdivision/
-# heading_group, immediately ends) its own single-node unit. This mirrors
-# exactly how the rules engine's own stack nests things -- see
-# ai_pipeline/rule_parser.py's HIERARCHY_ORDER -- without needing to
-# reconstruct the full tree (build_hierarchy_tree in akn_export.py) just to
-# find "everything under this Section": the flat node list is already in
-# document order, so a single pass is enough. UNIT_ROOT_TYPES also
-# includes "clause" -- a Bill's pre-enactment name for the same top-level
-# provision an Act calls a "section" (same nesting rank, see
-# hierarchy.py) -- so it starts a review unit the exact same way.
-# hierarchy.py's UNIT_BOUNDARY_TYPES also includes "chapter", the optional
-# top level above Part a profile can opt into (see its own docstring).
+# Local aliases for the unit-layout constants group_into_units (now in
+# ai_pipeline/hierarchy.py, so the pipeline can group units without
+# importing this FastAPI app) is built on. Kept because endpoints below
+# ask the same questions of individual nodes.
 _UNIT_BOUNDARY_TYPES = UNIT_BOUNDARY_TYPES
 _UNIT_ROOT_TYPES = UNIT_ROOT_TYPES
-
-
-def group_into_units(nodes: list[dict]) -> list[list[int]]:
-    units: list[list[int]] = []
-    current: list[int] | None = None
-    for i, node in enumerate(nodes):
-        t = node["type"]
-        if t in _UNIT_ROOT_TYPES:
-            current = [i]
-            units.append(current)
-        elif t in _UNIT_BOUNDARY_TYPES:
-            current = None
-            units.append([i])
-        elif current is not None:
-            current.append(i)
-        else:
-            units.append([i])
-    return units
 
 
 def compute_unit_tree_info(unit_root_types: list[str], hierarchy_order: list[str]) -> list[dict]:
@@ -370,7 +370,7 @@ def validate_custom_type_name(name: str, existing: list[str]) -> str:
     return cleaned
 
 
-def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
+def _resume_point(units: list[list[int]], verified: list[dict], markers_are_complete: bool = False) -> int:
     """Which unit to resume at. commit_unit tags the last node it appends
     for a unit with that unit's own index (`_unit_end_index`); when any
     such marker is present, the highest one is trusted directly -- this is
@@ -384,10 +384,21 @@ def _resume_point(units: list[list[int]], verified: list[dict]) -> int:
     before that marker existed), fall back to the original approach:
     `verified` should hold exactly `len(verified)` nodes' worth of *whole*
     units, since a marker-free run always commits a unit at its full
-    original size."""
+    original size.
+
+    `markers_are_complete` says that fallback doesn't apply: the markers
+    present are the whole truth, and none present means no unit is
+    finished. Pass it whenever the rows are known to belong to this exact
+    parse (see positions_are_trustworthy) -- re-anchoring after a
+    re-parse rebuilds the markers from the new unit layout, so a row
+    count that no longer lines up with whole units is normal there, and
+    the fallback would both guess a resume point out of thin air and
+    *delete* the rows past it."""
     marked = [n["_unit_end_index"] for n in verified if "_unit_end_index" in n]
     if marked:
         return max(marked) + 1
+    if markers_are_complete:
+        return 0
 
     cumulative = 0
     boundary_units = 0
@@ -511,8 +522,20 @@ _startup_resume_unit = 0
 _source_pdf_path: str | None = None
 _act_title: str | None = None
 _pdf_doc: "fitz.Document | None" = None
-_page_image_cache: dict[int, bytes] = {}
-_PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible after the browser scales the <img> to fit its panel
+_page_image_cache: "dict[tuple[int, float], bytes]" = {}
+_PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible with the page scaled to fit its panel
+# The zoom levels the panel's own +/- control steps through, as multiples
+# of _PAGE_RENDER_ZOOM. The page is re-rendered at the level being shown
+# rather than the browser stretching one raster, so text stays as sharp
+# zoomed in as it is at fit-to-width -- which is the whole point of the
+# control on a small screen. Fixed ladder, not a free-form number, so the
+# cache below can only ever hold a handful of renderings per page.
+_PAGE_ZOOM_STEPS = (1.0, 1.25, 1.5, 2.0, 2.5, 3.0)
+# Roughly a hundred A4 pages at the largest step. Rendering is fast but
+# not free and a reviewer revisits the same handful of pages constantly,
+# so caching pays for itself; a bound keeps a long session over a
+# 500-page Act from growing without limit.
+_PAGE_CACHE_BUDGET_BYTES = 120 * 1024 * 1024
 
 
 def _current_node(i: int) -> dict:
@@ -990,8 +1013,19 @@ def _get_pdf_doc() -> fitz.Document:
     return _pdf_doc
 
 
+def _cache_page_image(key: "tuple[int, float]", png_bytes: bytes) -> None:
+    """Keeps the cache under _PAGE_CACHE_BUDGET_BYTES, evicting whatever
+    was inserted longest ago (dicts preserve insertion order) -- a
+    reviewer works forward through an Act, so the oldest entry is also
+    the one furthest behind where they are now."""
+    _page_image_cache[key] = png_bytes
+    total = sum(len(v) for v in _page_image_cache.values())
+    while total > _PAGE_CACHE_BUDGET_BYTES and len(_page_image_cache) > 1:
+        total -= len(_page_image_cache.pop(next(iter(_page_image_cache))))
+
+
 @app.get("/api/pages/{page_no}.png")
-def get_page_image(page_no: int):
+def get_page_image(page_no: int, zoom: float = 1.0):
     """Renders one page of this Act's source PDF as a PNG, so a reviewer
     can check a piece's text against the real page it came from (see
     page_start/page_end on each piece from _build_piece) -- side by side
@@ -1000,18 +1034,25 @@ def get_page_image(page_no: int):
     page_start/page_end already use), not the Act-body-only slice
     run_pipeline.py may have started extraction from. Rendered once per
     page per server run and cached in memory -- an Act's page count is
-    small enough (typically well under a thousand) that caching every
-    page ever requested costs at most a few tens of MB, far cheaper than
-    re-rendering on every click as a reviewer moves between pieces on the
-    same page."""
-    if page_no in _page_image_cache:
-        return Response(content=_page_image_cache[page_no], media_type="image/png")
+    small enough (typically well under a thousand) that caching what a
+    reviewer actually looks at is far cheaper than re-rendering on every
+    click as they move between pieces on the same page -- bounded by
+    _PAGE_CACHE_BUDGET_BYTES so a long session can't grow without limit.
+
+    `zoom` is the panel's own zoom level, one of _PAGE_ZOOM_STEPS (anything
+    else is snapped to the nearest). The page is rendered at that level
+    rather than handed over at one size for the browser to stretch, so
+    zooming in gives more detail instead of bigger pixels."""
+    zoom = min(_PAGE_ZOOM_STEPS, key=lambda step: abs(step - zoom))
+    key = (page_no, zoom)
+    if key in _page_image_cache:
+        return Response(content=_page_image_cache[key], media_type="image/png")
     doc = _get_pdf_doc()
     if not (1 <= page_no <= doc.page_count):
         raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
-    pixmap = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(_PAGE_RENDER_ZOOM, _PAGE_RENDER_ZOOM))
-    png_bytes = pixmap.tobytes("png")
-    _page_image_cache[page_no] = png_bytes
+    scale = _PAGE_RENDER_ZOOM * zoom
+    png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
+    _cache_page_image(key, png_bytes)
     return Response(content=png_bytes, media_type="image/png")
 
 
@@ -1572,7 +1613,7 @@ def main():
     args = ap.parse_args()
 
     _act = args.act
-    _nodes, _unattached_notes, _hierarchy = load_parsed(args.act)
+    _nodes, _unattached_notes, _hierarchy, _parse_fingerprint = load_parsed(args.act)
     _source_pdf_path = load_source_pdf_path(args.act)
     # Computed once here, not per-request: _detect_act_citation re-reads
     # and re-extracts the *whole* source PDF via PyMuPDF just to find the
@@ -1599,21 +1640,37 @@ def main():
     for v in _verified:
         if "_source_node_index" in v:
             _verified_by_source_index[v["_source_node_index"]] = v
-    _startup_resume_unit = _resume_point(_units, _verified)
+    if not _verified and _parse_fingerprint:
+        # Nothing reviewed yet, so whatever gets accepted from here on
+        # belongs to this parse -- record that now, rather than leaving
+        # the first session's work unattributable to any parse at all.
+        db.save_parse_fingerprint(args.act, _parse_fingerprint)
+    _positions_trusted = positions_are_trustworthy(args.act, _parse_fingerprint)
+    _startup_resume_unit = _resume_point(_units, _verified, markers_are_complete=_positions_trusted)
     # Reconstruct which nodes were merged away in a prior session: any
     # index belonging to an already-fully-processed unit (before the
     # resume point) that never made it into `verified` at all -- a
     # node merged away is simply never appended there (see the merge
     # endpoint) -- must have been merged into something else rather
-    # than just not-yet-reached.
-    for u in range(_startup_resume_unit):
-        for i in _units[u]:
-            if i not in _verified_by_source_index:
-                _merged_away.add(i)
+    # than just not-yet-reached. Only sound while the stored rows and
+    # this parse still agree on what an index means; see
+    # positions_are_trustworthy, and build_current_nodes for the same
+    # guard on the read-only path.
+    if _positions_trusted:
+        for u in range(_startup_resume_unit):
+            for i in _units[u]:
+                if i not in _verified_by_source_index:
+                    _merged_away.add(i)
 
     import uvicorn
 
     print(f"Serving {args.act}: {len(_nodes)} nodes, {len(_units)} units.")
+    if _verified and not _positions_trusted:
+        print(
+            f"Note: {len(_verified)} reviewed piece(s) were stored against a parse this one can't be matched to, "
+            "so nothing is being assumed about pieces you merged away -- every node is shown. "
+            "Re-run run_pipeline.py to re-anchor them."
+        )
     print(f"Corrections logged so far across all Acts: {stats()}")
     if _unattached_notes:
         print(f"{len(_unattached_notes)} amendment-history note(s) couldn't be auto-linked to a node.")

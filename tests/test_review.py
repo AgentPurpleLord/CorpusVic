@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from ai_pipeline import db
+from ai_pipeline.reparse import parse_fingerprint
 from review import (
     _now_iso,
     _resume_point,
@@ -26,10 +28,21 @@ from review import (
 from conftest import make_node
 
 
-def _write_parsed(act: str, nodes: list[dict]) -> None:
+def _write_parsed(act: str, nodes: list[dict], *, record_fingerprint: bool = True) -> None:
+    """The pipeline's own output: a node list plus the fingerprint that
+    identifies it. `record_fingerprint` also tells the database that this
+    Act's review rows belong to this parse, which is what run_pipeline.py
+    does after re-anchoring them -- pass False to reproduce review rows
+    left pointing at a parse that has since been replaced."""
     path = Path("data/ai_parsed") / f"{act}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"nodes": nodes, "unattached_notes": [], "hierarchy": []}), encoding="utf-8")
+    fingerprint = parse_fingerprint(nodes)
+    path.write_text(
+        json.dumps({"nodes": nodes, "unattached_notes": [], "hierarchy": [], "fingerprint": fingerprint}),
+        encoding="utf-8",
+    )
+    if record_fingerprint:
+        db.save_parse_fingerprint(act, fingerprint)
 
 
 def _write_verified(act: str, verified: list[dict]) -> None:
@@ -220,6 +233,19 @@ def test_resume_point_trims_back_from_a_mid_unit_position():
     assert len(verified) == 2  # trimmed back to the end of unit 1
 
 
+def test_resume_point_with_complete_markers_never_counts_nodes_instead():
+    """After re-anchoring, the markers are rebuilt from the new unit
+    layout, so a row count that doesn't line up with whole units is
+    normal -- and the count-based fallback would both invent a resume
+    point and delete every row past it."""
+    units = [[0], [1], [2, 3, 4], [5, 6]]
+    verified = [{}, {}, {}]
+
+    assert _resume_point(units, list(verified), markers_are_complete=True) == 0
+    assert _resume_point(units, verified, markers_are_complete=True) == 0
+    assert len(verified) == 3  # nothing trimmed
+
+
 def test_now_iso_is_utc_and_sorts_chronologically():
     a = _now_iso()
     b = _now_iso()
@@ -309,6 +335,24 @@ def test_build_current_nodes_drops_a_node_that_was_merged_away(tmp_path, monkeyp
 
     assert len(current) == 1
     assert current[0]["text"] == "Murder, including: text merged into the section"
+
+
+def test_build_current_nodes_keeps_every_node_when_the_parse_has_moved(tmp_path, monkeypatch):
+    # "Merged away" is inferred from a node having no verified row, which
+    # only means anything while the rows and the parse agree on what an
+    # index is. Against a parse they don't belong to, that inference
+    # deleted real provisions from the browse view and both exports --
+    # so it doesn't run at all, and nothing disappears.
+    monkeypatch.chdir(tmp_path)
+    section = make_node("section", "1", "Murder")
+    subsection = make_node("subsection", "1", None, "text merged into the section")
+    _write_parsed("crimes-act", [section, subsection], record_fingerprint=False)
+    merged_target = dict(section, verified_at="2024-01-01T00:00:00+00:00", _source_node_index=0, _unit_end_index=0)
+    _write_verified("crimes-act", [merged_target])
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n["type"] for n in current] == ["section", "subsection"]
 
 
 # ---------------------------------------------------------------------

@@ -79,6 +79,25 @@ _ROW_TOLERANCE = 3.0
 
 _COLUMN_TOLERANCE = 6.0
 
+# A bullet in the General information block is typeset as its own "line"
+# holding nothing but the marker, with the item's text beside it at a
+# deeper indent.
+_BULLET_RE = re.compile(r"^[\u2022\u00b7\u2023\u25e6\-]$")
+
+# Where one block of prose ends and the next begins, as a multiple of the
+# line's own type size. A wrapped line sits about 1.15 sizes below the one
+# above it; a new paragraph, heading or bullet gets extra leading, about
+# 1.65 and up. Relative to the size rather than one document-wide number,
+# because these pages mix three of them -- 9pt Table of Amendments rows,
+# 10pt endnote prose, and 12pt provisions quoted under Explanatory details
+# -- and each wraps at its own spacing.
+_BLOCK_GAP_FACTOR = 1.4
+
+# A heading is a short standalone line. "Legislative Assembly: 4 December
+# 2008" is not one (a colon with a value after it is a labelled fact),
+# but "Constitution Act 1975:" and "Style changes" are.
+_HEADING_MAX_CHARS = 70
+
 
 @dataclass
 class EndnotesParseResult:
@@ -155,6 +174,52 @@ def _columns(lines: list[BodyLine]) -> dict | None:
     }
 
 
+def _starts_new_block(line: BodyLine, previous: "BodyLine | None") -> bool:
+    """Whether this line begins a new block rather than continuing the
+    paragraph above it -- judged from the leading between the two, scaled
+    to the type size they are set in (see _BLOCK_GAP_FACTOR)."""
+    if previous is None:
+        return True
+    if abs(line.size - previous.size) > 0.6:
+        return True
+    if line.page_no != previous.page_no:
+        # A paragraph that runs over a page break is still one paragraph.
+        # There is no leading to measure across the break, so read the
+        # sentence instead: an unfinished line continued by a lower-case
+        # one is a wrap, anything else starts a block.
+        return not (
+            not previous.text.rstrip().endswith((".", ":", ";", "\u2014", '."'))
+            and line.text.lstrip()[:1].islower()
+        )
+    return line.y0 - previous.y0 > max(line.size, previous.size) * _BLOCK_GAP_FACTOR
+
+
+def _looks_like_heading(text: str) -> bool:
+    if len(text) > _HEADING_MAX_CHARS:
+        return False
+    if text.endswith((":", "\u2014", "\u2013")):
+        return True  # introduces what follows: "Constitution Act 1975:"
+    if ":" in text:
+        return False  # a labelled fact: "Legislative Assembly: 4 December 2008"
+    return not text.endswith((".", ";", '."', '.\u201d'))
+
+
+def _finish_block(block: dict | None, out: list[dict]) -> None:
+    """Joins a block's wrapped lines back into one string. This is where
+    the source PDF's own line-wrap points stop being part of the text --
+    they are a layout artefact, and keeping them made the endnotes render
+    as a ragged column of half-sentences."""
+    if block is None:
+        return
+    text = " ".join(block.pop("parts")).strip()
+    text = re.sub(r"\s{2,}", " ", text)
+    if not text:
+        return
+    if block["kind"] == "paragraph" and _looks_like_heading(text):
+        block["kind"] = "heading"
+    out.append({**block, "text": text})
+
+
 def _normalise_field(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", label.strip().lower()).strip("_")
 
@@ -211,21 +276,48 @@ def parse_endnotes(pages: list[PageText]) -> EndnotesParseResult:
     # sections are still found in a document that has no Table of
     # Amendments for _columns to measure.
     section_x = min((l.x0 for l in lines), default=0.0)
+    # The leftmost body column -- where the endnotes' own prose starts.
+    # Anything further right is indented for a reason (a bullet's text, a
+    # provision quoted inside Explanatory details, the Table of Amendments'
+    # own label/value columns).
+    body_x = min((l.x0 for l in lines if l.x0 > section_x + _COLUMN_TOLERANCE), default=section_x)
+    # The size the endnotes' own prose is set in. A provision quoted under
+    # Explanatory details is reproduced at the Act's own larger size, which
+    # is what tells it apart from a centred banner that merely indents.
+    # Table-of-Amendments rows share the body column but are set smaller
+    # still, and are handled by the record machinery -- excluded here, or
+    # they would outnumber the prose and become "the prose size".
+    prose_size = _mode([
+        l.size for l in lines
+        if abs(l.x0 - body_x) <= _COLUMN_TOLERANCE
+        and (columns is None or abs(l.size - columns["record_size"]) > 0.6)
+    ]) or 10.0
     if columns is None:
         result.warnings.append("no Table of Amendments columns found -- endnote text kept unstructured")
 
     section: dict | None = None
     record: dict | None = None
     current_field: str | None = None
+    block: dict | None = None
+    previous: BodyLine | None = None
+
+    def close_block() -> None:
+        nonlocal block
+        if section is not None:
+            _finish_block(block, section["blocks"])
+        block = None
 
     def close_section() -> None:
         nonlocal section, record, current_field
         _finish_record(record, result.amending_acts, result.warnings)
         record = None
         current_field = None
+        close_block()
         if section is not None:
-            section["text"] = "\n".join(section["text_parts"]).strip()
-            del section["text_parts"]
+            # "text" is kept alongside the blocks: it is what every reader
+            # of this data expected before blocks existed, and it is now
+            # reflowed rather than carrying the PDF's own wrap points.
+            section["text"] = "\n".join(b["text"] for b in section["blocks"]).strip()
             result.sections.append(section)
         section = None
 
@@ -234,6 +326,8 @@ def parse_endnotes(pages: list[PageText]) -> EndnotesParseResult:
         if not text:
             result.lines_consumed += 1
             continue
+        starts_block = _starts_new_block(line, previous)
+        previous = line
 
         heading = _SECTION_HEADING_RE.match(text)
         is_section_heading = (
@@ -244,10 +338,11 @@ def parse_endnotes(pages: list[PageText]) -> EndnotesParseResult:
             section = {
                 "number": heading.group(1),
                 "heading": heading.group(2),
-                "text_parts": [],
+                "blocks": [],
                 "page_start": line.page_no,
                 "page_end": line.page_no,
             }
+            block = None
             result.lines_consumed += 1
             continue
 
@@ -292,11 +387,41 @@ def parse_endnotes(pages: list[PageText]) -> EndnotesParseResult:
 
         # Anything else is this section's own prose -- the General
         # information block, the Table of Amendments' own introduction, the
-        # provisions quoted under Explanatory details.
+        # provisions quoted under Explanatory details. Grouped into blocks
+        # so it can be rendered as the printed page reads rather than as a
+        # column of hard-wrapped lines: a run of lines one line-height
+        # apart is one paragraph, a wider gap starts the next block.
         _finish_record(record, result.amending_acts, result.warnings)
         record = None
         current_field = None
-        section["text_parts"].append(text)
+
+        if _DIVIDER_RE.match(text):
+            close_block()
+            result.lines_consumed += 1
+            continue
+
+        if _BULLET_RE.match(text):
+            close_block()
+            block = {"kind": "bullet", "parts": []}
+            result.lines_consumed += 1
+            continue
+
+        # Deeper indent or a larger type size than the endnote body: a
+        # provision quoted inside Explanatory details, which is the Act's
+        # own text rather than the endnote's commentary on it.
+        # A quotation is indented past the body column *and* set larger. A
+        # centred banner ("INTERPRETATION OF LEGISLATION ACT 1984 (ILA)")
+        # and a bullet's own text also indent, but stay in the prose size.
+        quoted = line.x0 > body_x + _COLUMN_TOLERANCE and line.size > prose_size + 0.6
+        kind = "quote" if quoted else "paragraph"
+        if block is not None and block["kind"] == "bullet" and not block["parts"]:
+            # The marker and the item's own text are typeset on one row, so
+            # whatever follows the marker belongs to it however it indents.
+            pass
+        elif block is None or starts_block or block["kind"] != kind:
+            close_block()
+            block = {"kind": kind, "parts": []}
+        block["parts"].append(text)
         result.lines_consumed += 1
 
     close_section()

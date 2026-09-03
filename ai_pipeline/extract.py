@@ -37,6 +37,23 @@ MARGIN_LEFT_X0_FRACTION = 0.20
 BOILERPLATE_MIN_FREQUENCY = 0.5
 
 
+# A node's stored text keeps the source PDF's own line-wrap points as
+# literal "\n"s. That is deliberate -- review.py's link annotations index
+# into the stored string by character offset, so it must not be rewritten
+# -- but the wraps are a layout artefact of the page, not sentence
+# structure, and no consumer should ever *render* or *export* them. Every
+# renderer and exporter runs its text through here first; review.py's own
+# reflow_with_map does the same collapse, and additionally maps display
+# offsets back to raw ones so a selection can still be stored.
+_WRAP_RE = re.compile(r"\s*\n\s*")
+
+
+def reflow(text: str | None) -> str:
+    """The stored text as prose: every line-wrap point collapsed to a
+    single space."""
+    return _WRAP_RE.sub(" ", (text or "").strip())
+
+
 @dataclass
 class BodyLine:
     text: str

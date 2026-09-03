@@ -60,6 +60,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from .extract import reflow
 from .hierarchy import HIERARCHY_ORDER, make_ranks
 
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
@@ -196,7 +197,10 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
 
 def _render_p(parent_el, text: str) -> None:
     p = ET.SubElement(parent_el, _q("p"))
-    p.text = text
+    # Reflowed, not raw: the stored text carries the source PDF's own
+    # line-wrap points, and an AKN consumer should get the provision's
+    # words, not the page's layout (see extract.reflow).
+    p.text = reflow(text)
 
 
 def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: list[str] = HIERARCHY_ORDER) -> ET.Element:

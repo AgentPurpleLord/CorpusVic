@@ -16,6 +16,7 @@
     "subparagraph",
     "sub_subparagraph"
   ],
+  "fingerprint": "781425661d3facb9",
   "nodes": [
     {
       "type": "heading_group",
@@ -124609,23 +124610,177 @@
       {
         "number": "1",
         "heading": "General information",
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "text": "See www.legislation.vic.gov.au for Victorian Bills, Acts and current authorised versions of legislation and up-to-date legislative information."
+          },
+          {
+            "kind": "heading",
+            "text": "Minister's second reading speech\u2014"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Legislative Assembly: 4 December 2008"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Legislative Council: 5 February 2009"
+          },
+          {
+            "kind": "paragraph",
+            "text": "The long title for the Bill for this Act was \"A Bill for an Act to provide for procedures for the initiation and conduct of criminal proceedings and appeals in criminal proceedings, to amend the Crimes Act 1958, the Crimes (Mental Impairment and Unfitness to be Tried) Act 1997, the Magistrates' Court Act 1989, the Children, Youth and Families Act 2005, the Sentencing Act 1991 and the Appeal Costs Act 1998 and to repeal the Crimes (Criminal Trials) Act 1999 and for other purposes.\""
+          },
+          {
+            "kind": "heading",
+            "text": "Constitution Act 1975:"
+          },
+          {
+            "kind": "heading",
+            "text": "Section 85(5) statement:"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Legislative Assembly: 4 December 2008"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Legislative Council: 5 February 2009"
+          },
+          {
+            "kind": "heading",
+            "text": "Absolute majorities:"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Legislative Assembly: 5 February 2009"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Legislative Council: 26 February 2009"
+          },
+          {
+            "kind": "paragraph",
+            "text": "The Criminal Procedure Act 2009 was assented to on 10 March 2009 and came into operation as follows:"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Chapter 1 (sections 1\u20134) on 11 March 2009: section 2(1); sections 5\u2013436, 438, 439 on 1 January 2010: Government Gazette 10 December 2009 page 3215; section 437 never proclaimed, repealed by No. 30/2010 section 73."
+          },
+          {
+            "kind": "heading",
+            "text": "INTERPRETATION OF LEGISLATION ACT 1984 (ILA)"
+          },
+          {
+            "kind": "heading",
+            "text": "Style changes"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Section 54A of the ILA authorises the making of the style changes set out in Schedule 1 to that Act."
+          },
+          {
+            "kind": "heading",
+            "text": "References to ILA s. 39B"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Sidenotes which cite ILA s. 39B refer to section 39B of the ILA which provides that where an undivided section or clause of a Schedule is amended by the insertion of one or more subsections or subclauses, the original section or clause becomes subsection or subclause (1) and is amended by the insertion of the expression \"(1)\" at the beginning of the original section or clause."
+          },
+          {
+            "kind": "heading",
+            "text": "Interpretation"
+          },
+          {
+            "kind": "paragraph",
+            "text": "As from 1 January 2001, amendments to section 36 of the ILA have the following effects:"
+          },
+          {
+            "kind": "bullet",
+            "text": "Headings"
+          },
+          {
+            "kind": "paragraph",
+            "text": "All headings included in an Act which is passed on or after 1 January 2001 form part of that Act. Any heading inserted in an Act which was passed before 1 January 2001, by an Act passed on or after 1 January 2001, forms part of that Act. This includes headings to Parts, Divisions or Subdivisions in a Schedule; sections; clauses; items; tables; columns; examples; diagrams; notes or forms. See section 36(1A)(2A)."
+          },
+          {
+            "kind": "bullet",
+            "text": "Examples, diagrams or notes"
+          },
+          {
+            "kind": "paragraph",
+            "text": "All examples, diagrams or notes included in an Act which is passed on or after 1 January 2001 form part of that Act. Any examples, diagrams or notes inserted in an Act which was passed before 1 January 2001, by an Act passed on or after 1 January 2001, form part of that Act. See section 36(3A)."
+          },
+          {
+            "kind": "bullet",
+            "text": "Punctuation"
+          },
+          {
+            "kind": "paragraph",
+            "text": "All punctuation included in an Act which is passed on or after 1 January 2001 forms part of that Act. Any punctuation inserted in an Act which was passed before 1 January 2001, by an Act passed on or after 1 January 2001, forms part of that Act. See section 36(3B)."
+          },
+          {
+            "kind": "bullet",
+            "text": "Provision numbers"
+          },
+          {
+            "kind": "paragraph",
+            "text": "All provision numbers included in an Act form part of that Act, whether inserted in the Act before, on or after 1 January 2001. Provision numbers include section numbers, subsection numbers, paragraphs and subparagraphs. See section 36(3C)."
+          },
+          {
+            "kind": "bullet",
+            "text": "Location of \"legislative items\""
+          },
+          {
+            "kind": "paragraph",
+            "text": "A \"legislative item\" is a penalty, an example or a note. As from 13 October 2004, a legislative item relating to a provision of an Act is taken to be at the foot of that provision even if it is preceded or followed by another legislative item that relates to that provision. For example, if a penalty at the foot of a provision is followed by a note, both of these legislative items will be regarded as being at the foot of that provision. See section 36B."
+          },
+          {
+            "kind": "bullet",
+            "text": "Other material"
+          },
+          {
+            "kind": "paragraph",
+            "text": "Any explanatory memorandum, table of provisions, endnotes, index and other material printed after the Endnotes does not form part of an Act. See section 36(3)(3D)(3E)."
+          }
+        ],
         "page_start": 514,
         "page_end": 515,
-        "text": "See www.legislation.vic.gov.au for Victorian Bills, Acts and current\nauthorised versions of legislation and up-to-date legislative information.\nMinister's second reading speech\u2014\nLegislative Assembly: 4 December 2008\nLegislative Council: 5 February 2009\nThe long title for the Bill for this Act was \"A Bill for an Act to provide for\nprocedures for the initiation and conduct of criminal proceedings and appeals\nin criminal proceedings, to amend the Crimes Act 1958, the Crimes (Mental\nImpairment and Unfitness to be Tried) Act 1997, the Magistrates' Court\nAct 1989, the Children, Youth and Families Act 2005, the Sentencing\nAct 1991 and the Appeal Costs Act 1998 and to repeal the Crimes\n(Criminal Trials) Act 1999 and for other purposes.\"\nConstitution Act 1975:\nSection 85(5) statement:\nLegislative Assembly: 4 December 2008\nLegislative Council: 5 February 2009\nAbsolute majorities:\nLegislative Assembly: 5 February 2009\nLegislative Council: 26 February 2009\nThe Criminal Procedure Act 2009 was assented to on 10 March 2009 and\ncame into operation as follows:\nChapter 1 (sections 1\u20134) on 11 March 2009: section 2(1); sections 5\u2013436,\n438, 439 on 1 January 2010: Government Gazette 10 December 2009\npage 3215; section 437 never proclaimed, repealed by No. 30/2010\nsection 73.\nINTERPRETATION OF LEGISLATION ACT 1984 (ILA)\nStyle changes\nSection 54A of the ILA authorises the making of the style changes set out in\nSchedule 1 to that Act.\nReferences to ILA s. 39B\nSidenotes which cite ILA s. 39B refer to section 39B of the ILA which\nprovides that where an undivided section or clause of a Schedule is amended\nby the insertion of one or more subsections or subclauses, the original section\nor clause becomes subsection or subclause (1) and is amended by the\ninsertion of the expression \"(1)\" at the beginning of the original section or\nclause.\nInterpretation\nAs from 1 January 2001, amendments to section 36 of the ILA have the\nfollowing effects:\n\u2022\nHeadings\nAll headings included in an Act which is passed on or after 1 January 2001\nform part of that Act.  Any heading inserted in an Act which was passed\nbefore 1 January 2001, by an Act passed on or after 1 January 2001, forms\npart of that Act.  This includes headings to Parts, Divisions or Subdivisions in\na Schedule; sections; clauses; items; tables; columns; examples; diagrams;\nnotes or forms.  See section 36(1A)(2A).\n\u2022\nExamples, diagrams or notes\nAll examples, diagrams or notes included in an Act which is passed on or\nafter 1 January 2001 form part of that Act.  Any examples, diagrams or notes\ninserted in an Act which was passed before 1 January 2001, by an Act passed\non or after 1 January 2001, form part of that Act.  See section 36(3A).\n\u2022\nPunctuation\nAll punctuation included in an Act which is passed on or after 1 January 2001\nforms part of that Act.  Any punctuation inserted in an Act which was passed\nbefore 1 January 2001, by an Act passed on or after 1 January 2001, forms\npart of that Act.  See section 36(3B).\n\u2022\nProvision numbers\nAll provision numbers included in an Act form part of that Act, whether\ninserted in the Act before, on or after 1 January 2001.  Provision numbers\ninclude section numbers, subsection numbers, paragraphs and subparagraphs.\nSee section 36(3C).\n\u2022\nLocation of \"legislative items\"\nA \"legislative item\" is a penalty, an example or a note.  As from 13 October\n2004, a legislative item relating to a provision of an Act is taken to be at the\nfoot of that provision even if it is preceded or followed by another legislative\nitem that relates to that provision.  For example, if a penalty at the foot of a\nprovision is followed by a note, both of these legislative items will be\nregarded as being at the foot of that provision.  See section 36B.\n\u2022\nOther material\nAny explanatory memorandum, table of provisions, endnotes, index and\nother material printed after the Endnotes does not form part of an Act.\nSee section 36(3)(3D)(3E)."
+        "text": "See www.legislation.vic.gov.au for Victorian Bills, Acts and current authorised versions of legislation and up-to-date legislative information.\nMinister's second reading speech\u2014\nLegislative Assembly: 4 December 2008\nLegislative Council: 5 February 2009\nThe long title for the Bill for this Act was \"A Bill for an Act to provide for procedures for the initiation and conduct of criminal proceedings and appeals in criminal proceedings, to amend the Crimes Act 1958, the Crimes (Mental Impairment and Unfitness to be Tried) Act 1997, the Magistrates' Court Act 1989, the Children, Youth and Families Act 2005, the Sentencing Act 1991 and the Appeal Costs Act 1998 and to repeal the Crimes (Criminal Trials) Act 1999 and for other purposes.\"\nConstitution Act 1975:\nSection 85(5) statement:\nLegislative Assembly: 4 December 2008\nLegislative Council: 5 February 2009\nAbsolute majorities:\nLegislative Assembly: 5 February 2009\nLegislative Council: 26 February 2009\nThe Criminal Procedure Act 2009 was assented to on 10 March 2009 and came into operation as follows:\nChapter 1 (sections 1\u20134) on 11 March 2009: section 2(1); sections 5\u2013436, 438, 439 on 1 January 2010: Government Gazette 10 December 2009 page 3215; section 437 never proclaimed, repealed by No. 30/2010 section 73.\nINTERPRETATION OF LEGISLATION ACT 1984 (ILA)\nStyle changes\nSection 54A of the ILA authorises the making of the style changes set out in Schedule 1 to that Act.\nReferences to ILA s. 39B\nSidenotes which cite ILA s. 39B refer to section 39B of the ILA which provides that where an undivided section or clause of a Schedule is amended by the insertion of one or more subsections or subclauses, the original section or clause becomes subsection or subclause (1) and is amended by the insertion of the expression \"(1)\" at the beginning of the original section or clause.\nInterpretation\nAs from 1 January 2001, amendments to section 36 of the ILA have the following effects:\nHeadings\nAll headings included in an Act which is passed on or after 1 January 2001 form part of that Act. Any heading inserted in an Act which was passed before 1 January 2001, by an Act passed on or after 1 January 2001, forms part of that Act. This includes headings to Parts, Divisions or Subdivisions in a Schedule; sections; clauses; items; tables; columns; examples; diagrams; notes or forms. See section 36(1A)(2A).\nExamples, diagrams or notes\nAll examples, diagrams or notes included in an Act which is passed on or after 1 January 2001 form part of that Act. Any examples, diagrams or notes inserted in an Act which was passed before 1 January 2001, by an Act passed on or after 1 January 2001, form part of that Act. See section 36(3A).\nPunctuation\nAll punctuation included in an Act which is passed on or after 1 January 2001 forms part of that Act. Any punctuation inserted in an Act which was passed before 1 January 2001, by an Act passed on or after 1 January 2001, forms part of that Act. See section 36(3B).\nProvision numbers\nAll provision numbers included in an Act form part of that Act, whether inserted in the Act before, on or after 1 January 2001. Provision numbers include section numbers, subsection numbers, paragraphs and subparagraphs. See section 36(3C).\nLocation of \"legislative items\"\nA \"legislative item\" is a penalty, an example or a note. As from 13 October 2004, a legislative item relating to a provision of an Act is taken to be at the foot of that provision even if it is preceded or followed by another legislative item that relates to that provision. For example, if a penalty at the foot of a provision is followed by a note, both of these legislative items will be regarded as being at the foot of that provision. See section 36B.\nOther material\nAny explanatory memorandum, table of provisions, endnotes, index and other material printed after the Endnotes does not form part of an Act. See section 36(3)(3D)(3E)."
       },
       {
         "number": "2",
         "heading": "Table of Amendments",
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "text": "This publication incorporates amendments made to the Criminal Procedure Act 2009 by Acts and subordinate instruments."
+          }
+        ],
         "page_start": 516,
         "page_end": 529,
-        "text": "This publication incorporates amendments made to the Criminal Procedure\nAct 2009 by Acts and subordinate instruments.\n\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\n\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013\u2013"
+        "text": "This publication incorporates amendments made to the Criminal Procedure Act 2009 by Acts and subordinate instruments."
       },
       {
         "number": "3",
         "heading": "Explanatory details",
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "text": "1 S. 255(5)(ab): The amendment proposed by section 64 of the Justice Legislation Amendment (Criminal Procedure Disclosure and Other Matters) Act 2022, No. 1/2022 (repealed) is not included in this publication because the words \"or the Prothonotary of the Supreme Court\" do not appear in section 255(5)(ab). Section 64 reads as follows\u2014"
+          },
+          {
+            "kind": "quote",
+            "text": "64 How appeal is commenced"
+          },
+          {
+            "kind": "quote",
+            "text": "In section 255(5)(ab) of the Criminal Procedure Act 2009, for \"or the Prothonotary of the Supreme Court\" insert \", the Prothonotary of the Supreme Court or the Registrar of Criminal Appeals, as the case requires,\"."
+          }
+        ],
         "page_start": 530,
         "page_end": 530,
-        "text": "1 S. 255(5)(ab): The amendment proposed by section 64 of the Justice\nLegislation Amendment (Criminal Procedure Disclosure and Other\nMatters) Act 2022, No. 1/2022 (repealed) is not included in this publication\nbecause the words \"or the Prothonotary of the Supreme Court\" do not appear\nin section 255(5)(ab). Section 64 reads as follows\u2014\n64 How appeal is commenced\nIn section 255(5)(ab) of the Criminal Procedure\nAct 2009, for \"or the Prothonotary of the Supreme\nCourt\" insert \", the Prothonotary of the Supreme\nCourt or the Registrar of Criminal Appeals, as the\ncase requires,\"."
+        "text": "1 S. 255(5)(ab): The amendment proposed by section 64 of the Justice Legislation Amendment (Criminal Procedure Disclosure and Other Matters) Act 2022, No. 1/2022 (repealed) is not included in this publication because the words \"or the Prothonotary of the Supreme Court\" do not appear in section 255(5)(ab). Section 64 reads as follows\u2014\n64 How appeal is commenced\nIn section 255(5)(ab) of the Criminal Procedure Act 2009, for \"or the Prothonotary of the Supreme Court\" insert \", the Prothonotary of the Supreme Court or the Registrar of Criminal Appeals, as the case requires,\"."
       }
     ],
     "amending_acts": [
