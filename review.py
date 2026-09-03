@@ -1546,33 +1546,51 @@ def accept_node(node_index: int, req: AcceptRequest):
 
 @app.post("/api/units/{unit_no}/accept")
 def accept_unit(unit_no: int, req: AcceptRequest):
+    """Accepts (or flags) everything in this unit that is still
+    outstanding. Flagging a unit is a reviewer saying "come back to this",
+    so accepting one that is already flagged is the whole point of having
+    flagged it -- that is what clears the flag and finishes the unit.
+    Only a unit that is already fully accepted has nothing left to do."""
     if not (0 <= unit_no < len(_units)):
         raise HTTPException(404, "No such unit")
-    if _unit_status(unit_no) != "pending":
-        raise HTTPException(400, "This unit has already been reviewed -- edit its pieces directly instead.")
+    status = _unit_status(unit_no)
+    if status == "done":
+        raise HTTPException(400, "Every piece in this unit is already accepted -- edit its pieces directly instead.")
+    if req.flagged and status == "flagged":
+        raise HTTPException(400, "This unit is already flagged for follow-up.")
 
-    # Skip whatever's already been individually accepted/flagged via
-    # accept_node above -- this is "accept everything still outstanding
-    # in this unit", not "redo the whole unit and overwrite decisions
-    # already made piece by piece".
-    indices = [i for i in _units[unit_no] if i not in _merged_away and not _is_committed(i)]
+    # Whatever hasn't been decided at all yet, plus -- when accepting --
+    # whatever was previously flagged, since resolving those flags is
+    # exactly what "accept this unit" means once it has been through
+    # review once. Pieces already accepted are left alone either way:
+    # this is "finish what's outstanding", not "redo the whole unit and
+    # overwrite decisions already made piece by piece".
+    live = [i for i in _units[unit_no] if i not in _merged_away]
+    outstanding = [i for i in live if not _is_committed(i)]
+    flagged = [] if req.flagged else [
+        i for i in live if _is_committed(i) and _verified_by_source_index[i].get("needs_followup")
+    ]
     if not req.flagged:
-        blocked = _blind_review_gate_indices(indices)
+        blocked = _blind_review_gate_indices(outstanding + flagged)
         if blocked:
             raise HTTPException(
                 400,
                 f"{len(blocked)} piece(s) in this unit need your own independent assessment before the unit can be accepted.",
             )
-    if indices:
-        unit_orig = [_nodes[i] for i in indices]
-        unit_nodes = [_current_node(i) for i in indices]
+    if outstanding:
+        unit_orig = [_nodes[i] for i in outstanding]
+        unit_nodes = [_current_node(i) for i in outstanding]
         before = len(_verified)
         commit_unit(unit_nodes, unit_orig, _act, _verified, flagged=req.flagged, unit_index=unit_no)
-        for i, v in zip(indices, _verified[before:]):
+        for i, v in zip(outstanding, _verified[before:]):
             v["_source_node_index"] = i
             _verified_by_source_index[i] = v
             _pending_edits.pop(i, None)
         save_verified(_act, _verified)
+    for i in flagged:
+        # Already in `verified`, so this updates the row in place rather
+        # than appending a second one for the same node.
+        _accept_node(i, False)
     return {"unit_no": unit_no, "status": _unit_status(unit_no)}
 
 
