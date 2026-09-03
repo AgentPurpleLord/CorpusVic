@@ -33,8 +33,10 @@
     --toast-error-bg: #991b1b;
     --piece-accepted-bg: #f0fdf4;
     --piece-accepted-border: #bbf7d0;
+    --piece-accepted-hover: #dcfce7;
     --piece-flagged-bg: #fffbeb;
     --piece-flagged-border: #fde68a;
+    --piece-flagged-hover: #fef3c7;
     --piece-merge-source-bg: #fff7ed;
     --repealed-bg: #f9fafb;
     --accepted-text: #166534;
@@ -74,8 +76,10 @@
     --toast-error-bg: #7f1d1d;
     --piece-accepted-bg: #132a1c;
     --piece-accepted-border: #1f5c37;
+    --piece-accepted-hover: #1a3927;
     --piece-flagged-bg: #2c2410;
     --piece-flagged-border: #6b551c;
+    --piece-flagged-hover: #3b3115;
     --piece-merge-source-bg: #2e2013;
     --repealed-bg: #202329;
     --accepted-text: #4ade80;
@@ -163,8 +167,21 @@
   }
   .tree-toggle { cursor: pointer; }
   .tree-toggle:hover { color: var(--fg); }
+  /* A unit's review status colours the whole row, not just the 9px dot:
+     scanning a long sidebar for what is done and what is left should not
+     come down to picking out a circle. The dot stays as the precise
+     marker; this is the at-a-glance one. */
+  .unit-row.status-done { background: var(--piece-accepted-bg); }
+  .unit-row.status-flagged { background: var(--piece-flagged-bg); }
   .unit-row:hover { background: var(--sidebar-hover); }
-  .unit-row.active { background: var(--sidebar-active); }
+  .unit-row.status-done:hover { background: var(--piece-accepted-hover); }
+  .unit-row.status-flagged:hover { background: var(--piece-flagged-hover); }
+  /* Which row is open is marked by the bar rather than by the background,
+     so selecting a reviewed unit doesn't hide the fact that it's
+     reviewed. */
+  .unit-row.active { background: var(--sidebar-active); box-shadow: inset 3px 0 0 var(--accent); }
+  .unit-row.status-done.active { background: var(--piece-accepted-hover); }
+  .unit-row.status-flagged.active { background: var(--piece-flagged-hover); }
   .status-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
   .status-dot.pending { background: var(--pending); }
   .status-dot.done { background: var(--done); }
@@ -242,7 +259,17 @@
   #pdf-toolbar button { background: #1f2937; color: #e5e7eb; border-color: #4b5563; }
   #pdf-toolbar button:hover { background: #111827; }
   #pdf-image-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
-  #pdf-image { max-width: 100%; height: auto; box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white; }
+  /* At zoom 1 the page fits the panel's width, as it always has. Above
+     that it overflows and #pdf-image-wrap scrolls -- and the image is
+     re-fetched rendered at that zoom (see loadPdfPage), so the extra
+     width is extra detail rather than bigger pixels. align-self keeps a
+     zoomed page from being squashed back to fit by the flex row. */
+  #pdf-image {
+    width: calc(var(--pdf-zoom, 1) * 100%); max-width: none; height: auto;
+    align-self: flex-start; flex-shrink: 0;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white;
+  }
+  #pdf-zoom-label { min-width: 38px; text-align: center; }
   .page-jump-btn { font-size: 10.5px !important; padding: 2px 6px !important; }
 
   #unit-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
@@ -505,6 +532,11 @@
       <button class="btn small" id="pdf-prev">&larr;</button>
       <span id="pdf-page-label">No page</span>
       <button class="btn small" id="pdf-next">&rarr;</button>
+      <span style="flex:1"></span>
+      <button class="btn small" id="pdf-zoom-out" title="Zoom out">&minus;</button>
+      <span id="pdf-zoom-label">100%</span>
+      <button class="btn small" id="pdf-zoom-in" title="Zoom in">+</button>
+      <button class="btn small" id="pdf-zoom-reset" title="Fit the page to the panel width">Fit</button>
     </div>
     <div id="pdf-image-wrap">
       <img id="pdf-image" alt="Source PDF page">
@@ -694,6 +726,16 @@ const VIEW_MODE_LABELS = { text: "Show PDF", split: "PDF: Split view", pdf: "PDF
 let viewMode = localStorage.getItem("reviewViewMode") || "text";
 let currentPageNo = null;
 
+// Zoom levels for the PDF panel. 1 is fit-to-panel-width, which on a
+// laptop in split view leaves the page smaller than the print it came
+// from and hard to read. Each step re-fetches the page rendered at that
+// zoom rather than stretching the one image, so zooming in shows more
+// detail -- the server keeps the same ladder (_PAGE_ZOOM_STEPS in
+// review.py) and snaps anything else to the nearest step.
+const PDF_ZOOM_STEPS = [1, 1.25, 1.5, 2, 2.5, 3];
+let pdfZoom = Number(localStorage.getItem("reviewPdfZoom")) || 1;
+if (!PDF_ZOOM_STEPS.includes(pdfZoom)) pdfZoom = 1;
+
 function applyViewMode() {
   document.body.dataset.viewMode = viewMode;
   document.getElementById("pdf-toggle-btn").textContent = VIEW_MODE_LABELS[viewMode];
@@ -724,7 +766,29 @@ function loadPdfPage(pageNo) {
     document.getElementById("pdf-page-label").textContent = `Page ${pageNo}`;
   };
   probe.onerror = () => toast(`No page ${pageNo} in this Act's source PDF`, true);
-  probe.src = `api/pages/${pageNo}.png`;
+  probe.src = `api/pages/${pageNo}.png?zoom=${pdfZoom}`;
+}
+
+function applyPdfZoom() {
+  document.getElementById("pdf-panel").style.setProperty("--pdf-zoom", pdfZoom);
+  document.getElementById("pdf-zoom-label").textContent = `${Math.round(pdfZoom * 100)}%`;
+  document.getElementById("pdf-zoom-out").disabled = pdfZoom === PDF_ZOOM_STEPS[0];
+  document.getElementById("pdf-zoom-in").disabled = pdfZoom === PDF_ZOOM_STEPS[PDF_ZOOM_STEPS.length - 1];
+}
+
+function setPdfZoom(zoom) {
+  if (zoom === pdfZoom) return;
+  pdfZoom = zoom;
+  localStorage.setItem("reviewPdfZoom", String(pdfZoom));
+  applyPdfZoom();
+  // Re-render the page at the new zoom. Nothing to do until there is a
+  // page on screen -- the next loadPdfPage picks the zoom up on its own.
+  if (currentPageNo != null) loadPdfPage(currentPageNo);
+}
+
+function stepPdfZoom(direction) {
+  const next = PDF_ZOOM_STEPS[PDF_ZOOM_STEPS.indexOf(pdfZoom) + direction];
+  if (next) setPdfZoom(next);
 }
 
 function jumpToPiecePage(pageNo) {
@@ -735,7 +799,11 @@ function jumpToPiecePage(pageNo) {
 document.getElementById("pdf-toggle-btn").onclick = cycleViewMode;
 document.getElementById("pdf-prev").onclick = () => currentPageNo > 1 && loadPdfPage(currentPageNo - 1);
 document.getElementById("pdf-next").onclick = () => loadPdfPage((currentPageNo || 0) + 1);
+document.getElementById("pdf-zoom-in").onclick = () => stepPdfZoom(1);
+document.getElementById("pdf-zoom-out").onclick = () => stepPdfZoom(-1);
+document.getElementById("pdf-zoom-reset").onclick = () => setPdfZoom(1);
 applyViewMode();
+applyPdfZoom();
 
 // ---------------------------------------------------------------------
 // Meta / sidebar
@@ -806,7 +874,7 @@ function renderSidebar() {
     }
     if (applyCollapse && !isUnitVisible(u)) continue;
     const row = document.createElement("div");
-    row.className = "unit-row" + (u.unit_no === currentUnitNo ? " active" : "");
+    row.className = `unit-row status-${u.status}` + (u.unit_no === currentUnitNo ? " active" : "");
     row.style.paddingLeft = `${10 + u.depth * 14}px`;
     const toggleHtml = hasChildren.has(u.unit_no)
       ? `<span class="tree-toggle">${collapsedUnits.has(u.unit_no) ? "&#9656;" : "&#9662;"}</span>`

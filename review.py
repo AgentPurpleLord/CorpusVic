@@ -83,9 +83,9 @@ pieces carrying it.
 
 A "Show source PDF" toggle in the header renders the actual source page
 each piece came from (page_start on the piece, GET /api/pages/{n}.png --
-a plain PyMuPDF rasterisation of that page, cached in memory) alongside
-or in place of the parsed text, three view modes cycled by the one
-button: text only, side-by-side split, PDF only. This is read-only --
+a PyMuPDF rasterisation of that page at the panel's own zoom level,
+cached in memory) alongside or in place of the parsed text, three view
+modes cycled by the one button: text only, side-by-side split, PDF only. This is read-only --
 purely a check against the real page, nothing here feeds back into the
 parse -- available only when data/ai_parsed/<act>.json still has the
 source PDF at the path it was parsed from (see load_source_pdf_path);
@@ -522,8 +522,20 @@ _startup_resume_unit = 0
 _source_pdf_path: str | None = None
 _act_title: str | None = None
 _pdf_doc: "fitz.Document | None" = None
-_page_image_cache: dict[int, bytes] = {}
-_PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible after the browser scales the <img> to fit its panel
+_page_image_cache: "dict[tuple[int, float], bytes]" = {}
+_PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible with the page scaled to fit its panel
+# The zoom levels the panel's own +/- control steps through, as multiples
+# of _PAGE_RENDER_ZOOM. The page is re-rendered at the level being shown
+# rather than the browser stretching one raster, so text stays as sharp
+# zoomed in as it is at fit-to-width -- which is the whole point of the
+# control on a small screen. Fixed ladder, not a free-form number, so the
+# cache below can only ever hold a handful of renderings per page.
+_PAGE_ZOOM_STEPS = (1.0, 1.25, 1.5, 2.0, 2.5, 3.0)
+# Roughly a hundred A4 pages at the largest step. Rendering is fast but
+# not free and a reviewer revisits the same handful of pages constantly,
+# so caching pays for itself; a bound keeps a long session over a
+# 500-page Act from growing without limit.
+_PAGE_CACHE_BUDGET_BYTES = 120 * 1024 * 1024
 
 
 def _current_node(i: int) -> dict:
@@ -1001,8 +1013,19 @@ def _get_pdf_doc() -> fitz.Document:
     return _pdf_doc
 
 
+def _cache_page_image(key: "tuple[int, float]", png_bytes: bytes) -> None:
+    """Keeps the cache under _PAGE_CACHE_BUDGET_BYTES, evicting whatever
+    was inserted longest ago (dicts preserve insertion order) -- a
+    reviewer works forward through an Act, so the oldest entry is also
+    the one furthest behind where they are now."""
+    _page_image_cache[key] = png_bytes
+    total = sum(len(v) for v in _page_image_cache.values())
+    while total > _PAGE_CACHE_BUDGET_BYTES and len(_page_image_cache) > 1:
+        total -= len(_page_image_cache.pop(next(iter(_page_image_cache))))
+
+
 @app.get("/api/pages/{page_no}.png")
-def get_page_image(page_no: int):
+def get_page_image(page_no: int, zoom: float = 1.0):
     """Renders one page of this Act's source PDF as a PNG, so a reviewer
     can check a piece's text against the real page it came from (see
     page_start/page_end on each piece from _build_piece) -- side by side
@@ -1011,18 +1034,25 @@ def get_page_image(page_no: int):
     page_start/page_end already use), not the Act-body-only slice
     run_pipeline.py may have started extraction from. Rendered once per
     page per server run and cached in memory -- an Act's page count is
-    small enough (typically well under a thousand) that caching every
-    page ever requested costs at most a few tens of MB, far cheaper than
-    re-rendering on every click as a reviewer moves between pieces on the
-    same page."""
-    if page_no in _page_image_cache:
-        return Response(content=_page_image_cache[page_no], media_type="image/png")
+    small enough (typically well under a thousand) that caching what a
+    reviewer actually looks at is far cheaper than re-rendering on every
+    click as they move between pieces on the same page -- bounded by
+    _PAGE_CACHE_BUDGET_BYTES so a long session can't grow without limit.
+
+    `zoom` is the panel's own zoom level, one of _PAGE_ZOOM_STEPS (anything
+    else is snapped to the nearest). The page is rendered at that level
+    rather than handed over at one size for the browser to stretch, so
+    zooming in gives more detail instead of bigger pixels."""
+    zoom = min(_PAGE_ZOOM_STEPS, key=lambda step: abs(step - zoom))
+    key = (page_no, zoom)
+    if key in _page_image_cache:
+        return Response(content=_page_image_cache[key], media_type="image/png")
     doc = _get_pdf_doc()
     if not (1 <= page_no <= doc.page_count):
         raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
-    pixmap = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(_PAGE_RENDER_ZOOM, _PAGE_RENDER_ZOOM))
-    png_bytes = pixmap.tobytes("png")
-    _page_image_cache[page_no] = png_bytes
+    scale = _PAGE_RENDER_ZOOM * zoom
+    png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
+    _cache_page_image(key, png_bytes)
     return Response(content=png_bytes, media_type="image/png")
 
 
