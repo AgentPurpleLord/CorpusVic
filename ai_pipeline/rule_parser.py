@@ -290,19 +290,40 @@ def _append_heading(node: dict, text: str, char_end: int) -> None:
     node["char_end"] = char_end
 
 
-def _looks_like_boundary(text: str, patterns: dict) -> bool:
-    return any(
-        compiled.match(text)
-        for key, compiled in patterns.items()
-        if key not in ("notes_marker", "note_item", "example_marker")
-    ) or text == "*"
-
-
 # A Schedule's own heading is sometimes immediately followed by a
 # standalone line naming which section(s) it "hangs off" -- "Sections
 # 6(3), 159(3)" or "Section 5" -- see basic-structure.yaml's own note on
 # this and _try_schedule_hangs_off below.
 _SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+[\d()\s,]+\.?$")
+
+# A Schedule heading with nothing but its number on the line, its title
+# set below it -- how a Bill's introduction print sets them ("SCHEDULE 1",
+# then the sections it hangs off, then "CHARGES ON A CHARGE-SHEET OR
+# INDICTMENT"), where an Act writes "Schedule 1--Charges on a charge-sheet"
+# on one line and matches the profile's own `schedule` pattern instead.
+# Left undetected, a Bill has no Schedules at all: its Schedule clauses
+# restart at 1 with nothing to mark the boundary, so they read as a second
+# clause 1, 2, 3 in the body and match the Act's own sections 1, 2, 3.
+# Same "title wraps onto the next bold line" shape as the bare Section
+# number case in _try_bold_heading, and completed the same way -- but
+# without that case's _is_fresh_start guard, which a real Schedule heading
+# fails: the divider rule and the "SCHEDULES" banner a Bill prints above
+# it leave no sentence-terminating punctuation behind. The guard is not
+# needed here anyway. A bare Section number is a bare *number*, which body
+# text produces all the time (a citation's year wrapping onto its own
+# line); this needs the literal word, bold, alone on the line, which
+# across every Act, Bill and EM in this repo happens exactly three times
+# -- the three real Schedule headings of the one Bill that sets them this
+# way, and nothing else.
+_BARE_SCHEDULE_RE = re.compile(r"^Schedule\s+(\d+[A-Za-z]*)$", re.IGNORECASE)
+
+
+def _looks_like_boundary(text: str, patterns: dict) -> bool:
+    return any(
+        compiled.match(text)
+        for key, compiled in patterns.items()
+        if key not in ("notes_marker", "note_item", "example_marker")
+    ) or text == "*" or bool(_BARE_SCHEDULE_RE.match(text))
 
 
 class _LineParser:
@@ -341,6 +362,9 @@ class _LineParser:
 
         self.nodes: list[dict] = []
         self.stack: list[dict] = []
+        # (schedule node, text, char_end) held by _try_schedule_hangs_off
+        # until its heading is complete -- see _flush_hangs_off.
+        self._pending_hangs_off: "tuple[dict, str, int] | None" = None
         self.stack_x0: list[float] = []
         self.warnings: list[str] = []
 
@@ -379,11 +403,27 @@ class _LineParser:
     # -- stack bookkeeping ---------------------------------------------------
 
     def _close_top(self) -> None:
+        self._flush_hangs_off()
         node = self.stack.pop()
         self.stack_x0.pop()
         node["text"] = node["text"].strip()
 
+    def _flush_hangs_off(self) -> None:
+        """Puts a Schedule's held-back "hangs off" note at the end of its
+        heading, once that heading has finished arriving. Only the bare
+        "SCHEDULE 1" form needs holding: there the note is printed between
+        the number and the title, so appending it as it arrives would put
+        it in front of the title it belongs after -- and the title itself
+        can wrap over more than one bold line, so it isn't finished until
+        something else opens or the Schedule closes."""
+        if self._pending_hangs_off is None:
+            return
+        node, text, char_end = self._pending_hangs_off
+        self._pending_hangs_off = None
+        _append_heading(node, text, char_end)
+
     def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine, char_start: int) -> dict:
+        self._flush_hangs_off()
         rank = self.rank[level]
         while self.stack and self.rank[self.stack[-1]["type"]] >= rank:
             self._close_top()
@@ -658,6 +698,15 @@ class _LineParser:
                 self._open_node("subdivision", m.group(3), m.group(4).strip(), line, char_start)
                 return True
 
+        # A Schedule whose title is set below its number rather than after
+        # a dash on the same line (see _BARE_SCHEDULE_RE). Opened with no
+        # heading; the next bold line becomes it, via the same
+        # empty-heading extension _try_bold_emphasis already does.
+        m = _BARE_SCHEDULE_RE.match(text)
+        if m and "schedule" in self.rank:
+            self._open_node("schedule", m.group(1), None, line, char_start)
+            return True
+
         # A bare section number with nothing else on the line -- the
         # heading wraps onto the next bold line instead (same wrap
         # pattern as the bare Subdivision case above), e.g. "465AAAA"
@@ -695,7 +744,14 @@ class _LineParser:
             return False
         if not _SCHEDULE_HANGS_OFF_RE.match(text):
             return False
-        _append_heading(top, f"({text})", char_end)
+        if top["heading"]:
+            _append_heading(top, f"({text})", char_end)
+        else:
+            # The bare "SCHEDULE 1" form, whose title is still to come on
+            # the next bold line -- hold this so it lands after the title
+            # rather than becoming the start of the heading.
+            self._pending_hangs_off = (top, f"({text})", char_end)
+            top["char_end"] = char_end
         return True
 
     def _try_definition_start(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:

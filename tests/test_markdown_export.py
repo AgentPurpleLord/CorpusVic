@@ -208,3 +208,38 @@ def test_a_font_split_definition_node_still_cross_links_by_its_own_heading(tmp_p
     s3_text = (tmp_path / "sections" / "s3.md").read_text(encoding="utf-8")
     assert "[weapon](s2.md" in s3_text
     check_all_links_resolve(tmp_path)
+
+
+def test_a_bulleted_list_exports_as_a_markdown_list(tmp_path):
+    # An Act letters every item it lists, so its paragraphs always have a
+    # number to head them with. An Explanatory Memorandum bullets them
+    # instead (see em_parser.py) -- rendered as bare paragraphs, those
+    # lose the fact that they are a list at all.
+    nodes = [
+        make_node("clause", "28", None, "lists the offences that may be heard summarily—"),
+        make_node("paragraph", None, None, "an offence referred to in Schedule 2;"),
+        make_node("paragraph", None, None, "an indictable offence described as being—"),
+        make_node("subparagraph", None, None, "a level 5 or 6 offence; or"),
+        make_node("subparagraph", None, None, "punishable by a term of imprisonment."),
+    ]
+    export_to_markdown({"nodes": nodes, "hierarchy": None}, str(tmp_path), act_title="Test EM")
+    body = (tmp_path / "sections" / "c28.md").read_text(encoding="utf-8")
+
+    assert "- an offence referred to in Schedule 2;" in body
+    assert "  - a level 5 or 6 offence; or" in body
+    # The clause's own lead-in is prose, not an item in its own list.
+    assert "- lists the offences" not in body
+
+
+def test_a_lettered_list_still_exports_as_headed_paragraphs(tmp_path):
+    # An Act's own paragraphs carry "(a)"/"(b)", which head them; turning
+    # those into bullets would drop the letters the Act refers to them by.
+    nodes = [
+        make_node("section", "28", "Summary hearing", "A charge may be heard summarily if—"),
+        make_node("paragraph", "a", None, "an offence referred to in Schedule 2;"),
+    ]
+    export_to_markdown({"nodes": nodes, "hierarchy": None}, str(tmp_path), act_title="Test Act")
+    body = (tmp_path / "sections" / "s28.md").read_text(encoding="utf-8")
+
+    assert "(a)" in body
+    assert "- an offence referred to in Schedule 2;" not in body

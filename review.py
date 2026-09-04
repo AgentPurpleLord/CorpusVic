@@ -108,7 +108,7 @@ from ai_pipeline.examples_store import add_correction, stats
 from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from ai_pipeline.link_targets import build_definition_index, resolve_link
-from ai_pipeline.schema import NODE_TYPES
+from ai_pipeline.schema import NODE_TYPES, types_for_document
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -177,6 +177,17 @@ def load_source_pdf_path(act: str) -> str | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("source")
+
+
+def load_document_type(act: str) -> "str | None":
+    """Whether this is an Act, a Bill or an Explanatory Memorandum, as
+    run_pipeline.py/run_em_pipeline.py recorded it. None for a parse from
+    before that field existed -- see schema.types_for_document, which
+    treats that as "offer everything" rather than guessing."""
+    path = Path("data/ai_parsed") / f"{act}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8")).get("document_type")
 
 
 def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
@@ -520,6 +531,7 @@ _hierarchy: list[str] = []
 _relabel_types: list[str] = []
 _startup_resume_unit = 0
 _source_pdf_path: str | None = None
+_document_type: str | None = None
 _act_title: str | None = None
 _pdf_doc: "fitz.Document | None" = None
 _page_image_cache: "dict[tuple[int, float], bytes]" = {}
@@ -1392,11 +1404,19 @@ def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
 # Node types ("legislation part" types)
 # ---------------------------------------------------------------------------
 def _builtin_type_names() -> list[str]:
-    """This Act's own hierarchy levels first (a custom top level like
-    "chapter" declared in its profile won't be in the built-in list),
-    then the fixed schema enum -- the exact order main() has always
-    built _relabel_types in."""
-    return list(dict.fromkeys([*_hierarchy, *NODE_TYPES]))
+    """The types this document can be labelled with: any level its own
+    profile declares that the schema doesn't know about, then the set for
+    its kind of document -- an Act is never asked whether something is a
+    "clause", and a Bill is never offered "section" (see
+    schema.TYPES_BY_DOCUMENT).
+
+    Anything a node actually carries is appended regardless. Filtering
+    must never leave a piece's own type missing from the list it would be
+    relabelled with: that would make the dropdown silently reassign it on
+    the reviewer's next edit."""
+    custom_levels = [t for t in _hierarchy if t not in NODE_TYPES]
+    in_use = [t for t in _type_usage() if t]
+    return list(dict.fromkeys([*custom_levels, *types_for_document(_document_type), *in_use]))
 
 
 def _refresh_relabel_types() -> None:
@@ -1546,33 +1566,51 @@ def accept_node(node_index: int, req: AcceptRequest):
 
 @app.post("/api/units/{unit_no}/accept")
 def accept_unit(unit_no: int, req: AcceptRequest):
+    """Accepts (or flags) everything in this unit that is still
+    outstanding. Flagging a unit is a reviewer saying "come back to this",
+    so accepting one that is already flagged is the whole point of having
+    flagged it -- that is what clears the flag and finishes the unit.
+    Only a unit that is already fully accepted has nothing left to do."""
     if not (0 <= unit_no < len(_units)):
         raise HTTPException(404, "No such unit")
-    if _unit_status(unit_no) != "pending":
-        raise HTTPException(400, "This unit has already been reviewed -- edit its pieces directly instead.")
+    status = _unit_status(unit_no)
+    if status == "done":
+        raise HTTPException(400, "Every piece in this unit is already accepted -- edit its pieces directly instead.")
+    if req.flagged and status == "flagged":
+        raise HTTPException(400, "This unit is already flagged for follow-up.")
 
-    # Skip whatever's already been individually accepted/flagged via
-    # accept_node above -- this is "accept everything still outstanding
-    # in this unit", not "redo the whole unit and overwrite decisions
-    # already made piece by piece".
-    indices = [i for i in _units[unit_no] if i not in _merged_away and not _is_committed(i)]
+    # Whatever hasn't been decided at all yet, plus -- when accepting --
+    # whatever was previously flagged, since resolving those flags is
+    # exactly what "accept this unit" means once it has been through
+    # review once. Pieces already accepted are left alone either way:
+    # this is "finish what's outstanding", not "redo the whole unit and
+    # overwrite decisions already made piece by piece".
+    live = [i for i in _units[unit_no] if i not in _merged_away]
+    outstanding = [i for i in live if not _is_committed(i)]
+    flagged = [] if req.flagged else [
+        i for i in live if _is_committed(i) and _verified_by_source_index[i].get("needs_followup")
+    ]
     if not req.flagged:
-        blocked = _blind_review_gate_indices(indices)
+        blocked = _blind_review_gate_indices(outstanding + flagged)
         if blocked:
             raise HTTPException(
                 400,
                 f"{len(blocked)} piece(s) in this unit need your own independent assessment before the unit can be accepted.",
             )
-    if indices:
-        unit_orig = [_nodes[i] for i in indices]
-        unit_nodes = [_current_node(i) for i in indices]
+    if outstanding:
+        unit_orig = [_nodes[i] for i in outstanding]
+        unit_nodes = [_current_node(i) for i in outstanding]
         before = len(_verified)
         commit_unit(unit_nodes, unit_orig, _act, _verified, flagged=req.flagged, unit_index=unit_no)
-        for i, v in zip(indices, _verified[before:]):
+        for i, v in zip(outstanding, _verified[before:]):
             v["_source_node_index"] = i
             _verified_by_source_index[i] = v
             _pending_edits.pop(i, None)
         save_verified(_act, _verified)
+    for i in flagged:
+        # Already in `verified`, so this updates the row in place rather
+        # than appending a second one for the same node.
+        _accept_node(i, False)
     return {"unit_no": unit_no, "status": _unit_status(unit_no)}
 
 
@@ -1604,7 +1642,7 @@ def remove_link(link_id: str):
 def main():
     global _act, _nodes, _units, _unit_of_index, _verified, _definition_index
     global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
-    global _source_pdf_path, _act_title
+    global _source_pdf_path, _act_title, _document_type
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("act")
@@ -1615,6 +1653,7 @@ def main():
     _act = args.act
     _nodes, _unattached_notes, _hierarchy, _parse_fingerprint = load_parsed(args.act)
     _source_pdf_path = load_source_pdf_path(args.act)
+    _document_type = load_document_type(args.act)
     # Computed once here, not per-request: _detect_act_citation re-reads
     # and re-extracts the *whole* source PDF via PyMuPDF just to find the
     # title on its first couple of pages (see dashboard.py's own
@@ -1628,9 +1667,6 @@ def main():
         for i in indices:
             _unit_of_index[i] = u
     _definition_index = build_definition_index(_nodes)
-    # Built-in types plus whatever extra ones this Act's reviewer has
-    # defined for themselves (see the node-types endpoints).
-    _refresh_relabel_types()
 
     for finding in load_diagnostics(args.act):
         if finding.get("node_index") is not None:
@@ -1645,6 +1681,10 @@ def main():
         # belongs to this parse -- record that now, rather than leaving
         # the first session's work unattributable to any parse at all.
         db.save_parse_fingerprint(args.act, _parse_fingerprint)
+    # After the verified rows are in: the type list includes every type
+    # actually in use (see _builtin_type_names), and a reviewer's own
+    # relabel lives in those rows, not in the parse.
+    _refresh_relabel_types()
     _positions_trusted = positions_are_trustworthy(args.act, _parse_fingerprint)
     _startup_resume_unit = _resume_point(_units, _verified, markers_are_complete=_positions_trusted)
     # Reconstruct which nodes were merged away in a prior session: any

@@ -1024,9 +1024,14 @@ function renderUnit() {
     const statusBadgeHtml = isAccepted
       ? `<span class="piece-status-badge accepted">&#10003; Accepted</span>`
       : isFlagged ? `<span class="piece-status-badge flagged">&#9873; Flagged</span>` : "";
-    const decisionButtonsHtml = isAccepted || isFlagged ? "" : `
-          ${blindPending ? "" : `<button class="btn small accept-piece-btn" title="Accept this piece">&#10003; Accept</button>`}
-          <button class="btn small flag-piece-btn" title="Flag this piece for follow-up">&#9873; Flag</button>`;
+    // A decision is never final: flagging is "come back to this", so a
+    // flagged piece has to be acceptable, and an accepted one has to be
+    // re-flaggable when a later piece shows it was wrong. Only the button
+    // for the state a piece is already in is dropped. (review.py's
+    // _accept_node updates the stored row in place either way.)
+    const decisionButtonsHtml = `
+          ${isAccepted || blindPending ? "" : `<button class="btn small accept-piece-btn" title="${isFlagged ? "Accept this piece and clear its flag" : "Accept this piece"}">&#10003; Accept</button>`}
+          ${isFlagged ? "" : `<button class="btn small flag-piece-btn" title="Flag this piece for follow-up">&#9873; Flag</button>`}`;
     const pageJumpHtml = META.has_source_pdf && piece.page_start
       ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
       : "";
@@ -1106,12 +1111,18 @@ function renderUnit() {
   });
 
   const anyPieceDecided = currentUnit.pieces.some((p) => p.verified_at || p.needs_followup);
-  document.getElementById("accept-btn").textContent = anyPieceDecided ? "Accept remaining pieces" : "Accept unit";
+  const isFlaggedUnit = currentUnit.status === "flagged";
+  document.getElementById("accept-btn").textContent = isFlaggedUnit
+    ? "Accept flagged pieces"
+    : anyPieceDecided ? "Accept remaining pieces" : "Accept unit";
   document.getElementById("flag-btn").textContent = anyPieceDecided ? "Flag remaining as follow-up" : "Flag for follow-up";
 
   const actions = document.getElementById("unit-actions");
   actions.style.display = currentUnit.pieces.length ? "flex" : "none";
-  document.getElementById("accept-btn").style.display = currentUnit.status === "pending" ? "" : "none";
+  // A flagged unit still offers Accept -- coming back and clearing the
+  // flag is the entire point of having raised it. Only a fully accepted
+  // unit has nothing left to decide at this level.
+  document.getElementById("accept-btn").style.display = currentUnit.status === "done" ? "none" : "";
   document.getElementById("flag-btn").style.display = currentUnit.status === "pending" ? "" : "none";
 }
 
@@ -1228,6 +1239,22 @@ function describeHistoryNote(note) {
   return bits.join(", ");
 }
 
+// A note carries the page it was printed in the margin of (see
+// history_notes.collect_page_notes). Deciding whether it really belongs to
+// the piece it landed on almost always means looking at that page -- the
+// margin note sits physically beside the provision it annotates -- so
+// offer the same jump the pieces themselves have.
+function historyPageButtonHtml(note) {
+  if (!META.has_source_pdf || !note.page) return "";
+  return `<button class="btn small history-page-btn" data-page="${note.page}" title="Show source PDF page ${note.page}, where this note is printed">p.${note.page}</button>`;
+}
+
+function wireHistoryPageButtons(container) {
+  container.querySelectorAll(".history-page-btn").forEach((btn) => {
+    btn.onclick = () => jumpToPiecePage(Number(btn.dataset.page));
+  });
+}
+
 function renderHistoryPanel() {
   const attachedContainer = document.getElementById("history-attached");
   attachedContainer.innerHTML = "";
@@ -1243,6 +1270,7 @@ function renderHistoryPanel() {
         <div class="history-note-text">${escapeHtml(h.raw)}</div>
         <div class="history-note-meta">
           <span class="history-confidence ${escapeHtml(h.confidence || "low")}">${escapeHtml(h.confidence || "low")}</span>
+          ${historyPageButtonHtml(h)}
           ${h.confidence !== "manual" ? `<button class="btn small history-confirm-btn" data-node="${piece.node_index}" data-idx="${idx}">Confirm</button>` : ""}
           <button class="btn small history-move-btn" data-node="${piece.node_index}" data-idx="${idx}">Move&hellip;</button>
           <button class="btn small history-detach-btn" data-node="${piece.node_index}" data-idx="${idx}">Detach</button>
@@ -1264,6 +1292,7 @@ function renderHistoryPanel() {
   attachedContainer.querySelectorAll(".history-detach-btn").forEach((btn) => {
     btn.onclick = () => detachHistoryNote(Number(btn.dataset.node), Number(btn.dataset.idx));
   });
+  wireHistoryPageButtons(attachedContainer);
 
   // Defaults the search to this unit's own section number (overwhelmingly
   // where a stray note actually belongs) without clobbering whatever a
@@ -1294,8 +1323,10 @@ async function loadHistoryCandidates(q) {
       <div class="history-note-text">${escapeHtml(note.raw)}</div>
       <div class="history-note-meta">
         ${meta ? `<span style="color:var(--muted)">${escapeHtml(meta)}</span>` : ""}
+        ${historyPageButtonHtml(note)}
         <button class="btn small history-attach-btn">Attach to&hellip;</button>
       </div>`;
+    wireHistoryPageButtons(row);
     row.querySelector(".history-attach-btn").onclick = () => {
       openPicker("Attach this note to which piece?", null, async (targetIndex) => {
         try {

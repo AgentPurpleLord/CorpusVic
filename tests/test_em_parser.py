@@ -3,7 +3,7 @@ parser (Clause N entries + organisational Chapter/Part headers), a much
 simpler shape than rule_parser.py's nested Act/Bill parser."""
 from ai_pipeline.em_parser import parse_em
 
-from conftest import line, page
+from conftest import HEAD_X0, PARA_X0, SUBPARA_X0, line, page
 
 
 def _parse(lines):
@@ -165,15 +165,163 @@ def test_a_clause_cross_reference_is_still_accepted_right_after_a_heading():
     assert entry_384["text"] == "is the first item explained in this Schedule."
 
 
-def test_bullet_points_stay_inline_as_continuation_text():
-    lines = [
+# ---------------------------------------------------------------------
+# Bulleted lists
+#
+# An EM sets a list with the marker alone on its own extracted line and
+# the item's text beside it at a deeper indent -- so read in order the
+# lines are "•", the item, "•", the item, and the marker never arrives
+# attached to what it introduces. Read as flowing text they collapse into
+# one run-on paragraph; these check they become provisions of their own,
+# the same way an Act's paragraph list does. Indents follow conftest's
+# measured columns: HEAD_X0 is the body, PARA_X0 a first-level item,
+# SUBPARA_X0 one nested inside it.
+# ---------------------------------------------------------------------
+
+def _bulleted_entry():
+    return [
         line("Clause 1"),
         line("sets out the purposes of the Bill which are—"),
-        line("•"),
-        line("to clarify the law; and"),
-        line("•"),
-        line("to simplify procedure."),
+        line("•", x0=HEAD_X0),
+        line("to clarify the law; and", x0=PARA_X0),
+        line("•", x0=HEAD_X0),
+        line("to simplify procedure.", x0=PARA_X0),
+    ]
+
+
+def test_each_bullet_becomes_its_own_provision():
+    result = _parse(_bulleted_entry())
+
+    assert [(n["type"], n["text"]) for n in result.nodes] == [
+        ("clause", "sets out the purposes of the Bill which are—"),
+        ("paragraph", "to clarify the law; and"),
+        ("paragraph", "to simplify procedure."),
+    ]
+
+
+def test_a_bullet_item_that_wraps_stays_one_provision():
+    lines = [
+        line("Clause 1"),
+        line("provides that a charge must—"),
+        line("•", x0=HEAD_X0),
+        line("state the offence that the accused is alleged", x0=PARA_X0),
+        line("to have committed;", x0=PARA_X0),
     ]
     result = _parse(lines)
-    entry = find(result.nodes, "clause", "1")
-    assert "•\nto clarify the law; and\n•\nto simplify procedure." in entry["text"]
+
+    assert result.nodes[1]["text"] == "state the offence that the accused is alleged\nto have committed;"
+
+
+def test_a_nested_bullet_list_nests():
+    lines = [
+        line("Clause 28"),
+        line("lists the offences that may be heard summarily—"),
+        line("•", x0=HEAD_X0),
+        line("an offence referred to in Schedule 2;", x0=PARA_X0),
+        line("•", x0=HEAD_X0),
+        line("an indictable offence described as being—", x0=PARA_X0),
+        line("•", x0=PARA_X0),
+        line("a level 5 or 6 offence; or", x0=SUBPARA_X0),
+        line("•", x0=PARA_X0),
+        line("punishable by a term of imprisonment.", x0=SUBPARA_X0),
+    ]
+    result = _parse(lines)
+
+    assert [n["type"] for n in result.nodes] == [
+        "clause", "paragraph", "paragraph", "subparagraph", "subparagraph",
+    ]
+
+
+def test_prose_resuming_after_a_list_keeps_its_place():
+    # It belongs to the entry, but it comes *after* the items -- and the
+    # clause's own text prints above them. Folding it back into that text
+    # would make the entry read out of order.
+    lines = [
+        line("Clause 28"),
+        line("lists the offences that may be heard summarily—"),
+        line("•", x0=HEAD_X0),
+        line("an offence referred to in Schedule 2;", x0=PARA_X0),
+        line("A level 5 offence is punishable by 10 years imprisonment."),
+    ]
+    result = _parse(lines)
+
+    assert [(n["type"], n["text"]) for n in result.nodes] == [
+        ("clause", "lists the offences that may be heard summarily—"),
+        ("paragraph", "an offence referred to in Schedule 2;"),
+        ("note", "A level 5 offence is punishable by 10 years imprisonment."),
+    ]
+
+
+def test_a_line_back_at_an_outer_item_continues_that_item():
+    # "... described as being—", its own sub-list, then the rest of the
+    # same first-level item.
+    lines = [
+        line("Clause 28"),
+        line("lists the offences—"),
+        line("•", x0=HEAD_X0),
+        line("an offence described as being—", x0=PARA_X0),
+        line("•", x0=PARA_X0),
+        line("a level 5 offence; or", x0=SUBPARA_X0),
+        line("in either case, an indictable offence.", x0=PARA_X0),
+    ]
+    result = _parse(lines)
+
+    assert result.nodes[1]["text"] == "an offence described as being—\nin either case, an indictable offence."
+    assert result.nodes[2]["text"] == "a level 5 offence; or"
+
+
+def test_a_list_does_not_leak_into_the_next_entry():
+    lines = _bulleted_entry() + [
+        line("Clause 2"),
+        line("provides for the commencement of the Bill."),
+    ]
+    result = _parse(lines)
+
+    assert find(result.nodes, "clause", "2")["text"] == "provides for the commencement of the Bill."
+    assert [n["type"] for n in result.nodes] == ["clause", "paragraph", "paragraph", "clause"]
+
+
+def test_every_bulleted_line_is_still_accounted_for():
+    result = _parse(_bulleted_entry())
+
+    assert result.lines_consumed == result.lines_total
+    assert not result.warnings
+
+
+# ---------------------------------------------------------------------
+# Schedules
+# ---------------------------------------------------------------------
+
+def test_an_entry_under_a_schedule_records_which_schedule():
+    # A Schedule restarts clause numbering from 1, so "Clause 11" under
+    # Schedule 1 and the body's own "Clause 11" are different provisions
+    # sharing a number -- and a reader shown two identical "clause 11"
+    # cross-references can't tell which is which.
+    lines = [
+        line("Clause 11"),
+        line("deals with the body of the Bill."),
+        line("SCHEDULE 1—CHARGES ON A CHARGE-SHEET", bold=True),
+        line("Clause 11"),
+        line("provides for stating an intent to deceive."),
+    ]
+    result = _parse(lines)
+
+    body, schedule = [n for n in result.nodes if n["type"] == "clause"]
+    assert "schedule" not in body
+    assert schedule["schedule"] == "1"
+    assert find(result.nodes, "heading_group", None)["schedule"] == "1"
+
+
+def test_a_chapter_heading_after_a_schedule_closes_it():
+    lines = [
+        line("SCHEDULE 1—CHARGES", bold=True),
+        line("Clause 1"),
+        line("is in the Schedule."),
+        line("Chapter 2—COMMENCING A PROCEEDING", bold=True),
+        line("Clause 2"),
+        line("is back in the body."),
+    ]
+    result = _parse(lines)
+
+    assert find(result.nodes, "clause", "1")["schedule"] == "1"
+    assert "schedule" not in find(result.nodes, "clause", "2")

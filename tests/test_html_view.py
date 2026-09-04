@@ -4,6 +4,7 @@ dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
 from ai_pipeline.amendments import build_amendment_index
+from ai_pipeline.commentary import provision_key
 from ai_pipeline.html_view import (
     build_page_index,
     render_endnotes,
@@ -175,7 +176,24 @@ def test_build_page_index_maps_provisions_to_their_pages():
     index = build_page_index(parsed, "Test Bill")
 
     assert index["by_node_index"] == {1: "c1", 3: "c2"}
-    assert index["by_number"] == {"1": "c1", "2": "c2"}
+    assert index["by_key"] == {provision_key(None, "1"): "c1", provision_key(None, "2"): "c2"}
+    assert index["schedule_by_node_index"] == {1: None, 3: None}
+
+
+def test_build_page_index_keeps_a_schedules_own_clause_off_the_body_page():
+    # A Schedule numbers its own provisions from 1 again, so this Bill has
+    # a clause 1 and a Schedule 1 clause 1 -- on different pages. Keyed by
+    # number alone the lookup returned the body page for both, which is
+    # how an EM note on Schedule 1 clause 11 ended up on section 11.
+    nodes = _bill_nodes() + [
+        make_node("schedule", "1", "Charges on a charge-sheet"),
+        make_node("clause", "1", "Statement of offence", "A charge must state the offence."),
+    ]
+    index = build_page_index(_parsed(nodes), "Test Bill")
+
+    assert index["by_key"][provision_key(None, "1")] == "c1"
+    assert index["by_key"][provision_key("1", "1")] == "c1_2"
+    assert index["schedule_by_node_index"][5] == "1"
 
 
 _ENDNOTES = {
@@ -284,14 +302,20 @@ def test_render_index_links_to_the_endnotes_when_there_are_some():
     assert "endnotes" not in render_index(_parsed(_definitions_act()), "Test Act", "/browse/a")
 
 
-def test_a_margin_note_names_the_act_behind_its_citation():
+def test_a_margin_note_links_the_citation_where_it_stands():
+    # The note itself is what the source prints in the margin; the
+    # citation inside it is the link, and the Act's full name is the
+    # tooltip -- not a second line spelling the Act out beside every note.
     nodes = _definitions_act()
     nodes[1]["history"] = [{"raw": "S. 3 amended by No. 68/2009 s. 51."}]
     index = build_amendment_index(_ENDNOTES, {})
     body = render_section({"nodes": nodes, "hierarchy": None}, "Test Act", "/browse/a", "s3", amendment_index=index)
 
-    assert 'href="/browse/a/endnotes#act-68-2009"' in body
-    assert ">Amending Act 2009</a>" in body
+    assert (
+        'S. 3 amended by <a class="hist-act" href="/browse/a/endnotes#act-68-2009" '
+        'title="Amending Act 2009 — assented 24.11.09">No. 68/2009</a> s. 51.'
+    ) in body
+    assert "Amending Act 2009</a>" not in body  # the name is in the tooltip, not the margin
 
 
 def test_a_margin_note_without_an_index_is_left_as_the_bare_citation():

@@ -3,6 +3,7 @@
 Amendments first and the general Act registry as a fallback."""
 from ai_pipeline.amendments import (
     anchor_id,
+    linkify_note,
     build_amendment_index,
     citations_in,
     describe,
@@ -152,3 +153,35 @@ def test_summarise_by_act_counts_a_provision_once_however_often_it_was_amended()
 def test_anchor_id_is_a_stable_html_id_for_a_citation():
     assert anchor_id("68/2009") == "act-68-2009"
     assert anchor_id(None) == "act-unknown"
+
+
+def test_a_citation_reports_where_it_sits_in_the_note():
+    # The span covers the "No."/"Nos" a reader would call part of the
+    # citation -- but only where the note actually writes one: the plural
+    # form writes it once and lists bare numbers after it.
+    found = citations_in("S. 3 amended by Nos 26/2014 s. 455, 68/2009 s. 3.")
+    raw = "S. 3 amended by Nos 26/2014 s. 455, 68/2009 s. 3."
+
+    assert [raw[c["start"]:c["end"]] for c in found] == ["Nos 26/2014", "68/2009"]
+
+
+def test_linkify_note_splits_a_note_around_its_citations():
+    runs = linkify_note("S. 3 inserted by No. 68/2009 s. 3, amended by No. 6561 s. 2.", _index())
+
+    assert "".join(r["text"] for r in runs) == "S. 3 inserted by No. 68/2009 s. 3, amended by No. 6561 s. 2."
+    assert [r["text"] for r in runs if "record" in r] == ["No. 68/2009", "No. 6561"]
+    assert [r["record"]["citation"] for r in runs if "record" in r] == ["68/2009", "6561/1959"]
+
+
+def test_linkify_note_leaves_an_unresolvable_citation_as_plain_text():
+    # Naming a link's destination it can't actually reach would be worse
+    # than leaving the citation as the note prints it.
+    runs = linkify_note("S. 4 amended by No. 12.", _index())
+
+    assert runs == [{"text": "S. 4 amended by No. 12."}]
+
+
+def test_linkify_note_without_an_index_is_one_plain_run():
+    runs = linkify_note("S. 3 amended by No. 68/2009 s. 51.", None)
+
+    assert runs == [{"text": "S. 3 amended by No. 68/2009 s. 51."}]

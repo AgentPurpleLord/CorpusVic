@@ -70,8 +70,9 @@ import html
 import re
 
 from .akn_export import build_hierarchy_tree
-from .amendments import anchor_id, describe, resolve_note
-from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES
+from .amendments import anchor_id, describe, linkify_note
+from .commentary import provision_key
+from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_numbers
 from .markdown_export import (
     _DIVISION_REF_RE,
     _PART_REF_RE,
@@ -217,23 +218,28 @@ def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | N
     attach_history) is marked, so a reader can tell "the drafter put this
     here" apart from "the parser worked out where this probably goes".
 
-    Given an amendment_index (see ai_pipeline/amendments.py), each note also
-    names the Act behind its citation. The note itself only ever says
-    "No. 68/2009"; the Act's own Table of Amendments says which Act that is
-    and when it commenced, and a reader shouldn't have to hold 100 Act
-    numbers in their head to read a margin."""
+    Given an amendment_index (see ai_pipeline/amendments.py), the citation
+    *within* the note is a link to that Act's entry in the Endnotes, with
+    the Act's full name and dates in its tooltip. The citation is what the
+    note actually says and what a reader wants to click; spelling the Act
+    out in full beside every note pushed the note itself out of the margin
+    it is printed in, for a name that is one hover away."""
     bits = []
     for h in node.get("history") or []:
         low = h.get("confidence") == "low"
         cls = "hist-note low" if low else "hist-note"
         title = ' title="Attached to this provision as the closest match, not an exact citation"' if low else ""
-        bits.append(f'<span class="{cls}"{title}>{_esc(h["raw"])}</span>')
-        for record in resolve_note(h["raw"], amendment_index) if amendment_index else []:
+        marked = []
+        for run in linkify_note(h["raw"], amendment_index):
+            record = run.get("record")
+            if record is None:
+                marked.append(_esc(run["text"]))
+                continue
             href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
-            bits.append(
-                f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">'
-                f'{_esc(record["title"] or record["cited_as"])}</a>'
+            marked.append(
+                f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">{_esc(run["text"])}</a>'
             )
+        bits.append(f'<span class="{cls}"{title}>{"".join(marked)}</span>')
     return "".join(bits)
 
 
@@ -242,18 +248,33 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     caller building links *into* it from somewhere else (dashboard.py,
     turning an Act section's Bill/EM links into hrefs). Returns
     {"by_node_index": {position in parsed["nodes"] -> page id},
-     "by_number": {provision number, lower-cased -> page id}} -- page id
-    being what render_index links to and render_section matches on."""
+     "by_key": {commentary.provision_key(schedule, number) -> page id},
+     "schedule_by_node_index": {position -> the Schedule it sits in}} --
+    page id being what render_index links to and render_section matches
+    on.
+
+    Keyed by Schedule as well as number because a Schedule numbers its own
+    provisions from 1 again: this Act has a section 11 and a Schedule 1
+    clause 11, on different pages ("s11" and "s11_2"), and a lookup by
+    number alone silently returned the first of them for both."""
     ctx = _build_context(parsed, act_title)
     position_of = {id(node): i for i, node in enumerate(parsed["nodes"])}
+    schedules = schedule_numbers(parsed["nodes"])
     by_node_index = {}
+    by_key = {}
+    schedule_by_node_index = {}
     for tree_node, _breadcrumb in ctx["sections"]:
         position = position_of.get(id(tree_node["node"]))
-        if position is not None:
-            by_node_index[position] = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
+        if position is None:
+            continue
+        page = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
+        by_node_index[position] = page
+        schedule_by_node_index[position] = schedules[position]
+        by_key.setdefault(provision_key(schedules[position], tree_node["node"].get("number")), page)
     return {
         "by_node_index": by_node_index,
-        "by_number": {number: _strip_md(name) for number, name in ctx["section_files"].items()},
+        "by_key": by_key,
+        "schedule_by_node_index": schedule_by_node_index,
     }
 
 
@@ -784,6 +805,19 @@ a:hover { text-decoration: underline; }
    numbered sibling's text does, rather than its first line poking out
    into the empty number column. */
 .prov-nolabel { text-indent: 0; }
+/* Except a list item, which has no number because its source prints a
+   bullet instead of one (an Explanatory Memorandum's lists are set that
+   way -- see em_parser.py). It gets its marker back, hanging in the same
+   column a lettered sibling's "(a)" would. */
+.prov-paragraph.prov-nolabel,
+.prov-subparagraph.prov-nolabel,
+.prov-sub_subparagraph.prov-nolabel { text-indent: -2.4em; }
+.prov-paragraph.prov-nolabel::before,
+.prov-subparagraph.prov-nolabel::before,
+.prov-sub_subparagraph.prov-nolabel::before {
+  content: "•";
+  display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
+}
 .prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
 .prov-term { font-weight: 600; font-style: italic; }
 .prov-heading {
@@ -834,9 +868,11 @@ a:hover { text-decoration: underline; }
 .amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--fg); }
 a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
-/* The amending Act's name, printed in the margin under the note that cites
-   it -- the note itself only ever gives a number. */
-.hist-act { display: block; margin: -2px 0 6px; font-size: 11px; line-height: 1.35; }
+/* The citation inside a margin note, linked to that Act's own entry in the
+   Endnotes. Inline, so the note still reads as the one line the source
+   prints; the Act's full name and dates are in the link's title. */
+.hist-act { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
+.hist-act:hover { text-decoration: none; border-bottom-style: solid; }
 
 /* "Explained in" chips under a Section's title: the Bill clause it was
    enacted from, and the Explanatory Memorandum's note on it. Ordinary
