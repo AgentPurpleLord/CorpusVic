@@ -6,14 +6,19 @@ a parser change that adds or re-splits one node shifts every row after
 it onto the wrong provision. These cover the two halves of the fix: a
 fingerprint that makes such a shift detectable, and a re-anchoring that
 moves each row onto the node holding the provision it describes."""
+import json
+
 from ai_pipeline.db import load_orphaned_reviews, load_parse_fingerprint, load_verified, save_verified
 from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.reparse import (
+    apply_carry_forward,
     apply_remap,
+    carry_forward_review,
     describe_remap,
     node_identity,
     parse_fingerprint,
     remap_verified,
+    structural_identity,
 )
 
 from conftest import make_node
@@ -245,3 +250,141 @@ def test_apply_remap_on_a_first_parse_just_records_which_parse_it_is(tmp_path, m
 
     assert apply_remap("crimes-act", nodes, group_into_units(nodes)) is None
     assert load_parse_fingerprint("crimes-act") == parse_fingerprint(nodes)
+
+
+# ---------------------------------------------------------------------------
+# Carrying review work across an Act's own versions
+#
+# remap_verified re-anchors a row within *one* document's own reparse.
+# carry_forward_review does the same matching between two different
+# documents -- consecutive Authorised Versions -- so it needs the one
+# thing a single document's reparse never has to tell apart: a Schedule's
+# own numbering starting from 1 again, same as the body's.
+# ---------------------------------------------------------------------------
+
+
+def _act_with_schedule() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("section", "11", "Powers of entry", "An officer may enter premises."),
+        make_node("schedule", "1", "Forms"),
+        make_node("clause", "11", None, "Form of warrant."),
+    ]
+
+
+def test_node_identity_tells_a_schedule_clause_from_a_body_section_of_the_same_number():
+    body = make_node("section", "11", "Powers of entry", "text")
+    clause = make_node("clause", "11", None, "text")
+
+    assert node_identity(body, schedule=None) != node_identity(clause, schedule="1")
+
+
+def test_structural_identity_is_schedule_aware_the_same_way():
+    body = make_node("section", "11", "Heading", "old text")
+    clause = make_node("clause", "11", "Heading", "old text")
+
+    assert structural_identity(body, schedule=None) != structural_identity(clause, schedule="1")
+
+
+def test_carry_forward_matches_an_unchanged_provision_to_its_own_counterpart():
+    old_nodes = _act_with_schedule()
+    old_rows = [_reviewed(old_nodes[2], 2), _reviewed(old_nodes[4], 4)]
+    new_nodes = _act_with_schedule()  # identical -- nothing changed at this version
+
+    remapped, report = carry_forward_review(old_nodes, old_rows, new_nodes)
+
+    assert report["matched"] == 2 and report["text_changed"] == 0
+    assert all("verified_at" in r for r in remapped)
+
+
+def test_carry_forward_does_not_confuse_a_schedule_clause_with_a_same_numbered_section():
+    old_nodes = _act_with_schedule()
+    # Only the Schedule 1 clause 11 has been reviewed -- not section 11.
+    old_rows = [_reviewed(old_nodes[4], 4)]
+    new_nodes = _act_with_schedule()
+
+    remapped, report = carry_forward_review(old_nodes, old_rows, new_nodes)
+
+    assert report["matched"] == 1
+    matched_index = remapped[0]["_source_node_index"]
+    assert new_nodes[matched_index]["type"] == "clause"  # the Schedule clause, not section 11
+
+
+def test_carry_forward_withdraws_acceptance_where_the_wording_moved():
+    old_nodes = _act_with_schedule()
+    old_rows = [_reviewed(old_nodes[2], 2)]
+    new_nodes = list(_act_with_schedule())
+    new_nodes[2] = make_node("section", "11", "Powers of entry", "An officer may enter and search premises.")
+
+    remapped, report = carry_forward_review(old_nodes, old_rows, new_nodes)
+
+    assert report["text_changed"] == 1
+    assert "verified_at" not in remapped[0]
+    assert remapped[0]["needs_followup"] is True
+
+
+def test_carry_forward_keeps_a_repealed_provisions_review_marked_orphaned():
+    old_nodes = _act_with_schedule()
+    old_rows = [_reviewed(old_nodes[2], 2)]
+    new_nodes = [n for n in _act_with_schedule() if n.get("number") != "11" or n["type"] != "section"]
+
+    remapped, report = carry_forward_review(old_nodes, old_rows, new_nodes)
+
+    assert report["orphaned"] == 1
+    assert remapped[0]["_orphaned"] is True
+
+
+def _write_parse(path, nodes):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"nodes": nodes}), encoding="utf-8")
+
+
+def test_apply_carry_forward_seeds_a_new_versions_review_from_the_last_one(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    old_nodes = _act()
+    save_verified("crimes-act-v110", [_reviewed(old_nodes[1], 1)])
+    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v110.json", old_nodes)
+    new_nodes = _act()
+
+    report = apply_carry_forward("crimes-act", "crimes-act-v111", new_nodes, group_into_units(new_nodes))
+
+    assert report is not None and report["source"] == "crimes-act-v110"
+    assert load_verified("crimes-act-v111")[0]["_source_node_index"] == 1
+    assert load_parse_fingerprint("crimes-act-v111") == parse_fingerprint(new_nodes)
+
+
+def test_apply_carry_forward_never_overwrites_a_versions_own_review(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    old_nodes = _act()
+    save_verified("crimes-act-v110", [_reviewed(old_nodes[1], 1)])
+    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v110.json", old_nodes)
+    new_nodes = _act()
+    own_review = [_reviewed(new_nodes[3], 3)]
+    save_verified("crimes-act-v111", own_review)
+
+    assert apply_carry_forward("crimes-act", "crimes-act-v111", new_nodes) is None
+    kept = load_verified("crimes-act-v111")
+    assert [r["_source_node_index"] for r in kept] == [3]
+    assert kept[0]["verified_at"] == "2024-01-01T00:00:00+00:00"
+
+
+def test_apply_carry_forward_reads_from_the_nearest_reviewed_version(tmp_path, monkeypatch):
+    # v110 has no review work; v109 does. The carry-forward must not stop
+    # at the empty version in between and report nothing to carry.
+    monkeypatch.chdir(tmp_path)
+    nodes = _act()
+    save_verified("crimes-act-v109", [_reviewed(nodes[1], 1)])
+    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v109.json", nodes)
+    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v110.json", nodes)
+
+    report = apply_carry_forward("crimes-act", "crimes-act-v111", nodes)
+
+    assert report is not None and report["source"] == "crimes-act-v109"
+
+
+def test_apply_carry_forward_does_nothing_for_a_works_first_version(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = _act()
+
+    assert apply_carry_forward("crimes-act", "crimes-act-v110", nodes) is None

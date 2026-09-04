@@ -59,7 +59,7 @@ from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.profiles import profile_exists
-from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
+from ai_pipeline.reparse import apply_carry_forward, apply_remap, describe_remap, parse_fingerprint
 from ai_pipeline.versions import describe as describe_version
 from ai_pipeline.versions import document_slug, read_front_matter, work_directory
 from ai_pipeline.rule_parser import parse_act
@@ -215,6 +215,21 @@ def main():
             print(f"  ~ wording changed, acceptance withdrawn: {label}")
         for label in remap["orphans"][:5]:
             print(f"  ! no longer in the parse, kept for you to re-file: {label}")
+
+    # A new Authorised Version of a work nobody has reviewed yet: seed its
+    # review work from the nearest earlier version that has some, so a
+    # reviewer opens it already carrying forward everything that didn't
+    # change rather than starting from nothing (see
+    # ai_pipeline/reparse.py's apply_carry_forward -- it never overwrites
+    # review work this version already has of its own).
+    if is_version:
+        carried = apply_carry_forward(work, act_slug, nodes, group_into_units(nodes))
+        if carried is not None:
+            print(f"Review carried forward from {carried['source']}: {describe_remap(carried)}")
+            for label in carried["changed"][:5]:
+                print(f"  ~ wording changed since {carried['source']}, acceptance withdrawn: {label}")
+            for label in carried["orphans"][:5]:
+                print(f"  ! not in this version, kept for you to re-file: {label}")
 
     report = run_diagnostics(parse_result, nodes, unattached_notes)
     diag_dir = Path("data/diagnostics")
