@@ -1,6 +1,6 @@
 {
   "act": "criminal-procedure-act",
-  "source": "acts/criminal-procedure-act.pdf",
+  "source": "acts\\criminal-procedure-act.pdf",
   "engine": "rules",
   "profile": null,
   "document_type": "act",

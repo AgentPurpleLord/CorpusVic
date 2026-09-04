@@ -1,6 +1,6 @@
 {
   "act": "evidence-act",
-  "source": "acts/evidence-act.pdf",
+  "source": "acts\\evidence-act.pdf",
   "engine": "rules",
   "profile": null,
   "document_type": "act",

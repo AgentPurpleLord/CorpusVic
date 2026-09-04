@@ -1,6 +1,6 @@
 {
   "act": "interpretation",
-  "source": "acts/interpretation.pdf",
+  "source": "acts\\interpretation.pdf",
   "engine": "rules",
   "profile": null,
   "document_type": "act",
