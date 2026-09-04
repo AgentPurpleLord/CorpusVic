@@ -27,10 +27,12 @@ and marked, never dropped: it is a human's work, and losing it silently is
 the failure this whole module exists to prevent.
 """
 import hashlib
+import json
 import re
 from pathlib import Path
 
 from .extract import reflow
+from .hierarchy import schedule_numbers
 
 # How much of a provision's own text takes part in its identity. Enough to
 # tell two same-numbered paragraphs apart, short enough that a reviewer's
@@ -42,16 +44,26 @@ def _norm(value: "str | None") -> str:
     return re.sub(r"\s+", " ", (value or "").strip()).lower()
 
 
-def node_identity(node: dict) -> tuple:
+def node_identity(node: dict, schedule: "str | None" = None) -> tuple:
     """What makes this provision itself, independent of where it sits in
     the node list. Deliberately not the full text: a reviewer may have
-    edited it, and an edited provision is still the same provision."""
-    return (
+    edited it, and an edited provision is still the same provision.
+
+    `schedule` is which Schedule the node sits in (see
+    hierarchy.schedule_numbers), and is left out of the identity entirely
+    when not given -- which is every call remap_verified makes, since both
+    sides of that comparison are positions in the *same* new node list and
+    a caller there already has the option of passing it. It matters where
+    two documents are being compared instead (see carry_forward_review):
+    without it a Schedule's clause 11 is indistinguishable from the body's
+    section 11 the moment they are looked up by number alone."""
+    base = (
         node.get("type") or "",
         _norm(node.get("number")),
         _norm(node.get("heading")),
         _norm(reflow(node.get("text")))[:_IDENTITY_TEXT_CHARS],
     )
+    return base if schedule is None else (_norm(schedule), *base)
 
 
 def parse_fingerprint(nodes: list[dict]) -> str:
@@ -68,10 +80,12 @@ def parse_fingerprint(nodes: list[dict]) -> str:
     return digest.hexdigest()[:16]
 
 
-def structural_identity(node: dict) -> tuple:
+def structural_identity(node: dict, schedule: "str | None" = None) -> tuple:
     """The same provision minus its wording -- what a piece *is*, before
-    any question of what it currently says."""
-    return node_identity(node)[:3]
+    any question of what it currently says. Type, number and heading; plus
+    the Schedule it sits in, wherever that's known (see node_identity)."""
+    identity = node_identity(node, schedule)
+    return identity[:4] if schedule is not None else identity[:3]
 
 
 def _label(row: dict) -> str:
@@ -95,6 +109,76 @@ def _restamp_unit_markers(rows: list[dict], units: list[list[int]]) -> int:
         by_index[indices[-1]]["_unit_end_index"] = unit_no
         marked = unit_no + 1
     return marked
+
+
+def _decide(rows: list[dict], build_key) -> dict[int, tuple[int, str]]:
+    """Which new-list index each old row belongs at, and how sure -- the
+    matching tiers remap_verified's own docstring describes. `build_key`
+    is (tier_name, {identity -> [candidate indices]}, key_fn_for_a_row) for
+    each tier in turn, tried in order, so an exact match is claimed before
+    a merely structural one is allowed to take a node that might belong to
+    a row that matches it exactly.
+
+    Split out of remap_verified so carry_forward_review can run the same
+    two-tier matching against a *different* document's nodes without
+    duplicating it -- the only thing that differs between the two callers
+    is what goes into the tables and the row keys, both supplied by
+    `build_key`."""
+    used: set[int] = set()
+    decided: dict[int, tuple[int, str]] = {}
+
+    def nearest(pool: list[int], old_index) -> "int | None":
+        free = [i for i in pool if i not in used]
+        if not free:
+            return None
+        return min(free, key=lambda i: abs(i - old_index) if isinstance(old_index, int) else i)
+
+    for tier, table, key in build_key:
+        for position, row in enumerate(rows):
+            if position in decided:
+                continue
+            best = nearest(table.get(key(row), []), row.get("_source_node_index"))
+            if best is not None:
+                used.add(best)
+                decided[position] = (best, tier)
+    return decided
+
+
+def _apply_decisions(rows: list[dict], decided: dict[int, tuple[int, str]], new_nodes: list[dict],
+                     units: "list[list[int]] | None") -> tuple[list[dict], dict]:
+    """Rewrites `rows` onto the positions `_decide` chose, and reports what
+    happened -- the tail end remap_verified and carry_forward_review both
+    need once matching is done."""
+    report = {"matched": 0, "moved": 0, "text_changed": 0, "orphaned": 0, "orphans": [], "changed": []}
+    remapped: list[dict] = []
+    for position, original in enumerate(rows):
+        row = {k: v for k, v in original.items() if k != "_unit_end_index"}
+        found = decided.get(position)
+        if found is None:
+            row.pop("_source_node_index", None)
+            row["_orphaned"] = True
+            report["orphaned"] += 1
+            report["orphans"].append(_label(row))
+            remapped.append(row)
+            continue
+        index, tier = found
+        row.pop("_orphaned", None)
+        if index != original.get("_source_node_index"):
+            report["moved"] += 1
+        row["_source_node_index"] = index
+        report["matched"] += 1
+        if tier == "changed":
+            row.pop("verified_at", None)
+            row["needs_followup"] = True
+            row["_text_changed"] = True
+            report["text_changed"] += 1
+            report["changed"].append(_label(row))
+        remapped.append(row)
+
+    remapped.sort(key=lambda r: r.get("_source_node_index", len(new_nodes)))
+    if units is not None:
+        report["units_marked"] = _restamp_unit_markers(remapped, units)
+    return remapped, report
 
 
 def remap_verified(
@@ -135,54 +219,72 @@ def remap_verified(
         exact.setdefault(node_identity(node), []).append(index)
         structural.setdefault(structural_identity(node), []).append(index)
 
-    used: set[int] = set()
-    decided: dict[int, tuple[int, str]] = {}
+    decided = _decide(rows, (("exact", exact, node_identity), ("changed", structural, structural_identity)))
+    return _apply_decisions(rows, decided, new_nodes, units)
 
-    def nearest(pool: list[int], old_index) -> "int | None":
-        free = [i for i in pool if i not in used]
-        if not free:
-            return None
-        return min(free, key=lambda i: abs(i - old_index) if isinstance(old_index, int) else i)
 
-    for tier, table, key in (("exact", exact, node_identity), ("changed", structural, structural_identity)):
-        for position, row in enumerate(rows):
-            if position in decided:
-                continue
-            best = nearest(table.get(key(row), []), row.get("_source_node_index"))
-            if best is not None:
-                used.add(best)
-                decided[position] = (best, tier)
+def _cross_version_identity(node: dict, schedule: "str | None") -> tuple:
+    """The same provision across two different documents, once even its
+    heading may have moved -- deliberately weaker than structural_identity.
 
-    report = {"matched": 0, "moved": 0, "text_changed": 0, "orphaned": 0, "orphans": [], "changed": []}
-    remapped: list[dict] = []
-    for position, original in enumerate(rows):
-        row = {k: v for k, v in original.items() if k != "_unit_end_index"}
-        found = decided.get(position)
-        if found is None:
-            row.pop("_source_node_index", None)
-            row["_orphaned"] = True
-            report["orphaned"] += 1
-            report["orphans"].append(_label(row))
-            remapped.append(row)
-            continue
-        index, tier = found
-        row.pop("_orphaned", None)
-        if index != original.get("_source_node_index"):
-            report["moved"] += 1
-        row["_source_node_index"] = index
-        report["matched"] += 1
-        if tier == "changed":
-            row.pop("verified_at", None)
-            row["needs_followup"] = True
-            row["_text_changed"] = True
-            report["text_changed"] += 1
-            report["changed"].append(_label(row))
-        remapped.append(row)
+    Within one document's own reparse, a repeated number is a parser
+    mistake and the heading is what tells the two apart (see
+    structural_identity's own docstring). Between two Authorised Versions
+    it is nothing of the sort: an amending Act freely rewrites a
+    provision's heading in the same stroke as its body -- section 366 of
+    the Criminal Procedure Act gained both a new heading and new
+    paragraphs from the same amending Act at once -- and requiring the old
+    heading to still match would read that ordinary amendment as the
+    provision disappearing and an unrelated new one appearing in its
+    place. Type, Schedule and number is everything that has to survive an
+    amendment for it to still be recognisably the same provision.
+    """
+    return (node.get("type") or "", _norm(schedule), _norm(node.get("number")))
 
-    remapped.sort(key=lambda r: r.get("_source_node_index", len(new_nodes)))
-    if units is not None:
-        report["units_marked"] = _restamp_unit_markers(remapped, units)
-    return remapped, report
+
+def carry_forward_review(
+    old_nodes: list[dict], old_rows: list[dict], new_nodes: list[dict],
+    units: "list[list[int]] | None" = None,
+) -> tuple[list[dict], dict]:
+    """Seeds a new Authorised Version's review work from an earlier one --
+    remap_verified's own matching, extended for the one thing a single
+    document's own reparse never has to tell apart: `old_nodes` and
+    `new_nodes` are two different documents, each with its own Schedule
+    structure, so a bare number is not a safe key between them. Schedule 3
+    of one version and Schedule 3 of the next both start their clauses at
+    1 again, and so does the body -- looking a row up by number alone
+    would as happily hand a Schedule 1 clause 11's review to the body's
+    section 11 in the new version as to its own counterpart.
+
+    Otherwise this is exactly remap_verified's own three-way outcome, and
+    for the same reason: a provision whose wording is identical between
+    versions is carried across intact; one whose wording moved is carried
+    across with its acceptance withdrawn and flagged, because "the last
+    person to read this read different words" is true here just as it is
+    after a parser change, and for the same reason deserves a second look
+    rather than a silently inherited tick; one no longer present in the
+    new version -- most often because it was repealed -- is kept, marked
+    orphaned, never dropped.
+    """
+    old_schedule = schedule_numbers(old_nodes)
+    new_schedule = schedule_numbers(new_nodes)
+
+    def row_schedule(row: dict) -> "str | None":
+        index = row.get("_source_node_index")
+        return old_schedule[index] if isinstance(index, int) and 0 <= index < len(old_schedule) else None
+
+    exact: dict[tuple, list[int]] = {}
+    same_provision: dict[tuple, list[int]] = {}
+    for index, node in enumerate(new_nodes):
+        sched = new_schedule[index]
+        exact.setdefault(node_identity(node, sched), []).append(index)
+        same_provision.setdefault(_cross_version_identity(node, sched), []).append(index)
+
+    decided = _decide(old_rows, (
+        ("exact", exact, lambda row: node_identity(row, row_schedule(row))),
+        ("changed", same_provision, lambda row: _cross_version_identity(row, row_schedule(row))),
+    ))
+    return _apply_decisions(old_rows, decided, new_nodes, units)
 
 
 def describe_remap(report: dict) -> str:
@@ -233,3 +335,60 @@ def apply_remap(
     db.save_verified(act, [r for r in remapped if not r.get("_orphaned")], base_dir)
     db.save_parse_fingerprint(act, fingerprint, base_dir)
     return report
+
+
+def apply_carry_forward(
+    work: str, new_slug: str, new_nodes: list[dict],
+    units: "list[list[int]] | None" = None, base_dir: "str | Path | None" = None,
+) -> "dict | None":
+    """Seeds a newly-parsed Authorised Version's review work from the
+    nearest earlier version of the same work that has some, so a reviewer
+    opens a new reprint already carrying forward everything that didn't
+    change instead of starting from nothing on every one of its ~700
+    provisions.
+
+    Never overwrites: a no-op the moment `new_slug` already holds any
+    verified rows of its own, whether that is a reviewer's own work or an
+    earlier run of this same carry-forward. Also a no-op where no earlier
+    version of `work` has review rows to carry forward at all -- the
+    ordinary case for a work's first version, or one nobody has reviewed
+    yet.
+
+    Walks earlier versions from the nearest outward rather than always
+    reading from the very first one, so a version several reprints old
+    that was never reviewed doesn't stand in front of a more recent one
+    that was.
+    """
+    from . import db
+    from .versions import split_document_slug
+
+    if db.load_verified(new_slug, base_dir):
+        return None
+    _work, target_version = split_document_slug(new_slug)
+    if target_version is None:
+        return None
+
+    ai_parsed_dir = Path(base_dir or ".") / "data" / "ai_parsed"
+    earlier = []
+    for path in ai_parsed_dir.glob(f"{work}-v*.json"):
+        _w, version = split_document_slug(path.stem)
+        if version is not None and version < target_version:
+            earlier.append((version, path))
+    earlier.sort(reverse=True)  # nearest version first
+
+    for _version, source_path in earlier:
+        source_slug = source_path.stem
+        source_rows = db.load_verified(source_slug, base_dir)
+        if not source_rows:
+            continue
+        try:
+            source_nodes = json.loads(source_path.read_text(encoding="utf-8"))["nodes"]
+        except (OSError, ValueError, KeyError):
+            continue
+        remapped, report = carry_forward_review(source_nodes, source_rows, new_nodes, units)
+        db.add_orphaned_reviews(new_slug, [r for r in remapped if r.get("_orphaned")], base_dir)
+        db.save_verified(new_slug, [r for r in remapped if not r.get("_orphaned")], base_dir)
+        db.save_parse_fingerprint(new_slug, parse_fingerprint(new_nodes), base_dir)
+        report["source"] = source_slug
+        return report
+    return None

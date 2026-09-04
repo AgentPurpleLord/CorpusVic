@@ -373,3 +373,55 @@ def test_is_reordering_needs_something_to_have_moved():
     assert not is_reordering(word_diff("alpha beta", "alpha beta"))
     assert is_reordering(word_diff("alpha beta", "beta alpha"))
     assert not is_reordering(word_diff("alpha beta", "alpha gamma"))
+
+
+# ---------------------------------------------------------------------------
+# The amending Act named alongside a change
+#
+# diffing can see that a provision's wording moved, but not by what: the
+# Act's own margin notes say that, and a note present in the new version
+# but not the old is the amendment this diff just found. Every one of the
+# 13 changes in the Criminal Procedure Act's real timeline was corroborated
+# by exactly such a note.
+# ---------------------------------------------------------------------------
+
+
+def _act_with_history(number, heading, children, history):
+    nodes = [make_node("part", "1", "Preliminary")]
+    nodes.append(make_node("section", number, heading, "", history=history))
+    for i, text in enumerate(children, start=1):
+        nodes.append(make_node("subsection", str(i), None, text))
+    return nodes
+
+
+def test_a_changed_provision_carries_the_note_that_is_new_since_last_version():
+    old_history = [{"raw": "New s. 366 inserted by No. 68/2009 s. 50."}]
+    new_history = old_history + [{"raw": "S. 366(1)(ac) inserted by No. 1/2026 s. 74."}]
+    v110 = _act_with_history("366", "Application", ["alpha"], old_history)
+    v111 = _act_with_history("366", "Application", ["alpha beta"], new_history)
+
+    result = diff_versions(v110, v111)
+
+    assert len(result["changed"]) == 1
+    assert result["changed"][0]["new_history"] == ["S. 366(1)(ac) inserted by No. 1/2026 s. 74."]
+
+
+def test_an_unchanged_note_is_not_repeated_as_new():
+    history = [{"raw": "New s. 366 inserted by No. 68/2009 s. 50."}]
+    v110 = _act_with_history("366", "Application", ["alpha"], history)
+    v111 = _act_with_history("366", "Application", ["alpha beta"], history)
+
+    result = diff_versions(v110, v111)
+
+    assert result["changed"][0]["new_history"] == []
+
+
+def test_an_inserted_provision_carries_its_whole_history_as_new():
+    v110 = _act(("1", "Purposes", ["text"]))
+    history = [{"raw": "New s. 1A inserted by No. 1/2026 s. 5."}]
+    v111 = _act(("1", "Purposes", ["text"])) + _act_with_history("1A", "New", ["brand new"], history)[1:]
+
+    result = diff_versions(v110, v111)
+
+    inserted = next(p for p in result["inserted"] if p["number"] == "1A")
+    assert inserted["new_history"] == ["New s. 1A inserted by No. 1/2026 s. 5."]

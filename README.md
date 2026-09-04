@@ -102,7 +102,21 @@ an inserted section doesn't report the rest of the Act as rewritten, and
 comparison is on the words: a reprint that repaginates, doubles a space or
 embeds a font differently has not amended anything. Across the five
 Criminal Procedure Act versions here that is the difference between a
-timeline of 48 entries and one of 12, all 12 real.
+timeline of 48 entries and one of 12, all 12 real. It surfaces in the
+browse view as a collapsible timeline on any provision that changed, and
+as a `/browse/<slug>/changes` page listing every amendment at each
+version, both linking the amending Act named in the Act's own margin
+note.
+
+A new version's review work doesn't start from nothing either.
+`ai_pipeline/reparse.py`'s `apply_carry_forward` seeds a freshly-parsed
+version from the nearest earlier one that has been reviewed, using the
+same matching `remap_verified` uses to survive a parser change: a
+provision whose wording is identical is carried across intact, one whose
+wording moved has its acceptance withdrawn and is flagged for another
+look, and one no longer present — typically a repeal — is kept, marked
+orphaned, never dropped. It never overwrites a version's own review work,
+so it only ever does anything the first time a new version is parsed.
 
 An Act whose numbering doesn't match the defaults gets a profile rather
 than a code change — copy `ai_pipeline/profiles/TEMPLATE.yaml`, and see
