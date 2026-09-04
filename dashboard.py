@@ -68,7 +68,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import commentary, db, html_view
+from ai_pipeline import commentary, db, diffing, html_view
 from ai_pipeline.act_registry import load_act_registry
 from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
@@ -971,6 +971,162 @@ def _amendments(slug: str) -> dict:
     return result
 
 
+# ---------------------------------------------------------------------------
+# A work's versions, and what changed between them
+# ---------------------------------------------------------------------------
+
+
+def _work_versions(work: str) -> list[str]:
+    """Every parsed version slug of one work, oldest first. A work with
+    fewer than two has no timeline -- there is nothing to compare."""
+    slugs = []
+    for slug in discover_slugs():
+        this_work, version = split_document_slug(slug)
+        if this_work == work and version is not None and (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+            slugs.append((version, slug))
+    return [slug for _version, slug in sorted(slugs)]
+
+
+def _parse_signature(slug: str) -> tuple:
+    """A stamp of one document's parse file, and nothing else."""
+    try:
+        st = (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").stat()
+    except OSError:
+        return ()
+    return (st.st_mtime_ns, st.st_size)
+
+
+_timeline_cache: dict[str, tuple[tuple, dict]] = {}
+
+
+def _timeline(work: str) -> dict:
+    """{provision key -> its changes, oldest first} across every version of
+    one work, plus the version list it was built from.
+
+    Cached against every version's own browse signature, because this is
+    the most expensive thing the browse view does: it holds all five
+    Criminal Procedure Act parses in memory at once and word-diffs ~690
+    provisions across each consecutive pair. That is ~0.3s, which is fine
+    once and not fine on every page view of every section.
+
+    Keyed on the *work*, not the version: the timeline of a provision is
+    the same object whichever reprint of the Act you are reading it from,
+    so all five versions share one entry rather than each building its own
+    copy of the same comparisons.
+
+    Built from the **parses**, not from _current_nodes -- the one place in
+    the browse view that deliberately ignores review state. A reviewer
+    works through one version at a time, so merging their edits in makes
+    a correction to the parse of one version look exactly like an
+    amendment by Parliament: with review state applied, section 5 of the
+    Criminal Procedure Act reported "Part 2.2--Charge-sheet and listing of
+    matter" as inserted at version 114, when what actually happened is
+    that a reviewer split that heading out of section 5 in one version and
+    has not yet reached the other. Two raw parses come from the same
+    deterministic parser and their artefacts cancel; a reviewed one
+    against an unreviewed one is a comparison of two different things.
+    """
+    slugs = _work_versions(work)
+    # Stamped on the parses alone. _browse_state_signature also stamps the
+    # review database, which would throw this away and rebuild all five
+    # comparisons every time a reviewer saved anything -- and, now that the
+    # timeline is built from the parses, for a change that cannot affect
+    # its result.
+    signature = tuple(_parse_signature(slug) for slug in slugs)
+    cached = _timeline_cache.get(work)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    result = {"slugs": slugs, "entries": {}}
+    if len(slugs) > 1:
+        documents = []
+        for slug in slugs:
+            nodes = _parse_field(slug, "nodes", []) or []
+            meta = _act_version(slug)
+            _work, version = split_document_slug(slug)
+            documents.append({
+                "version": version,
+                "as_at": meta.get("as_at"),
+                "as_at_printed": meta.get("as_at_printed"),
+                "slug": slug,
+                "nodes": nodes,
+            })
+        result["entries"] = diffing.build_timeline(documents)
+    _timeline_cache[work] = (signature, result)
+    return result
+
+
+def _superseded(slug: str) -> "dict | None":
+    """Whether this version has been overtaken, and by which -- None for a
+    document that is not version-tracked, or is itself the current one.
+
+    "Current" is the highest Authorised Version number held here, which is
+    the strongest claim this tool can make: it knows what it has been
+    given, not what the Chief Parliamentary Counsel published this
+    morning. The banner says "the versions held here" for that reason."""
+    work, version = split_document_slug(slug)
+    if version is None:
+        return None
+    slugs = _work_versions(work)
+    if len(slugs) < 2:
+        return None
+    current_slug = slugs[-1]
+    _w, current = split_document_slug(current_slug)
+    if current is None or version >= current:
+        return None
+    return {
+        "version": version,
+        "current": current,
+        "current_url": f"/browse/{current_slug}/",
+        "as_at_printed": _act_version(slug).get("as_at_printed"),
+    }
+
+
+def _provision_page_url(slug: str, page_index: dict, entry: dict) -> "str | None":
+    """Where to read one provision in one version, or None where that
+    version gives it no page of its own.
+
+    build_page_index is keyed by (Schedule, number) with no record of what
+    kind of thing that is, because everything it indexes is a Section.
+    A timeline entry is not: a Schedule, a Part or a Division can be
+    amended in its own right (see diffing's container types), and looking
+    one of those up by number alone finds the *section* of that number --
+    "Schedule 3" linked to section 3, which is a different provision of a
+    different Act Part about a different subject. A container has no page,
+    so it gets no link, and the changes page is where it is read instead.
+    """
+    if entry.get("kind") != "provision":
+        return None
+    page = page_index["by_key"].get(commentary.provision_key(entry.get("schedule"), entry["number"]))
+    return f"/browse/{slug}/section/{page}" if page else None
+
+
+def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
+                        node_type: str = "section") -> tuple[list[dict], dict]:
+    """One provision's timeline entries, and {version -> the URL of that
+    same provision in that version}, so a reader can go and read the words
+    in place rather than only in the diff.
+
+    A version whose parse doesn't page that provision (it may not have
+    existed yet) simply gets no link -- an entry that says a provision was
+    inserted at version 112 must not offer a link into version 111."""
+    if not number:
+        return [], {}
+    work, _version = split_document_slug(slug)
+    timeline = _timeline(work)
+    key = diffing.provision_identity(node_type, schedule, number)
+    entries = timeline["entries"].get(key) or []
+    if not entries:
+        return [], {}
+    urls = {}
+    probe = {"kind": entries[0]["kind"], "schedule": schedule, "number": number}
+    for other in timeline["slugs"]:
+        _w, other_version = split_document_slug(other)
+        url = _provision_page_url(other, _page_index(other), probe)
+        if url:
+            urls[other_version] = url
+    return entries, urls
+
+
 _act_title_cache: dict[str, str] = {}
 
 
@@ -1077,7 +1233,8 @@ def browse_index(slug: str):
     body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"],
          "version": _act_version(slug)},
-        title, f"/browse/{slug}",
+        title, f"/browse/{slug}", superseded=_superseded(slug),
+        has_changes=len(_work_versions(split_document_slug(slug)[0])) > 1,
     )
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
@@ -1103,14 +1260,61 @@ def browse_section(slug: str, section_slug: str):
     # Which Schedule (if any) this page's own provision sits in -- see
     # _section_crossrefs on why the number alone doesn't identify it.
     schedule = page_index["schedule_by_node_index"].get(node_index)
+    # How this provision's wording has moved across the versions of the Act
+    # held here, and where to read each of them. A Schedule is its own
+    # provision rather than a clause of itself, so its node type decides
+    # which identity to look the timeline up under (see diffing).
+    node_type = nodes[node_index]["type"] if node_index is not None else "section"
+    entries, version_urls = _provision_timeline(slug, section_number, schedule, node_type)
     body = html_view.render_section(
         {"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug,
         crossrefs=_section_crossrefs(slug, section_number, schedule),
         amendment_index=_amendments(slug)["index"],
+        timeline=entries, version_urls=version_urls, superseded=_superseded(slug),
     )
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+
+
+@app.get("/browse/{slug}/changes", response_class=HTMLResponse)
+def browse_changes(slug: str):
+    """What changed at each version of this Act, newest first. 404s for a
+    document that is not one of several versions of a work -- there is
+    nothing to compare a Bill, an EM, or a single reprint against."""
+    _validate_slug(slug)
+    work, version = split_document_slug(slug)
+    if version is None:
+        raise HTTPException(404, f"{slug!r} is not a version-tracked document.")
+    timeline = _timeline(work)
+    title = _act_title(slug)
+    # Regrouped from {provision -> its changes} into {version -> what
+    # changed in it}, which is the question this page answers. Each entry
+    # is linked to its own provision page in the version it changed at, so
+    # a reader lands on the wording as that reprint actually prints it.
+    by_version: dict = {}
+    for entries in timeline["entries"].values():
+        for entry in entries:
+            by_version.setdefault(entry["version"], []).append(entry)
+    groups = []
+    # Every version except the oldest, newest first. The oldest is left out
+    # because there is nothing here from before it: "what changed at
+    # version 110" is a question about version 109, which we do not hold.
+    for other in reversed(timeline["slugs"][1:]):
+        _w, other_version = split_document_slug(other)
+        entries = sorted(by_version.get(other_version, []), key=lambda e: e["node_index"])
+        page_index = _page_index(other)
+        for entry in entries:
+            entry["href"] = _provision_page_url(other, page_index, entry)
+        groups.append({
+            "version": other_version,
+            "as_at_printed": _act_version(other).get("as_at_printed"),
+            "url": f"/browse/{other}/",
+            "entries": entries,
+        })
+    body = html_view.render_changes(groups, title, f"/browse/{slug}", _amendments(slug)["index"])
+    return HTMLResponse(html_view.page_shell(
+        f"{title} \u2014 What changed", body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
 
 @app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)

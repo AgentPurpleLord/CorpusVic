@@ -7,10 +7,13 @@ from ai_pipeline.amendments import build_amendment_index
 from ai_pipeline.commentary import provision_key
 from ai_pipeline.html_view import (
     build_page_index,
+    render_changes,
     render_endnotes,
     render_index,
     render_preview,
     render_section,
+    render_superseded_banner,
+    render_timeline,
 )
 
 from conftest import make_node
@@ -347,3 +350,126 @@ def test_an_unversioned_document_says_nothing_about_versions():
                         "Test Bill", "/browse/test-bill")
 
     assert "act-version" not in html
+
+
+# ---------------------------------------------------------------------------
+# A provision's timeline, and the superseded-version banner
+#
+# The comparison logic itself belongs to diffing.py and is tested there;
+# these check what render_timeline and render_superseded_banner do with
+# what diffing hands them, since that's the boundary a live check can't
+# easily exercise for every case (the real Act only has 13 changes to
+# look at, not one of each shape).
+# ---------------------------------------------------------------------------
+
+
+def _changed_entry(**overrides) -> dict:
+    entry = {
+        "key": ("provision", None, "366"), "kind": "provision", "type": "section",
+        "number": "366", "schedule": None, "heading": "Application of Division",
+        "version": 112, "as_at": "2026-04-26", "as_at_printed": "26 April 2026",
+        "change": "changed",
+        "diff": [{"op": "equal", "text": "alpha"}, {"op": "delete", "text": "beta"},
+                 {"op": "insert", "text": "gamma"}],
+        "new_history": ["S. 366 amended by No. 1/2026 s. 74."],
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_render_timeline_is_empty_for_a_provision_with_no_history():
+    assert render_timeline([], "/browse/cpa") == ""
+
+
+def test_render_timeline_names_the_newest_change_first():
+    older = _changed_entry(version=111, as_at_printed="1 April 2026")
+    newer = _changed_entry(version=112, as_at_printed="26 April 2026")
+    html = render_timeline([older, newer], "/browse/cpa")
+
+    assert html.index("Version 112") < html.index("Version 111")
+    assert "2 changes" in html
+
+
+def test_render_timeline_marks_deletions_and_insertions():
+    html = render_timeline([_changed_entry()], "/browse/cpa")
+
+    assert '<del class="d-del">beta</del>' in html
+    assert '<ins class="d-ins">gamma</ins>' in html
+
+
+def test_render_timeline_links_the_amending_act_named_in_the_note():
+    index = build_amendment_index(
+        {"amending_acts": [{"citation": "1/2026", "title": "Justice Legislation Amendment Act 2026",
+                            "act_no": "1", "year": 2026, "fields": {"assent_date": "10 Feb 2026"}}]},
+    )
+    html = render_timeline([_changed_entry()], "/browse/cpa", amendment_index=index)
+
+    assert 'class="hist-act"' in html
+    assert "/browse/cpa/endnotes#" in html
+    assert "No. 1/2026" in html
+
+
+def test_render_timeline_links_each_version_to_its_own_page():
+    html = render_timeline([_changed_entry()], "/browse/cpa",
+                           version_urls={112: "/browse/cpa-v112/section/s366"})
+
+    assert '<a class="tl-version" href="/browse/cpa-v112/section/s366">' in html
+
+
+def test_render_timeline_names_an_insertion_by_the_acts_own_word_for_it():
+    html = render_timeline([_changed_entry(change="inserted", diff=[], new_history=["New s. 464 inserted by No. 1/2026 s. 83."])],
+                           "/browse/cpa")
+
+    assert "Inserted" in html
+    assert '<div class="tl-diff">' not in html
+
+
+def test_render_superseded_banner_is_silent_on_the_current_version():
+    assert render_superseded_banner(114, 114, "/browse/cpa-v114/") == ""
+
+
+def test_render_superseded_banner_is_silent_without_version_context():
+    # A Bill or EM: version is None, so there is nothing to be superseded by.
+    assert render_superseded_banner(None, None, None) == ""
+
+
+def test_render_superseded_banner_names_the_current_version_and_links_to_it():
+    html = render_superseded_banner(112, 114, "/browse/cpa-v114/", as_at_printed="26 April 2026")
+
+    assert "Version 112" in html
+    assert "26 April 2026" in html
+    assert 'href="/browse/cpa-v114/"' in html
+    assert "Version 114" in html
+
+
+def test_render_changes_says_theres_nothing_to_compare_with_one_version():
+    html = render_changes([], "Criminal Procedure Act 2009", "/browse/cpa-v114")
+
+    assert "nothing to compare" in html
+
+
+def test_render_changes_groups_entries_under_their_own_version():
+    groups = [
+        {"version": 112, "as_at_printed": "26 April 2026", "url": "/browse/cpa-v112/",
+         "entries": [_changed_entry(href="/browse/cpa-v112/section/s366")]},
+        {"version": 111, "as_at_printed": "1 April 2026", "url": "/browse/cpa-v111/", "entries": []},
+    ]
+    html = render_changes(groups, "Criminal Procedure Act 2009", "/browse/cpa-v114")
+
+    assert html.index("Version 112") < html.index("Version 111")
+    assert "1 provision changed" in html
+    assert "Nothing changed in this reprint" in html
+    assert '<a class="tl-version" href="/browse/cpa-v112/section/s366">section 366</a>' in html
+
+
+def test_render_changes_shows_a_container_provision_without_a_link():
+    # A Schedule holds no page of its own in the browse view (see
+    # dashboard._provision_page_url), so its entry here carries no href.
+    entry = _changed_entry(key=("schedule", None, "3"), kind="schedule", type="schedule",
+                           number="3", heading=None, href=None)
+    groups = [{"version": 114, "as_at_printed": "1 July 2026", "url": "/browse/cpa-v114/", "entries": [entry]}]
+
+    html = render_changes(groups, "Criminal Procedure Act 2009", "/browse/cpa-v114")
+
+    assert '<span class="tl-version">Schedule 3</span>' in html
+    assert '<a class="tl-version" href="None">' not in html

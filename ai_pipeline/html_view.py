@@ -72,6 +72,7 @@ import re
 from .akn_export import build_hierarchy_tree
 from .amendments import anchor_id, describe, linkify_note
 from .commentary import provision_key
+from .diffing import label
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_numbers
 from .markdown_export import (
     _DIVISION_REF_RE,
@@ -278,10 +279,16 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     }
 
 
-def render_index(parsed: dict, act_title: str, base_url: str) -> str:
+def render_index(parsed: dict, act_title: str, base_url: str,
+                 superseded: dict | None = None, has_changes: bool = False) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section is
-    built from it, so the caller controls the URL scheme entirely."""
+    built from it, so the caller controls the URL scheme entirely.
+
+    superseded, if given, is {"version", "current", "current_url",
+    "as_at_printed"} -- see render_superseded_banner. has_changes says
+    whether this document is one of several versions of a work, and so has
+    a "what changed" page worth linking to."""
     ctx = _build_context(parsed, act_title)
     tree_roots = ctx["tree_roots"]
     structural_types = ctx["structural_types"]
@@ -290,6 +297,11 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
     verification = _collect_verification(tree_roots)
 
     out = [f"<h1>{_esc(act_title)}</h1>", _verification_badge(verification)]
+    if superseded:
+        out.append(render_superseded_banner(
+            superseded.get("version"), superseded.get("current"),
+            superseded.get("current_url"), superseded.get("as_at_printed"),
+        ))
     # Which expression of the Act this is, as the PDF's own front matter
     # states it (see ai_pipeline/versions.py). A statement of fact, not yet
     # a judgement about currency -- knowing this is superseded needs to
@@ -302,6 +314,14 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
         out.append(
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
             "&mdash; general information, the Table of Amendments, explanatory details</div>"
+        )
+    # Only where there is something to compare against. An Act held here in
+    # one version has no changes page, and offering one that says so is a
+    # link that wastes the click of everyone who takes it.
+    if has_changes:
+        out.append(
+            f'<div class="index-nav"><a href="{base_url}/changes">What changed</a> '
+            "&mdash; the provisions each Authorised Version altered</div>"
         )
     list_open = False
 
@@ -358,9 +378,199 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
     return f'<div class="crossrefs"><span class="crossrefs-label">Explained in</span>{chips}</div>'
 
 
+# ---------------------------------------------------------------------------
+# A provision's timeline
+# ---------------------------------------------------------------------------
+# An Act is reprinted every few weeks and each reprint restates the whole
+# thing, so the only way to see how a provision's wording has moved is to
+# compare the reprints (ai_pipeline/diffing.py). What comes back is
+# rendered here, on the provision's own page, because that is where a
+# reader is when the question occurs to them -- not on a separate
+# compare-two-versions screen they would have to know to go and look for.
+#
+# It is shown only on a provision that actually changed. A control on
+# every provision that mostly says "nothing happened" trains a reader to
+# stop opening it, which costs more than it gives.
+
+
+def _diff_html(diff: list[dict]) -> str:
+    """One version's change, as the words moved: what went, struck
+    through, and what arrived, marked. Unchanged words are kept around
+    them so a reader sees the amendment in its sentence rather than as a
+    pair of disembodied phrases -- which is how the amending Act itself
+    reads ("in section 366(1)(d), after 'offence' insert ...")."""
+    out = []
+    for segment in diff:
+        text = _esc(segment["text"])
+        if segment["op"] == "equal":
+            out.append(f'<span class="d-eq">{text}</span>')
+        elif segment["op"] == "delete":
+            out.append(f'<del class="d-del">{text}</del>')
+        else:
+            out.append(f'<ins class="d-ins">{text}</ins>')
+    return " ".join(out)
+
+
+def _timeline_note_html(raw: str, base_url: str, amendment_index: "dict | None") -> str:
+    """One amendment note, with the Act it names linked to that Act's
+    entry in the Endnotes -- the same treatment the note gets in the
+    margin, so the citation means the same thing and goes to the same
+    place wherever a reader meets it."""
+    marked = []
+    for run in linkify_note(raw, amendment_index):
+        record = run.get("record")
+        if record is None:
+            marked.append(_esc(run["text"]))
+            continue
+        href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
+        marked.append(
+            f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">{_esc(run["text"])}</a>'
+        )
+    return f'<span class="tl-note">{"".join(marked)}</span>'
+
+
+def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | None",
+                         version_urls: "dict | None") -> str:
+    """One point on a provision's timeline: the version it changed at, what
+    the Act says did the changing, and the words that moved."""
+    version = entry.get("version")
+    when = entry.get("as_at_printed")
+    stamp = f"Version {version}" if version is not None else "Earlier version"
+    if when:
+        stamp += f" \u2014 as at {_esc(when)}"
+    href = (version_urls or {}).get(version)
+    heading = f'<a class="tl-version" href="{_esc(href)}">{stamp}</a>' if href else f'<span class="tl-version">{stamp}</span>'
+
+    change = entry.get("change")
+    # The Act's own words for what happened to a provision. Using anything
+    # else here would have the timeline describe the amendment in language
+    # the amendment does not use.
+    verb = {"inserted": "Inserted", "repealed": "Repealed", "changed": "Amended"}.get(change, "Changed")
+    notes = "".join(_timeline_note_html(raw, base_url, amendment_index)
+                    for raw in entry.get("new_history") or [])
+    body = f'<div class="tl-diff">{_diff_html(entry["diff"])}</div>' if entry.get("diff") else ""
+    note_block = f'<div class="tl-notes">{notes}</div>' if notes else ""
+    return (
+        f'<li class="tl-entry tl-{_esc(change or "changed")}">'
+        f'<div class="tl-head">{heading}<span class="tl-verb">{verb}</span></div>'
+        f'{note_block}{body}</li>'
+    )
+
+
+def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
+                    version_urls: "dict | None" = None) -> str:
+    """A provision's history across the versions of the Act held here, or
+    "" where it has none.
+
+    Newest first: a reader arriving at this control almost always wants
+    the most recent change, and having to scroll a long timeline to reach
+    it would make the common case the expensive one. The collapsed
+    summary says how many changes there are and when the last one was, so
+    the control answers the first question without being opened.
+    """
+    if not entries:
+        return ""
+    newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
+    latest = newest_first[0]
+    count = len(newest_first)
+    when = latest.get("as_at_printed")
+    summary = f"{count} change{'s' if count != 1 else ''} across the versions held here"
+    if when:
+        summary += f"; most recent as at {_esc(when)}"
+    items = "".join(_timeline_entry_html(e, base_url, amendment_index, version_urls) for e in newest_first)
+    return (
+        '<details class="timeline">'
+        f'<summary class="timeline-summary">This provision has changed &mdash; '
+        f'<span class="tl-count">{summary}</span></summary>'
+        f'<ol class="tl-list">{items}</ol>'
+        "</details>"
+    )
+
+
+def render_changes(groups: list[dict], act_title: str, base_url: str,
+                   amendment_index: "dict | None" = None) -> str:
+    """Everything that changed at each version of the Act, newest version
+    first -- the reprint's own answer to "what is different this time?".
+
+    This exists alongside the per-provision timeline because the two
+    answer different questions. A reader on section 366 wants to know how
+    *this* provision got its present wording; a reader who has just been
+    told version 114 is out wants to know what moved anywhere in the Act.
+
+    It is also the only place some changes can appear at all. A Schedule
+    whose items are unnumbered prose holds them on its own node and gets
+    no page of its own in the browse view, so an amendment to one -- like
+    Schedule 3 of the Criminal Procedure Act gaining "and Food Innovation"
+    at version 114 -- would otherwise be found by nothing.
+
+    `groups` is [{"version", "as_at_printed", "entries": [...], "url": ...}]
+    as dashboard.py assembles it; each entry is a diffing timeline entry,
+    optionally carrying "href" for its own provision page.
+    """
+    out = [f"<h1>{_esc(act_title)} &mdash; what changed</h1>"]
+    if not groups:
+        out.append('<p class="changes-empty">Only one version of this Act is held here, '
+                   "so there is nothing to compare it against.</p>")
+        return "\n".join(out)
+
+    for group in groups:
+        version, when = group.get("version"), group.get("as_at_printed")
+        stamp = f"Version {version}" if version is not None else "A later version"
+        if when:
+            stamp += f" &mdash; as at {_esc(when)}"
+        link = f' <a class="changes-goto" href="{_esc(group["url"])}">Read it</a>' if group.get("url") else ""
+        entries = group.get("entries") or []
+        count = len(entries)
+        out.append(f'<h2 class="changes-version">{stamp} '
+                   f'<span class="changes-count">{count} provision{"s" if count != 1 else ""} changed</span>{link}</h2>')
+        if not entries:
+            out.append('<p class="changes-empty">Nothing changed in this reprint.</p>')
+            continue
+        out.append('<ol class="tl-list changes-list">')
+        for entry in entries:
+            name = _esc(label(entry))
+            heading = (f'<a class="tl-version" href="{_esc(entry["href"])}">{name}</a>'
+                       if entry.get("href") else f'<span class="tl-version">{name}</span>')
+            verb = {"inserted": "Inserted", "repealed": "Repealed", "changed": "Amended"}.get(entry.get("change"), "Changed")
+            notes = "".join(_timeline_note_html(raw, base_url, amendment_index)
+                            for raw in entry.get("new_history") or [])
+            note_block = f'<div class="tl-notes">{notes}</div>' if notes else ""
+            body = f'<div class="tl-diff">{_diff_html(entry["diff"])}</div>' if entry.get("diff") else ""
+            out.append(
+                f'<li class="tl-entry tl-{_esc(entry.get("change") or "changed")}">'
+                f'<div class="tl-head">{heading}<span class="tl-verb">{verb}</span></div>'
+                f'{note_block}{body}</li>'
+            )
+        out.append("</ol>")
+    return "\n".join(out)
+
+
+def render_superseded_banner(version: "int | None", current: "int | None", current_url: "str | None",
+                             as_at_printed: "str | None" = None) -> str:
+    """The notice on a version that is no longer the law.
+
+    Shown at the top of every page of a superseded version, not only where
+    that page's own provision changed: a reader who has arrived at an old
+    reprint is reading the wrong law whether or not this particular section
+    is one of the ones that moved, and finding that out at the bottom of
+    the page is finding it out too late.
+    """
+    if version is None or current is None or version >= current:
+        return ""
+    when = f" (as at {_esc(as_at_printed)})" if as_at_printed else ""
+    link = (f' <a class="supersede-link" href="{_esc(current_url)}">Go to Version {current}</a>'
+            if current_url else "")
+    return (
+        f'<div class="supersede" role="status">This is <strong>Version {version}</strong>{when} '
+        f'and is not the law as it now stands &mdash; Version {current} is.{link}</div>'
+    )
+
+
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
+    timeline: list[dict] | None = None, version_urls: dict | None = None,
+    superseded: dict | None = None,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -368,7 +578,15 @@ def render_section(
 
     crossrefs, if given, are the related-document chips described in
     _crossrefs_html; amendment_index, if given, is what lets each margin
-    note name the Act behind its citation (see _margin_notes_html)."""
+    note name the Act behind its citation (see _margin_notes_html).
+
+    timeline, if given, is this provision's own entries from
+    ai_pipeline/diffing.build_timeline -- how its wording has moved across
+    the versions of the Act held here -- with version_urls mapping a
+    version number to that version's page for this same provision.
+    superseded, if given, is {"version", "current", "current_url",
+    "as_at_printed"} for the banner saying this reprint is no longer the
+    law."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -390,6 +608,16 @@ def render_section(
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
     out.append(_verification_badge(verification))
     out.append(f"<h1>{_esc(title)}</h1>")
+    # Ordered as a reader needs them: whether this is even the current law
+    # first, then how this provision got to its present wording, then where
+    # else it is explained. A crossref chip is no use to someone reading
+    # the wrong reprint.
+    if superseded:
+        out.append(render_superseded_banner(
+            superseded.get("version"), superseded.get("current"),
+            superseded.get("current_url"), superseded.get("as_at_printed"),
+        ))
+    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
     out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads as the Act itself does: each provision indented by its
@@ -761,6 +989,8 @@ PAGE_CSS = """
   --done: #16a34a; --pending: #9ca3af; --flagged: #d97706;
   --verify-full-bg: #dcfce7; --verify-partial-bg: #fef3c7; --verify-none-bg: #e5e7eb;
   --bar-bg: #111827; --bar-fg: #d1d5db; --bar-link: #93c5fd;
+  --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
+  --warn-bg: #fef3c7; --warn-border: #d97706;
   --sans: ui-sans-serif, system-ui, sans-serif;
 }
 :root[data-theme="dark"] {
@@ -770,6 +1000,8 @@ PAGE_CSS = """
   --done: #34d17f; --pending: #8b93a0; --flagged: #f0ad4e;
   --verify-full-bg: #132a1c; --verify-partial-bg: #2c2410; --verify-none-bg: #262a31;
   --bar-bg: #05070a; --bar-fg: #b6bcc6; --bar-link: #7fb6ea;
+  --ins-bg: #14321f; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
+  --warn-bg: #2c2410; --warn-border: #f0ad4e;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: Georgia, "Times New Roman", serif; line-height: 1.65; }
@@ -898,6 +1130,59 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .crossref-em { border-style: dashed; }
+
+/* A provision's timeline -- see render_timeline. Collapsed by default:
+   the summary answers "has this changed, and when last?" without opening,
+   which is the question most readers actually have, and the words that
+   moved are one click away for the ones who want them. */
+.timeline { margin: 0 0 20px; font-family: var(--sans); }
+.timeline-summary {
+  cursor: pointer; font-size: 12.5px; padding: 6px 10px;
+  border: 1px solid var(--border); border-left: 3px solid var(--flagged);
+  border-radius: 4px; background: var(--panel); color: var(--fg);
+}
+.timeline-summary:hover { border-color: var(--accent); }
+.timeline[open] .timeline-summary { border-radius: 4px 4px 0 0; }
+.tl-count { color: var(--muted); }
+.tl-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-top: none; }
+.tl-entry { padding: 10px 12px; border-top: 1px solid var(--border); }
+.tl-entry:first-child { border-top: none; }
+.tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 5px; }
+.tl-version { font-size: 12.5px; font-weight: 600; }
+.tl-verb {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 7px; border-radius: 9px; background: var(--verify-none-bg); color: var(--muted);
+}
+.tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
+.tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
+.tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+.tl-note { display: block; }
+/* The diff itself is set in the Act's own serif, not the interface sans:
+   it is the legislation's words, and reading them in the interface font
+   would make an amendment look like a piece of the tool's chrome. */
+.tl-diff {
+  font-family: Georgia, "Times New Roman", serif; font-size: 13.5px; line-height: 1.6;
+  max-height: 20em; overflow-y: auto;
+}
+.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 2px; }
+.d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 2px; }
+
+/* The notice on a reprint that is no longer the law. Deliberately loud
+   and at the top of the page: a reader on a superseded version is reading
+   the wrong law, and that is worth interrupting them for. */
+.supersede {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 3px;
+  border-radius: 4px; padding: 8px 12px; margin: 0 0 16px;
+}
+.supersede-link { white-space: nowrap; }
+
+/* The per-version "what changed" page -- see render_changes. */
+.changes-version { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.changes-count { font-family: var(--sans); font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.changes-goto { font-family: var(--sans); font-size: 11.5px; font-weight: 400; }
+.changes-list { margin-bottom: 26px; border-radius: 4px; border-top: 1px solid var(--border); }
+.changes-empty { color: var(--muted); font-family: var(--sans); font-size: 12.5px; }
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
    coordinates (not fixed) so it scrolls with the link it belongs to. */
