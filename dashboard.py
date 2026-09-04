@@ -106,8 +106,10 @@ def discover_slugs() -> list[str]:
                 # ai_pipeline/versions.py).
                 for pdf in p.glob("*.pdf"):
                     version = _pdf_version(pdf)
-                    if version is not None:
-                        slugs.add(document_slug(p.name, version))
+                    # A Bill or an EM filed with the Act it became belongs
+                    # to the work's history without being a point on its
+                    # timeline -- it keeps its own filename as its slug.
+                    slugs.add(document_slug(p.name, version) if version is not None else slugify(pdf.stem))
     parsed_dir = BASE_DIR / "data" / "ai_parsed"
     if parsed_dir.exists():
         for p in parsed_dir.glob("*.json"):

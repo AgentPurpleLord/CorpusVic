@@ -94,15 +94,15 @@ def main():
     # sitting in a work directory is stored under that work and its own
     # version number rather than under its filename.
     version = read_front_matter(pdf_path)
+    # A work directory holds an Act's own documents. The ones that state an
+    # Authorised Version are versions of it and are named accordingly; a
+    # Bill and its Explanatory Memorandum commonly sit there too, and those
+    # belong to the Act's history without being points on its timeline, so
+    # they keep their own filename as their slug like any other document.
     work = work_directory(pdf_path)
-    if work and version["version"] is None:
-        raise SystemExit(
-            f"{pdf_path} is in the work directory {work!r} but states no Authorised Version "
-            "number, so there is no way to tell which version of that work it is. Move it out "
-            "of the directory to parse it as a document in its own right."
-        )
-    act_slug = document_slug(work, version["version"]) if work else slugify(pdf_path.stem)
-    if work:
+    is_version = bool(work) and version["version"] is not None
+    act_slug = document_slug(work, version["version"]) if is_version else slugify(pdf_path.stem)
+    if is_version:
         print(f"{describe_version(version)} -> {act_slug}")
 
     print(f"Extracting text from {pdf_path} ...")
@@ -147,7 +147,7 @@ def main():
     # one criminal-procedure-act.yaml serves all five of its versions
     # rather than needing a copy per version.
     profile_name = args.profile or next(
-        (name for name in ((work or act_slug), act_slug) if profile_exists(name)), None
+        (name for name in ((work if is_version else act_slug), act_slug) if profile_exists(name)), None
     )
     if profile_name and not args.profile:
         print(f"Using profile ai_pipeline/profiles/{profile_name}.yaml (named after this Act)")
