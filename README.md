@@ -95,6 +95,15 @@ A profile is looked up under the work before the document, so one
 Only the highest-numbered version is the law as it stands; the rest are
 superseded and say so.
 
+`ai_pipeline/diffing.py` works out what actually changed between two
+versions — nothing records it, since each reprint just restates the whole
+Act. Provisions are matched on (Schedule, number) rather than position, so
+an inserted section doesn't report the rest of the Act as rewritten, and
+comparison is on the words: a reprint that repaginates, doubles a space or
+embeds a font differently has not amended anything. Across the five
+Criminal Procedure Act versions here that is the difference between a
+timeline of 48 entries and one of 12, all 12 real.
+
 An Act whose numbering doesn't match the defaults gets a profile rather
 than a code change — copy `ai_pipeline/profiles/TEMPLATE.yaml`, and see
 `acts/profiles/basic-structure.yaml` for how Victorian Acts are actually
