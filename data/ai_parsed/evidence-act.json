@@ -4,6 +4,14 @@
   "engine": "rules",
   "profile": null,
   "document_type": "act",
+  "version": {
+    "version": 27,
+    "as_at": "2024-03-25",
+    "as_at_printed": "25 March 2024",
+    "title": "Evidence Act 2008",
+    "act_no": "47",
+    "year": 2008
+  },
   "hierarchy": [
     "schedule",
     "chapter",

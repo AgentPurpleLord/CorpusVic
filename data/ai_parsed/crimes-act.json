@@ -4,6 +4,14 @@
   "engine": "rules",
   "profile": null,
   "document_type": "act",
+  "version": {
+    "version": 321,
+    "as_at": "2026-04-26",
+    "as_at_printed": "26 April 2026",
+    "title": "Crimes Act 1958",
+    "act_no": "6231",
+    "year": 1958
+  },
   "hierarchy": [
     "schedule",
     "chapter",

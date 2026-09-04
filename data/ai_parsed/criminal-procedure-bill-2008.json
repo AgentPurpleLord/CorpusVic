@@ -4,6 +4,14 @@
   "engine": "rules",
   "profile": null,
   "document_type": "bill",
+  "version": {
+    "version": null,
+    "as_at": null,
+    "as_at_printed": null,
+    "title": "Criminal Procedure Bill 2008",
+    "act_no": null,
+    "year": 2008
+  },
   "hierarchy": [
     "schedule",
     "chapter",

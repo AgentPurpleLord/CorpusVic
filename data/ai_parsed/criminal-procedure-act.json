@@ -4,6 +4,14 @@
   "engine": "rules",
   "profile": null,
   "document_type": "act",
+  "version": {
+    "version": 114,
+    "as_at": "2026-07-01",
+    "as_at_printed": "1 July 2026",
+    "title": "Criminal Procedure Act 2009",
+    "act_no": "7",
+    "year": 2009
+  },
   "hierarchy": [
     "schedule",
     "chapter",

@@ -4,6 +4,14 @@
   "engine": "rules",
   "profile": null,
   "document_type": "act",
+  "version": {
+    "version": 134,
+    "as_at": "2026-05-01",
+    "as_at_printed": "1 May 2026",
+    "title": "Interpretation of Legislation Act 1984",
+    "act_no": "10096",
+    "year": 1984
+  },
   "hierarchy": [
     "schedule",
     "chapter",
