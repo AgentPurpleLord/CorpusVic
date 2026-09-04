@@ -186,8 +186,11 @@
       "history": [
         {
           "raw": "S. 3 def. of statutory rule substituted by No. 104/1994 s. 35(Sch. 2 item 3.1), repealed by No. 61/2004 s. 6(2).",
+          "kind": "amendment",
           "section": "3",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "statutory rule",
@@ -196,8 +199,11 @@
         },
         {
           "raw": "S. 3 def. of subordinate instrument repealed by No. 61/2004 s. 6(2).",
+          "kind": "amendment",
           "section": "3",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "subordinate instrument",
@@ -664,8 +670,11 @@
       "history": [
         {
           "raw": "S. 9 substituted by No. 10214 s. 4.",
+          "kind": "amendment",
           "section": "9",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -892,10 +901,13 @@
       "history": [
         {
           "raw": "S. 9(3) inserted by No. 13/2006 s. 3.",
+          "kind": "amendment",
           "section": "9",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -930,8 +942,11 @@
       "history": [
         {
           "raw": "S. 10 substituted by No. 10214 s. 5.",
+          "kind": "amendment",
           "section": "10",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1158,10 +1173,13 @@
       "history": [
         {
           "raw": "S. 10(2AA) inserted by No. 5/2015 s. 4.",
+          "kind": "amendment",
           "section": "10",
           "sub_path": [
             "(2AA)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1196,10 +1214,13 @@
       "history": [
         {
           "raw": "S. 10(2A) inserted by No. 2/2007 s. 3.",
+          "kind": "amendment",
           "section": "10",
           "sub_path": [
             "(2A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1234,10 +1255,13 @@
       "history": [
         {
           "raw": "S. 10(2B) inserted by No. 2/2007 s. 3.",
+          "kind": "amendment",
           "section": "10",
           "sub_path": [
             "(2B)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1296,8 +1320,11 @@
       "history": [
         {
           "raw": "S. 10A inserted by No. 10214 s. 6.",
+          "kind": "amendment",
           "section": "10A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1428,10 +1455,13 @@
       "history": [
         {
           "raw": "S. 10A(3) inserted by No. 13/2006 s. 4(1).",
+          "kind": "amendment",
           "section": "10A",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1466,10 +1496,13 @@
       "history": [
         {
           "raw": "S. 10A(4) inserted by No. 13/2006 s. 4(1).",
+          "kind": "amendment",
           "section": "10A",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1528,10 +1561,13 @@
       "history": [
         {
           "raw": "S. 11(1) amended by No. 108/1994 s. 10(a), substituted by No. 13/2006 s. 4(2).",
+          "kind": "amendment",
           "section": "11",
           "sub_path": [
             "(1)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1566,10 +1602,13 @@
       "history": [
         {
           "raw": "S. 11(2) amended by No. 95/1993 s. 4(1)(a)\u2013(e), substituted by No. 13/2006 s. 4(2).",
+          "kind": "amendment",
           "section": "11",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1604,10 +1643,13 @@
       "history": [
         {
           "raw": "S. 11(2A) inserted by No. 13/2006 s. 4(2).",
+          "kind": "amendment",
           "section": "11",
           "sub_path": [
             "(2A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1642,10 +1684,13 @@
       "history": [
         {
           "raw": "S. 11(3) amended by No. 108/1994 s. 10(b).",
+          "kind": "amendment",
           "section": "11",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1680,10 +1725,13 @@
       "history": [
         {
           "raw": "S. 11(4) inserted by No. 95/1993 s. 4(2), amended by No. 61/2004 s. 3(a)(b).",
+          "kind": "amendment",
           "section": "11",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -1742,8 +1790,11 @@
       "history": [
         {
           "raw": "S. 13 substituted by No. 13/2006 s. 5.",
+          "kind": "amendment",
           "section": "13",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2306,11 +2357,14 @@
       "history": [
         {
           "raw": "S. 14(2)(ea) inserted by No. 5/2015 s. 5(1).",
+          "kind": "amendment",
           "section": "14",
           "sub_path": [
             "(2)",
             "(ea)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2369,11 +2423,14 @@
       "history": [
         {
           "raw": "S. 14(2)(g) substituted by No. 5/2015 s. 5(2).",
+          "kind": "amendment",
           "section": "14",
           "sub_path": [
             "(2)",
             "(g)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2408,10 +2465,13 @@
       "history": [
         {
           "raw": "S. 14(2A) inserted by No. 13/2006 s. 6(1).",
+          "kind": "amendment",
           "section": "14",
           "sub_path": [
             "(2A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2494,10 +2554,13 @@
       "history": [
         {
           "raw": "S. 14(3) amended by No. 13/2006 s. 6(2).",
+          "kind": "amendment",
           "section": "14",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2772,8 +2835,11 @@
       "history": [
         {
           "raw": "S. 17 amended by No. 95/1993 s. 5(1).",
+          "kind": "amendment",
           "section": "17",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2928,10 +2994,13 @@
       "history": [
         {
           "raw": "S. 17(1A) inserted by No. 13/2006 s. 7(1).",
+          "kind": "amendment",
           "section": "17",
           "sub_path": [
             "(1A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -2966,10 +3035,13 @@
       "history": [
         {
           "raw": "S. 17(2) inserted by No. 95/1993 s. 5(2).",
+          "kind": "amendment",
           "section": "17",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3148,8 +3220,11 @@
       "history": [
         {
           "raw": "S. 18 amended by No. 12/1989 s. 4(1)(Sch. 2 item 63.1).",
+          "kind": "amendment",
           "section": "18",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3232,11 +3307,14 @@
       "history": [
         {
           "raw": "S. 19(1)(aaa) inserted by No. 60/2000 s. 4(1).",
+          "kind": "amendment",
           "section": "19",
           "sub_path": [
             "(1)",
             "(aaa)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3271,11 +3349,14 @@
       "history": [
         {
           "raw": "S. 19(1)(aa) inserted by No. 60/2000 s. 4(1).",
+          "kind": "amendment",
           "section": "19",
           "sub_path": [
             "(1)",
             "(aa)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3310,12 +3391,15 @@
       "history": [
         {
           "raw": "S. 19(1)(aa)(i) substituted by No. 5/2015 s. 6.",
+          "kind": "amendment",
           "section": "19",
           "sub_path": [
             "(1)",
             "(aa)",
             "(i)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3350,12 +3434,15 @@
       "history": [
         {
           "raw": "S. 19(1)(aa)(ia) inserted by No. 5/2015 s. 6.",
+          "kind": "amendment",
           "section": "19",
           "sub_path": [
             "(1)",
             "(aa)",
             "(ia)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3414,11 +3501,14 @@
       "history": [
         {
           "raw": "S. 19(1)(a) amended by No. 60/2000 s. 4(2).",
+          "kind": "amendment",
           "section": "19",
           "sub_path": [
             "(1)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -3861,8 +3951,11 @@
       "history": [
         {
           "raw": "S. 20 amended by Nos 12/1989 s. 4(1)(Sch. 2 item 63.2), 60/2000 s. 4(3), 38/2017 s. 88.",
+          "kind": "amendment",
           "section": "20",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -4137,10 +4230,13 @@
       "history": [
         {
           "raw": "S. 21(3) amended by No. 25/2023 s. 3.",
+          "kind": "amendment",
           "section": "21",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -4175,8 +4271,11 @@
       "history": [
         {
           "raw": "S. 21A inserted by No. 104/1994 s. 29.",
+          "kind": "amendment",
           "section": "21A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -4307,10 +4406,13 @@
       "history": [
         {
           "raw": "S. 21A(3) inserted by No. 2/2007 s. 4.",
+          "kind": "amendment",
           "section": "21A",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -4345,10 +4447,13 @@
       "history": [
         {
           "raw": "S. 21A(4) inserted by No. 2/2007 s. 4.",
+          "kind": "amendment",
           "section": "21A",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -4623,8 +4728,11 @@
       "history": [
         {
           "raw": "S. 26 substituted by No. 13/2006 s. 8.",
+          "kind": "amendment",
           "section": "26",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -5259,10 +5367,13 @@
       "history": [
         {
           "raw": "S. 28(2A) inserted by No. 13/2006 s. 6(3).",
+          "kind": "amendment",
           "section": "28",
           "sub_path": [
             "(2A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -5345,10 +5456,13 @@
       "history": [
         {
           "raw": "S. 28(3) amended by No. 13/2006 s. 6(4).",
+          "kind": "amendment",
           "section": "28",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -5623,8 +5737,11 @@
       "history": [
         {
           "raw": "S. 31 amended by No. 95/1993 s. 5(3).",
+          "kind": "amendment",
           "section": "31",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -5779,10 +5896,13 @@
       "history": [
         {
           "raw": "S. 31(1A) inserted by No. 13/2006 s. 7(2).",
+          "kind": "amendment",
           "section": "31",
           "sub_path": [
             "(1A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -5817,10 +5937,13 @@
       "history": [
         {
           "raw": "S. 31(2) inserted by No. 95/1993 s. 5(4).",
+          "kind": "amendment",
           "section": "31",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -5999,8 +6122,11 @@
       "history": [
         {
           "raw": "S. 32 amended by No. 4/1986 s. 4, substituted by No. 6/1991 s. 3.",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6009,10 +6135,13 @@
         },
         {
           "raw": "S. 32(6)\u2013(8) amended by No. 95/1993 s. 6, repealed by No. 104/1994 s. 30(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(6)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6021,10 +6150,13 @@
         },
         {
           "raw": "S. 32(9)\u2013(11) repealed by No. 104/1994 s. 30(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(9)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6033,10 +6165,13 @@
         },
         {
           "raw": "S. 32(15) repealed by No. 104/1994 s. 30(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(15)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6071,10 +6206,13 @@
       "history": [
         {
           "raw": "S. 32(1) def. of Code amended by Nos 80/1990 s. 98(2), 48/1992 s. 116(2), 41/1995 s. 60, 83/1996 s. 38, 29/1997 s. 9, 31/1998 s. 26, 37/1999 s. 58(Sch. 1 item 2.1), 30/2008 s. 42(1), 11/2010 s. 51, 55/2025 s. 57.",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(1)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Code",
@@ -6083,10 +6221,13 @@
         },
         {
           "raw": "S. 32(1) def. of statutory rule repealed by No. 60/2000 s. 5(1).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(1)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "statutory rule",
@@ -6121,11 +6262,14 @@
       "history": [
         {
           "raw": "S. 32(3)(a) substituted by No. 104/1994 s. 30(1)(b).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(3)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6134,11 +6278,14 @@
         },
         {
           "raw": "S. 32(4)(a) substituted by No. 104/1994 s. 30(2), amended by No. 30/2003 s. 78 (as amended by No. 106/2003 s. 23).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(4)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6173,11 +6320,14 @@
       "history": [
         {
           "raw": "S. 32(2)(b) amended by No. 60/2000 s. 5(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(2)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6186,11 +6336,14 @@
         },
         {
           "raw": "S. 32(3)(b) amended by No. 104/1994 s. 30(1)(c).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(3)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6199,11 +6352,14 @@
         },
         {
           "raw": "S. 32(4)(b) repealed by No. 104/1994 s. 30(2).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(4)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6646,12 +6802,15 @@
       "history": [
         {
           "raw": "S. 32(2)(a)(ia) inserted by No. 60/2000 s. 5(2)(a).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(2)",
             "(a)",
             "(ia)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6710,12 +6869,15 @@
       "history": [
         {
           "raw": "S. 32(2)(a)(iii) amended by No. 60/2000 s. 5(2)(b).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(2)",
             "(a)",
             "(iii)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6750,12 +6912,15 @@
       "history": [
         {
           "raw": "S. 32(2)(a)(iv) inserted by No. 60/2000 s. 5(2)(b).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(2)",
             "(a)",
             "(iv)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -6814,10 +6979,13 @@
       "history": [
         {
           "raw": "S. 32(3) amended by Nos 104/1994 s. 30(1)(a), 60/2000 s. 5(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7020,10 +7188,13 @@
       "history": [
         {
           "raw": "S. 32(4) amended by No. 60/2000 s. 5(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7298,10 +7469,13 @@
       "history": [
         {
           "raw": "S. 32(12) amended by No. 60/2000 s. 5(3).",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(12)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7384,10 +7558,13 @@
       "history": [
         {
           "raw": "S. 32(13) substituted by No. 104/1994 s. 31.",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(13)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7422,10 +7599,13 @@
       "history": [
         {
           "raw": "S. 32(13A) inserted by No. 62/2014 s. 109.",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(13A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7508,10 +7688,13 @@
       "history": [
         {
           "raw": "S. 32(13B) inserted by No. 62/2014 s. 109.",
+          "kind": "amendment",
           "section": "32",
           "sub_path": [
             "(13B)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7666,10 +7849,13 @@
       "history": [
         {
           "raw": "S. 33(1) amended by No. 12/1989 s. 4(1)(Sch. 2 item 63.3).",
+          "kind": "amendment",
           "section": "33",
           "sub_path": [
             "(1)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7704,11 +7890,14 @@
       "history": [
         {
           "raw": "S. 33(1)(aaa) inserted by No. 60/2000 s. 6(1).",
+          "kind": "amendment",
           "section": "33",
           "sub_path": [
             "(1)",
             "(aaa)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7743,11 +7932,14 @@
       "history": [
         {
           "raw": "S. 33(1)(aa) inserted by No. 60/2000 s. 6(1).",
+          "kind": "amendment",
           "section": "33",
           "sub_path": [
             "(1)",
             "(aa)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -7830,11 +8022,14 @@
       "history": [
         {
           "raw": "S. 33(1)(a) amended by Nos 12/1989 s. 4(1)(Sch. 2 item 63.4), 60/2000 s. 6(2).",
+          "kind": "amendment",
           "section": "33",
           "sub_path": [
             "(1)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8013,12 +8208,15 @@
       "history": [
         {
           "raw": "S. 33(1)(c)(v) amended by No. 12/1989 s. 4(1)((Sch. 2 item 63.5).",
+          "kind": "amendment",
           "section": "33",
           "sub_path": [
             "(1)",
             "(c)",
             "(v)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8053,12 +8251,15 @@
       "history": [
         {
           "raw": "S. 33(1)(c)(vi) amended by No. 12/1989 s. 4(1)(Sch. 2 item 63.6) (as amended by No. 13/1990 s. 38(1)(x)).",
+          "kind": "amendment",
           "section": "33",
           "sub_path": [
             "(1)",
             "(c)",
             "(vi)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8333,8 +8534,11 @@
       "history": [
         {
           "raw": "S. 34 amended by No. 60/2000 s. 6(3).",
+          "kind": "amendment",
           "section": "34",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8537,11 +8741,14 @@
       "history": [
         {
           "raw": "S. 35(b)(iv) amended by No. 67/2014 s. 147(Sch. 2 item 23).",
+          "kind": "amendment",
           "section": "35",
           "sub_path": [
             "(b)",
             "(iv)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8624,11 +8831,14 @@
       "history": [
         {
           "raw": "S. 36(1)(a) amended by No. 60/2000 s. 7(1).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(1)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8687,10 +8897,13 @@
       "history": [
         {
           "raw": "S. 36(1A) inserted by No. 60/2000 s. 7(2).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(1A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8797,10 +9010,13 @@
       "history": [
         {
           "raw": "S. 36(2A) inserted by No. 60/2000 s. 7(3).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(2A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -8931,10 +9147,13 @@
       "history": [
         {
           "raw": "S. 36(2B) inserted by No. 61/2004 s. 4.",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(2B)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9065,10 +9284,13 @@
       "history": [
         {
           "raw": "S. 36(3) amended by No. 60/2000 s. 7(4)(a)(b).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9127,10 +9349,13 @@
       "history": [
         {
           "raw": "S. 36(3A) inserted by No. 60/2000 s. 7(5).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(3A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9213,10 +9438,13 @@
       "history": [
         {
           "raw": "S. 36(3B) inserted by No. 60/2000 s. 7(5).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(3B)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9299,10 +9527,13 @@
       "history": [
         {
           "raw": "S. 36(3C) inserted by No. 60/2000 s. 7(5).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(3C)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9337,10 +9568,13 @@
       "history": [
         {
           "raw": "S. 36(3D) inserted by No. 60/2000 s. 7(5).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(3D)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9375,10 +9609,13 @@
       "history": [
         {
           "raw": "S. 36(3E) inserted by No. 60/2000 s. 7(5).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(3E)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9413,10 +9650,13 @@
       "history": [
         {
           "raw": "S. 36(4) amended by No. 60/2000 s. 7(6).",
+          "kind": "amendment",
           "section": "36",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9451,8 +9691,11 @@
       "history": [
         {
           "raw": "S. 36A inserted by No. 60/2000 s. 8.",
+          "kind": "amendment",
           "section": "36A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9631,8 +9874,11 @@
       "history": [
         {
           "raw": "S. 36B inserted by No. 61/2004 s. 5.",
+          "kind": "amendment",
           "section": "36B",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9811,10 +10057,13 @@
       "history": [
         {
           "raw": "S. 37(b) repealed by No. 95/1993 s. 7.",
+          "kind": "amendment",
           "section": "37",
           "sub_path": [
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9849,10 +10098,13 @@
       "history": [
         {
           "raw": "S. 37(a) substituted by No. 95/1993 s. 7.",
+          "kind": "amendment",
           "section": "37",
           "sub_path": [
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -9959,8 +10211,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Chief Commis- sioner of Police inserted by No. 55/2025 s. 58.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Chief Commis- sioner of Police",
@@ -9969,8 +10224,11 @@
         },
         {
           "raw": "S. 38 def. of Criminal Code of the Common- wealth inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Criminal Code of the Common- wealth",
@@ -9979,8 +10237,11 @@
         },
         {
           "raw": "S. 38 def. of electronic communi- cation inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "electronic communi- cation",
@@ -10015,8 +10276,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Australian legal practitioner inserted by No. 17/2014 (as amended by No. 8/2015).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Australian legal practitioner",
@@ -10025,8 +10289,11 @@
         },
         {
           "raw": "S. 38 def. of enactment inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "enactment",
@@ -10061,8 +10328,11 @@
       "history": [
         {
           "raw": "S. 38 def. of ADI inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "ADI",
@@ -10097,8 +10367,11 @@
       "history": [
         {
           "raw": "S. 38 def. of approved alternative publication Internet site inserted by No. 13/2022 s. 37.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "approved alternative publication Internet site",
@@ -10133,8 +10406,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Attorney- General inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Attorney- General",
@@ -10169,8 +10445,11 @@
       "history": [
         {
           "raw": "S. 38 def. of audio link inserted by No. 11/2021 s. 195.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "audio link",
@@ -10205,8 +10484,11 @@
       "history": [
         {
           "raw": "S. 38 def. of audio visual link inserted by No. 11/2021 s. 195.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "audio visual link",
@@ -10241,8 +10523,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Australia inserted by No. 60/2000 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Australia",
@@ -10251,8 +10536,11 @@
         },
         {
           "raw": "S. 38 def. of Australian lawyer inserted by No. 17/2014 (as amended by No. 8/2015).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Australian lawyer",
@@ -10261,8 +10549,11 @@
         },
         {
           "raw": "S. 38 def. of Standards Australia inserted by No. 60/2000 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Standards Australia",
@@ -10417,8 +10708,11 @@
       "history": [
         {
           "raw": "S. 38 def. of bail justice inserted by No. 51/1989 s. 146(a)(i), substituted by No. 35/2002 s. 25(3), amended by No. 70/2010 s. 39, substituted by No. 32/2014 s. 57.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "bail justice",
@@ -10525,8 +10819,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Central Plan Office inserted by No. 53/2017 s. 14.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Central Plan Office",
@@ -10585,8 +10882,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Chief Judge inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Chief Judge",
@@ -10621,8 +10921,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Chief Justice inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Chief Justice",
@@ -10657,8 +10960,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Chief Magistrate inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Chief Magistrate",
@@ -10667,8 +10973,11 @@
         },
         {
           "raw": "S. 38 def. of magistrate inserted by No. 3/2016 s. 59.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "magistrate",
@@ -10703,8 +11012,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Children's Court inserted by No. 56/1989 s. 286(Sch. 2 item 10), repealed by 29/2006 s. 3(Sch. 1 item 15.1).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Children's Court",
@@ -10713,8 +11025,11 @@
         },
         {
           "raw": "S. 38 new def. of Children's Court inserted by No. 29/2006 s. 3(Sch. 1 item 15.2).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Children's Court",
@@ -10845,8 +11160,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Consolidated Fund amended by No. 18/1994 s. 66(Sch. 2 item 9).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Consolidated Fund",
@@ -10905,8 +11223,11 @@
       "history": [
         {
           "raw": "S. 38 def. of coroner inserted by No. 77/2008 s. 129(Sch. 2 item 13).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "coroner",
@@ -10915,8 +11236,11 @@
         },
         {
           "raw": "S. 38 def. of Coroners Court inserted by No. 77/2008 s. 129(Sch. 2 item 13).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Coroners Court",
@@ -10925,8 +11249,11 @@
         },
         {
           "raw": "S. 38 def. of Deputy State Coroner inserted by No. 77/2008 s. 129(Sch. 2 item 13).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Deputy State Coroner",
@@ -10935,8 +11262,11 @@
         },
         {
           "raw": "S. 38 def. of State Coroner inserted by No. 77/2008 s. 129(Sch. 2 item 13).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "State Coroner",
@@ -10995,8 +11325,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Costs Court inserted by No. 78/2008 s. 24. S. 38 def. of Costs Judge inserted by No. 78/2008 s. 24.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Costs Court",
@@ -11079,8 +11412,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Court of Appeal inserted by No. 109/1994 s. 31.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Court of Appeal",
@@ -11355,8 +11691,11 @@
       "history": [
         {
           "raw": "S. 38 def. of dual commission holder inserted by No. 3/2016 s. 59, amended by No. 1/2022 s. 96.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "dual commission holder",
@@ -11487,8 +11826,11 @@
       "history": [
         {
           "raw": "S. 38 def. of entity inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "entity",
@@ -11523,8 +11865,11 @@
       "history": [
         {
           "raw": "S. 38 def. of external Territory inserted by No. 60/2000 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "external Territory",
@@ -11533,8 +11878,11 @@
         },
         {
           "raw": "S. 38 def. of Territory inserted by No. 60/2000 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Territory",
@@ -11569,8 +11917,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Family Court inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Family Court",
@@ -11605,8 +11956,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Federal Court inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Federal Court",
@@ -11641,8 +11995,11 @@
       "history": [
         {
           "raw": "S. 38 def. of fee unit inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "fee unit",
@@ -11677,8 +12034,11 @@
       "history": [
         {
           "raw": "S. 38 def. of First Peoples' Assembly inserted by No. 45/2025 s. 270.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "First Peoples' Assembly",
@@ -11737,8 +12097,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Gellung Warl inserted by No. 45/2025 s. 270.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Gellung Warl",
@@ -11797,8 +12160,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Government Printer inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Government Printer",
@@ -11905,8 +12271,11 @@
       "history": [
         {
           "raw": "S. 38 def. of GST inserted by No. 55/2025 s. 58.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "GST",
@@ -11941,8 +12310,11 @@
       "history": [
         {
           "raw": "S. 38 def. of High Court inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "High Court",
@@ -11977,8 +12349,11 @@
       "history": [
         {
           "raw": "S. 38 def. of IBAC inserted by No. 55/2025 s. 58.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "IBAC",
@@ -12133,8 +12508,11 @@
       "history": [
         {
           "raw": "S. 38 def. of individual inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "individual",
@@ -12241,8 +12619,11 @@
       "history": [
         {
           "raw": "S. 38 def. of insolvent under administration inserted by No. 13/2006 s. 9, substituted by No. 4/2008 s. 31.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "insolvent under administration",
@@ -12397,8 +12778,11 @@
       "history": [
         {
           "raw": "S. 38 def. of internal Territory inserted by No. 60/2000 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "internal Territory",
@@ -12433,8 +12817,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Jervis Bay Territory inserted by No. 60/2000 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Jervis Bay Territory",
@@ -12493,8 +12880,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Standards Council of New Zealand inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Standards Council of New Zealand",
@@ -12601,8 +12991,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Magistrates' Court inserted by No. 51/1989 s. 146(a)(ii).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Magistrates' Court",
@@ -12685,8 +13078,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Nginma Ngainga Wara inserted by No. 45/2025 s. 270.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Nginma Ngainga Wara",
@@ -12721,8 +13117,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Northern Territory inserted by No. 95/1993 s. 8.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Northern Territory",
@@ -12757,8 +13156,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Nyerna Yoorrook Telkuna inserted by No. 45/2025 s. 270.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Nyerna Yoorrook Telkuna",
@@ -12841,8 +13243,11 @@
       "history": [
         {
           "raw": "S. 38 def. of penalty unit amended by Nos 10260 s. 114(Sch. 4 item 8), 49/1991 s. 119(7)(Sch. 4 item 10.1).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "penalty unit",
@@ -12901,8 +13306,11 @@
       "history": [
         {
           "raw": "S. 38 def. of police officer inserted by No. 5/2015 s. 7.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "police officer",
@@ -12937,8 +13345,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Premier inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Premier",
@@ -12997,8 +13408,11 @@
       "history": [
         {
           "raw": "S. 38 def. of public service inserted by No. 13/2006 s. 9.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "public service",
@@ -13057,8 +13471,11 @@
       "history": [
         {
           "raw": "S. 38 def. of sheriff inserted by No. 9/2009 s. 77.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "sheriff",
@@ -13213,8 +13630,11 @@
       "history": [
         {
           "raw": "S. 38 def. of statutory declaration and solemn declaration substituted by No. 57/1989 s. 3(Sch. item 104.1), amended by No. 69/2009 s. 54(Sch. Pt 2 item 29), substituted as statutory declaration by No. 6/2018 s. 66.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "statutory declaration and solemn declaration",
@@ -13249,8 +13669,11 @@
       "history": [
         {
           "raw": "S. 38 def. of statutory rule inserted by No. 61/2004 s. 6(1).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "statutory rule",
@@ -13285,8 +13708,11 @@
       "history": [
         {
           "raw": "S. 38 def. of subordinate instrument inserted by No. 61/2004 s. 6(1).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "subordinate instrument",
@@ -13489,8 +13915,11 @@
       "history": [
         {
           "raw": "S. 38 def. of VCAT inserted by No. 61/2004 s. 6(1).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "VCAT",
@@ -13525,8 +13954,11 @@
       "history": [
         {
           "raw": "S. 38 def. of Victoria Police inserted by No. 55/2025 s. 58.",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Victoria Police",
@@ -13561,8 +13993,11 @@
       "history": [
         {
           "raw": "S. 38 def. of waterway inserted by No. 81/1989 s. 3(Sch. item 24).",
+          "kind": "amendment",
           "section": "38",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "waterway",
@@ -13621,8 +14056,11 @@
       "history": [
         {
           "raw": "S. 38AAA inserted by No. 13/2006 s. 10.",
+          "kind": "amendment",
           "section": "38AAA",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -13705,8 +14143,11 @@
       "history": [
         {
           "raw": "S. 38AA inserted by No. 60/2000 s. 10.",
+          "kind": "amendment",
           "section": "38AA",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -13765,10 +14206,13 @@
       "history": [
         {
           "raw": "S. 38AA(1A) inserted by No. 13/2006 s. 11.",
+          "kind": "amendment",
           "section": "38AA",
           "sub_path": [
             "(1A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -13851,8 +14295,11 @@
       "history": [
         {
           "raw": "S. 38A inserted by No. 80/1990 s. 98(1), amended by No. 37/1999 s. 58(Sch. 1 item 2.2), substituted by No. 44/2001 s. 3(Sch. item 67).",
+          "kind": "amendment",
           "section": "38A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -13983,8 +14430,11 @@
       "history": [
         {
           "raw": "S. 38AB inserted by No. 29/1997 s. 10.",
+          "kind": "amendment",
           "section": "38AB",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -13993,8 +14443,11 @@
         },
         {
           "raw": "S. 38AB def. of National Electricity (Victoria) Law amended by No. 8/2005 s. 16(a).",
+          "kind": "amendment",
           "section": "38AB",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "National Electricity (Victoria) Law",
@@ -14003,8 +14456,11 @@
         },
         {
           "raw": "S. 38AB def. of National Electricity (Victoria) Regulations amended by No. 8/2005 s. 16(b).",
+          "kind": "amendment",
           "section": "38AB",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "National Electricity (Victoria) Regulations",
@@ -14039,8 +14495,11 @@
       "history": [
         {
           "raw": "S. 38B inserted by No. 48/1992 s. 116(1).",
+          "kind": "amendment",
           "section": "38B",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14075,8 +14534,11 @@
       "history": [
         {
           "raw": "S. 38BA inserted by No. 31/1998 s. 27, substituted by No. 30/2008 s. 42(2).",
+          "kind": "amendment",
           "section": "38BA",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14135,8 +14597,11 @@
       "history": [
         {
           "raw": "S. 38D inserted by No. 83/1996 s. 39.",
+          "kind": "amendment",
           "section": "38D",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14171,8 +14636,11 @@
       "history": [
         {
           "raw": "S. 38E inserted by No. 13/2010 s. 49.",
+          "kind": "amendment",
           "section": "38E",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14303,8 +14771,11 @@
       "history": [
         {
           "raw": "S. 38EA inserted by No. 5/2015 s. 8.",
+          "kind": "amendment",
           "section": "38EA",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14507,8 +14978,11 @@
       "history": [
         {
           "raw": "S. 38F inserted by No. 72/2010 s. 48(Sch. item 13), amended by No. 57/2013 s. 11.",
+          "kind": "amendment",
           "section": "38F",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14517,8 +14991,11 @@
         },
         {
           "raw": "S. 38F def. of Australian Consumer Law (Victoria) amended by No. 21/2012 s. 239(Sch. 6 item 22).",
+          "kind": "amendment",
           "section": "38F",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": "Australian Consumer Law (Victoria)",
@@ -14553,8 +15030,11 @@
       "history": [
         {
           "raw": "S. 38FA inserted by No. 22/2013 s. 59.",
+          "kind": "amendment",
           "section": "38FA",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14589,8 +15069,11 @@
       "history": [
         {
           "raw": "S. 38G inserted by No. 80/2011 s. 79(Sch. item 4).",
+          "kind": "amendment",
           "section": "38G",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14625,8 +15108,11 @@
       "history": [
         {
           "raw": "S. 38H inserted by No. 7/2013 s. 15.",
+          "kind": "amendment",
           "section": "38H",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14661,8 +15147,11 @@
       "history": [
         {
           "raw": "S. 38I inserted by No. 30/2013 s. 60(Sch. item 5).",
+          "kind": "amendment",
           "section": "38I",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14671,8 +15160,11 @@
         },
         {
           "raw": "S. 38I inserted by No. 36/2013 s. 83, renumbered as s. 38J by No. 21/2015 s. 3(Sch. 1 item 29).",
+          "kind": "amendment",
           "section": "38I",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14779,8 +15271,11 @@
       "history": [
         {
           "raw": "S. 38K inserted by No. 57/2013 s. 12.",
+          "kind": "amendment",
           "section": "38K",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14815,8 +15310,11 @@
       "history": [
         {
           "raw": "S. 38L inserted by No. 17/2014 s. 159.",
+          "kind": "amendment",
           "section": "38L",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -14851,8 +15349,11 @@
       "history": [
         {
           "raw": "S. 38M inserted by No. 13/2022 s. 38.",
+          "kind": "amendment",
           "section": "38M",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15151,8 +15652,11 @@
       "history": [
         {
           "raw": "S. 38N inserted by No. 13/2022 s. 38.",
+          "kind": "amendment",
           "section": "38N",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15187,8 +15691,11 @@
       "history": [
         {
           "raw": "S. 38O inserted by No. 13/2022 s. 38.",
+          "kind": "amendment",
           "section": "38O",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15391,8 +15898,11 @@
       "history": [
         {
           "raw": "S. 38P inserted by No. 13/2022 s. 38.",
+          "kind": "amendment",
           "section": "38P",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15451,8 +15961,11 @@
       "history": [
         {
           "raw": "S. 39A inserted by No. 95/1993 s. 9.",
+          "kind": "amendment",
           "section": "39A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15487,8 +16000,11 @@
       "history": [
         {
           "raw": "S. 39B inserted by No. 6/1997 s. 3.",
+          "kind": "amendment",
           "section": "39B",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15691,8 +16207,11 @@
       "history": [
         {
           "raw": "S. 41 substituted by No. 84/1997 s. 51.",
+          "kind": "amendment",
           "section": "41",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15751,11 +16270,14 @@
       "history": [
         {
           "raw": "S. 41(1)(a) amended by No. 70/2013 s. 3(Sch. 1 item 25(a)).",
+          "kind": "amendment",
           "section": "41",
           "sub_path": [
             "(1)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -15790,12 +16312,15 @@
       "history": [
         {
           "raw": "S. 41(1)(a)(i) amended by No. 70/2013 s. 3(Sch. 1 item 25(b)).",
+          "kind": "amendment",
           "section": "41",
           "sub_path": [
             "(1)",
             "(a)",
             "(i)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -16262,8 +16787,11 @@
       "history": [
         {
           "raw": "S. 41AA inserted by No. 84/1997 s. 51.",
+          "kind": "amendment",
           "section": "41AA",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -16610,8 +17138,11 @@
       "history": [
         {
           "raw": "S. 41A inserted by No. 10214 s. 7.",
+          "kind": "amendment",
           "section": "41A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -16718,8 +17249,11 @@
       "history": [
         {
           "raw": "S. 42A inserted by No. 10214 s. 8.",
+          "kind": "amendment",
           "section": "42A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -16778,11 +17312,14 @@
       "history": [
         {
           "raw": "S. 42A(1)(aa) inserted by No. 5/2015 s. 9.",
+          "kind": "amendment",
           "section": "42A",
           "sub_path": [
             "(1)",
             "(aa)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -16913,10 +17450,13 @@
       "history": [
         {
           "raw": "S. 42A(3) inserted by No. 55/2025 s. 59.",
+          "kind": "amendment",
           "section": "42A",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -16999,10 +17539,13 @@
       "history": [
         {
           "raw": "S. 42A(4) inserted by No. 55/2025 s. 59.",
+          "kind": "amendment",
           "section": "42A",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17085,8 +17628,11 @@
       "history": [
         {
           "raw": "S. 42C inserted by No. 55/2025 s. 60.",
+          "kind": "amendment",
           "section": "42C",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17289,10 +17835,13 @@
       "history": [
         {
           "raw": "S. 44(3) amended by No. 43/2012 s. 3(Sch. item 24).",
+          "kind": "amendment",
           "section": "44",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17375,11 +17924,14 @@
       "history": [
         {
           "raw": "S. 44(4)(b) substituted by No. 119/1993 s. 16(2).",
+          "kind": "amendment",
           "section": "44",
           "sub_path": [
             "(4)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17438,10 +17990,13 @@
       "history": [
         {
           "raw": "S. 44(5) amended by No. 57/1989 s. 3(Sch. item 104.2).",
+          "kind": "amendment",
           "section": "44",
           "sub_path": [
             "(5)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17548,11 +18103,14 @@
       "history": [
         {
           "raw": "S. 44(4)(c) repealed by No. 119/1993 s. 16(2).",
+          "kind": "amendment",
           "section": "44",
           "sub_path": [
             "(4)",
             "(c)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17755,8 +18313,11 @@
       "history": [
         {
           "raw": "S. 46 amended by No. 25/2023 s. 4 (ILA s. 39B(1)).",
+          "kind": "amendment",
           "section": "46",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17815,10 +18376,13 @@
       "history": [
         {
           "raw": "S. 46(2) inserted by No. 25/2023 s. 4.",
+          "kind": "amendment",
           "section": "46",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -17997,8 +18561,11 @@
       "history": [
         {
           "raw": "S. 46A inserted by No. 13/2006 s. 12.",
+          "kind": "amendment",
           "section": "46A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -18321,10 +18888,13 @@
       "history": [
         {
           "raw": "S. 49(2) amended by No. 95/1993 s. 10.",
+          "kind": "amendment",
           "section": "49",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -18599,8 +19169,11 @@
       "history": [
         {
           "raw": "S. 52 substituted by No. 49/1991 s. 119(7) (Sch. 4 item 10.2).",
+          "kind": "amendment",
           "section": "52",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -18875,11 +19448,14 @@
       "history": [
         {
           "raw": "S. 54(1)(c) amended by No. 25/2023 s. 5.",
+          "kind": "amendment",
           "section": "54",
           "sub_path": [
             "(1)",
             "(c)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -18938,10 +19514,13 @@
       "history": [
         {
           "raw": "S. 54(2A) inserted by No. 104/1994 s. 32(1).",
+          "kind": "amendment",
           "section": "54",
           "sub_path": [
             "(2A)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -18976,10 +19555,13 @@
       "history": [
         {
           "raw": "S. 54(2B) inserted by No. 100/1995 s. 28(1).",
+          "kind": "amendment",
           "section": "54",
           "sub_path": [
             "(2B)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19014,10 +19596,13 @@
       "history": [
         {
           "raw": "S. 54(2C) inserted by No. 100/1995 s. 28(1).",
+          "kind": "amendment",
           "section": "54",
           "sub_path": [
             "(2C)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19052,10 +19637,13 @@
       "history": [
         {
           "raw": "S. 54(3) amended by Nos 104/1994 s. 32(2), 100/1995 s. 28(2), 69/2009 s. 54(Sch. Pt 2 item 29).",
+          "kind": "amendment",
           "section": "54",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19090,8 +19678,11 @@
       "history": [
         {
           "raw": "S. 54A inserted by No. 2/2007 s. 5.",
+          "kind": "amendment",
           "section": "54A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19222,10 +19813,13 @@
       "history": [
         {
           "raw": "S. 55(4) repealed by No. 61/1986 s. 4(b).",
+          "kind": "amendment",
           "section": "55",
           "sub_path": [
             "(4)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19404,10 +19998,13 @@
       "history": [
         {
           "raw": "S. 55(2) substituted by No. 61/1986 s. 4(b), amended by No. 25/2023 s. 6.",
+          "kind": "amendment",
           "section": "55",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19442,11 +20039,14 @@
       "history": [
         {
           "raw": "S. 55(1)(a) repealed by No. 61/1986 s. 4(a).",
+          "kind": "amendment",
           "section": "55",
           "sub_path": [
             "(1)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19601,10 +20201,13 @@
       "history": [
         {
           "raw": "S. 55(3) substituted by No. 61/1986 s. 4(b).",
+          "kind": "amendment",
           "section": "55",
           "sub_path": [
             "(3)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19711,10 +20314,13 @@
       "history": [
         {
           "raw": "S. 57(1) amended by Nos 10/2010 s. 800(Sch. 6 item 7.1), 64/2012 s. 73.",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(1)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19749,10 +20355,13 @@
       "history": [
         {
           "raw": "S. 57(2) amended by No. 10/2010 s. 800(Sch. 6 item 7.2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(2)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19787,11 +20396,14 @@
       "history": [
         {
           "raw": "S. 57(2)(a) amended by No. 10/2010 s. 800(Sch. 6 item 7.2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(2)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19800,11 +20412,14 @@
         },
         {
           "raw": "S. 57(3)(a) amended by No. 10/2010 s. 800(Sch. 6 item 7.2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(3)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19813,11 +20428,14 @@
         },
         {
           "raw": "S. 57(6)(a) substituted by No. 56/1999 s. 10(3)(a), amended by No. 10/2010 s. 800(Sch. 6 item 7.3).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(6)",
             "(a)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19852,11 +20470,14 @@
       "history": [
         {
           "raw": "S. 57(2)(b) amended by No. 10/2010 s. 800(Sch. 6 item 7.2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(2)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19865,11 +20486,14 @@
         },
         {
           "raw": "S. 57(3)(b) substituted by No. 56/1999 s. 10(1), amended by No. 10/2010 s. 800(Sch. 6 item 7.2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(3)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19878,11 +20502,14 @@
         },
         {
           "raw": "S. 57(6)(b) amended by No. 11/2002 s. 3(Sch. 1 item 38).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(6)",
             "(b)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19917,11 +20544,14 @@
       "history": [
         {
           "raw": "S. 57(2)(c) amended by No. 10/2010 s. 800(Sch. 6 item 7.2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(2)",
             "(c)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19930,11 +20560,14 @@
         },
         {
           "raw": "S. 57(3)(c) inserted by No. 56/1999 s. 10(1).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(3)",
             "(c)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -19943,12 +20576,15 @@
         },
         {
           "raw": "S. 57(5)(b)(c) repealed by No. 56/1999 s. 10(2).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(5)",
             "(b)",
             "(c)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20103,10 +20739,13 @@
       "history": [
         {
           "raw": "S. 57(5) amended by Nos 57/1989 s. 3(Sch. item 104.3), 68/2009 s. 97(Sch. item 71).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(5)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20261,11 +20900,14 @@
       "history": [
         {
           "raw": "S. 57(6)(ba) inserted by No. 56/1999 s. 10(3)(b).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(6)",
             "(ba)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20300,11 +20942,14 @@
       "history": [
         {
           "raw": "S. 57(6)(bb) inserted by No. 56/1999 s. 10(3)(b).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(6)",
             "(bb)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20339,11 +20984,14 @@
       "history": [
         {
           "raw": "S. 57(6)(bc) inserted by No. 56/1999 s. 10(3)(b).",
+          "kind": "amendment",
           "section": "57",
           "sub_path": [
             "(6)",
             "(bc)"
           ],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20522,8 +21170,11 @@
       "history": [
         {
           "raw": "S. 58 inserted by No. 108/1994 s. 11.",
+          "kind": "amendment",
           "section": "58",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20702,8 +21353,11 @@
       "history": [
         {
           "raw": "S. 59 inserted by No. 13/2006 s. 13.",
+          "kind": "amendment",
           "section": "59",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -20762,8 +21416,11 @@
       "history": [
         {
           "raw": "S. 60 inserted by No. 64/2010 s. 28.",
+          "kind": "amendment",
           "section": "60",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -21110,8 +21767,11 @@
       "history": [
         {
           "raw": "S. 61 inserted by No. 64/2010 s. 28.",
+          "kind": "amendment",
           "section": "61",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -21146,8 +21806,11 @@
       "history": [
         {
           "raw": "S. 62 inserted by No. 64/2010 s. 28.",
+          "kind": "amendment",
           "section": "62",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -21326,8 +21989,11 @@
       "history": [
         {
           "raw": "S. 63 inserted by No. 64/2010 s. 28.",
+          "kind": "amendment",
           "section": "63",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -21362,8 +22028,11 @@
       "history": [
         {
           "raw": "S. 64 inserted by No. 64/2010 s. 28.",
+          "kind": "amendment",
           "section": "64",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -21494,8 +22163,11 @@
       "history": [
         {
           "raw": "S. 64A inserted by No. 55/2025 s. 61.",
+          "kind": "amendment",
           "section": "64A",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -21650,8 +22322,11 @@
       "history": [
         {
           "raw": "S. 64B inserted by No. 55/2025 s. 61.",
+          "kind": "amendment",
           "section": "64B",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -22046,8 +22721,11 @@
       "history": [
         {
           "raw": "S. 65 inserted by No. 13/2022 s. 39.",
+          "kind": "amendment",
           "section": "65",
           "sub_path": [],
+          "schedule": null,
+          "chapter": null,
           "division": null,
           "part": null,
           "def_name": null,
@@ -22606,7 +23284,100 @@
         "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
-      }
+      },
+      "history": [
+        {
+          "raw": "Sch. 1 inserted by No. 2/2007 s. 6.",
+          "kind": "amendment",
+          "section": null,
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 106,
+          "confidence": "high"
+        },
+        {
+          "raw": "Sch. 1 cl. 2 amended by No. 5/2015 s. 10(1).",
+          "kind": "amendment",
+          "section": "2",
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 106,
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 1 cl. 2A inserted by No. 5/2015 s. 10(2).",
+          "kind": "amendment",
+          "section": "2A",
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 106,
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 1 cl. 2B inserted by No. 5/2015 s. 10(2).",
+          "kind": "amendment",
+          "section": "2B",
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 107,
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 1 cl. 2C inserted by No. 5/2015 s. 10(2).",
+          "kind": "amendment",
+          "section": "2C",
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 107,
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 1 cl. 7 inserted by No. 5/2015 s. 10(3).",
+          "kind": "amendment",
+          "section": "7",
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 107,
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 1 cl. 8 inserted by No. 5/2015 s. 10(3).",
+          "kind": "amendment",
+          "section": "8",
+          "sub_path": [],
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 107,
+          "confidence": "low"
+        }
+      ]
     },
     {
       "type": "note",
@@ -22732,8 +23503,11 @@
   "unattached_notes": [
     {
       "raw": "S. 38C inserted by No. 41/1995 s. 61, repealed by No. 11/2010 s. 52.",
+      "kind": "amendment",
       "section": "38C",
       "sub_path": [],
+      "schedule": null,
+      "chapter": null,
       "division": null,
       "part": null,
       "def_name": null,
@@ -22741,8 +23515,11 @@
     },
     {
       "raw": "S. 51A inserted by No. 51/1989 s. 146(b), repealed by No. 49/1991 s. 119(7) (Sch. 4 item 10.2).",
+      "kind": "amendment",
       "section": "51A",
       "sub_path": [],
+      "schedule": null,
+      "chapter": null,
       "division": null,
       "part": null,
       "def_name": null,
@@ -22750,8 +23527,11 @@
     },
     {
       "raw": "Pt 5 (Heading and ss 60\u201364) inserted by No. 64/2010 s. 28.",
+      "kind": "amendment",
       "section": null,
       "sub_path": [],
+      "schedule": null,
+      "chapter": null,
       "division": null,
       "part": "5",
       "def_name": null,
@@ -22759,35 +23539,23 @@
     },
     {
       "raw": "Pt 6 (Heading and s. 65) inserted by No. 13/2022 s. 39.",
+      "kind": "amendment",
       "section": null,
       "sub_path": [],
+      "schedule": null,
+      "chapter": null,
       "division": null,
       "part": "6",
       "def_name": null,
       "page": 101
     },
     {
-      "raw": "Sch. 1 inserted by No. 2/2007 s. 6. Sch. 1 cl. 2 amended by No. 5/2015 s. 10(1). Sch. 1 cl. 2A inserted by No. 5/2015 s. 10(2).",
-      "section": null,
-      "sub_path": [],
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 106
-    },
-    {
-      "raw": "Sch. 1 cl. 2B inserted by No. 5/2015 s. 10(2). Sch. 1 cl. 2C inserted by No. 5/2015 s. 10(2). Sch. 1 cl. 7 inserted by No. 5/2015 s. 10(3). Sch. 1 cl. 8 inserted by No. 5/2015 s. 10(3).",
-      "section": null,
-      "sub_path": [],
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 107
-    },
-    {
       "raw": "Sch. repealed by No. 104/1994 s. 35(Sch. 2 item 3.2).",
+      "kind": "amendment",
       "section": null,
       "sub_path": [],
+      "schedule": null,
+      "chapter": null,
       "division": null,
       "part": null,
       "def_name": null,
