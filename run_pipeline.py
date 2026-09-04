@@ -60,6 +60,8 @@ from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.profiles import profile_exists
 from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
+from ai_pipeline.versions import describe as describe_version
+from ai_pipeline.versions import read_front_matter
 from ai_pipeline.rule_parser import parse_act
 from ai_pipeline.toc import detect_body_start
 from ai_pipeline.tree import attach_history
@@ -156,6 +158,15 @@ def main():
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
 
+    # Which expression of the Act this is: its Authorised Version number and
+    # the date it incorporates amendments to, read off the PDF's own front
+    # matter (see ai_pipeline/versions.py). All None for a Bill, an
+    # Explanatory Memorandum, or an Act printed before the convention --
+    # those have no version, which is not the same as one we failed to read.
+    version = read_front_matter(pdf_path)
+    if version["version"] is not None:
+        print(f"Version: {describe_version(version)}")
+
     parsed_dir = Path("data/ai_parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
     out_path = parsed_dir / f"{act_slug}.json"
@@ -163,6 +174,7 @@ def main():
         json.dumps(
             {
                 "act": act_slug, "source": str(pdf_path), **engine_meta,
+                "version": version,
                 "hierarchy": hierarchy_order,
                 # A digest of this node list's own structure. Review rows
                 # are keyed by position into it, so this is what lets

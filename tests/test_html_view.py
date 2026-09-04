@@ -325,3 +325,25 @@ def test_a_margin_note_without_an_index_is_left_as_the_bare_citation():
 
     assert "hist-act" not in body
     assert "S. 3 amended by No. 68/2009 s. 51." in body
+
+
+def test_the_index_states_which_authorised_version_it_is():
+    parsed = {
+        "nodes": _definitions_act(), "hierarchy": None,
+        "version": {"version": 114, "as_at": "2026-07-01", "as_at_printed": "1 July 2026",
+                    "title": "Criminal Procedure Act 2009", "act_no": "7", "year": 2009},
+    }
+    html = render_index(parsed, "Criminal Procedure Act 2009", "/browse/cpa")
+
+    assert "Authorised Version No. 114" in html
+    assert "incorporating amendments as at 1 July 2026" in html
+
+
+def test_an_unversioned_document_says_nothing_about_versions():
+    # A Bill and an EM have no Authorised Version; an empty line reading
+    # "Authorised Version No. None" would be worse than none at all.
+    html = render_index({"nodes": _bill_nodes(), "hierarchy": None,
+                         "version": {"version": None, "as_at": None, "as_at_printed": None}},
+                        "Test Bill", "/browse/test-bill")
+
+    assert "act-version" not in html

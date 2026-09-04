@@ -927,28 +927,48 @@ def _title_from_slug(slug: str) -> str:
     return f"{title} \u2014 Explanatory Memorandum" if slug.endswith(_EM_SLUG_SUFFIX) else title
 
 
+def _parse_field(slug: str, key: str, default=None):
+    """One top-level field of this Act's parse. The parse is a few MB, and
+    browse pages want two small things out of it (the title and the
+    version block) on every request -- so both go through here and through
+    _act_title's cache rather than each re-reading the file."""
+    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    if not parsed_path.exists():
+        return default
+    try:
+        return json.loads(parsed_path.read_text(encoding="utf-8")).get(key, default)
+    except (OSError, ValueError):
+        return default
+
+
+def _act_version(slug: str) -> dict:
+    """Which Authorised Version of the Act this parse is (see
+    ai_pipeline/versions.py). Empty for a Bill, an Explanatory Memorandum,
+    or a parse made before the pipeline recorded it."""
+    return _parse_field(slug, "version") or {}
+
+
 def _act_title(slug: str) -> str:
-    """_detect_act_citation re-extracts the *whole* source PDF (every
-    page, via PyMuPDF) just to read the title off its first couple of
-    pages -- fine as a one-off in export_akn.py/export_markdown.py, but
-    browse_index/browse_section call this on every single page view, so
-    without caching, a 500-page Act would re-run full PDF extraction on
-    every click. Cached for this process's lifetime; new_act() clears a
-    slug's entry after (re-)parsing it so a changed source PDF is picked
-    up on the next browse request rather than staying stale forever."""
+    """The Act's own "Xxx Act YYYY" citation, as the pipeline read it off
+    the PDF's front matter and recorded in the parse.
+
+    This used to re-extract the *whole* source PDF through the body-line
+    pipeline on every browse request to read one line off page 1 -- hence
+    the cache. The parse now carries it (run_pipeline.py records the whole
+    front-matter block), so the file read is a small JSON one; the cache
+    stays because browse_index/browse_section call this per page view.
+    A parse made before that field existed still falls back to reading the
+    PDF, and a Bill or EM -- which prints no such citation at all -- to a
+    title derived from its own slug."""
     if slug in _act_title_cache:
         return _act_title_cache[slug]
 
-    from ai_pipeline.akn_export import _detect_act_citation
+    title = (_act_version(slug) or {}).get("title")
+    if not title:
+        from ai_pipeline.akn_export import _detect_act_citation
 
-    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
-    source = None
-    if parsed_path.exists():
-        try:
-            source = json.loads(parsed_path.read_text(encoding="utf-8")).get("source")
-        except (OSError, ValueError):
-            pass
-    title = _detect_act_citation(source).get("title") or _title_from_slug(slug)
+        title = _detect_act_citation(_parse_field(slug, "source")).get("title")
+    title = title or _title_from_slug(slug)
     _act_title_cache[slug] = title
     return title
 
@@ -992,7 +1012,8 @@ def browse_index(slug: str):
     nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
     body = html_view.render_index(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"]},
+        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"],
+         "version": _act_version(slug)},
         title, f"/browse/{slug}",
     )
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))

@@ -290,6 +290,14 @@ def render_index(parsed: dict, act_title: str, base_url: str) -> str:
     verification = _collect_verification(tree_roots)
 
     out = [f"<h1>{_esc(act_title)}</h1>", _verification_badge(verification)]
+    # Which expression of the Act this is, as the PDF's own front matter
+    # states it (see ai_pipeline/versions.py). A statement of fact, not yet
+    # a judgement about currency -- knowing this is superseded needs to
+    # know what other versions exist, which is the timeline's job.
+    version = parsed.get("version") or {}
+    if version.get("version") is not None:
+        as_at = f' &mdash; incorporating amendments as at {_esc(version["as_at_printed"])}' if version.get("as_at_printed") else ""
+        out.append(f'<div class="act-version">Authorised Version No. {_esc(str(version["version"]))}{as_at}</div>')
     if parsed.get("endnotes"):
         out.append(
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
@@ -833,6 +841,9 @@ a:hover { text-decoration: underline; }
 
 /* Endnotes page: the Table of Amendments as a table. */
 .index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
+/* Which Authorised Version of the Act this page is, stated plainly under
+   its title -- the first thing a reader of legislation needs to know. */
+.act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
 .endnote-text { margin-bottom: 18px; }
 .endnote-text p { margin: 0 0 11px; }
 /* Only an Act parsed before the endnote block builder existed falls back

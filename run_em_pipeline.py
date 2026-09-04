@@ -25,6 +25,7 @@ from ai_pipeline.em_parser import parse_em
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import HIERARCHY_ORDER, group_into_units
 from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
+from ai_pipeline.versions import read_front_matter
 
 
 def main():
@@ -61,6 +62,10 @@ def main():
                 # -- its Chapter/Part lines are heading_groups, not
                 # hierarchy levels -- so this is just the default order,
                 # under which its "clause" entries rank as sections do.
+                # An EM has no Authorised Version of its own -- recorded
+                # anyway so every parsed document has the same shape, and
+                # so its title comes through (see ai_pipeline/versions.py).
+                "version": read_front_matter(pdf_path),
                 "hierarchy": list(HIERARCHY_ORDER),
                 # See run_pipeline.py's own note: this is what tells a
                 # stored review row whether its node position still means

@@ -62,6 +62,7 @@ from pathlib import Path
 
 from .extract import reflow
 from .hierarchy import HIERARCHY_ORDER, make_ranks
+from .versions import read_front_matter
 
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
 ET.register_namespace("", AKN_NS)
@@ -373,23 +374,18 @@ def collect_history_events(tree_roots: list[dict]) -> tuple[list[dict], list[dic
 
 def _detect_act_citation(source_pdf: str | None) -> dict:
     """Best-effort Act title/number/year for the FRBR metadata block, read
-    from the PDF's own front matter rather than guessed."""
-    result = {"title": None, "act_no": None, "year": None}
-    if not source_pdf or not Path(source_pdf).exists():
-        return result
-    from .extract import extract_pages
+    from the PDF's own front matter rather than guessed.
 
-    pages = extract_pages(source_pdf)
-    text = "\n".join(p.body for p in pages[:2])
-    title_m = re.search(r"^([A-Z][\w' \-]+?\sAct\s(\d{4}))\s*$", text, re.MULTILINE)
-    if title_m:
-        result["title"] = title_m.group(1)
-        result["year"] = int(title_m.group(2))
-    no_m = re.search(r"No\.\s*(\d+)\s+of\s+(\d{4})", text)
-    if no_m:
-        result["act_no"] = no_m.group(1)
-        result["year"] = int(no_m.group(2))
-    return result
+    versions.read_front_matter reads the same block (it also carries the
+    Authorised Version number and as-at date, which the FRBR expression
+    layer will want -- see versions.py), so this is a narrowing of that
+    rather than a second set of regexes over the same six lines. It is
+    also much cheaper: this used to re-extract the whole PDF through the
+    body-line pipeline to read two lines off page 1."""
+    if not source_pdf:
+        return {"title": None, "act_no": None, "year": None}
+    meta = read_front_matter(source_pdf)
+    return {k: meta[k] for k in ("title", "act_no", "year")}
 
 
 def export_to_akn(parsed: dict, source_pdf: str | None = None) -> ET.ElementTree:
