@@ -73,6 +73,7 @@ from ai_pipeline.act_registry import load_act_registry
 from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
 from ai_pipeline.extract import slugify
+from ai_pipeline.versions import document_slug, read_front_matter, split_document_slug
 from review import _resume_point, build_current_nodes, group_into_units
 
 BASE_DIR = Path(__file__).parent
@@ -98,6 +99,15 @@ def discover_slugs() -> list[str]:
         for p in acts_dir.iterdir():
             if p.suffix.lower() == ".pdf":
                 slugs.add(slugify(p.stem))
+            elif p.is_dir():
+                # A work directory: each PDF in it is one Authorised
+                # Version of that work, addressed by the work's name and
+                # its own version number rather than by its filename (see
+                # ai_pipeline/versions.py).
+                for pdf in p.glob("*.pdf"):
+                    version = _pdf_version(pdf)
+                    if version is not None:
+                        slugs.add(document_slug(p.name, version))
     parsed_dir = BASE_DIR / "data" / "ai_parsed"
     if parsed_dir.exists():
         for p in parsed_dir.glob("*.json"):
@@ -105,21 +115,50 @@ def discover_slugs() -> list[str]:
     return sorted(slugs)
 
 
+_pdf_version_cache: dict[tuple, "int | None"] = {}
+
+
+def _pdf_version(pdf: Path) -> "int | None":
+    """This PDF's Authorised Version number, cached against the file's own
+    mtime and size -- discover_slugs runs on every dashboard load, and
+    reading the front matter of every version of every Act on each one
+    would be paying repeatedly for something that only changes when a file
+    does."""
+    try:
+        st = pdf.stat()
+    except OSError:
+        return None
+    key = (str(pdf), st.st_mtime_ns, st.st_size)
+    if key not in _pdf_version_cache:
+        _pdf_version_cache[key] = read_front_matter(pdf).get("version")
+    return _pdf_version_cache[key]
+
+
 def act_status(slug: str) -> dict:
-    acts_dir = BASE_DIR / "acts"
-    has_pdf = acts_dir.exists() and any(acts_dir.glob(f"{slug}.*"))
     parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
     profiles_dir = BASE_DIR / "ai_pipeline" / "profiles"
+    work, version = split_document_slug(slug)
     status = {
         "slug": slug,
-        "has_pdf": has_pdf,
+        "has_pdf": _find_source_pdf(slug) is not None,
+        # A version of a work, or a document in its own right. "work" is
+        # the Act itself and is the same for all its versions; "version" is
+        # None for a Bill, an EM, or an Act not being version-tracked.
+        "work": work,
+        "version": version,
+        "version_as_at": None,
         # Whether this Act has a pattern profile of its own to pass to
         # run_pipeline.py -- the reparse modal pre-fills it, since
         # forgetting it silently produces a worse parse (the Criminal
         # Procedure Act's own Parts fall through to generic heading_group
         # nodes without it -- see its profile's own comment) rather than
-        # any kind of error.
-        "has_profile": any((profiles_dir / f"{slug}{ext}").exists() for ext in (".yaml", ".yml")),
+        # any kind of error. Looked up under the work first: how an Act
+        # numbers its Parts is a fact about the Act, not about one reprint
+        # of it, so one profile serves all its versions.
+        "has_profile": any(
+            (profiles_dir / f"{name}{ext}").exists()
+            for name in {work, slug} for ext in (".yaml", ".yml")
+        ),
         "parsed": parsed_path.exists(),
         # "act" / "bill" / "em" -- what the pipeline recorded when it
         # parsed this one (filled in below, from the parse this function
@@ -137,6 +176,7 @@ def act_status(slug: str) -> dict:
         return status
     data = json.loads(parsed_path.read_text(encoding="utf-8"))
     status["kind"] = data.get("document_type") or "act"
+    status["version_as_at"] = (data.get("version") or {}).get("as_at_printed")
     nodes = data.get("nodes", [])
     units = group_into_units(nodes)
     status["node_count"] = len(nodes)
@@ -573,8 +613,29 @@ def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
 
 
 def _find_source_pdf(slug: str) -> "Path | None":
+    """The PDF a document was parsed from, or would be parsed from.
+
+    Three ways in, cheapest first. A parsed document records the path it
+    came from, which is authoritative and settles it without opening
+    anything. A version of a work lives in that work's own directory under
+    a filename nothing can predict, so it is found by reading each PDF's
+    front matter for the version number the slug names. Anything else is a
+    document in its own right, named after its own file."""
     acts_dir = BASE_DIR / "acts"
     if not acts_dir.exists():
+        return None
+    recorded = _parse_field(slug, "source")
+    if recorded:
+        path = BASE_DIR / recorded
+        if path.exists():
+            return path
+    work, version = split_document_slug(slug)
+    if version is not None:
+        directory = acts_dir / work
+        if directory.is_dir():
+            for pdf in sorted(directory.glob("*.pdf")):
+                if _pdf_version(pdf) == version:
+                    return pdf
         return None
     matches = sorted(p for p in acts_dir.glob(f"{slug}.*") if p.suffix.lower() == ".pdf")
     return matches[0] if matches else None

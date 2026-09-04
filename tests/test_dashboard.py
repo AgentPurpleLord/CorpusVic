@@ -56,6 +56,9 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
     assert status == {
         "slug": "crimes-act",
         "has_pdf": False,
+        "work": "crimes-act",
+        "version": None,
+        "version_as_at": None,
         "has_profile": False,
         "parsed": False,
         "kind": "act",
@@ -299,3 +302,59 @@ def test_act_status_reports_whether_the_act_has_its_own_profile(tmp_path, monkey
 
     assert dashboard.act_status("crimes-act")["has_profile"] is True
     assert dashboard.act_status("evidence-act")["has_profile"] is False
+
+
+# ---------------------------------------------------------------------
+# Versions of a work
+#
+# An Act opts into version tracking by having its PDFs put in a directory
+# named after it; each is then addressed by the work's name and its own
+# Authorised Version number rather than by its filename.
+# ---------------------------------------------------------------------
+
+def _versioned_pdf(path, version):
+    """A minimal PDF whose first page carries an Authorised Version block,
+    since that is what the slug is actually derived from."""
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), f"Authorised Version No. {version}")
+    page.insert_text((72, 92), "Criminal Procedure Act 2009")
+    page.insert_text((72, 112), "No. 7 of 2009")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(path))
+    doc.close()
+
+
+def test_discover_slugs_reads_a_work_directory_as_that_works_versions(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    _versioned_pdf(tmp_path / "acts" / "criminal-procedure-act" / "cpa-113.pdf", 113)
+    _versioned_pdf(tmp_path / "acts" / "criminal-procedure-act" / "anything.pdf", 114)
+    (tmp_path / "acts" / "sentencing-act.pdf").write_bytes(b"%PDF-1.4")
+
+    # Named by the work and the version each PDF states, not by its file.
+    assert dashboard.discover_slugs() == [
+        "criminal-procedure-act-v113", "criminal-procedure-act-v114", "sentencing-act",
+    ]
+
+
+def test_act_status_splits_a_versioned_slug_into_its_work_and_version(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    _versioned_pdf(tmp_path / "acts" / "criminal-procedure-act" / "cpa-114.pdf", 114)
+
+    status = dashboard.act_status("criminal-procedure-act-v114")
+
+    assert status["work"] == "criminal-procedure-act"
+    assert status["version"] == 114
+    assert status["has_pdf"] is True  # found by version, not by filename
+
+
+def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatch):
+    # How an Act numbers its Parts is a fact about the Act, not about one
+    # reprint of it -- one profile serves all its versions.
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "ai_pipeline" / "profiles").mkdir(parents=True)
+    (tmp_path / "ai_pipeline" / "profiles" / "criminal-procedure-act.yaml").write_text("part: x", encoding="utf-8")
+
+    assert dashboard.act_status("criminal-procedure-act-v114")["has_profile"] is True

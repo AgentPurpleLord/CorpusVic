@@ -203,3 +203,61 @@ def test_delete_custom_type_removes_only_that_one():
     db.add_custom_type("crimes-act", "transitional")
     db.delete_custom_type("crimes-act", "penalty")
     assert db.load_custom_types("crimes-act") == ["transitional"]
+
+
+# ---------------------------------------------------------------------
+# Re-filing a document under a new slug
+# ---------------------------------------------------------------------
+
+def test_rename_act_moves_every_kind_of_stored_row(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0}])
+    db.add_link("cpa", 0, 0, 4, "act_citation", "text here")
+    db.add_correction("cpa", parser_output={"type": "section"}, human_output={"type": "section"}, changed=False)
+    db.save_blind_review("cpa", 0, guessed_type="section", guessed_number="1", guessed_heading=None,
+                         reasoning="reads like a section", matched_type=True, matched_number=True)
+    db.save_parse_fingerprint("cpa", "abc123")
+    db.add_custom_type("cpa", "penalty")
+
+    moved = db.rename_act("cpa", "cpa-v114")
+
+    assert set(moved) == {"verified", "links", "corrections", "blind_reviews", "parse_state", "custom_types"}
+    assert db.load_verified("cpa") == []
+    assert len(db.load_verified("cpa-v114")) == 1
+    assert db.load_parse_fingerprint("cpa-v114") == "abc123"
+    assert db.load_custom_types("cpa-v114") == ["penalty"]
+    assert db.load_links("cpa-v114")[0]["node_index"] == 0
+
+
+def test_rename_act_refuses_to_merge_into_a_slug_that_already_has_work(tmp_path, monkeypatch):
+    # Two documents' review work interleaved by node position would be
+    # worse than either alone, and unrecoverable afterwards.
+    monkeypatch.chdir(tmp_path)
+    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0}])
+    db.save_verified("cpa-v114", [{"type": "section", "number": "9", "_source_node_index": 0}])
+
+    with pytest.raises(ValueError, match="refusing to merge"):
+        db.rename_act("cpa", "cpa-v114")
+
+    assert len(db.load_verified("cpa")) == 1  # nothing moved
+
+
+def test_rename_act_on_a_slug_with_nothing_stored_is_a_no_op(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert db.rename_act("never-parsed", "never-parsed-v1") == {}
+
+
+def test_rename_act_overwrites_the_destinations_own_parse_fingerprint(tmp_path, monkeypatch):
+    """The fingerprint is what the pipeline recorded about the
+    destination's parse, not anything a person did -- it has to give way,
+    or the moved review rows would claim to belong to a parse they were
+    never reviewed against. It must also not block the move: writing it is
+    the first thing the pipeline does for a newly-parsed version."""
+    monkeypatch.chdir(tmp_path)
+    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0}])
+    db.save_parse_fingerprint("cpa", "reviewed-against-this")
+    db.save_parse_fingerprint("cpa-v114", "freshly-parsed")
+
+    db.rename_act("cpa", "cpa-v114")
+
+    assert db.load_parse_fingerprint("cpa-v114") == "reviewed-against-this"

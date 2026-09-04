@@ -61,7 +61,7 @@ from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.profiles import profile_exists
 from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
 from ai_pipeline.versions import describe as describe_version
-from ai_pipeline.versions import read_front_matter
+from ai_pipeline.versions import document_slug, read_front_matter, work_directory
 from ai_pipeline.rule_parser import parse_act
 from ai_pipeline.toc import detect_body_start
 from ai_pipeline.tree import attach_history
@@ -89,7 +89,21 @@ def main():
     args = ap.parse_args()
 
     pdf_path = Path(args.pdf_path)
-    act_slug = slugify(pdf_path.stem)
+    # Which expression of the Act this is, read off its own front matter
+    # (see ai_pipeline/versions.py). Needed before the slug, because a PDF
+    # sitting in a work directory is stored under that work and its own
+    # version number rather than under its filename.
+    version = read_front_matter(pdf_path)
+    work = work_directory(pdf_path)
+    if work and version["version"] is None:
+        raise SystemExit(
+            f"{pdf_path} is in the work directory {work!r} but states no Authorised Version "
+            "number, so there is no way to tell which version of that work it is. Move it out "
+            "of the directory to parse it as a document in its own right."
+        )
+    act_slug = document_slug(work, version["version"]) if work else slugify(pdf_path.stem)
+    if work:
+        print(f"{describe_version(version)} -> {act_slug}")
 
     print(f"Extracting text from {pdf_path} ...")
     all_pages = extract_pages(str(pdf_path))
@@ -127,11 +141,18 @@ def main():
     # profile could sit in the repo doing nothing while the Act it was
     # written for kept parsing on the defaults -- which is what happened to
     # the Evidence Act's Parts. An explicit --profile still wins.
-    profile_name = args.profile or (act_slug if profile_exists(act_slug) else None)
+    #
+    # Looked up under the *work* before the document: how an Act numbers
+    # its Parts is a fact about the Act, not about one reprint of it, so
+    # one criminal-procedure-act.yaml serves all five of its versions
+    # rather than needing a copy per version.
+    profile_name = args.profile or next(
+        (name for name in ((work or act_slug), act_slug) if profile_exists(name)), None
+    )
     if profile_name and not args.profile:
         print(f"Using profile ai_pipeline/profiles/{profile_name}.yaml (named after this Act)")
     nodes, parse_result = run_parser(pages, act_slug, profile_name, document_type=args.document_type)
-    engine_meta = {"engine": "rules", "profile": args.profile, "document_type": args.document_type}
+    engine_meta = {"engine": "rules", "profile": profile_name, "document_type": args.document_type}
     hierarchy_order = parse_result.hierarchy
 
     endnotes = None
@@ -157,15 +178,6 @@ def main():
         print(f"  {unlinked} amendment note(s) could not be auto-linked to a node (kept for manual review)")
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
-
-    # Which expression of the Act this is: its Authorised Version number and
-    # the date it incorporates amendments to, read off the PDF's own front
-    # matter (see ai_pipeline/versions.py). All None for a Bill, an
-    # Explanatory Memorandum, or an Act printed before the convention --
-    # those have no version, which is not the same as one we failed to read.
-    version = read_front_matter(pdf_path)
-    if version["version"] is not None:
-        print(f"Version: {describe_version(version)}")
 
     parsed_dir = Path("data/ai_parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)

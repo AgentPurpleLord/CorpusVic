@@ -154,3 +154,83 @@ def describe(meta: dict) -> str:
     if not bits:
         return meta.get("title") or "unversioned document"
     return f"{meta['title']} — {', '.join(bits)}" if meta.get("title") else ", ".join(bits)
+
+
+# ---------------------------------------------------------------------------
+# Works and their versions
+#
+# A "work" is the Act itself -- the Criminal Procedure Act 2009 -- and a
+# "version" is one Authorised Version of it. Everything in this pipeline
+# addresses a document by a single slug, from the parse's filename through
+# the review database's own key to the browse URL, so a version is given a
+# slug of its own rather than a second identifier threaded alongside the
+# first: "criminal-procedure-act-v114". That composes and decomposes here,
+# and every existing caller keeps working on one string.
+#
+# An Act opts into version tracking by having its PDFs put in a directory
+# named after it (acts/criminal-procedure-act/cpa-114.pdf). A PDF sitting
+# directly in acts/ keeps its own filename as its slug however many
+# versions it may state -- so adding this changed nothing about the
+# documents already parsed, and a reviewer's work on them stayed where it
+# was.
+# ---------------------------------------------------------------------------
+
+_DOCUMENT_SLUG_RE = re.compile(r"^(?P<work>[a-z0-9]+(?:-[a-z0-9]+)*?)-v(?P<version>\d+)$")
+
+
+def document_slug(work: str, version: "int | None") -> str:
+    """The slug one version of a work is stored and addressed under. An
+    unversioned document is just its work slug -- a Bill is not version 1
+    of anything."""
+    return f"{work}-v{version}" if version is not None else work
+
+
+def split_document_slug(slug: str) -> "tuple[str, int | None]":
+    """The inverse: ("criminal-procedure-act", 114), or (slug, None) for a
+    document that isn't a version of anything."""
+    m = _DOCUMENT_SLUG_RE.match(slug)
+    return (m.group("work"), int(m.group("version"))) if m else (slug, None)
+
+
+def work_directory(pdf_path: "str | Path", acts_dir: "str | Path" = "acts") -> "str | None":
+    """The work a PDF belongs to by where it sits: acts/<work>/<file>.pdf
+    is a version of <work>; acts/<file>.pdf belongs to no work and keeps
+    its own name. Returns the directory's name, or None.
+
+    Deliberately positional rather than inferred from the PDF's own
+    contents. An Act states its version whether or not anyone wants it
+    tracked, so reading that alone would have renamed every document here
+    the moment this landed, and taken each one's review work with it.
+    Putting the file in a directory is the opt-in."""
+    pdf_path = Path(pdf_path)
+    acts_dir = Path(acts_dir)
+    try:
+        relative = pdf_path.resolve().relative_to(acts_dir.resolve())
+    except (ValueError, OSError):
+        return None
+    return relative.parts[0] if len(relative.parts) > 1 else None
+
+
+def group_versions(documents: list[dict]) -> dict[str, list[dict]]:
+    """{work slug -> its versions, oldest first} for documents that are
+    versions of something. Each document is whatever the caller holds,
+    needing only a "slug" -- the work and version are read back out of it,
+    so this never disagrees with what the documents are actually stored
+    under.
+
+    A document that is not a version of anything is left out: it has no
+    timeline, and a work with one version has nothing to compare.
+    """
+    works: dict[str, list[dict]] = {}
+    for document in documents:
+        work, version = split_document_slug(document["slug"])
+        if version is None:
+            continue
+        works.setdefault(work, []).append({**document, "work": work, "version": version})
+    return {work: sorted(vs, key=lambda d: d["version"]) for work, vs in sorted(works.items())}
+
+
+def current_version(versions: list[dict]) -> "dict | None":
+    """The one that is in force of a work's versions -- the highest
+    Authorised Version number. Everything below it is superseded."""
+    return max(versions, key=lambda d: d["version"]) if versions else None

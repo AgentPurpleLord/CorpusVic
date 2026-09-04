@@ -25,13 +25,19 @@ jobs:
           # An Act with a profile of its own (the Criminal Procedure and
           # Evidence Acts both number their Parts "5.1"/"3.2" rather than
           # in roman numerals) picks it up from its own name -- no flag.
-          for act in crimes-act interpretation evidence-act criminal-procedure-act; do
+          for act in crimes-act interpretation evidence-act; do
             python run_pipeline.py "acts/$act.pdf"
           done
+          # The Criminal Procedure Act is version-tracked, so its PDFs live
+          # in a directory of their own and each parses under the work's
+          # name and its own Authorised Version number. Both ends of the
+          # range are run: the oldest and the one in force.
+          python run_pipeline.py acts/criminal-procedure-act/cpa-110.pdf
+          python run_pipeline.py acts/criminal-procedure-act/cpa-114.pdf
 
       - name: Export Markdown and AKN for every sample Act
         run: |
-          for act in crimes-act interpretation criminal-procedure-act evidence-act; do
+          for act in crimes-act interpretation evidence-act criminal-procedure-act-v114; do
             python export_markdown.py "$act"
             python export_akn.py "$act"
           done

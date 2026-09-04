@@ -112,6 +112,19 @@
   .badge.in-progress { background: var(--badge-progress-bg); color: var(--flagged); }
   .badge.not-started, .badge.not-parsed { background: var(--badge-bg); color: var(--pending); }
   .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  /* An Act's own Authorised Versions. The chip row moves the whole card
+     onto a version -- an older one is reviewed and browsed like any other
+     document, it just isn't the law as it stands. */
+  .versions { display: flex; align-items: center; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+  .versions-label { font-size: 11.5px; color: var(--muted); margin-right: 2px; }
+  .version-chip {
+    font-size: 11.5px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  }
+  .version-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .version-chip.current { font-weight: 600; color: var(--fg); }
+  .version-chip.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .badge.superseded { background: var(--warning-bg); color: var(--warning-fg); }
   #empty { color: var(--muted); font-size: 13.5px; padding: 30px 0; text-align: center; }
 
   .overlay {
@@ -374,7 +387,7 @@ function statusClass(s) {
 
 const KIND_LABELS = { act: "Act", bill: "Bill", em: "Explanatory Memorandum" };
 
-function actCardHtml(s) {
+function actCardHtml(s, entry, versionChips) {
   // Bills and EMs browse and review exactly like an Act now, so the card
   // has to say which one it is -- the slug alone doesn't always.
   const kindBadge = s.parsed && s.kind !== "act"
@@ -398,16 +411,31 @@ function actCardHtml(s) {
     ? `<button class="btn small" onclick="openParseModal('${s.slug}')">${parseBtnLabel}</button>`
     : `<button class="btn small" disabled title="No source PDF in acts/">${parseBtnLabel}</button>`;
 
+  // Only the newest Authorised Version is the law as it stands; every
+  // other one is a historical record and has to say so wherever it
+  // appears, not just once the reader is inside it.
+  const supersededBadge = entry && entry.versions.length > 1 && s.slug !== entry.current.slug
+    ? `<span class="badge superseded">Superseded</span>` : "";
+  // An Act states the date it incorporates amendments to whether or not
+  // its versions are being tracked, so the version number only goes in
+  // front of it when there actually is one.
+  const asAt = s.version_as_at
+    ? `<span class="badge">${s.version !== null ? "v" + s.version + " &mdash; " : ""}as at ${s.version_as_at}</span>`
+    : "";
+
   return `
     <div class="act-card">
       <div class="head">
-        <span class="slug">${s.slug}</span>
+        <span class="slug">${entry && entry.versions.length > 1 ? entry.work : s.slug}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
+        ${supersededBadge}
         ${kindBadge}
+        ${asAt}
         ${nodesBadge}
         ${aknBadge}
         ${mdBadge}
       </div>
+      ${versionChips || ""}
       <div class="actions">
         ${parseBtn}
         ${reviewBtn}
@@ -421,13 +449,67 @@ function actCardHtml(s) {
 }
 
 let ACTS = [];
+// Which version of a multi-version work its card is currently showing.
+// Defaults to the one in force; clicking another version's chip moves the
+// whole card -- its badges, its buttons -- onto that version, since an
+// older version is reviewed and browsed exactly like any other document.
+const SELECTED_VERSION = {};
+
+// An Act with several Authorised Versions is one Act, not five documents:
+// group its versions under it, newest in force, rather than listing the
+// same Act five times.
+function groupIntoWorks(acts) {
+  const works = [];
+  const byWork = new Map();
+  for (const s of acts) {
+    let entry = byWork.get(s.work);
+    if (!entry) {
+      entry = { work: s.work, versions: [] };
+      byWork.set(s.work, entry);
+      works.push(entry);
+    }
+    entry.versions.push(s);
+  }
+  for (const entry of works) {
+    entry.versions.sort((a, b) => (a.version || 0) - (b.version || 0));
+    entry.current = entry.versions[entry.versions.length - 1];
+  }
+  return works;
+}
+
+function versionChipsHtml(entry, active) {
+  if (entry.versions.length < 2) return "";
+  const chips = entry.versions.map((v) => {
+    const isActive = v.slug === active.slug;
+    const isCurrent = v.slug === entry.current.slug;
+    const title = `${v.version_as_at ? "As at " + v.version_as_at : "Version " + v.version}`
+      + (isCurrent ? " — in force" : " — superseded");
+    return `<button class="version-chip${isActive ? " active" : ""}${isCurrent ? " current" : ""}"
+      title="${title}" onclick="selectVersion('${entry.work}','${v.slug}')">v${v.version}</button>`;
+  }).join("");
+  return `<div class="versions"><span class="versions-label">Versions</span>${chips}</div>`;
+}
+
+function selectVersion(work, slug) {
+  SELECTED_VERSION[work] = slug;
+  renderActs();
+}
+
+function renderActs() {
+  const works = groupIntoWorks(ACTS);
+  document.getElementById("summary").textContent =
+    ACTS.length ? `${works.length} Act(s)/Bill(s)/EM(s), ${ACTS.length} document(s)` : "";
+  document.getElementById("empty").style.display = ACTS.length ? "none" : "block";
+  document.getElementById("acts").innerHTML = works.map((entry) => {
+    const active = entry.versions.find((v) => v.slug === SELECTED_VERSION[entry.work]) || entry.current;
+    return actCardHtml(active, entry, versionChipsHtml(entry, active));
+  }).join("");
+}
 
 async function loadActs() {
   const res = await fetch("/api/acts");
   ACTS = await res.json();
-  document.getElementById("summary").textContent = ACTS.length ? `${ACTS.length} Act(s)/Bill(s)/EM(s)` : "";
-  document.getElementById("empty").style.display = ACTS.length ? "none" : "block";
-  document.getElementById("acts").innerHTML = ACTS.map(actCardHtml).join("");
+  renderActs();
 }
 
 async function runExport(slug, kind, btn) {

@@ -307,6 +307,58 @@ def add_orphaned_reviews(act: str, nodes: list[dict], base_dir: "str | Path | No
         )
 
 
+# A human's own work, keyed by document slug. custom_types is here too: a
+# reviewer's own label is theirs like the rest, and a rename that left it
+# behind would strand it under a slug nothing addresses.
+_HUMAN_WORK_TABLES = (
+    "verified", "links", "corrections", "blind_reviews", "orphaned_reviews", "custom_types",
+)
+
+# Bookkeeping the pipeline writes about a parse rather than anything a
+# person did. Moved with the rest, but overwritten at the destination
+# instead of blocking the move.
+_DERIVED_TABLES = ("parse_state",)
+
+
+def rename_act(old: str, new: str, base_dir: "str | Path | None" = None) -> dict[str, int]:
+    """Moves every stored row from one document slug to another, returning
+    {table: rows moved}.
+
+    Needed because a document's slug is its identity here -- the parse's
+    filename, the review database's key, the browse URL -- so re-filing a
+    document under a new name (an Act taking up version tracking becomes
+    "criminal-procedure-act-v114") would otherwise strand hours of review
+    work under a slug nothing looks up any more.
+
+    Refuses rather than merges if `new` already holds a person's work: two
+    documents' review interleaved by node position would be worse than
+    either alone, and there is no way to tell afterwards which decision was
+    whose. The parse fingerprint is not that -- it is what the pipeline
+    recorded about the destination's own parse, and it has to give way, or
+    the moved rows would be left claiming to belong to a parse they were
+    never reviewed against.
+    """
+    conn = _connect(base_dir)
+    existing = sum(
+        conn.execute(f"SELECT COUNT(*) FROM {table} WHERE act = ?", (new,)).fetchone()[0]
+        for table in _HUMAN_WORK_TABLES
+    )
+    if existing:
+        raise ValueError(
+            f"{new!r} already has {existing} stored row(s) of review work -- refusing to merge "
+            "two documents into one set of node positions."
+        )
+    moved = {}
+    with conn:
+        for table in _DERIVED_TABLES:
+            conn.execute(f"DELETE FROM {table} WHERE act = ?", (new,))
+        for table in _HUMAN_WORK_TABLES + _DERIVED_TABLES:
+            cur = conn.execute(f"UPDATE {table} SET act = ? WHERE act = ?", (new, old))
+            if cur.rowcount:
+                moved[table] = cur.rowcount
+    return moved
+
+
 # ---------------------------------------------------------------------------
 # Link annotations (was data/links/<act>.json)
 # ---------------------------------------------------------------------------

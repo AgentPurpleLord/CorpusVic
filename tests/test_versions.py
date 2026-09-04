@@ -4,7 +4,17 @@ a PDF is off its own front matter.
 The fixtures below are the real first-page text of the Acts in acts/,
 reduced to the block that matters. Every Authorised Version prints it the
 same way; a Bill and an Explanatory Memorandum print none of it."""
-from ai_pipeline.versions import describe, discover_versions, parse_front_matter, read_front_matter
+from ai_pipeline.versions import (
+    current_version,
+    describe,
+    discover_versions,
+    document_slug,
+    group_versions,
+    parse_front_matter,
+    read_front_matter,
+    split_document_slug,
+    work_directory,
+)
 
 AUTHORISED_VERSION = """Authorised by the Chief Parliamentary Counsel
 i
@@ -117,3 +127,88 @@ def test_discover_versions_reads_the_real_criminal_procedure_act():
     ]
     # All five are expressions of the same work.
     assert {v["act_no"] for v in found} == {"7"}
+
+
+# ---------------------------------------------------------------------
+# Works and their versions
+#
+# Everything in this pipeline addresses a document by a single slug --
+# the parse's filename, the review database's key, the browse URL -- so a
+# version gets a slug of its own rather than a second identifier threaded
+# alongside the first.
+# ---------------------------------------------------------------------
+
+def test_a_version_is_addressed_by_a_slug_of_its_own():
+    assert document_slug("criminal-procedure-act", 114) == "criminal-procedure-act-v114"
+
+
+def test_an_unversioned_document_is_just_its_own_slug():
+    # A Bill is not version 1 of anything.
+    assert document_slug("evidence-bill", None) == "evidence-bill"
+
+
+def test_a_document_slug_decomposes_back_to_its_work_and_version():
+    assert split_document_slug("criminal-procedure-act-v114") == ("criminal-procedure-act", 114)
+    assert split_document_slug("evidence-bill") == ("evidence-bill", None)
+
+
+def test_a_slug_that_merely_ends_in_a_number_is_not_a_version():
+    # "criminal-procedure-bill-2008" must not read as version 2008 of
+    # "criminal-procedure-bill" -- the marker is "-v" then digits.
+    assert split_document_slug("criminal-procedure-bill-2008") == ("criminal-procedure-bill-2008", None)
+    assert split_document_slug("crimes-act-50") == ("crimes-act-50", None)
+
+
+def test_composing_and_decomposing_round_trips():
+    for work, version in (("criminal-procedure-act", 114), ("evidence-act", 27), ("a-bill", None)):
+        assert split_document_slug(document_slug(work, version)) == (work, version)
+
+
+def test_a_pdf_in_a_work_directory_belongs_to_that_work(tmp_path):
+    acts = tmp_path / "acts"
+    (acts / "criminal-procedure-act").mkdir(parents=True)
+    versioned = acts / "criminal-procedure-act" / "cpa-114.pdf"
+    versioned.write_bytes(b"")
+
+    assert work_directory(versioned, acts) == "criminal-procedure-act"
+
+
+def test_a_pdf_directly_in_acts_belongs_to_no_work(tmp_path):
+    """The opt-in is positional on purpose. An Act states its version
+    whether or not anyone wants it tracked, so reading that alone would
+    have renamed every document already here the moment this landed, and
+    taken each one's review work with it."""
+    acts = tmp_path / "acts"
+    acts.mkdir()
+    loose = acts / "sentencing-act.pdf"
+    loose.write_bytes(b"")
+
+    assert work_directory(loose, acts) is None
+
+
+def test_group_versions_orders_a_works_versions_oldest_first():
+    documents = [
+        {"slug": "criminal-procedure-act-v113"},
+        {"slug": "criminal-procedure-act-v110"},
+        {"slug": "criminal-procedure-act-v114"},
+        {"slug": "evidence-act-v27"},
+    ]
+
+    works = group_versions(documents)
+
+    assert [d["version"] for d in works["criminal-procedure-act"]] == [110, 113, 114]
+    assert works["evidence-act"][0]["work"] == "evidence-act"
+
+
+def test_group_versions_leaves_out_what_is_not_a_version_of_anything():
+    # A Bill and an EM have no timeline to be points on.
+    works = group_versions([{"slug": "criminal-procedure-bill-2008"}, {"slug": "criminal-procedure-act-v114"}])
+
+    assert list(works) == ["criminal-procedure-act"]
+
+
+def test_the_current_version_is_the_highest_numbered():
+    versions = [{"version": 110}, {"version": 114}, {"version": 112}]
+
+    assert current_version(versions)["version"] == 114
+    assert current_version([]) is None

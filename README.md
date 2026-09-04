@@ -70,6 +70,31 @@ The dashboard is the front door: upload a PDF, run the pipeline, review a
 document, browse it, export it. `python review.py <slug>` runs one Act's
 review GUI on its own if you prefer.
 
+## Versions of an Act
+
+An Act is a *work*; each Authorised Version of it is a *version*. An Act
+opts into version tracking by having its PDFs put in a directory named
+after it:
+
+```
+acts/criminal-procedure-act/cpa-110.pdf     Authorised Version No. 110, as at 4 March 2026
+acts/criminal-procedure-act/cpa-114.pdf     Authorised Version No. 114, as at 1 July 2026
+```
+
+Each then parses under the work's name and its own version number —
+`criminal-procedure-act-v114` — read off the PDF's own front matter, not
+its filename. That slug is the document's identity everywhere: the
+parse's filename, the review database's key, the browse URL. A PDF sitting
+directly in `acts/` keeps its own filename as its slug however many
+versions it may state, so putting the file in a directory is the opt-in
+and nothing already parsed moved when this arrived.
+
+A profile is looked up under the work before the document, so one
+`criminal-procedure-act.yaml` serves all five of its versions.
+
+Only the highest-numbered version is the law as it stands; the rest are
+superseded and say so.
+
 An Act whose numbering doesn't match the defaults gets a profile rather
 than a code change — copy `ai_pipeline/profiles/TEMPLATE.yaml`, and see
 `acts/profiles/basic-structure.yaml` for how Victorian Acts are actually
@@ -106,7 +131,7 @@ is and why.
 | Path | What's in it |
 | --- | --- |
 | `ai_pipeline/` | Everything reusable: parsing, linking, export, storage |
-| `acts/` | Source PDFs, and `acts/profiles/basic-structure.yaml` — how Victorian Acts are put together |
+| `acts/` | Source PDFs (a directory per version-tracked Act), and `acts/profiles/basic-structure.yaml` — how Victorian Acts are put together |
 | `data/` | Parses, the review database, generated exports |
 | `static/` | The review GUI and the dashboard (plain HTML/JS, no build step) |
 | `tests/` | The suite, plus `conftest.py`'s builders modelled on real page measurements |
