@@ -823,11 +823,21 @@ def _is_elevated_risk(node_index: int) -> bool:
     through without reading, which is the exact failure mode this is meant
     to prevent.
 
+    Only a warning or an error counts. Every one of the 1328 info-level
+    findings across this repo's own Acts is the same one -- "section 45
+    has no body text", the ordinary shape of a Section whose content sits
+    in its subsections -- and gating on those put 1360 of 3060 units
+    behind a written assessment where only 74 carry a real warning. That
+    is the rote friction this docstring warns about, 18 times over: it is
+    what made reviewing an Act cost more than anyone would spend, and the
+    corpus sat at 0.3% reviewed. An info finding is still *shown* on the
+    piece; it just doesn't demand a justification before Accept.
+
     There was a second signal, node["source"] == "ai", for the
     model-backed parser that used to exist alongside the rules engine.
     That engine is gone (see run_pipeline.py's own docstring), and no node
     was ever actually tagged with it, so it gated nothing."""
-    return bool(_findings_by_node.get(node_index))
+    return any(f.get("severity") in ("error", "warning") for f in _findings_by_node.get(node_index, ()))
 
 
 def _blind_review_gate_indices(indices: list[int]) -> list[int]:

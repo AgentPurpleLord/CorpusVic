@@ -121,6 +121,12 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
                 ))
 
     for note in unattached_notes:
+        if note.get("kind") == "provenance":
+            # Records where the provision came from ("No. 6103 s. 15.",
+            # "cf. [1819] 60 George III ...") rather than how it has been
+            # amended -- it names no provision of this Act, so there is
+            # nothing for it to link to and nothing here went wrong.
+            continue
         report.findings.append(Finding(
             "warning", "history-unattached",
             f"Note {note['raw'][:80]!r} (page {note['page']}) could not be linked to any node.",

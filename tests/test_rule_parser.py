@@ -428,6 +428,61 @@ def test_hanging_list_does_not_fire_on_genuine_nested_wrap():
     assert "that child within the preceding 2 years" in paragraph_b["text"]
 
 
+def test_a_section_opens_even_where_the_provision_above_it_ran_on():
+    """Regression (Crimes Act ss 320A, 464Y, 464ZGFC; Criminal Procedure
+    Act s 7B; 24 clauses of its Bill): a section heading was only
+    recognised where the previous line reached a clean sentence break.
+    That guard is there for a citation that wrapped -- but a provision
+    ending mid-sentence (a wrapped list item, a note) is exactly where the
+    next section sits, so 40 real provisions were absorbed into the one
+    above them instead of opening."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("(a) something that wraps onto the next line without", x0=PARA_X0),
+        line("reaching a full stop", x0=PARA_WRAP_X0),
+        line("320A Maximum term of imprisonment for common", bold=True),
+        line("assault in certain circumstances", x0=HEAD_X0, bold=True),
+        line("Despite section 320, the maximum term is 10 years.", x0=HEAD_X0),
+    ]
+    result = _parse(lines)
+
+    section = find(result.nodes, "section", "320A")
+    assert section["heading"] == "Maximum term of imprisonment for common assault in certain circumstances"
+    assert "Despite section 320" in section["text"]
+
+
+def test_a_wrapped_list_of_section_numbers_is_not_read_as_a_heading():
+    """The other half of the same judgement: "sections 84F\nand 84G of the
+    Domestic Animals Act 1994" puts a real section number at the start of
+    a bold line. A continuation runs on in lower case where a heading's
+    title is capitalised."""
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("(a) to amend sections 84E, 84F", x0=PARA_X0, bold=True),
+        line("and 84G of the Domestic Animals Act 1994", x0=PARA_WRAP_X0, bold=True),
+    ]
+    result = _parse(lines)
+
+    assert not any(n["type"] == "section" and n.get("number") == "84G" for n in result.nodes)
+    assert "and 84G of the Domestic Animals Act 1994" in find(result.nodes, "paragraph", "a")["text"]
+
+
+def test_a_wrapped_act_year_is_still_not_read_as_a_heading():
+    # "... Act\n1997 insert--": four digits and nothing else is a year,
+    # never a section number, whatever case the words after it are in.
+    lines = [
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("(a) in the Crimes (Mental Impairment) Act", x0=PARA_X0, bold=True),
+        line("1997 Insert the following section", x0=PARA_WRAP_X0, bold=True),
+    ]
+    result = _parse(lines)
+
+    assert not any(n["type"] == "section" and n.get("number") == "1997" for n in result.nodes)
+
+
 def test_multiline_bold_act_citation_is_not_split_into_heading_groups():
     """Regression: a Paragraph listing several Act names being amended can
     wrap across many *consecutive* bold lines ("... the Crimes\n(Mental

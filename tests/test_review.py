@@ -12,6 +12,7 @@ import pytest
 from ai_pipeline import db
 from ai_pipeline.reparse import parse_fingerprint
 from review import (
+    _is_elevated_risk,
     _now_iso,
     _resume_point,
     build_current_nodes,
@@ -380,3 +381,58 @@ def test_validate_custom_type_name_rejects_a_name_that_cannot_be_a_node_type():
 def test_validate_custom_type_name_rejects_a_duplicate_after_normalising():
     with pytest.raises(ValueError, match="already exists"):
         validate_custom_type_name("Penalty Note", ["section", "penalty_note"])
+
+
+# ---------------------------------------------------------------------
+# The blind-review gate
+#
+# An elevated-risk piece can't be accepted until the reviewer records
+# their own independent read of it. That is worth real friction where the
+# parser is genuinely unsure -- and worthless everywhere else, since a
+# reviewer made to justify every ordinary piece stops reading and starts
+# clicking, which is the exact failure it exists to prevent.
+# ---------------------------------------------------------------------
+
+def _findings(monkeypatch, *findings):
+    """Stands in for what load_diagnostics put on node 7 at startup."""
+    import review
+    monkeypatch.setattr(review, "_findings_by_node", {7: list(findings)} if findings else {})
+
+
+def test_a_warning_gates_a_piece_behind_its_own_assessment(monkeypatch):
+    _findings(monkeypatch, {"severity": "warning", "message": "duplicate numbering"})
+
+    assert _is_elevated_risk(7) is True
+
+
+def test_an_error_gates_a_piece_too(monkeypatch):
+    _findings(monkeypatch, {"severity": "error", "message": "lines unaccounted for"})
+
+    assert _is_elevated_risk(7) is True
+
+
+def test_an_info_finding_does_not_gate_a_piece(monkeypatch):
+    """Every info-level finding across this repo's own Acts is the same
+    one -- "section 45 has no body text", the ordinary shape of a Section
+    whose content sits in its subsections. Gating on those put 1360 of
+    3060 units behind a written assessment where only 74 carry a real
+    warning."""
+    _findings(monkeypatch, {"severity": "info", "message": "has no body text"})
+
+    assert _is_elevated_risk(7) is False
+
+
+def test_a_warning_alongside_an_info_finding_still_gates(monkeypatch):
+    _findings(
+        monkeypatch,
+        {"severity": "info", "message": "has no body text"},
+        {"severity": "warning", "message": "duplicate numbering"},
+    )
+
+    assert _is_elevated_risk(7) is True
+
+
+def test_a_piece_with_no_findings_is_not_gated(monkeypatch):
+    _findings(monkeypatch)
+
+    assert _is_elevated_risk(7) is False

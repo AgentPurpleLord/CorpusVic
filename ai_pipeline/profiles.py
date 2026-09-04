@@ -175,6 +175,14 @@ def _profile_path(name: str) -> Path | None:
     return None
 
 
+def profile_exists(name: str) -> bool:
+    """Whether a profile file of this name exists. run_pipeline.py uses it
+    to apply an Act's own profile without being asked -- a file named
+    after the Act is written for that Act, and having to name it again on
+    the command line only ever meant it got forgotten."""
+    return _profile_path(name) is not None
+
+
 def _load_raw(name: str) -> tuple[str | None, dict]:
     """(path-as-str, parsed-mapping) for a profile file, or (None, {}) if
     there's no file for this name. Raises ProfileError on invalid YAML or a

@@ -22,12 +22,12 @@ jobs:
 
       - name: Run the full pipeline against every sample Act (completeness check)
         run: |
-          for act in crimes-act interpretation evidence-act; do
+          # An Act with a profile of its own (the Criminal Procedure and
+          # Evidence Acts both number their Parts "5.1"/"3.2" rather than
+          # in roman numerals) picks it up from its own name -- no flag.
+          for act in crimes-act interpretation evidence-act criminal-procedure-act; do
             python run_pipeline.py "acts/$act.pdf"
           done
-          # This Act numbers its Parts "5.1"/"4.6A" instead of roman
-          # numerals -- see ai_pipeline/profiles/criminal-procedure-act.yaml.
-          python run_pipeline.py acts/criminal-procedure-act.pdf --profile criminal-procedure-act
 
       - name: Export Markdown and AKN for every sample Act
         run: |

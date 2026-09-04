@@ -3,9 +3,16 @@ review.py's compute_unit_labels, akn_export.py, and history-note
 attachment (attach_history) all read back to know what a node nests
 under."""
 from ai_pipeline.hierarchy import HIERARCHY_ORDER
-from ai_pipeline.tree import annotate_paths
+from ai_pipeline.extract import PageText
+from ai_pipeline.tree import annotate_paths, attach_history
 
 from conftest import make_node
+
+
+def _page_with_notes(notes: list[str], page_no: int = 1) -> PageText:
+    """A page carrying only margin notes -- attach_history reads nothing
+    else off the page, so the body can stay empty."""
+    return PageText(page_no=page_no, body="", margin_notes=list(notes))
 
 
 def test_annotate_paths_tracks_the_current_number_at_each_level():
@@ -109,3 +116,58 @@ def test_annotate_paths_places_schedule_and_sub_subparagraph_by_default():
     assert nodes[2]["path"]["schedule"] == "1"
     assert nodes[6]["path"]["sub_subparagraph"] == "A"
     assert nodes[6]["path"]["subparagraph"] == "i"
+
+
+def test_a_schedule_note_attaches_to_its_schedule():
+    nodes = [
+        make_node("section", "1", "Purposes", "text"),
+        make_node("schedule", "2", "Forms"),
+        make_node("section", "1", "A form", "text"),
+    ]
+    pages = [_page_with_notes(["Sch. 2 repealed by No. 6958 s. 8(4)(d)."])]
+
+    unattached = attach_history(nodes, pages)
+
+    assert unattached == []
+    assert nodes[1]["history"][0]["raw"].startswith("Sch. 2 repealed")
+
+
+def test_a_schedule_clause_note_does_not_land_on_the_body_section():
+    # A Schedule numbers its own clauses from 1 again, so "Sch. 2 cl. 1"
+    # and the body's own section 1 share a number.
+    nodes = [
+        make_node("section", "1", "Purposes", "text"),
+        make_node("schedule", "2", "Forms"),
+        make_node("section", "1", "A form", "text"),
+    ]
+    pages = [_page_with_notes(["Sch. 2 cl. 1 amended by No. 47/2016 s. 37."])]
+
+    attach_history(nodes, pages)
+
+    assert "history" not in nodes[0]
+    assert nodes[2]["history"][0]["raw"].startswith("Sch. 2 cl. 1")
+
+
+def test_a_chapter_note_attaches_to_its_chapter():
+    nodes = [
+        make_node("chapter", "10", "Repeals"),
+        make_node("section", "439", "Repeal", "text"),
+    ]
+    pages = [_page_with_notes(["Ch. 10 (Heading and s. 439) inserted by No. 68/2009 s. 55."])]
+
+    unattached = attach_history(nodes, pages)
+
+    assert unattached == []
+    assert nodes[0]["history"][0]["raw"].startswith("Ch. 10")
+
+
+def test_a_provenance_note_is_kept_but_never_attached():
+    # It names section 15 of the *previous consolidation*, not a provision
+    # of this Act -- there is nothing here for it to attach to.
+    nodes = [make_node("section", "15", "Murder", "text")]
+    pages = [_page_with_notes(["No. 6103 s. 15."])]
+
+    unattached = attach_history(nodes, pages)
+
+    assert "history" not in nodes[0]
+    assert [n["kind"] for n in unattached] == ["provenance"]

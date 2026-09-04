@@ -4,7 +4,7 @@ asking the model to emit nested JSON or explicit parent paths, which is more
 error-prone) and attaches parsed amendment-history notes to the node they
 belong to.
 """
-from .hierarchy import HIERARCHY_ORDER, make_ranks
+from .hierarchy import HIERARCHY_ORDER, make_ranks, schedule_numbers
 from .history_notes import collect_page_notes
 
 
@@ -96,10 +96,29 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
     section_runs = _runs_by(nodes, "section")
     division_runs = _runs_by(nodes, "division")
     part_runs = _runs_by(nodes, "part")
+    chapter_runs = _runs_by(nodes, "chapter")
+
+    # Which Schedule each node sits in, so "Sch. 1 cl. 4A" reaches the
+    # clause 4A *of Schedule 1* rather than the body's own section 4A --
+    # a Schedule numbers its own provisions from 1 again.
+    schedules = schedule_numbers(nodes)
+    schedule_roots = {
+        node.get("number"): node for node in nodes if node["type"] == "schedule" and node.get("number")
+    }
+    in_schedule: dict[str, list[dict]] = {}
+    for idx, node in enumerate(nodes):
+        if schedules[idx]:
+            in_schedule.setdefault(schedules[idx], []).append(node)
 
     unattached = []
     for note in collect_page_notes(pages):
         target = None
+        if note.get("kind") == "provenance":
+            # Records where the provision came from, not how it changed --
+            # it names no provision of this Act to attach to. Kept for the
+            # reviewer to see, never counted as a failed link.
+            unattached.append(note)
+            continue
         # A note is only "confidence: high" when either (a) it names no
         # deeper reference and lands on the section/division/part itself, or
         # (b) it names one and we found that exact node. Falling back to a
@@ -108,7 +127,21 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
         wanted_specific = bool(note["sub_path"] or note["def_name"])
         found_specific = False
 
-        if note["section"]:
+        if note.get("schedule"):
+            root = schedule_roots.get(note["schedule"])
+            if root is not None:
+                target = root
+                if note["section"]:
+                    # A clause of the Schedule. Its own items reuse the
+                    # "section" type (see rule_parser.py), so this is the
+                    # same lookup, narrowed to that Schedule's own run.
+                    within = in_schedule.get(note["schedule"], [])
+                    found = _find_by_number(within, note["section"], {"section", "clause"})
+                    if found is not None:
+                        target = found
+                        found_specific = True
+                    wanted_specific = True
+        elif note["section"]:
             candidates = section_runs.get(note["section"], [])
             if candidates:
                 if note["def_name"]:
@@ -133,6 +166,13 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     target = candidates[0]
         elif note["part"]:
             candidates = part_runs.get(note["part"], [])
+            if candidates:
+                target = candidates[0]
+        elif note.get("chapter"):
+            # An Act that groups its Parts under Chapters cites the
+            # Chapter alone for a note about the Chapter's own heading:
+            # "Ch. 10 (Heading and s. 439) inserted by No. 68/2009 s. 55."
+            candidates = chapter_runs.get(note["chapter"], [])
             if candidates:
                 target = candidates[0]
 

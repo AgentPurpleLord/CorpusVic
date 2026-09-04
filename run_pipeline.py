@@ -58,6 +58,7 @@ from ai_pipeline.diagnostics import run_diagnostics
 from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import group_into_units
+from ai_pipeline.profiles import profile_exists
 from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
 from ai_pipeline.rule_parser import parse_act
 from ai_pipeline.toc import detect_body_start
@@ -119,7 +120,15 @@ def main():
         json.dumps(pages_to_dicts(pages), indent=2), encoding="utf-8"
     )
 
-    nodes, parse_result = run_parser(pages, act_slug, args.profile, document_type=args.document_type)
+    # A profile named after the Act applies to it without being asked for.
+    # It only ever took effect with an explicit --profile before, so a
+    # profile could sit in the repo doing nothing while the Act it was
+    # written for kept parsing on the defaults -- which is what happened to
+    # the Evidence Act's Parts. An explicit --profile still wins.
+    profile_name = args.profile or (act_slug if profile_exists(act_slug) else None)
+    if profile_name and not args.profile:
+        print(f"Using profile ai_pipeline/profiles/{profile_name}.yaml (named after this Act)")
+    nodes, parse_result = run_parser(pages, act_slug, profile_name, document_type=args.document_type)
     engine_meta = {"engine": "rules", "profile": args.profile, "document_type": args.document_type}
     hierarchy_order = parse_result.hierarchy
 
@@ -136,8 +145,16 @@ def main():
 
     print("Attaching amendment-history margin notes ...")
     unattached_notes = attach_history(nodes, pages, hierarchy_order)
-    if unattached_notes:
-        print(f"  {len(unattached_notes)} note(s) could not be auto-linked to a node (kept for manual review)")
+    # Provenance notes ("No. 6103 s. 15.", "cf. [1819] 60 George III ...")
+    # name no provision of this Act, so they were never going to link to
+    # one -- counting them as failures made correctly-handled notes look
+    # like a parser problem. Reported separately, not as a shortfall.
+    provenance = sum(1 for n in unattached_notes if n.get("kind") == "provenance")
+    unlinked = len(unattached_notes) - provenance
+    if unlinked:
+        print(f"  {unlinked} amendment note(s) could not be auto-linked to a node (kept for manual review)")
+    if provenance:
+        print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
 
     parsed_dir = Path("data/ai_parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
