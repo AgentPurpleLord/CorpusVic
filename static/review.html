@@ -917,7 +917,15 @@ document.getElementById("jump-input").addEventListener("keydown", (e) => {
 // Unit loading / rendering
 // ---------------------------------------------------------------------
 
-async function loadUnit(n) {
+// `pdfPage` follows the PDF panel to a particular page -- the page of the
+// piece an action was just taken on. Without it, arriving at a *different*
+// unit shows where that unit starts, and re-loading the unit already open
+// (which every edit/accept/merge does, to pick the change up) leaves the
+// panel exactly where the reviewer had it. Re-jumping to the unit's first
+// page there threw away their place on every single accept, which for a
+// Section running over three or four pages meant scrolling back each time.
+async function loadUnit(n, pdfPage) {
+  const arrivingAtANewUnit = n !== currentUnitNo;
   currentUnit = await api(`api/units/${n}`);
   currentUnitNo = n;
   location.hash = `unit=${n}`;
@@ -926,7 +934,10 @@ async function loadUnit(n) {
   renderUnit();
   renderSidebar();
   if (document.body.dataset.historyPanel === "open") renderHistoryPanel();
-  if (viewMode !== "text" && currentUnit.pieces[0]) loadPdfPage(currentUnit.pieces[0].page_start);
+  if (viewMode !== "text") {
+    const target = pdfPage || (arrivingAtANewUnit && currentUnit.pieces[0] ? currentUnit.pieces[0].page_start : null);
+    if (target) loadPdfPage(target);
+  }
   // Status of the unit we just left/entered may have changed; keep the
   // sidebar's own copy fresh without a full meta reload on every click.
   if (META) {
@@ -1394,18 +1405,22 @@ document.getElementById("flag-btn").onclick = async () => {
 };
 
 async function acceptPiece(nodeIndex, flagged) {
+  // Read the page off the piece before the reload replaces currentUnit:
+  // a Section can run over several pages, and the piece just decided is
+  // the one the reviewer is looking at.
+  const piece = currentUnit && currentUnit.pieces.find((p) => p.node_index === nodeIndex);
   try {
     await api(`api/nodes/${nodeIndex}/accept`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
     });
     toast(flagged ? "Piece flagged." : "Piece accepted.");
-    await afterMutation();
+    await afterMutation(piece && piece.page_start);
   } catch (e) { toast(e.message, true); }
 }
 
-async function afterMutation() {
+async function afterMutation(pdfPage) {
   await loadMeta();
-  await loadUnit(currentUnitNo);
+  await loadUnit(currentUnitNo, pdfPage);
 }
 
 async function submitBlindGuess(pieceDiv, nodeIndex) {
