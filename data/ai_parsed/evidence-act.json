@@ -2,7 +2,7 @@
   "act": "evidence-act",
   "source": "acts/evidence-act.pdf",
   "engine": "rules",
-  "profile": null,
+  "profile": "evidence-act",
   "document_type": "act",
   "version": {
     "version": 27,
