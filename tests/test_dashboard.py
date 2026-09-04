@@ -68,6 +68,7 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
         "review_status": "not-parsed",
         "akn_exported": False,
         "markdown_exported": False,
+        "changes_count": None,
     }
 
 
@@ -358,3 +359,31 @@ def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatc
     (tmp_path / "ai_pipeline" / "profiles" / "criminal-procedure-act.yaml").write_text("part: x", encoding="utf-8")
 
     assert dashboard.act_status("criminal-procedure-act-v114")["has_profile"] is True
+
+
+def test_act_status_counts_changes_across_a_works_versions(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    v110 = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "old wording")]
+    v111 = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "new wording")]
+    _write_parsed(tmp_path, "crimes-act-v110", v110)
+    _write_parsed(tmp_path, "crimes-act-v111", v111)
+
+    status = dashboard.act_status("crimes-act-v111")
+
+    assert status["changes_count"] == 1
+
+
+def test_act_status_leaves_changes_count_unset_for_a_single_version_work(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "text")]
+    _write_parsed(tmp_path, "crimes-act-v110", nodes)
+
+    assert dashboard.act_status("crimes-act-v110")["changes_count"] is None
+
+
+def test_act_status_leaves_changes_count_unset_for_an_unversioned_document(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "text")]
+    _write_parsed(tmp_path, "crimes-act", nodes)
+
+    assert dashboard.act_status("crimes-act")["changes_count"] is None

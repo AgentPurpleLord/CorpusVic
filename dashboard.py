@@ -173,6 +173,12 @@ def act_status(slug: str) -> dict:
         "review_status": "not-parsed",
         "akn_exported": (BASE_DIR / "data" / "akn" / f"{slug}.xml").exists(),
         "markdown_exported": (BASE_DIR / "data" / "markdown" / slug / "index.md").exists(),
+        # How many provisions have changed anywhere across this work's own
+        # versions -- None where there's only one, or none parsed yet,
+        # since there is nothing yet to compare (see dashboard._timeline).
+        # Filled in below, after the ordinary fields that don't need
+        # touching every other parsed version of the same work to know.
+        "changes_count": None,
     }
     if not parsed_path.exists():
         return status
@@ -195,6 +201,8 @@ def act_status(slug: str) -> dict:
         status["review_status"] = "in-progress"
     else:
         status["review_status"] = "not-started"
+    if work and len(_work_versions(work)) > 1:
+        status["changes_count"] = sum(len(v) for v in _timeline(work)["entries"].values())
     return status
 
 
