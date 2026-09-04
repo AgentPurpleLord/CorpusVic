@@ -185,6 +185,27 @@ def _prev_line_was_heading(stack: list[dict], heading_levels: set[str]) -> bool:
     return bool(stack) and stack[-1]["type"] in heading_levels and not stack[-1]["text"]
 
 
+# What the freshness check below actually guards against: a bold line that
+# reads like a section heading but is really the tail of a citation that
+# wrapped -- an Act-name's year on its own line ("... Act\n1997 insert--"),
+# or the rest of a list of section numbers ("sections 84F\nand 84G of the
+# Domestic Animals Act 1994"). Both continue a sentence, and both give
+# themselves away: a year is four digits and nothing else, and a
+# continuation runs on in lower case where a real heading's title is
+# capitalised ("320A Maximum term of imprisonment", "464Y Caution before
+# forensic procedure").
+#
+# Requiring freshness of everything else cost real provisions, because the
+# check only fires on the line after body text that didn't reach a full
+# stop -- exactly where a section following a wrapped provision sits. It
+# lost the Crimes Act's ss 320A, 464Y and 464ZGFC, the Criminal Procedure
+# Act's s 7B, and 20-odd clauses of the Bill.
+def _could_be_a_wrapped_citation(number: str, heading: str) -> bool:
+    if re.fullmatch(r"(?:1[6-9]|20)\d{2}", number):
+        return True  # a wrapped Act-name year
+    return not heading[:1].isupper()
+
+
 def _is_fresh_start(prev_text: str, prev_line_was_heading: bool) -> bool:
     """Is the line that follows starting clean, rather than continuing a
     sentence in progress? True at the very start of the document, right
@@ -641,7 +662,11 @@ class _LineParser:
             m = self.patterns[level].match(text)
             if not m:
                 continue
-            if level == "section" and not _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels) or was_heading_group):
+            if (
+                level == "section"
+                and _could_be_a_wrapped_citation(m.group(1), m.group(2).strip())
+                and not _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels) or was_heading_group)
+            ):
                 # A bold line that happens to start with a bare number
                 # mid-paragraph, not a genuine new section/clause -- e.g.
                 # an Act-name citation that wraps its year onto its own
