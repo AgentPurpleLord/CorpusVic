@@ -933,7 +933,7 @@ def _section_crossrefs(act_slug: str, section_number: str | None, schedule: str 
         return []
     chips = []
     for bill in entry["bill"]:
-        where = commentary.provision_key(bill.get("schedule"), bill["clause_number"])
+        where = diffing.provision_identity("clause", bill.get("schedule"), bill["clause_number"])
         page = _page_index(bill["bill_slug"])["by_key"].get(where)
         if not page:
             continue
@@ -1119,18 +1119,16 @@ def _provision_page_url(slug: str, page_index: dict, entry: dict) -> "str | None
     """Where to read one provision in one version, or None where that
     version gives it no page of its own.
 
-    build_page_index is keyed by (Schedule, number) with no record of what
-    kind of thing that is, because everything it indexes is a Section.
-    A timeline entry is not: a Schedule, a Part or a Division can be
-    amended in its own right (see diffing's container types), and looking
-    one of those up by number alone finds the *section* of that number --
-    "Schedule 3" linked to section 3, which is a different provision of a
-    different Act Part about a different subject. A container has no page,
-    so it gets no link, and the changes page is where it is read instead.
+    build_page_index's by_key is keyed by kind as well as (Schedule,
+    number) for exactly this lookup: a Schedule, a Part or a Division can
+    be amended in its own right (see diffing's container types), and a
+    number alone would find the *section* of that number instead --
+    "Schedule 3" linked to section 3, a different provision entirely.
+    Most containers still have no page of their own and so no entry here
+    at all (returns None); a Schedule whose own content earned it a page
+    (see hierarchy.schedule_is_pageable) does.
     """
-    if entry.get("kind") != "provision":
-        return None
-    page = page_index["by_key"].get(commentary.provision_key(entry.get("schedule"), entry["number"]))
+    page = page_index["by_key"].get(diffing.provision_identity(entry["type"], entry.get("schedule"), entry["number"]))
     return f"/browse/{slug}/section/{page}" if page else None
 
 
@@ -1152,7 +1150,7 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
     if not entries:
         return [], {}
     urls = {}
-    probe = {"kind": entries[0]["kind"], "schedule": schedule, "number": number}
+    probe = {"type": entries[0]["type"], "schedule": schedule, "number": number}
     for other in timeline["slugs"]:
         _w, other_version = split_document_slug(other)
         url = _provision_page_url(other, _page_index(other), probe)
@@ -1378,9 +1376,19 @@ def browse_section(slug: str, section_slug: str):
     # which identity to look the timeline up under (see diffing).
     node_type = nodes[node_index]["type"] if node_index is not None else "section"
     entries, version_urls = _provision_timeline(slug, section_number, schedule, node_type)
+    # Bill/EM commentary is only ever matched against an ordinary numbered
+    # provision (see bill_linking.py) and never against a Schedule as a
+    # whole -- a pageable Schedule (hierarchy.schedule_is_pageable) is
+    # addressed by its own number with schedule=None, the same
+    # (schedule, number) pair a same-numbered body section would use, and
+    # _commentary_index's own key has no kind to tell them apart the way
+    # build_page_index's by_key now does. Skipping the lookup outright
+    # for anything that isn't a genuine Section/Clause page avoids
+    # borrowing that section's commentary onto the Schedule's page.
+    crossrefs = _section_crossrefs(slug, section_number, schedule) if node_type in ("section", "clause") else []
     body = html_view.render_section(
         {"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug,
-        crossrefs=_section_crossrefs(slug, section_number, schedule),
+        crossrefs=crossrefs,
         amendment_index=_amendments(slug)["index"],
         timeline=entries, version_urls=version_urls, superseded=_superseded(slug),
     )

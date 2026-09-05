@@ -51,7 +51,7 @@ from .definitions import (
     split_definition_clauses,
 )
 from .extract import reflow
-from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks
+from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks, schedule_is_pageable
 
 SECTIONS_DIR = "sections"
 
@@ -118,7 +118,13 @@ def page_title(node: dict) -> str:
     its bare "3 Definitions" form -- that is how a section is actually
     cited. A Bill's or an EM's provision gets its type spelled out
     ("Clause 5 Purposes"), because a bare number is how nothing is cited
-    and an EM's entries have no headings to disambiguate them."""
+    and an EM's entries have no headings to disambiguate them. A Schedule
+    page (see hierarchy.schedule_is_pageable) gets the same treatment as
+    a Part or Division's own heading -- "Schedule 3 - Persons who may
+    witness statements..." -- since a bare "3 Persons who may witness..."
+    reads as though 3 were this Act's own section number, which it isn't."""
+    if node["type"] == "schedule":
+        return _display_title(node["type"], node.get("number"), node.get("heading"))
     label = f"{node.get('number') or ''} {node.get('heading') or ''}".strip()
     if node["type"] == "clause" and node.get("number"):
         return f"Clause {label}"
@@ -204,7 +210,7 @@ def _clause_header_text(label: str | None, index: int, total: int) -> str | None
     return f"¶{index + 1}"  # a lead-in clause with no bracket label of its own (e.g. a section's own un-numbered text)
 
 
-def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = False):
+def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = False, _is_page_root: bool = True):
     """Yields one dict per renderable unit of a section's subtree, in the
     exact order rendering will emit them -- the single source of truth both
     _render_body (which prints them) and compute_section_slugs (which
@@ -214,12 +220,29 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     6, since Markdown has no deeper header); "depth" is the raw nesting
     distance from the Section itself, uncapped -- html_view.py renders
     indentation from it rather than headers, so it needs the real depth,
-    not one flattened by that cap."""
+    not one flattened by that cap.
+
+    `_is_page_root` is for this function's own recursion only -- true
+    exactly once, on the outermost call, and never on a nested one. depth
+    alone can't tell the two apart: a Section's own immediate children
+    are deliberately recursed into *without* incrementing depth (see
+    child_depth below), so a paragraph sitting right under a Section root
+    arrives at depth 0 too."""
     node = tree_node["node"]
     t = node["type"]
+    # An ordinary Section or Clause is always page-root when it appears
+    # at all here (collect_sections never lets one appear nested inside
+    # another's subtree); the only other page root reaching this function
+    # is a Schedule whose own content has nowhere else to go (see
+    # hierarchy.schedule_is_pageable) -- caught by _is_page_root, since
+    # "schedule" isn't itself in SECTION_LEVEL_TYPES. Either way this
+    # node's own num/heading are the page's H1, not repeated as a body
+    # sub-heading, and its children start their own nesting at this same
+    # depth rather than one deeper -- exactly as a Section's children do.
+    is_root = _is_page_root or t in SECTION_LEVEL_TYPES
 
-    if t in SECTION_LEVEL_TYPES:
-        label = None  # the section's own num/heading are the page's H1, not repeated in the body
+    if is_root:
+        label = None
         in_definitions = in_definitions or looks_like_definitions_section(node.get("heading"))
     else:
         label = _format_num(t, node["number"]) if node.get("number") else None
@@ -239,7 +262,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # nothing here is left for extract_terms to find any more, since
         # the term is no longer inline at the text's own start.
         yield {"tree_node": tree_node, "clause_index": 0, "text": text or None, "header_text": heading, "level": level, "depth": depth}
-    elif heading and t not in SECTION_LEVEL_TYPES:
+    elif heading and not is_root:
         header_text = f"{label} {heading}".strip() if label else heading
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level, "depth": depth}
     elif text:
@@ -250,16 +273,16 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # paragraph (and, when there's more than one, its own header)
         # instead of one run-on line.
         clauses = split_definition_clauses(text) if in_definitions else [text]
-        needs_header = t not in SECTION_LEVEL_TYPES or len(clauses) > 1
+        needs_header = not is_root or len(clauses) > 1
         for i, clause in enumerate(clauses):
             header_text = _clause_header_text(label, i, len(clauses)) if needs_header else None
             yield {"tree_node": tree_node, "clause_index": i, "text": clause, "header_text": header_text, "level": level, "depth": depth}
     elif label:
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": label, "level": level, "depth": depth}
 
-    child_depth = depth + 1 if t not in SECTION_LEVEL_TYPES else depth
+    child_depth = depth if is_root else depth + 1
     for child in tree_node["children"]:
-        yield from _iter_body_units(child, child_depth, in_definitions)
+        yield from _iter_body_units(child, child_depth, in_definitions, _is_page_root=False)
 
 
 def compute_section_slugs(tree_node: dict) -> dict[tuple[str, int], str | None]:
@@ -370,14 +393,16 @@ def _display_title(node_type: str, number: str | None, heading: str | None) -> s
 def collect_sections(tree_roots: list[dict], structural_types: tuple[str, ...]) -> list[tuple[dict, list[dict]]]:
     """[(section_tree_node, breadcrumb_of_ancestor_tree_nodes), ...] in
     document order -- every top-level provision, whether this document
-    calls them sections or clauses (see hierarchy.SECTION_LEVEL_TYPES).
-    Doesn't descend into a section's own children -- those belong to that
-    section's own page, not the index."""
+    calls them sections or clauses (see hierarchy.SECTION_LEVEL_TYPES), or
+    a Schedule whose own content is unnumbered prose with no Section-level
+    child of its own (see hierarchy.schedule_is_pageable). Doesn't descend
+    into one of these own children -- those belong to that page, not the
+    index."""
     sections = []
 
     def walk(tree_node, breadcrumb):
         node = tree_node["node"]
-        if node["type"] in SECTION_LEVEL_TYPES:
+        if node["type"] in SECTION_LEVEL_TYPES or schedule_is_pageable(tree_node):
             sections.append((tree_node, breadcrumb))
             return
         next_breadcrumb = breadcrumb + [tree_node] if node["type"] in structural_types else breadcrumb
@@ -631,9 +656,14 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
     def walk(tree_node, out):
         node = tree_node["node"]
         t = node["type"]
-        if t in SECTION_LEVEL_TYPES:
+        pageable_schedule = t == "schedule" and schedule_is_pageable(tree_node)
+        if t in SECTION_LEVEL_TYPES or pageable_schedule:
             filename = f"{SECTIONS_DIR}/{filenames_by_eid[tree_node['eid']]}"
-            out.append(f"- [{index_label(node)}]({filename})")
+            # See html_view.render_index's own copy of this for why a
+            # pageable Schedule gets its type spelled out rather than
+            # index_label's bare "3 Persons who may witness...".
+            label = _display_title(t, node.get("number"), node.get("heading")) if pageable_schedule else index_label(node)
+            out.append(f"- [{label}]({filename})")
             return
         if t in (*structural_types, "heading_group"):
             level = _heading_level(t)

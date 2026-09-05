@@ -71,8 +71,8 @@ import re
 
 from .akn_export import build_hierarchy_tree
 from .amendments import anchor_id, describe, linkify_note
-from .commentary import provision_key
-from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_numbers
+from .diffing import provision_identity
+from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
 from .link_targets import load_known_acts
 from .markdown_export import (
     _DIVISION_REF_RE,
@@ -292,9 +292,10 @@ def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | N
 def build_page_index(parsed: dict, act_title: str) -> dict:
     """Where each of this document's top-level provisions lives, for a
     caller building links *into* it from somewhere else (dashboard.py,
-    turning an Act section's Bill/EM links into hrefs). Returns
+    turning an Act section's Bill/EM links into hrefs, or a timeline
+    entry's own version into a page for it). Returns
     {"by_node_index": {position in parsed["nodes"] -> page id},
-     "by_key": {commentary.provision_key(schedule, number) -> page id},
+     "by_key": {diffing.provision_identity(type, schedule, number) -> page id},
      "schedule_by_node_index": {position -> the Schedule it sits in}} --
     page id being what render_index links to and render_section matches
     on.
@@ -302,7 +303,13 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     Keyed by Schedule as well as number because a Schedule numbers its own
     provisions from 1 again: this Act has a section 11 and a Schedule 1
     clause 11, on different pages ("s11" and "s11_2"), and a lookup by
-    number alone silently returned the first of them for both."""
+    number alone silently returned the first of them for both. Keyed by
+    kind too (diffing.provision_identity, not the bare
+    commentary.provision_key most other callers use) because a pageable
+    Schedule (see hierarchy.schedule_is_pageable) is addressed by its own
+    number with no Schedule of its own to sit in -- the same (None,
+    number) pair an ordinary body section with that number would use --
+    and the two must not collide."""
     ctx = _build_context(parsed, act_title)
     position_of = {id(node): i for i, node in enumerate(parsed["nodes"])}
     schedules = schedule_numbers(parsed["nodes"])
@@ -310,13 +317,18 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     by_key = {}
     schedule_by_node_index = {}
     for tree_node, _breadcrumb in ctx["sections"]:
-        position = position_of.get(id(tree_node["node"]))
+        node = tree_node["node"]
+        position = position_of.get(id(node))
         if position is None:
             continue
         page = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
+        # A Schedule is not "inside itself": its own page is keyed as
+        # sitting in no Schedule at all, the same way diffing.py's own
+        # provisions() keys it -- see that function's docstring.
+        schedule = None if node["type"] == "schedule" else schedules[position]
         by_node_index[position] = page
-        schedule_by_node_index[position] = schedules[position]
-        by_key.setdefault(provision_key(schedules[position], tree_node["node"].get("number")), page)
+        schedule_by_node_index[position] = schedule
+        by_key.setdefault(provision_identity(node["type"], schedule, node.get("number")), page)
     return {
         "by_node_index": by_node_index,
         "by_key": by_key,
@@ -373,9 +385,15 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         nonlocal list_open
         node = tree_node["node"]
         t = node["type"]
-        if t in SECTION_LEVEL_TYPES:
+        pageable_schedule = t == "schedule" and schedule_is_pageable(tree_node)
+        if t in SECTION_LEVEL_TYPES or pageable_schedule:
             href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
-            label = index_label(node)
+            # A pageable Schedule gets the same "type spelled out" label as
+            # its own heading used to be, before it became a page instead
+            # of a bare <h4> above a list -- "3 Persons who may witness..."
+            # would otherwise read as though 3 were this Act's own section
+            # number, which it isn't (see hierarchy.schedule_is_pageable).
+            label = _display_title(t, node.get("number"), node.get("heading")) if pageable_schedule else index_label(node)
             if not list_open:
                 out.append('<ul class="section-list">')
                 list_open = True

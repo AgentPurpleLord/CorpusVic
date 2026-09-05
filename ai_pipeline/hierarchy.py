@@ -190,3 +190,41 @@ def schedule_numbers(nodes: list[dict]) -> list["str | None"]:
             current = node.get("number")
         out.append(node.get("schedule") or current)
     return out
+
+
+def _subtree_has_section_level(tree_node: dict) -> bool:
+    """Whether a Section- or Clause-type node appears anywhere beneath
+    this tree node, at any depth -- used only by schedule_is_pageable."""
+    for child in tree_node["children"]:
+        if child["node"]["type"] in SECTION_LEVEL_TYPES or _subtree_has_section_level(child):
+            return True
+    return False
+
+
+def schedule_is_pageable(tree_node: dict) -> bool:
+    """Whether this Schedule earns a page of its own in the browse view
+    and the Markdown export, the way an ordinary Section always does.
+    False for anything that isn't a Schedule at all.
+
+    A Schedule whose own items are ordinary numbered provisions is
+    already fully covered by each of THEIR own pages: real Schedules
+    number their own clauses "in the same way as sections" and those
+    items reuse the plain Section/Clause node type rather than getting
+    one of their own (see UNIT_BOUNDARY_TYPES's own note on why) --
+    Schedule 1 of the Criminal Procedure Act, say, whose "section 1" sits
+    right where the body's own section 1 would, just inside a different
+    Schedule.
+
+    A Schedule whose content is unnumbered prose sitting directly on its
+    own node, or spilling into a run of un-numbered heading_group/note
+    children beneath it, has no page anywhere otherwise -- not in the
+    browse view, not in the Markdown export. Schedule 3 of the Criminal
+    Procedure Act ("Persons who may witness statements in preliminary
+    brief, full brief or hand-up brief") and Schedule 1 of the Evidence
+    Act ("Style changes") are both this shape, and both were previously
+    unreachable by anything except the Act's own AKN export, which
+    serializes the whole tree rather than paginating it.
+    """
+    if tree_node["node"]["type"] != "schedule":
+        return False
+    return not _subtree_has_section_level(tree_node)

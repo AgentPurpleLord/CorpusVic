@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 import dashboard
-from ai_pipeline import db
+from ai_pipeline import db, diffing
 from conftest import make_node
 
 
@@ -449,3 +449,33 @@ def test_resolve_legislation_citation_accepts_a_year_less_old_style_number(monke
     info = dashboard._resolve_legislation_citation("8679")
 
     assert info["title"] == "Old Act" and info["year"] == 1962 and info["in_force"] is False
+
+
+# ---------------------------------------------------------------------------
+# Linking a timeline entry to its own page across versions
+# ---------------------------------------------------------------------------
+
+def test_provision_page_url_finds_an_ordinary_provisions_page():
+    page_index = {"by_key": {diffing.provision_identity("section", None, "366"): "s366"}}
+    entry = {"type": "section", "schedule": None, "number": "366"}
+
+    assert dashboard._provision_page_url("cpa-v112", page_index, entry) == "/browse/cpa-v112/section/s366"
+
+
+def test_provision_page_url_finds_a_pageable_schedules_own_page():
+    # The whole point of the kind-aware key: a Schedule entry must not
+    # borrow a same-numbered section's page, or come back with none at all.
+    page_index = {"by_key": {
+        diffing.provision_identity("section", None, "3"): "s3",
+        diffing.provision_identity("schedule", None, "3"): "s3_2",
+    }}
+    entry = {"type": "schedule", "schedule": None, "number": "3"}
+
+    assert dashboard._provision_page_url("cpa-v114", page_index, entry) == "/browse/cpa-v114/section/s3_2"
+
+
+def test_provision_page_url_is_none_where_that_version_has_no_page_for_it():
+    page_index = {"by_key": {}}
+    entry = {"type": "schedule", "schedule": None, "number": "9"}
+
+    assert dashboard._provision_page_url("cpa-v110", page_index, entry) is None

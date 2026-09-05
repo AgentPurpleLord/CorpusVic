@@ -114,6 +114,15 @@ amending Act named in the Act's own margin note — which is also where a
 reader lands on a superseded version, marked plainly as no longer the law
 in force, with a link back to the current one.
 
+That includes a Schedule whose own content is unnumbered prose sitting
+directly on its own node (Schedule 3 of the Criminal Procedure Act,
+"Persons who may witness statements...") rather than in ordinary numbered
+items of its own — see `hierarchy.schedule_is_pageable`. Previously
+invisible anywhere paginated (not the browse view, not the Markdown
+export — only the AKN export, which serialises the whole tree rather than
+paginating it, ever showed it at all), it now gets a page like any other
+provision, margin notes and timeline included.
+
 A new version's review work doesn't start from nothing either.
 `ai_pipeline/reparse.py`'s `apply_carry_forward` seeds a freshly-parsed
 version from the nearest earlier one that has been reviewed, using the

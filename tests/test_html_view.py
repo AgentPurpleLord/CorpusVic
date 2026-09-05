@@ -4,7 +4,7 @@ dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
 from ai_pipeline.amendments import build_amendment_index
-from ai_pipeline.commentary import provision_key
+from ai_pipeline.diffing import provision_identity
 from ai_pipeline.html_view import (
     build_page_index,
     render_endnotes,
@@ -178,7 +178,10 @@ def test_build_page_index_maps_provisions_to_their_pages():
     index = build_page_index(parsed, "Test Bill")
 
     assert index["by_node_index"] == {1: "c1", 3: "c2"}
-    assert index["by_key"] == {provision_key(None, "1"): "c1", provision_key(None, "2"): "c2"}
+    assert index["by_key"] == {
+        provision_identity("clause", None, "1"): "c1",
+        provision_identity("clause", None, "2"): "c2",
+    }
     assert index["schedule_by_node_index"] == {1: None, 3: None}
 
 
@@ -193,9 +196,43 @@ def test_build_page_index_keeps_a_schedules_own_clause_off_the_body_page():
     ]
     index = build_page_index(_parsed(nodes), "Test Bill")
 
-    assert index["by_key"][provision_key(None, "1")] == "c1"
-    assert index["by_key"][provision_key("1", "1")] == "c1_2"
+    assert index["by_key"][provision_identity("clause", None, "1")] == "c1"
+    assert index["by_key"][provision_identity("clause", "1", "1")] == "c1_2"
     assert index["schedule_by_node_index"][5] == "1"
+
+
+def test_build_page_index_keys_a_pageable_schedule_under_no_schedule_of_its_own():
+    # A pageable Schedule (see hierarchy.schedule_is_pageable) is its own
+    # page, not a clause of itself -- it must be found by its own number
+    # with schedule=None, the same key an ordinary body section of that
+    # number would use, discriminated instead by kind.
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("schedule", "3", "Persons who may witness statements", "1 A police officer."),
+    ]
+    index = build_page_index(_parsed(nodes), "Test Act")
+
+    assert index["by_key"][provision_identity("section", None, "1")] == "s1"
+    assert index["by_key"][provision_identity("schedule", None, "3")] == "s3"
+    assert index["schedule_by_node_index"][2] is None
+
+
+def test_build_page_index_tells_a_pageable_schedule_from_a_same_numbered_section():
+    # A pageable Schedule numbered the same as a real body section (rare,
+    # but real -- see hierarchy.schedule_is_pageable's own examples) must
+    # not be found by the section's page, or vice versa: they share the
+    # bare (schedule=None, number) pair the un-keyed lookup used to use.
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "3", "Definitions", "In this Act—"),
+        make_node("schedule", "3", "Persons who may witness statements", "1 A police officer."),
+    ]
+    index = build_page_index(_parsed(nodes), "Test Act")
+
+    section_page = index["by_key"][provision_identity("section", None, "3")]
+    schedule_page = index["by_key"][provision_identity("schedule", None, "3")]
+    assert section_page != schedule_page
 
 
 _ENDNOTES = {
