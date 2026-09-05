@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <title>Legislation pipeline dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* Same variable names, and the same localStorage["reviewTheme"] key, as
      static/review.html and ai_pipeline/html_view.py's PAGE_CSS: the theme
@@ -63,7 +66,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
     background: var(--bg);
     color: var(--fg);
   }
@@ -112,24 +115,17 @@
   .badge.in-progress { background: var(--badge-progress-bg); color: var(--flagged); }
   .badge.not-started, .badge.not-parsed { background: var(--badge-bg); color: var(--pending); }
   .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  /* An Act's own Authorised Versions. The chip row moves the whole card
-     onto a version -- an older one is reviewed and browsed like any other
-     document, it just isn't the law as it stands. */
-  .versions { display: flex; align-items: center; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
-  .versions-label { font-size: 11.5px; color: var(--muted); margin-right: 2px; }
-  .version-chip {
-    font-size: 11.5px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
-    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  /* A Bill, the Act it became, and its Explanatory Memorandum belong
+     together -- shown as one row rather than three unrelated cards
+     scattered down the page. A row of one (nothing links to it, or
+     nothing else has been added yet) gets no wrapper at all: the
+     grouping only earns its keep once there's more than one card to
+     group. */
+  .doc-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+  .doc-row .act-card { flex: 1 1 260px; margin: 0; }
+  .doc-row.grouped {
+    border: 1px dashed var(--border); border-radius: 10px; padding: 10px;
   }
-  .version-chip:hover { border-color: var(--accent); color: var(--accent); }
-  .version-chip.current { font-weight: 600; color: var(--fg); }
-  .version-chip.active { background: var(--accent); border-color: var(--accent); color: white; }
-  .badge.superseded { background: var(--warning-bg); color: var(--warning-fg); }
-  .changes-link {
-    font-size: 11.5px; color: var(--accent); margin-left: 4px;
-    padding: 2px 8px; border-radius: 10px; border: 1px dashed var(--accent);
-  }
-  .changes-link:hover { background: var(--accent); color: white; }
   #empty { color: var(--muted); font-size: 13.5px; padding: 30px 0; text-align: center; }
 
   .overlay {
@@ -392,7 +388,7 @@ function statusClass(s) {
 
 const KIND_LABELS = { act: "Act", bill: "Bill", em: "Explanatory Memorandum" };
 
-function actCardHtml(s, entry, versionChips) {
+function actCardHtml(s) {
   // Bills and EMs browse and review exactly like an Act now, so the card
   // has to say which one it is -- the slug alone doesn't always.
   const kindBadge = s.parsed && s.kind !== "act"
@@ -416,14 +412,14 @@ function actCardHtml(s, entry, versionChips) {
     ? `<button class="btn small" onclick="openParseModal('${s.slug}')">${parseBtnLabel}</button>`
     : `<button class="btn small" disabled title="No source PDF in acts/">${parseBtnLabel}</button>`;
 
-  // Only the newest Authorised Version is the law as it stands; every
-  // other one is a historical record and has to say so wherever it
-  // appears, not just once the reader is inside it.
-  const supersededBadge = entry && entry.versions.length > 1 && s.slug !== entry.current.slug
-    ? `<span class="badge superseded">Superseded</span>` : "";
-  // An Act states the date it incorporates amendments to whether or not
-  // its versions are being tracked, so the version number only goes in
-  // front of it when there actually is one.
+  // An Act states the date its own parse incorporates amendments to
+  // (never "Authorised Version" -- this pipeline's own reading of it,
+  // not the government's published text) whether or not several
+  // versions of it are held; the version number only goes in front of it
+  // when there actually is one. Only ever the most recent version this
+  // pipeline holds is shown at all -- an older reprint is reachable from
+  // a changed provision's own timeline if a reader wants to see it, not
+  // from a menu here.
   const asAt = s.version_as_at
     ? `<span class="badge">${s.version !== null ? "v" + s.version + " &mdash; " : ""}as at ${s.version_as_at}</span>`
     : "";
@@ -431,16 +427,14 @@ function actCardHtml(s, entry, versionChips) {
   return `
     <div class="act-card">
       <div class="head">
-        <span class="slug">${entry && entry.versions.length > 1 ? entry.work : s.slug}</span>
+        <span class="slug">${s.work}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
-        ${supersededBadge}
         ${kindBadge}
         ${asAt}
         ${nodesBadge}
         ${aknBadge}
         ${mdBadge}
       </div>
-      ${versionChips || ""}
       <div class="actions">
         ${parseBtn}
         ${reviewBtn}
@@ -454,74 +448,68 @@ function actCardHtml(s, entry, versionChips) {
 }
 
 let ACTS = [];
-// Which version of a multi-version work its card is currently showing.
-// Defaults to the one in force; clicking another version's chip moves the
-// whole card -- its badges, its buttons -- onto that version, since an
-// older version is reviewed and browsed exactly like any other document.
-const SELECTED_VERSION = {};
+let BILL_LINKS = [];
 
-// An Act with several Authorised Versions is one Act, not five documents:
-// group its versions under it, newest in force, rather than listing the
-// same Act five times.
-function groupIntoWorks(acts) {
-  const works = [];
+// One card per work, using whichever version is highest -- the one still
+// unparsed if a newer PDF was just added, since that's the one needing
+// attention. Older versions aren't lost: a changed provision's own
+// timeline (see the browse view) still links into them; they just don't
+// get a card of their own here, so the dashboard shows what's current
+// without a version menu to maintain.
+function currentPerWork(acts) {
   const byWork = new Map();
   for (const s of acts) {
-    let entry = byWork.get(s.work);
-    if (!entry) {
-      entry = { work: s.work, versions: [] };
-      byWork.set(s.work, entry);
-      works.push(entry);
+    const existing = byWork.get(s.work);
+    if (!existing || (s.version || 0) > (existing.version || 0)) byWork.set(s.work, s);
+  }
+  return byWork;
+}
+
+// A Bill, the Act it became, and its Explanatory Memorandum are one
+// story, not three unrelated rows -- grouped here from data/bill_links/
+// (via /api/bill-links) so they render together. Anything not part of a
+// group -- a standalone Bill nobody has linked yet, an Act with no Bill
+// on file, an EM whose Bill link is still missing -- still gets shown,
+// just on its own.
+function buildRows(current, billLinks) {
+  const rendered = new Set();
+  const rows = [];
+  for (const [work, doc] of current) {
+    if (doc.kind !== "act") continue;
+    const cards = [doc];
+    rendered.add(work);
+    for (const link of billLinks.filter((l) => l.act_work === work)) {
+      const bill = current.get(link.bill_slug);
+      if (bill && !rendered.has(link.bill_slug)) { cards.push(bill); rendered.add(link.bill_slug); }
+      if (link.em_slug) {
+        const em = current.get(link.em_slug);
+        if (em && !rendered.has(link.em_slug)) { cards.push(em); rendered.add(link.em_slug); }
+      }
     }
-    entry.versions.push(s);
+    rows.push(cards);
   }
-  for (const entry of works) {
-    entry.versions.sort((a, b) => (a.version || 0) - (b.version || 0));
-    entry.current = entry.versions[entry.versions.length - 1];
+  for (const [work, doc] of current) {
+    if (!rendered.has(work)) rows.push([doc]);
   }
-  return works;
-}
-
-function versionChipsHtml(entry, active) {
-  if (entry.versions.length < 2) return "";
-  const chips = entry.versions.map((v) => {
-    const isActive = v.slug === active.slug;
-    const isCurrent = v.slug === entry.current.slug;
-    const title = `${v.version_as_at ? "As at " + v.version_as_at : "Version " + v.version}`
-      + (isCurrent ? " — in force" : " — superseded");
-    return `<button class="version-chip${isActive ? " active" : ""}${isCurrent ? " current" : ""}"
-      title="${title}" onclick="selectVersion('${entry.work}','${v.slug}')">v${v.version}</button>`;
-  }).join("");
-  // Parsed at least twice, but not necessarily diffed yet -- changes_count
-  // is null until every version's parse has been read once (see
-  // dashboard.py's act_status), so this only appears once that's settled,
-  // rather than as a flash of "0 changes" that a page reload corrects.
-  const count = active.changes_count;
-  const changesLink = count !== null && count !== undefined
-    ? `<a class="changes-link" href="/browse/${active.slug}/changes" target="_blank">${count} change${count === 1 ? "" : "s"} across versions</a>`
-    : "";
-  return `<div class="versions"><span class="versions-label">Versions</span>${chips}${changesLink}</div>`;
-}
-
-function selectVersion(work, slug) {
-  SELECTED_VERSION[work] = slug;
-  renderActs();
+  return rows;
 }
 
 function renderActs() {
-  const works = groupIntoWorks(ACTS);
+  const current = currentPerWork(ACTS);
+  const rows = buildRows(current, BILL_LINKS);
   document.getElementById("summary").textContent =
-    ACTS.length ? `${works.length} Act(s)/Bill(s)/EM(s), ${ACTS.length} document(s)` : "";
+    ACTS.length ? `${current.size} Act(s)/Bill(s)/EM(s), ${ACTS.length} document(s)` : "";
   document.getElementById("empty").style.display = ACTS.length ? "none" : "block";
-  document.getElementById("acts").innerHTML = works.map((entry) => {
-    const active = entry.versions.find((v) => v.slug === SELECTED_VERSION[entry.work]) || entry.current;
-    return actCardHtml(active, entry, versionChipsHtml(entry, active));
+  document.getElementById("acts").innerHTML = rows.map((cards) => {
+    const rowClass = cards.length > 1 ? "doc-row grouped" : "doc-row";
+    return `<div class="${rowClass}">${cards.map(actCardHtml).join("")}</div>`;
   }).join("");
 }
 
 async function loadActs() {
-  const res = await fetch("/api/acts");
-  ACTS = await res.json();
+  const [actsRes, linksRes] = await Promise.all([fetch("/api/acts"), fetch("/api/bill-links")]);
+  ACTS = await actsRes.json();
+  BILL_LINKS = await linksRes.json();
   renderActs();
 }
 

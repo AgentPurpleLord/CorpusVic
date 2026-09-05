@@ -7,7 +7,6 @@ from ai_pipeline.amendments import build_amendment_index
 from ai_pipeline.commentary import provision_key
 from ai_pipeline.html_view import (
     build_page_index,
-    render_changes,
     render_endnotes,
     render_index,
     render_preview,
@@ -321,16 +320,19 @@ def test_a_margin_note_links_the_citation_where_it_stands():
     assert "Amending Act 2009</a>" not in body  # the name is in the tooltip, not the margin
 
 
-def test_a_margin_note_without_an_index_is_left_as_the_bare_citation():
+def test_a_margin_note_without_an_index_still_links_to_the_legislation_resolver():
+    # No amendment_index to check against at all -- still a link, not
+    # inert text: the citation's shape is detected by pattern alone, and
+    # /legislation/<act_no> is the standing address for exactly this case.
     nodes = _definitions_act()
     nodes[1]["history"] = [{"raw": "S. 3 amended by No. 68/2009 s. 51."}]
     body = render_section({"nodes": nodes, "hierarchy": None}, "Test Act", "/browse/a", "s3")
 
-    assert "hist-act" not in body
-    assert "S. 3 amended by No. 68/2009 s. 51." in body
+    assert '<a class="hist-act unresolved" href="/legislation/68-2009"' in body
+    assert "S. 3 amended by" in body and "No. 68/2009</a> s. 51." in body
 
 
-def test_the_index_states_which_authorised_version_it_is():
+def test_the_index_states_which_version_this_parse_is():
     parsed = {
         "nodes": _definitions_act(), "hierarchy": None,
         "version": {"version": 114, "as_at": "2026-07-01", "as_at_printed": "1 July 2026",
@@ -338,7 +340,10 @@ def test_the_index_states_which_authorised_version_it_is():
     }
     html = render_index(parsed, "Criminal Procedure Act 2009", "/browse/cpa")
 
-    assert "Authorised Version No. 114" in html
+    # Never "the Authorised Version" -- that's the government's own
+    # published text, and this is this pipeline's own reading of it.
+    assert "Authorised Version" not in html
+    assert "Version 114" in html
     assert "incorporating amendments as at 1 July 2026" in html
 
 
@@ -409,6 +414,13 @@ def test_render_timeline_links_the_amending_act_named_in_the_note():
     assert "No. 1/2026" in html
 
 
+def test_render_timeline_links_a_note_the_index_cant_name_to_the_resolver():
+    entry = _changed_entry(new_history=["S. 366 amended by No. 999/2026 s. 1."])
+    html = render_timeline([entry], "/browse/cpa", amendment_index=build_amendment_index({}))
+
+    assert '<a class="hist-act unresolved" href="/legislation/999-2026"' in html
+
+
 def test_render_timeline_links_each_version_to_its_own_page():
     html = render_timeline([_changed_entry()], "/browse/cpa",
                            version_urls={112: "/browse/cpa-v112/section/s366"})
@@ -442,34 +454,49 @@ def test_render_superseded_banner_names_the_current_version_and_links_to_it():
     assert "Version 114" in html
 
 
-def test_render_changes_says_theres_nothing_to_compare_with_one_version():
-    html = render_changes([], "Criminal Procedure Act 2009", "/browse/cpa-v114")
 
-    assert "nothing to compare" in html
+# ---------------------------------------------------------------------------
+# Linking a mention of another Act by name in body prose
+#
+# section 366 of the real Criminal Procedure Act reads "...an offence
+# against section 21A(1) of the Crimes Act 1958 (stalking)" -- before this,
+# "the Crimes Act 1958" sat there as plain text even though this pipeline
+# has parsed the Crimes Act and knows exactly where to send a reader.
+# ---------------------------------------------------------------------------
 
-
-def test_render_changes_groups_entries_under_their_own_version():
-    groups = [
-        {"version": 112, "as_at_printed": "26 April 2026", "url": "/browse/cpa-v112/",
-         "entries": [_changed_entry(href="/browse/cpa-v112/section/s366")]},
-        {"version": 111, "as_at_printed": "1 April 2026", "url": "/browse/cpa-v111/", "entries": []},
+def test_a_known_acts_own_name_is_linked_in_body_prose(monkeypatch):
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Stalking", "an offence against the Crimes Act 1958."),
     ]
-    html = render_changes(groups, "Criminal Procedure Act 2009", "/browse/cpa-v114")
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s1")
 
-    assert html.index("Version 112") < html.index("Version 111")
-    assert "1 provision changed" in html
-    assert "Nothing changed in this reprint" in html
-    assert '<a class="tl-version" href="/browse/cpa-v112/section/s366">section 366</a>' in html
+    assert '<a href="/browse/crimes-act/">Crimes Act 1958</a>' in body
 
 
-def test_render_changes_shows_a_container_provision_without_a_link():
-    # A Schedule holds no page of its own in the browse view (see
-    # dashboard._provision_page_url), so its entry here carries no href.
-    entry = _changed_entry(key=("schedule", None, "3"), kind="schedule", type="schedule",
-                           number="3", heading=None, href=None)
-    groups = [{"version": 114, "as_at_printed": "1 July 2026", "url": "/browse/cpa-v114/", "entries": [entry]}]
+def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "This Crimes Act 1958 does this."),
+    ]
+    body = render_section(_parsed(nodes), "Crimes Act 1958", "/browse/crimes-act", "s1")
 
-    html = render_changes(groups, "Criminal Procedure Act 2009", "/browse/cpa-v114")
+    assert "Crimes Act 1958</a>" not in body
+    assert "This Crimes Act 1958 does this." in body
 
-    assert '<span class="tl-version">Schedule 3</span>' in html
-    assert '<a class="tl-version" href="None">' not in html
+
+def test_an_act_not_in_known_acts_is_left_as_plain_text(monkeypatch):
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Heading", "under the Public Administration Act 2004."),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s1")
+
+    assert "Public Administration Act 2004</a>" not in body
+    assert "Public Administration Act 2004" in body

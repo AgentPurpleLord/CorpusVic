@@ -72,8 +72,8 @@ import re
 from .akn_export import build_hierarchy_tree
 from .amendments import anchor_id, describe, linkify_note
 from .commentary import provision_key
-from .diffing import label
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_numbers
+from .link_targets import load_known_acts
 from .markdown_export import (
     _DIVISION_REF_RE,
     _PART_REF_RE,
@@ -149,14 +149,27 @@ def _build_context(parsed: dict, act_title: str) -> dict:
     }
 
 
-def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str):
+def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str, own_title: "str | None" = None):
     """Same regex/priority scheme as markdown_export._build_linkifier, but
     emits <a href> tags instead of Markdown link syntax. Must only ever be
     called on text that's *already* been HTML-escaped (see _esc) -- the
     patterns below match plain words/digits, never anything an escape pass
     would have altered, so escaping first and linkifying second is safe:
     the substituted spans are exact, already-escaped slices of the input,
-    never re-derived from unescaped source."""
+    never re-derived from unescaped source.
+
+    Also links a mention of another Act by name -- "the Crimes Act 1958",
+    say, in a Schedule's own prose -- against ai_pipeline/known_acts.yaml,
+    the small curated list of Acts this pipeline has actually parsed.
+    Deliberately not matched against the full act_registry.json (some
+    8000 Acts): building an alternation that large on every render is not
+    a cost worth paying for links this project is unlikely to parse, and
+    known_acts.yaml is exactly the list that grows as it does. `own_title`
+    -- this document's own citation -- is left out of the match, so an
+    Act's own name inside its own text doesn't link to itself."""
+    known_acts = {slug: title for slug, title in load_known_acts().items() if title != own_title}
+    known_acts_by_lower = {title.lower(): (slug, title) for slug, title in known_acts.items()}
+
     parts = []
     if definitions:
         term_alt = "|".join(re.escape(t) for t in sorted(definitions, key=lambda t: (-len(t), t)))
@@ -164,6 +177,9 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     parts.append(f"(?P<secref>{secref_re})")
     parts.append(f"(?P<partref>{_PART_REF_RE})")
     parts.append(f"(?P<divref>{_DIVISION_REF_RE})")
+    if known_acts:
+        act_alt = "|".join(re.escape(t) for t in sorted(known_acts.values(), key=lambda t: (-len(t), t)))
+        parts.append(f"(?P<actref>\\b(?:{act_alt})\\b)")
     master = re.compile("|".join(parts), re.IGNORECASE)
 
     def section_href(filename: str) -> str:
@@ -193,6 +209,9 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             num = text.split(None, 1)[1]
             fragment = division_eids.get(num.lower())
             return f'<a href="{base_url}/#{fragment}">{text}</a>' if fragment else text
+        if m.lastgroup == "actref":
+            found = known_acts_by_lower.get(text.lower())
+            return f'<a href="/browse/{found[0]}/">{text}</a>' if found else text
         return text
 
     def linkify(escaped_text: str, current_file: str, current_fragment: str | None = None) -> str:
@@ -211,6 +230,39 @@ def _verification_badge(verification: dict) -> str:
     return f'<div class="verify-badge verify-{status}">{_esc(label)}</div>'
 
 
+def _legislation_href(citation: dict) -> str:
+    """The standing address for a citation this pipeline detected but
+    doesn't (yet) know how to name -- /legislation/<act_no>[-<year>] (see
+    dashboard.py's legislation_resolver), which redirects to that Act's
+    own parse once one exists and otherwise says plainly that it hasn't
+    been parsed yet. Every citation this pipeline notices becomes a link
+    to *something*; this is the standing "something" for one that
+    resolved to nothing more specific."""
+    act_no = citation.get("act_no")
+    year = citation.get("year")
+    return f"/legislation/{act_no}-{year}" if year else f"/legislation/{act_no}"
+
+
+def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
+    """One linkify_note run, marked up: a resolved citation links into
+    this Act's own Endnotes entry (full name and dates in the tooltip); an
+    unresolved one -- still detected, just not nameable from what this Act
+    or the general registry holds -- links to the standing resolver
+    instead, marked so a reader can tell "click through to read this
+    elsewhere" from "click through to find out this hasn't been parsed
+    yet". Plain text only for a run that named no citation at all."""
+    record = run.get("record")
+    if record is not None:
+        href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
+        return f'<a class="{css_class}" href="{_esc(href)}" title="{_esc(describe(record))}">{_esc(run["text"])}</a>'
+    citation = run.get("citation")
+    if citation is not None:
+        href = _legislation_href(citation)
+        return (f'<a class="{css_class} unresolved" href="{_esc(href)}" '
+                f'title="Not yet parsed into this pipeline">{_esc(run["text"])}</a>')
+    return _esc(run["text"])
+
+
 def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | None = None) -> str:
     """This one provision's own amendment-history notes, for the right-hand
     margin column beside it -- the same place the source PDF prints them,
@@ -224,22 +276,15 @@ def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | N
     the Act's full name and dates in its tooltip. The citation is what the
     note actually says and what a reader wants to click; spelling the Act
     out in full beside every note pushed the note itself out of the margin
-    it is printed in, for a name that is one hover away."""
+    it is printed in, for a name that is one hover away. A citation this
+    pipeline can't name at all still links, to the standing
+    /legislation/<act_no> resolver -- see _linked_citation_html."""
     bits = []
     for h in node.get("history") or []:
         low = h.get("confidence") == "low"
         cls = "hist-note low" if low else "hist-note"
         title = ' title="Attached to this provision as the closest match, not an exact citation"' if low else ""
-        marked = []
-        for run in linkify_note(h["raw"], amendment_index):
-            record = run.get("record")
-            if record is None:
-                marked.append(_esc(run["text"]))
-                continue
-            href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
-            marked.append(
-                f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">{_esc(run["text"])}</a>'
-            )
+        marked = [_linked_citation_html(run, base_url, "hist-act") for run in linkify_note(h["raw"], amendment_index)]
         bits.append(f'<span class="{cls}"{title}>{"".join(marked)}</span>')
     return "".join(bits)
 
@@ -280,15 +325,13 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 
 
 def render_index(parsed: dict, act_title: str, base_url: str,
-                 superseded: dict | None = None, has_changes: bool = False) -> str:
+                 superseded: dict | None = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section is
     built from it, so the caller controls the URL scheme entirely.
 
     superseded, if given, is {"version", "current", "current_url",
-    "as_at_printed"} -- see render_superseded_banner. has_changes says
-    whether this document is one of several versions of a work, and so has
-    a "what changed" page worth linking to."""
+    "as_at_printed"} -- see render_superseded_banner."""
     ctx = _build_context(parsed, act_title)
     tree_roots = ctx["tree_roots"]
     structural_types = ctx["structural_types"]
@@ -306,22 +349,17 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     # states it (see ai_pipeline/versions.py). A statement of fact, not yet
     # a judgement about currency -- knowing this is superseded needs to
     # know what other versions exist, which is the timeline's job.
+    # This is this pipeline's own reading of the document, stated as such --
+    # never "the Authorised Version", which is the name for the government's
+    # own published text and not for anything reconstructed from it here.
     version = parsed.get("version") or {}
     if version.get("version") is not None:
         as_at = f' &mdash; incorporating amendments as at {_esc(version["as_at_printed"])}' if version.get("as_at_printed") else ""
-        out.append(f'<div class="act-version">Authorised Version No. {_esc(str(version["version"]))}{as_at}</div>')
+        out.append(f'<div class="act-version">Version {_esc(str(version["version"]))}{as_at}</div>')
     if parsed.get("endnotes"):
         out.append(
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
             "&mdash; general information, the Table of Amendments, explanatory details</div>"
-        )
-    # Only where there is something to compare against. An Act held here in
-    # one version has no changes page, and offering one that says so is a
-    # link that wastes the click of everyone who takes it.
-    if has_changes:
-        out.append(
-            f'<div class="index-nav"><a href="{base_url}/changes">What changed</a> '
-            "&mdash; the provisions each Authorised Version altered</div>"
         )
     list_open = False
 
@@ -415,17 +453,8 @@ def _timeline_note_html(raw: str, base_url: str, amendment_index: "dict | None")
     """One amendment note, with the Act it names linked to that Act's
     entry in the Endnotes -- the same treatment the note gets in the
     margin, so the citation means the same thing and goes to the same
-    place wherever a reader meets it."""
-    marked = []
-    for run in linkify_note(raw, amendment_index):
-        record = run.get("record")
-        if record is None:
-            marked.append(_esc(run["text"]))
-            continue
-        href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
-        marked.append(
-            f'<a class="hist-act" href="{_esc(href)}" title="{_esc(describe(record))}">{_esc(run["text"])}</a>'
-        )
+    place wherever a reader meets it (see _linked_citation_html)."""
+    marked = [_linked_citation_html(run, base_url, "hist-act") for run in linkify_note(raw, amendment_index)]
     return f'<span class="tl-note">{"".join(marked)}</span>'
 
 
@@ -487,64 +516,6 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
     )
 
 
-def render_changes(groups: list[dict], act_title: str, base_url: str,
-                   amendment_index: "dict | None" = None) -> str:
-    """Everything that changed at each version of the Act, newest version
-    first -- the reprint's own answer to "what is different this time?".
-
-    This exists alongside the per-provision timeline because the two
-    answer different questions. A reader on section 366 wants to know how
-    *this* provision got its present wording; a reader who has just been
-    told version 114 is out wants to know what moved anywhere in the Act.
-
-    It is also the only place some changes can appear at all. A Schedule
-    whose items are unnumbered prose holds them on its own node and gets
-    no page of its own in the browse view, so an amendment to one -- like
-    Schedule 3 of the Criminal Procedure Act gaining "and Food Innovation"
-    at version 114 -- would otherwise be found by nothing.
-
-    `groups` is [{"version", "as_at_printed", "entries": [...], "url": ...}]
-    as dashboard.py assembles it; each entry is a diffing timeline entry,
-    optionally carrying "href" for its own provision page.
-    """
-    out = [f"<h1>{_esc(act_title)} &mdash; what changed</h1>"]
-    if not groups:
-        out.append('<p class="changes-empty">Only one version of this Act is held here, '
-                   "so there is nothing to compare it against.</p>")
-        return "\n".join(out)
-
-    for group in groups:
-        version, when = group.get("version"), group.get("as_at_printed")
-        stamp = f"Version {version}" if version is not None else "A later version"
-        if when:
-            stamp += f" &mdash; as at {_esc(when)}"
-        link = f' <a class="changes-goto" href="{_esc(group["url"])}">Read it</a>' if group.get("url") else ""
-        entries = group.get("entries") or []
-        count = len(entries)
-        out.append(f'<h2 class="changes-version">{stamp} '
-                   f'<span class="changes-count">{count} provision{"s" if count != 1 else ""} changed</span>{link}</h2>')
-        if not entries:
-            out.append('<p class="changes-empty">Nothing changed in this reprint.</p>')
-            continue
-        out.append('<ol class="tl-list changes-list">')
-        for entry in entries:
-            name = _esc(label(entry))
-            heading = (f'<a class="tl-version" href="{_esc(entry["href"])}">{name}</a>'
-                       if entry.get("href") else f'<span class="tl-version">{name}</span>')
-            verb = {"inserted": "Inserted", "repealed": "Repealed", "changed": "Amended"}.get(entry.get("change"), "Changed")
-            notes = "".join(_timeline_note_html(raw, base_url, amendment_index)
-                            for raw in entry.get("new_history") or [])
-            note_block = f'<div class="tl-notes">{notes}</div>' if notes else ""
-            body = f'<div class="tl-diff">{_diff_html(entry["diff"])}</div>' if entry.get("diff") else ""
-            out.append(
-                f'<li class="tl-entry tl-{_esc(entry.get("change") or "changed")}">'
-                f'<div class="tl-head">{heading}<span class="tl-verb">{verb}</span></div>'
-                f'{note_block}{body}</li>'
-            )
-        out.append("</ol>")
-    return "\n".join(out)
-
-
 def render_superseded_banner(version: "int | None", current: "int | None", current_url: "str | None",
                              as_at_printed: "str | None" = None) -> str:
     """The notice on a version that is no longer the law.
@@ -598,7 +569,7 @@ def render_section(
     tree_node, breadcrumb = sections[match_index]
     node = tree_node["node"]
 
-    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], ctx["definitions"], base_url, ctx["secref_re"])
+    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], ctx["definitions"], base_url, ctx["secref_re"], own_title=act_title)
     title = page_title(node)
     verification = _collect_verification([tree_node])
 
@@ -976,6 +947,17 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
     }
 
 
+# Inter over the previous Georgia/system-sans mix, everywhere in the GUI --
+# a typeface drawn for screens, not print, at the small sizes a margin
+# note or a badge is set in. Loaded once per page from Google Fonts
+# (static/dashboard.html and static/review.html load it the same way);
+# the fallback stack still applies if that request fails.
+_FONT_LINKS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">'
+)
+
 PAGE_CSS = """
 /* The palette (and the data-theme dark override below) is deliberately the
    same set of variable names static/review.html uses, driven by the same
@@ -991,7 +973,7 @@ PAGE_CSS = """
   --bar-bg: #111827; --bar-fg: #d1d5db; --bar-link: #93c5fd;
   --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
   --warn-bg: #fef3c7; --warn-border: #d97706;
-  --sans: ui-sans-serif, system-ui, sans-serif;
+  --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -1004,7 +986,7 @@ PAGE_CSS = """
   --warn-bg: #2c2410; --warn-border: #f0ad4e;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font-family: Georgia, "Times New Roman", serif; line-height: 1.65; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; }
 .previewbar {
   background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
   padding: 6px 20px; display: flex; gap: 14px; align-items: center;
@@ -1073,8 +1055,9 @@ a:hover { text-decoration: underline; }
 
 /* Endnotes page: the Table of Amendments as a table. */
 .index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
-/* Which Authorised Version of the Act this page is, stated plainly under
-   its title -- the first thing a reader of legislation needs to know. */
+/* Which version this pipeline's own parse of the Act is, stated plainly
+   under its title -- the first thing a reader needs to know, and never
+   claimed as "the Authorised Version" itself. */
 .act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
 .endnote-text { margin-bottom: 18px; }
 .endnote-text p { margin: 0 0 11px; }
@@ -1116,6 +1099,12 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    prints; the Act's full name and dates are in the link's title. */
 .hist-act { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
 .hist-act:hover { text-decoration: none; border-bottom-style: solid; }
+/* A citation detected but not resolved to anything more specific -- see
+   html_view._linked_citation_html. Muted rather than accent-coloured, so
+   it doesn't read as confidently as a citation this pipeline actually
+   knows the name of. */
+.hist-act.unresolved { color: var(--muted); border-bottom-style: dashed; }
+.hist-act.unresolved:hover { color: var(--accent); }
 
 /* "Explained in" chips under a Section's title: the Bill clause it was
    enacted from, and the Explanatory Memorandum's note on it. Ordinary
@@ -1157,11 +1146,8 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
 .tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
 .tl-note { display: block; }
-/* The diff itself is set in the Act's own serif, not the interface sans:
-   it is the legislation's words, and reading them in the interface font
-   would make an amendment look like a piece of the tool's chrome. */
 .tl-diff {
-  font-family: Georgia, "Times New Roman", serif; font-size: 13.5px; line-height: 1.6;
+  font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
   max-height: 20em; overflow-y: auto;
 }
 .d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 2px; }
@@ -1177,12 +1163,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .supersede-link { white-space: nowrap; }
 
-/* The per-version "what changed" page -- see render_changes. */
-.changes-version { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
-.changes-count { font-family: var(--sans); font-size: 11.5px; font-weight: 400; color: var(--muted); }
-.changes-goto { font-family: var(--sans); font-size: 11.5px; font-weight: 400; }
-.changes-list { margin-bottom: 26px; border-radius: 4px; border-top: 1px solid var(--border); }
-.changes-empty { color: var(--muted); font-family: var(--sans); font-size: 12.5px; }
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
    coordinates (not fixed) so it scrolls with the link it belongs to. */
@@ -1415,7 +1395,7 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: 
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        f"<title>{_esc(title)}</title>\n<style>{PAGE_CSS}</style>\n"
+        f"<title>{_esc(title)}</title>\n{_FONT_LINKS}\n<style>{PAGE_CSS}</style>\n"
         f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body{body_attr}>\n"
         f"{previewbar_html}"
         "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"

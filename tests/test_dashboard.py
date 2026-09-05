@@ -68,7 +68,6 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
         "review_status": "not-parsed",
         "akn_exported": False,
         "markdown_exported": False,
-        "changes_count": None,
     }
 
 
@@ -361,29 +360,92 @@ def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatc
     assert dashboard.act_status("criminal-procedure-act-v114")["has_profile"] is True
 
 
-def test_act_status_counts_changes_across_a_works_versions(tmp_path, monkeypatch):
+def _write_bill_link(tmp_path, name: str, doc: dict) -> None:
+    links_dir = tmp_path / "data" / "bill_links"
+    links_dir.mkdir(parents=True, exist_ok=True)
+    (links_dir / name).write_text(json.dumps({**doc, "links": []}), encoding="utf-8")
+
+
+def test_bill_link_groups_merges_the_act_and_em_files_for_one_bill(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    v110 = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "old wording")]
-    v111 = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "new wording")]
-    _write_parsed(tmp_path, "crimes-act-v110", v110)
-    _write_parsed(tmp_path, "crimes-act-v111", v111)
+    _write_bill_link(tmp_path, "bill-to-act.json",
+                     {"bill_slug": "criminal-procedure-bill-2008", "act_slug": "criminal-procedure-act-v114"})
+    _write_bill_link(tmp_path, "bill-em-links.json",
+                     {"bill_slug": "criminal-procedure-bill-2008", "em_slug": "criminal-procedure-bill-2008-em"})
 
-    status = dashboard.act_status("crimes-act-v111")
+    groups = dashboard._bill_link_groups()
 
-    assert status["changes_count"] == 1
+    assert groups == [{
+        "bill_slug": "criminal-procedure-bill-2008",
+        "act_work": "criminal-procedure-act",
+        "em_slug": "criminal-procedure-bill-2008-em",
+    }]
 
 
-def test_act_status_leaves_changes_count_unset_for_a_single_version_work(tmp_path, monkeypatch):
+def test_bill_link_groups_leaves_the_em_slot_null_without_an_em_file(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "text")]
-    _write_parsed(tmp_path, "crimes-act-v110", nodes)
+    _write_bill_link(tmp_path, "bill-to-act.json",
+                     {"bill_slug": "some-bill-2020", "act_slug": "some-act-v1"})
 
-    assert dashboard.act_status("crimes-act-v110")["changes_count"] is None
+    groups = dashboard._bill_link_groups()
+
+    assert groups == [{"bill_slug": "some-bill-2020", "act_work": "some-act", "em_slug": None}]
 
 
-def test_act_status_leaves_changes_count_unset_for_an_unversioned_document(tmp_path, monkeypatch):
+def test_bill_link_groups_is_empty_without_a_bill_links_directory(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "1", "Purposes", "text")]
-    _write_parsed(tmp_path, "crimes-act", nodes)
 
-    assert dashboard.act_status("crimes-act")["changes_count"] is None
+    assert dashboard._bill_link_groups() == []
+
+
+# ---------------------------------------------------------------------------
+# The standing /legislation/<citation> resolver
+# ---------------------------------------------------------------------------
+
+def test_resolve_legislation_citation_finds_a_parsed_act_by_its_number(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "load_act_registry",
+                        lambda: {"Crimes Act 1958": {"act_no": "6231", "year": "1958", "in_force": True}})
+    monkeypatch.setattr(dashboard, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
+    _write_parsed(tmp_path, "crimes-act", [make_node("section", "1", "Purposes")])
+
+    info = dashboard._resolve_legislation_citation("6231-1958")
+
+    assert info == {"act_no": "6231", "year": 1958, "title": "Crimes Act 1958", "in_force": True, "slug": "crimes-act"}
+
+
+def test_resolve_legislation_citation_names_a_known_act_that_isnt_parsed(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "load_act_registry",
+                        lambda: {"Some Other Act 2004": {"act_no": "42", "year": "2004", "in_force": True}})
+    monkeypatch.setattr(dashboard, "load_known_acts", lambda: {})
+
+    info = dashboard._resolve_legislation_citation("42-2004")
+
+    assert info["title"] == "Some Other Act 2004"
+    assert info["slug"] is None
+
+
+def test_resolve_legislation_citation_reports_nothing_for_an_unrecognised_number(monkeypatch):
+    monkeypatch.setattr(dashboard, "load_act_registry", lambda: {})
+    monkeypatch.setattr(dashboard, "load_known_acts", lambda: {})
+
+    info = dashboard._resolve_legislation_citation("999999-1900")
+
+    assert info == {"act_no": "999999", "year": 1900, "title": None, "in_force": None, "slug": None}
+
+
+def test_resolve_legislation_citation_rejects_a_malformed_citation():
+    assert dashboard._resolve_legislation_citation("not-a-number") == {
+        "act_no": None, "year": None, "title": None, "in_force": None, "slug": None,
+    }
+
+
+def test_resolve_legislation_citation_accepts_a_year_less_old_style_number(monkeypatch):
+    monkeypatch.setattr(dashboard, "load_act_registry",
+                        lambda: {"Old Act": {"act_no": "8679", "year": "1962", "in_force": False}})
+    monkeypatch.setattr(dashboard, "load_known_acts", lambda: {})
+
+    info = dashboard._resolve_legislation_citation("8679")
+
+    assert info["title"] == "Old Act" and info["year"] == 1962 and info["in_force"] is False

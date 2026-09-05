@@ -173,15 +173,25 @@ def test_linkify_note_splits_a_note_around_its_citations():
     assert [r["record"]["citation"] for r in runs if "record" in r] == ["68/2009", "6561/1959"]
 
 
-def test_linkify_note_leaves_an_unresolvable_citation_as_plain_text():
-    # Naming a link's destination it can't actually reach would be worse
-    # than leaving the citation as the note prints it.
-    runs = linkify_note("S. 4 amended by No. 12.", _index())
+def test_linkify_note_still_links_a_citation_neither_source_can_name():
+    # A reader should never meet a citation this pipeline noticed and then
+    # said nothing about: it still becomes a link, just to the standing
+    # /legislation/<act_no> resolver rather than this Act's own Endnotes,
+    # since there's no Endnotes entry for a citation nothing here can name.
+    runs = linkify_note("S. 4 amended by No. 999.", _index())
 
-    assert runs == [{"text": "S. 4 amended by No. 12."}]
+    assert runs == [
+        {"text": "S. 4 amended by "},
+        {"text": "No. 999", "citation": {"act_no": "999", "year": None}},
+        {"text": "."},
+    ]
 
 
-def test_linkify_note_without_an_index_is_one_plain_run():
+def test_linkify_note_without_an_index_still_links_every_detected_citation():
+    # The citation's *shape* is detected by pattern alone, independent of
+    # whatever index a caller has to hand -- so even with none at all,
+    # this still isn't left as inert text.
     runs = linkify_note("S. 3 amended by No. 68/2009 s. 51.", None)
 
-    assert runs == [{"text": "S. 3 amended by No. 68/2009 s. 51."}]
+    citation_runs = [r for r in runs if "citation" in r]
+    assert citation_runs == [{"text": "No. 68/2009", "citation": {"act_no": "68", "year": 2009}}]

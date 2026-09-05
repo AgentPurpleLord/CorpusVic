@@ -155,20 +155,29 @@ def resolve_note(raw: str, index: dict) -> list[dict]:
 
 def linkify_note(raw: str, index: "dict | None") -> list[dict]:
     """One margin note broken into the pieces a renderer needs to link it:
-    a list of {"text"} runs, where a run that names an amending Act this
-    index knows also carries {"record"}.
+    a list of {"text"} runs, where a run naming an amending Act carries
+    either {"record"} (this index -- this Act's own endnotes, or the
+    general registry -- knows it) or {"citation"} (the shape of a citation
+    was detected but nothing knows what it names).
+
+    Every detected citation becomes a run of one of those two kinds --
+    never left as bare, unclickable text. A record-carrying run is for its
+    caller to link into this Act's own Endnotes entry for that citation; a
+    citation-carrying run is for the caller to link into the standing
+    resolver at /legislation/<act_no>[-<year>] instead (see dashboard.py),
+    which redirects to that Act's own parse once one exists and otherwise
+    says plainly that it hasn't been parsed yet. A reader should never
+    meet a citation this pipeline noticed and then said nothing about.
 
     The note itself only ever writes the bare citation ("No. 68/2009"),
-    and that citation is the thing a reader wants to click -- the Act's
-    own Table of Amendments is what says which Act that is. Naming the Act
-    in full beside every note instead pushes the note itself out of the
-    margin it is printed in, for a name the reader mostly already knows;
-    the full name and its dates belong in the link's own tooltip.
+    and that citation is the thing a reader wants to click -- the full
+    name and its dates belong in the link's own tooltip, not spelled out
+    beside every note.
 
     Runs are returned in order and concatenate back to `raw` exactly, so a
     renderer escapes each one and never has to do span arithmetic of its
-    own. Without an index (or with none of the citations resolvable), the
-    result is simply the whole note as one unlinked run."""
+    own. Without any citations detected at all, the result is simply the
+    whole note as one plain run."""
     resolved = {}
     for record in resolve_note(raw, index) if index else []:
         resolved[record["cited_as"]] = record
@@ -176,12 +185,15 @@ def linkify_note(raw: str, index: "dict | None") -> list[dict]:
     runs: list[dict] = []
     cursor = 0
     for citation in citations_in(raw):
-        record = resolved.get(citation["label"])
-        if record is None:
-            continue
         if citation["start"] > cursor:
             runs.append({"text": raw[cursor : citation["start"]]})
-        runs.append({"text": raw[citation["start"] : citation["end"]], "record": record})
+        record = resolved.get(citation["label"])
+        run = {"text": raw[citation["start"] : citation["end"]]}
+        if record is not None:
+            run["record"] = record
+        else:
+            run["citation"] = {"act_no": citation["act_no"], "year": citation["year"]}
+        runs.append(run)
         cursor = citation["end"]
     if cursor < len(raw):
         runs.append({"text": raw[cursor:]})

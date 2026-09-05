@@ -52,6 +52,7 @@ they're already the tested, documented entry points for those jobs.
 import argparse
 import hashlib
 import hmac
+import html
 import json
 import os
 import re
@@ -73,6 +74,7 @@ from ai_pipeline.act_registry import load_act_registry
 from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
 from ai_pipeline.extract import slugify
+from ai_pipeline.link_targets import load_known_acts
 from ai_pipeline.versions import document_slug, read_front_matter, split_document_slug
 from review import _resume_point, build_current_nodes, group_into_units
 
@@ -100,10 +102,10 @@ def discover_slugs() -> list[str]:
             if p.suffix.lower() == ".pdf":
                 slugs.add(slugify(p.stem))
             elif p.is_dir():
-                # A work directory: each PDF in it is one Authorised
-                # Version of that work, addressed by the work's name and
-                # its own version number rather than by its filename (see
-                # ai_pipeline/versions.py).
+                # A work directory: each PDF in it is one version of that
+                # work as this pipeline reads it, addressed by the work's
+                # name and its own version number rather than by its
+                # filename (see ai_pipeline/versions.py).
                 for pdf in p.glob("*.pdf"):
                     version = _pdf_version(pdf)
                     # A Bill or an EM filed with the Act it became belongs
@@ -121,7 +123,8 @@ _pdf_version_cache: dict[tuple, "int | None"] = {}
 
 
 def _pdf_version(pdf: Path) -> "int | None":
-    """This PDF's Authorised Version number, cached against the file's own
+    """This PDF's version number (as it states it -- see
+    ai_pipeline/versions.py), cached against the file's own
     mtime and size -- discover_slugs runs on every dashboard load, and
     reading the front matter of every version of every Act on each one
     would be paying repeatedly for something that only changes when a file
@@ -173,12 +176,6 @@ def act_status(slug: str) -> dict:
         "review_status": "not-parsed",
         "akn_exported": (BASE_DIR / "data" / "akn" / f"{slug}.xml").exists(),
         "markdown_exported": (BASE_DIR / "data" / "markdown" / slug / "index.md").exists(),
-        # How many provisions have changed anywhere across this work's own
-        # versions -- None where there's only one, or none parsed yet,
-        # since there is nothing yet to compare (see dashboard._timeline).
-        # Filled in below, after the ordinary fields that don't need
-        # touching every other parsed version of the same work to know.
-        "changes_count": None,
     }
     if not parsed_path.exists():
         return status
@@ -201,8 +198,6 @@ def act_status(slug: str) -> dict:
         status["review_status"] = "in-progress"
     else:
         status["review_status"] = "not-started"
-    if work and len(_work_versions(work)) > 1:
-        status["changes_count"] = sum(len(v) for v in _timeline(work)["entries"].values())
     return status
 
 
@@ -569,6 +564,37 @@ def index():
 @app.get("/api/acts")
 def list_acts():
     return [act_status(slug) for slug in discover_slugs()]
+
+
+def _bill_link_groups() -> list[dict]:
+    """[{"bill_slug", "act_work", "em_slug"}] for the dashboard's own
+    grouping: which Bill goes with which Act's card, and which
+    Explanatory Memorandum goes with that Bill.
+
+    Merged across every data/bill_links/ file that mentions a given Bill,
+    since run_bill_linking.py can write a Bill-to-Act file and a Bill-to-EM
+    file separately -- a Bill linked to only one of the two still gets a
+    group, with the other slot left null. Keyed on the Act's *work*, not
+    one specific version's slug, so the group still finds this Act's card
+    however many versions of it exist."""
+    groups: dict[str, dict] = {}
+    bill_docs, em_docs = _load_bill_link_docs()
+    for doc in bill_docs + em_docs:
+        bill_slug = doc.get("bill_slug")
+        if not bill_slug:
+            continue
+        group = groups.setdefault(bill_slug, {"bill_slug": bill_slug, "act_work": None, "em_slug": None})
+        act_slug = doc.get("act_slug")
+        if act_slug:
+            group["act_work"] = split_document_slug(act_slug)[0]
+        if doc.get("em_slug"):
+            group["em_slug"] = doc["em_slug"]
+    return list(groups.values())
+
+
+@app.get("/api/bill-links")
+def list_bill_links():
+    return _bill_link_groups()
 
 
 def _validate_parse_params(kind: str, profile: str, start_page: str, end_page: str) -> None:
@@ -1067,10 +1093,10 @@ def _superseded(slug: str) -> "dict | None":
     """Whether this version has been overtaken, and by which -- None for a
     document that is not version-tracked, or is itself the current one.
 
-    "Current" is the highest Authorised Version number held here, which is
-    the strongest claim this tool can make: it knows what it has been
-    given, not what the Chief Parliamentary Counsel published this
-    morning. The banner says "the versions held here" for that reason."""
+    "Current" is the highest version number held here, which is the
+    strongest claim this tool can make: it knows what it has been given,
+    not what the Chief Parliamentary Counsel published this morning. The
+    banner says "the versions held here" for that reason."""
     work, version = split_document_slug(slug)
     if version is None:
         return None
@@ -1169,9 +1195,11 @@ def _parse_field(slug: str, key: str, default=None):
 
 
 def _act_version(slug: str) -> dict:
-    """Which Authorised Version of the Act this parse is (see
-    ai_pipeline/versions.py). Empty for a Bill, an Explanatory Memorandum,
-    or a parse made before the pipeline recorded it."""
+    """Which version of the Act this pipeline's own parse is -- as read
+    off the PDF's front matter (see ai_pipeline/versions.py), never
+    presented as "the Authorised Version" itself. Empty for a Bill, an
+    Explanatory Memorandum, or a parse made before the pipeline recorded
+    it."""
     return _parse_field(slug, "version") or {}
 
 
@@ -1225,6 +1253,83 @@ def _preview_bar(slug: str) -> str:
     )
 
 
+_LEGISLATION_CITATION_RE = re.compile(r"^(\d+)(?:-(\d{4}))?$")
+
+
+def _resolve_legislation_citation(citation: str) -> dict:
+    """What is known about a bare citation like "68-2009" or "999" -- the
+    Act number, and the year if the citation carried one, since that is
+    all a margin note or a body reference ever actually states.
+
+    Checked against the general Act registry for a title (act_registry.py
+    covers essentially every Victorian Act ever passed, in or out of
+    force), then against known_acts.yaml for the slug of one this
+    pipeline has actually parsed. Returns {"act_no", "year", "title",
+    "in_force", "slug"} -- every key past act_no is None where that much
+    isn't known, which is itself a valid, common answer: most citations
+    this pipeline meets are never going to be parsed here, and this
+    function's job is only to say what it can, not to guess."""
+    match = _LEGISLATION_CITATION_RE.match(citation)
+    if not match:
+        return {"act_no": None, "year": None, "title": None, "in_force": None, "slug": None}
+    act_no, year = match.group(1), int(match.group(2)) if match.group(2) else None
+
+    title, in_force = None, None
+    for candidate_title, entry in load_act_registry().items():
+        if str(entry.get("act_no")) != act_no:
+            continue
+        # act_registry.json stores "year" as a string ("1991", not 1991) --
+        # compared as one here too, rather than silently never matching a
+        # citation that carried a year at all.
+        entry_year = int(entry["year"]) if entry.get("year") not in (None, "") else None
+        if year is not None and entry_year != year:
+            continue
+        title, in_force = candidate_title, entry.get("in_force")
+        if year is None:
+            year = entry_year
+        break
+
+    slug = next((s for s, t in load_known_acts().items() if t == title), None) if title else None
+    return {"act_no": act_no, "year": year, "title": title, "in_force": in_force, "slug": slug}
+
+
+@app.get("/legislation/{citation}", response_class=HTMLResponse)
+def legislation_resolver(citation: str):
+    """The one stable address this pipeline uses for referring to a piece
+    of legislation by its own Act number, whether or not it has been
+    parsed yet -- the target every citation this pipeline detects but
+    cannot yet link into more specifically should point at (see
+    ai_pipeline/amendments.py's linkify_note and html_view.py's
+    _linked_citation_html), so a reader always has something to click
+    rather than inert text, and a citation that gets parsed later starts
+    resolving properly without anything that already links here needing
+    to change.
+
+    Redirects straight to the parsed document where one exists.
+    Otherwise renders a plain explanation instead of a bare 404: a reader
+    arriving here followed a link this pipeline itself made, and deserves
+    to know why it didn't go anywhere, not a framework's generic error
+    page."""
+    info = _resolve_legislation_citation(citation)
+    if info["slug"] and (BASE_DIR / "data" / "ai_parsed" / f"{info['slug']}.json").exists():
+        return RedirectResponse(f"/browse/{info['slug']}/")
+
+    if info["title"]:
+        cite = f"No. {info['act_no']} of {info['year']}" if info["year"] else f"No. {info['act_no']}"
+        body = (
+            f"<h1>{html.escape(info['title'])}</h1>"
+            f"<p>{html.escape(cite)} has not been parsed into this pipeline yet.</p>"
+        )
+        if info["in_force"] is False:
+            body += "<p>This Act is no longer in force.</p>"
+    else:
+        body = (
+            "<h1>Unrecognised citation</h1>"
+            f"<p>{html.escape(citation)} does not match a known Victorian Act.</p>"
+        )
+    return HTMLResponse(html_view.page_shell("Not parsed yet", body), status_code=404)
+
+
 @app.get("/browse/{slug}")
 def browse_redirect(slug: str):
     _validate_slug(slug)
@@ -1242,7 +1347,6 @@ def browse_index(slug: str):
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"],
          "version": _act_version(slug)},
         title, f"/browse/{slug}", superseded=_superseded(slug),
-        has_changes=len(_work_versions(split_document_slug(slug)[0])) > 1,
     )
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
@@ -1283,46 +1387,6 @@ def browse_section(slug: str, section_slug: str):
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
-
-
-@app.get("/browse/{slug}/changes", response_class=HTMLResponse)
-def browse_changes(slug: str):
-    """What changed at each version of this Act, newest first. 404s for a
-    document that is not one of several versions of a work -- there is
-    nothing to compare a Bill, an EM, or a single reprint against."""
-    _validate_slug(slug)
-    work, version = split_document_slug(slug)
-    if version is None:
-        raise HTTPException(404, f"{slug!r} is not a version-tracked document.")
-    timeline = _timeline(work)
-    title = _act_title(slug)
-    # Regrouped from {provision -> its changes} into {version -> what
-    # changed in it}, which is the question this page answers. Each entry
-    # is linked to its own provision page in the version it changed at, so
-    # a reader lands on the wording as that reprint actually prints it.
-    by_version: dict = {}
-    for entries in timeline["entries"].values():
-        for entry in entries:
-            by_version.setdefault(entry["version"], []).append(entry)
-    groups = []
-    # Every version except the oldest, newest first. The oldest is left out
-    # because there is nothing here from before it: "what changed at
-    # version 110" is a question about version 109, which we do not hold.
-    for other in reversed(timeline["slugs"][1:]):
-        _w, other_version = split_document_slug(other)
-        entries = sorted(by_version.get(other_version, []), key=lambda e: e["node_index"])
-        page_index = _page_index(other)
-        for entry in entries:
-            entry["href"] = _provision_page_url(other, page_index, entry)
-        groups.append({
-            "version": other_version,
-            "as_at_printed": _act_version(other).get("as_at_printed"),
-            "url": f"/browse/{other}/",
-            "entries": entries,
-        })
-    body = html_view.render_changes(groups, title, f"/browse/{slug}", _amendments(slug)["index"])
-    return HTMLResponse(html_view.page_shell(
-        f"{title} \u2014 What changed", body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
 
 @app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)
