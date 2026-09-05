@@ -68,29 +68,48 @@ def _body_font_size(lines: list[BodyLine]) -> float:
     return sizes.most_common(1)[0][0] if sizes else 12.0
 
 
-# Every Victorian Bill's actual operative text opens with this exact,
-# fixed formula -- a reliable anchor for skipping a Bill's own front
-# matter (see _skip_bill_front_matter).
+# Every Victorian Bill's, and every modern Act's, actual operative text
+# opens with this exact, fixed formula -- a reliable anchor for skipping
+# the front matter still ahead of it on the same page (see
+# _skip_front_matter). An older Act (drafted before this formula came
+# into use) closes its own, longer-form enacting words with this phrase
+# instead -- "BE IT ENACTED by the Queen's Most Excellent Majesty ...
+# follows (that is to say):" -- wrapped across several lines, so this
+# matches only its fixed tail.
 _ENACTING_WORDS_RE = re.compile(r"^The Parliament of Victoria enacts:?\s*$")
+_OLD_ENACTING_WORDS_RE = re.compile(r"\(that is to say\):?\s*$", re.IGNORECASE)
 
 
-def _skip_bill_front_matter(lines: list[BodyLine]) -> list[BodyLine]:
-    """A Bill's introduction print opens with a title page and a multi-
-    page Table of Provisions -- a table of contents whose rows repeat
-    every real Part/clause heading's own text closely enough (same
-    numbering, similar bold/size choices) to fool the heading classifiers
-    below into treating the TOC itself as structure. An enacted Act's own
-    PDF never carries this front matter at all (a Bill-only artifact of
-    the introduction print, gone by the time it's reprinted as an
-    Authorised Version), so there's nothing equivalent to guard against
-    when parsing an Act -- this is only ever called for a Bill (see
-    parse_act's skip_front_matter parameter). Skips everything up to and
-    including the fixed enacting formula every Bill's real text opens
-    with; returns the lines unchanged if that formula isn't found, rather
-    than silently discarding the whole document on a layout it doesn't
-    recognise."""
+def _skip_front_matter(lines: list[BodyLine]) -> list[BodyLine]:
+    """Both a Bill's own introduction print and an enacted Act's own
+    reprint carry something ahead of the real operative text that isn't
+    itself structure and would otherwise be parsed as some:
+
+    A Bill's introduction print opens with a title page and a multi-page
+    Table of Provisions -- a table of contents whose rows repeat every
+    real Part/clause heading's own text closely enough (same numbering,
+    similar bold/size choices) to fool the heading classifiers below into
+    treating the TOC itself as structure.
+
+    An Act's own reprint carries a short identity block reprinted right
+    at the start of its operative text -- "Authorised Version No. 114 /
+    Criminal Procedure Act 2009 / Authorised Version incorporating
+    amendments as at / 1 July 2026" -- which toc.py's detect_body_start
+    doesn't catch, since it isn't a Table-of-Provisions page and so
+    doesn't look like the front matter that function skips whole pages
+    of. Left in, it became two spurious heading_group nodes at the very
+    top of every parsed Act's body, reading as though this pipeline's own
+    output *were* an Authorised Version rather than this pipeline's own
+    reading of one.
+
+    Both are fixed print conventions that end at a fixed formula, so both
+    are handled the same way: skip everything up to and including
+    whichever enacting formula is found first, modern or old-style.
+    Returns the lines unchanged if neither is found, rather than silently
+    discarding the whole document on a layout this doesn't recognise."""
     for i, line in enumerate(lines):
-        if _ENACTING_WORDS_RE.match(line.text.strip()):
+        text = line.text.strip()
+        if _ENACTING_WORDS_RE.match(text) or _OLD_ENACTING_WORDS_RE.search(text):
             return lines[i + 1 :]
     return lines
 
@@ -944,30 +963,31 @@ def parse_act(
     pages: list[PageText],
     profile_name: str | None = None,
     top_level_type: str = "section",
-    skip_front_matter: bool = False,
 ) -> ParseResult:
     """top_level_type: "section" for an enacted Act (the default), "clause"
     to parse a Bill instead -- same drafting shape and the same profile
     patterns apply either way (see _LineParser's own docstring on this
     parameter), just the resulting node type differs.
 
-    skip_front_matter: True for a Bill (see _skip_bill_front_matter) --
-    an enacted Act's PDF has nothing equivalent to skip, so this defaults
-    to False and leaves Act parsing completely unaffected. The skipped
-    lines are recorded as a warning (not silently dropped) so the
-    completeness count in the result stays an honest, auditable reflection
-    of what was deliberately excluded and why -- see the module
-    docstring's own completeness guarantee."""
+    Always looks for the fixed enacting formula (see _skip_front_matter)
+    and discards everything up to and including it -- a Bill's title page
+    and Table of Provisions, or an Act's own reprinted identity block,
+    whichever this document turns out to have. Neither present (an
+    unusual layout, or a test fixture with no front matter at all) is a
+    safe no-op: the lines are used unchanged. The skipped lines are
+    recorded as a warning, not silently dropped, so the completeness
+    count in the result stays an honest, auditable reflection of what was
+    deliberately excluded and why -- see the module docstring's own
+    completeness guarantee."""
     patterns = load_profile(profile_name)
     hierarchy_order = load_hierarchy(profile_name)
     lines = _flatten_lines(pages)
     warnings: list[str] = []
-    if skip_front_matter:
-        remaining = _skip_bill_front_matter(lines)
-        skipped = len(lines) - len(remaining)
-        if skipped:
-            warnings.append(f"skipped {skipped} front-matter line(s) (title page + Table of Provisions) before the enacting words")
-        lines = remaining
+    remaining = _skip_front_matter(lines)
+    skipped = len(lines) - len(remaining)
+    if skipped:
+        warnings.append(f"skipped {skipped} front-matter line(s) before the enacting words")
+    lines = remaining
     parser = _LineParser(patterns, _body_font_size(lines), hierarchy_order, top_level_type=top_level_type)
     parser.feed(lines)
     result = parser.result()
