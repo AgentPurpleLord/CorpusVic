@@ -662,10 +662,10 @@ def render_section(
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
     out.append(_verification_badge(verification))
     out.append(f"<h1>{_esc(title)}</h1>")
-    # Ordered as a reader needs them: whether this is even the current law
-    # first, then how this provision got to its present wording, then where
-    # else it is explained. A crossref chip is no use to someone reading
-    # the wrong reprint.
+    # Ordered the way a reader needs them: whether this is even the
+    # current law first, then how this provision got to its present
+    # wording, then where else it's explained. A crossref chip is no
+    # use to someone reading the wrong reprint.
     if superseded:
         out.append(render_superseded_banner(
             superseded.get("version"), superseded.get("current"),
@@ -674,14 +674,15 @@ def render_section(
     out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
     out.append(_crossrefs_html(crossrefs or []))
 
-    # The body reads as the Act itself does: each provision indented by its
-    # own nesting depth with its number hanging in the left margin, rather
-    # than every subsection/paragraph becoming its own <h4>/<h5> heading the
-    # way the Markdown export has to (Markdown has no indentation of its
-    # own to carry structure with). The anchors those headings used to
-    # provide are kept -- they're what cross-references from other sections
-    # link into (see _build_linkifier_html's `fragment`) -- just moved onto
-    # the provision <div> itself.
+    # The body reads the way the Act itself does: each provision
+    # indented by its own nesting depth with its number hanging in the
+    # left margin, rather than every subsection or paragraph becoming
+    # its own <h4>/<h5> heading the way the Markdown export has to
+    # (Markdown has no indentation of its own to carry structure with).
+    # The anchors those headings used to provide are kept -- they're
+    # what cross-references from other sections link into (see
+    # _build_linkifier_html's `fragment`) -- just moved onto the
+    # provision <div> itself.
     slugs = compute_section_slugs(tree_node)
     out.append('<div class="provisions">')
     for unit in _iter_body_units(tree_node):
@@ -695,36 +696,41 @@ def render_section(
         if unit["text"] is None:
             classes.append("prov-heading")  # a heading-only provision (a Subdivision caption, say)
         elif unit["header_text"] is None:
-            # Body text with no number of its own -- a section's lead-in, a
-            # note, a paragraph the parser couldn't number. Nothing to hang
-            # in the margin, so it just sits in the text column.
+            # Body text with no number of its own -- a section's lead-
+            # in, a note, a paragraph the parser couldn't number.
+            # Nothing to hang in the margin, so it just sits in the
+            # text column.
             classes.append("prov-nolabel")
 
         bits = []
         if unit["header_text"] is not None:
-            # A defined term is set in bold italics where it's introduced
-            # (the drafting convention -- see rule_parser.py's
-            # _try_definition_start); every other label is just the
-            # provision's own number, hanging left of its text.
+            # A defined term is set in bold italics where it's
+            # introduced (the drafting convention -- see
+            # rule_parser.py's _try_definition_start); every other
+            # label is just the provision's own number, hanging left
+            # of its text.
             label_class = "prov-term" if unit_node["type"] == "definition" else "prov-num"
             bits.append(f'<span class="{label_class}">{_esc(unit["header_text"])}</span>')
         if unit["text"] is not None:
-            # A number's gutter is CSS (.prov-num's own width), but a defined
-            # term runs straight on into its text, so it needs a real space --
-            # except where that text opens with punctuation ("appear, in
-            # relation to a party, ..."), which must sit tight against it.
+            # A number's gutter is CSS (.prov-num's own width), but a
+            # defined term runs straight on into its text, so it needs
+            # a real space -- except where that text opens with
+            # punctuation ("appear, in relation to a party, ..."),
+            # which must sit tight against it.
             if bits and unit_node["type"] == "definition" and not unit["text"].lstrip().startswith((",", ".", ";", ":", ")", "\u2014", "-")):
                 bits.append(" ")
             bits.append(linkify(_esc(unit["text"]), target_filename, slug))
 
-        # bits are joined with no separator on purpose: the gutter between a
-        # provision's number and its text is the label span's own width and
-        # padding (see .prov-num), so an extra space here would push the
-        # first line out of line with the wrapped ones below it.
+        # bits are joined with no separator on purpose: the gutter
+        # between a provision's number and its text is the label
+        # span's own width and padding (see .prov-num), so an extra
+        # space here would push the first line out of alignment with
+        # the wrapped ones below it.
         out.append(f'<div class="{" ".join(classes)}"{id_attr} style="--depth:{unit["depth"]}">{"".join(bits)}</div>')
-        # One margin cell per provision, empty or not: the two columns are
-        # auto-placed rows of the same grid, so a note only stays level with
-        # the provision it belongs to if every provision contributes a cell.
+        # One margin cell per provision, empty or not: the two columns
+        # are auto-placed rows of the same grid, so a note only stays
+        # level with the provision it belongs to if every provision
+        # contributes a cell.
         notes = _margin_notes_html(unit_node, base_url, amendment_index) if unit["clause_index"] == 0 else ""
         out.append(f'<div class="prov-notes">{notes}</div>')
     out.append("</div>")
@@ -745,10 +751,11 @@ def render_section(
 # ---------------------------------------------------------------------------
 # Endnotes
 # ---------------------------------------------------------------------------
-# How many of an amending Act's own provision-changes to list before the
-# rest go behind a count. The Criminal Procedure Act's busiest amending Act
-# touched 228 provisions; printing all of them for all 73 of them would
-# make this page longer than several of the Act's own Parts.
+# How many of an amending Act's own provision changes to list before
+# the rest go behind a count. The Criminal Procedure Act's busiest
+# amending Act touched 228 provisions; printing all of them for all 73
+# amending Acts would make this page longer than several of the Act's
+# own Parts.
 _AMENDMENT_PROVISION_LIMIT = 40
 
 
@@ -766,9 +773,10 @@ def _amending_act_html(entry: dict, section_files: dict[str, str], base_url: str
         if value:
             rows.append(f"<dt>{_esc(label)}</dt><dd>{_esc(value)}</dd>")
     if record.get("source") == "registry":
-        # Named from the general Act registry rather than this Act's own
-        # Table of Amendments, so it carries no assent or commencement --
-        # say which, instead of showing an entry that just looks incomplete.
+        # Named from the general Act registry rather than this Act's
+        # own Table of Amendments, so it carries no assent or
+        # commencement date -- say why, instead of showing an entry
+        # that just looks incomplete.
         rows.append("<dt>Source</dt><dd>Named from the Act registry &mdash; not listed in this Act's own Table of Amendments</dd>")
 
     provisions = entry["provisions"]
@@ -796,22 +804,23 @@ def _amending_act_html(entry: dict, section_files: dict[str, str], base_url: str
 
 
 def _endnote_blocks_html(section: dict) -> str:
-    """One endnote section's prose, as the printed page sets it: paragraphs
-    reflowed out of the PDF's own line wraps, its sub-headings as headings,
-    its bulleted list as a list, and any provision it quotes set apart from
-    the commentary around it (see ai_pipeline/endnotes.py's block builder).
+    """One endnote section's prose, as the printed page sets it:
+    paragraphs reflowed out of the PDF's own line wraps, its sub-
+    headings as headings, its bulleted list as a list, and any
+    provision it quotes set apart from the commentary around it (see
+    ai_pipeline/endnotes.py's block builder).
 
-    Falls back to the flat "text" field for an Act parsed before blocks
-    existed -- that text still carries the source's wrap points, so it
-    keeps the pre-line rendering that at least preserves its line breaks
-    rather than running them all together."""
+    Falls back to the flat "text" field for an Act parsed before
+    blocks existed -- that text still carries the source's wrap points,
+    so it keeps the pre-line rendering that at least preserves its
+    line breaks rather than running them all together."""
     blocks = section.get("blocks")
     if not blocks:
         text = section.get("text")
         return f'<div class="endnote-text endnote-raw">{_esc(text)}</div>' if text else ""
-    # A run of bullets is one list and a run of quoted lines is one
+    # A run of bullets is one list, and a run of quoted lines is one
     # quotation -- the printed page sets a reproduced provision as a
-    # single indented block, not as a stack of unrelated paragraphs.
+    # single indented block, not a stack of unrelated paragraphs.
     wrappers = {"bullet": ('<ul class="endnote-bullets">', "</ul>"),
                 "quote": ('<blockquote class="endnote-quote">', "</blockquote>")}
     out = ['<div class="endnote-text">']
@@ -840,19 +849,21 @@ def _endnote_blocks_html(section: dict) -> str:
 
 
 def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[dict] | None = None) -> str | None:
-    """The Act's own Endnotes, read as the printed page reads them rather
-    than as the wall of text they extract to: General information, the
-    Table of Amendments as an actual table, and Explanatory details.
+    """The Act's own Endnotes, read the way the printed page reads them
+    rather than as the wall of text they extract to: General
+    information, the Table of Amendments as an actual table, and
+    Explanatory details.
 
-    `summary` is ai_pipeline/amendments.summarise_by_act's output -- every
-    amending Act this Act's margin notes actually cite, with the provisions
-    each one touched. That is the Table of Amendments read the other way
-    round, and the question a reader actually has; the Acts in the table
-    that no margin note cites are listed after it, unchanged.
+    `summary` is ai_pipeline/amendments.summarise_by_act's output --
+    every amending Act this Act's margin notes actually cite, with the
+    provisions each one touched. That's the Table of Amendments read
+    the other way round, which is the question a reader actually has;
+    the Acts in the table that no margin note cites are listed after
+    it, unchanged.
 
-    Returns None when this document has no endnotes (a Bill, an Explanatory
-    Memorandum, an Act parsed before this was extracted), which the caller
-    turns into a 404."""
+    Returns None when this document has no endnotes (a Bill, an
+    Explanatory Memorandum, an Act parsed before this was extracted),
+    which the caller turns into a 404."""
     endnotes = parsed.get("endnotes")
     if not endnotes:
         return None
@@ -891,18 +902,20 @@ def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[d
 # ---------------------------------------------------------------------------
 # Hover previews
 # ---------------------------------------------------------------------------
-# How many provisions (and how much text) a preview card is allowed before
-# it stops being a glance and becomes the page it's previewing. A card that
-# hits either limit says so and offers the link.
+# How many provisions (and how much text) a preview card is allowed
+# before it stops being a glance and turns into the page it's
+# previewing. A card that hits either limit says so and offers the
+# link instead.
 _PREVIEW_MAX_UNITS = 6
 _PREVIEW_MAX_CHARS = 650
 
 
 def _preview_prov_html(unit: dict, base_depth: int) -> str:
-    """One provision, in the same shape render_section emits -- minus the
-    anchor id and the linkifier. A preview is a glance at where a link
-    goes, not a second page: links inside one would invite previews of
-    previews, and its ids would collide with the real page's own."""
+    """One provision, in the same shape render_section emits -- minus
+    the anchor id and the linkifier. A preview is a glance at where a
+    link goes, not a second page: links inside one would invite
+    previews of previews, and its ids would collide with the real
+    page's own."""
     node = unit["tree_node"]["node"]
     classes = ["prov", f"prov-{_esc(node['type'])}"]
     if unit["text"] is None:
@@ -922,19 +935,21 @@ def _preview_prov_html(unit: dict, base_depth: int) -> str:
 
 
 def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fragment: "str | None") -> "dict | None":
-    """The content behind one link, small enough to read in a hover card.
+    """The content behind one link, small enough to read in a hover
+    card.
 
-    Three shapes, matching the three kinds of link _build_linkifier_html
-    produces: a defined term or a numbered provision (section_slug plus the
-    fragment its anchor uses -- the provision itself and whatever nests
-    under it), a bare "section N" reference (section_slug alone -- the
-    Section's opening provisions), and a "Part N"/"Division N" reference
-    (fragment alone -- that heading and the Sections beneath it).
+    Three shapes, matching the three kinds of link
+    _build_linkifier_html produces: a defined term or a numbered
+    provision (section_slug plus the fragment its anchor uses -- the
+    provision itself and whatever nests under it), a bare "section N"
+    reference (section_slug alone -- the Section's opening provisions),
+    and a "Part N"/"Division N" reference (fragment alone -- that
+    heading and the Sections beneath it).
 
-    Returns {title, subtitle, html, truncated}, or None when the target
-    doesn't resolve -- the caller turns that into a 404 and the hover card
-    simply doesn't appear, which is the right outcome for a link into
-    something that isn't there.
+    Returns {title, subtitle, html, truncated}, or None when the
+    target doesn't resolve -- the caller turns that into a 404 and the
+    hover card simply doesn't appear, which is the right outcome for a
+    link into something that isn't there.
     """
     ctx = _build_context(parsed, act_title)
 
