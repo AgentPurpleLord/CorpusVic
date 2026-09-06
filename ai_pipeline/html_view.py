@@ -979,10 +979,10 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
             )
             if start is None:
                 return None
-            # The provision itself plus everything nested under it, which is
-            # what makes a definition useful at a glance: a term whose
-            # meaning is a list of (a)/(b) paragraphs is only answered by
-            # showing them too.
+            # The provision itself plus everything nested under it,
+            # which is what makes a definition useful at a glance: a
+            # term whose meaning is a list of (a)/(b) paragraphs is
+            # only actually answered by showing them too.
             base_depth = units[start]["depth"]
             selected = [units[start]]
             for u in units[start + 1 :]:
@@ -1010,9 +1010,9 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
     if not fragment:
         return None
 
-    # An index anchor: a Part/Division/Chapter heading. What's useful here
-    # isn't its text (it has none) but what it contains, so the card lists
-    # the Sections under it.
+    # An index anchor: a Part, Division or Chapter heading. What's
+    # useful here isn't its text (it has none) but what it contains, so
+    # the card lists the Sections under it.
     index_slugs = ctx["index_slugs"]
     target = None
     for root in ctx["tree_roots"]:
@@ -1045,11 +1045,12 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
     }
 
 
-# Inter over the previous Georgia/system-sans mix, everywhere in the GUI --
-# a typeface drawn for screens, not print, at the small sizes a margin
-# note or a badge is set in. Loaded once per page from Google Fonts
-# (static/dashboard.html and static/review.html load it the same way);
-# the fallback stack still applies if that request fails.
+# Inter, used everywhere in the GUI in place of the previous Georgia
+# and system-sans mix -- a typeface drawn for screens, not print, at
+# the small sizes a margin note or a badge is set in. Loaded once per
+# page from Google Fonts (static/dashboard.html and static/review.html
+# load it the same way); the fallback stack still applies if that
+# request fails.
 _FONT_LINKS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
@@ -1057,11 +1058,11 @@ _FONT_LINKS = (
 )
 
 PAGE_CSS = """
-/* The palette (and the data-theme dark override below) is deliberately the
-   same set of variable names static/review.html uses, driven by the same
-   localStorage["reviewTheme"] key -- toggling the theme in the review GUI
-   and then clicking through to a browse page keeps the theme, because both
-   surfaces read the one preference. */
+/* The palette (and the data-theme dark override below) deliberately
+   uses the same set of variable names static/review.html uses, driven
+   by the same localStorage["reviewTheme"] key -- toggling the theme in
+   the review GUI and then clicking through to a browse page keeps the
+   theme, because both surfaces read the one preference. */
 :root {
   color-scheme: light;
   --bg: #ffffff; --panel: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b;
@@ -1107,28 +1108,28 @@ a:hover { text-decoration: underline; }
 .section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
 .section-nav { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); font-family: var(--sans); font-size: 13px; }
 
-/* The Section body, laid out the way the Act itself prints: one two-column
-   grid whose rows alternate provision / margin-note, so a note stays level
-   with the provision it belongs to (that's why render_section emits an
-   empty .prov-notes cell for every provision, not just annotated ones).
-   Indentation carries the structure -- --depth is the provision's nesting
-   distance below the Section -- with the number hanging in the margin to
-   its left, so a subsection reads as a subsection without needing its own
-   heading. */
+/* The Section body, laid out the way the Act itself prints: one two-
+   column grid whose rows alternate provision and margin note, so a
+   note stays level with the provision it belongs to (that's why
+   render_section emits an empty .prov-notes cell for every provision,
+   not just the annotated ones). Indentation carries the structure --
+   --depth is the provision's nesting distance below the Section --
+   with the number hanging in the margin to its left, so a subsection
+   reads as a subsection without needing its own heading. */
 .provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
 .prov {
   margin: 0 0 11px;
   padding-left: calc(var(--depth, 0) * 26px + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
 }
-/* No number to hang, so no hanging indent -- the text just starts where a
-   numbered sibling's text does, rather than its first line poking out
-   into the empty number column. */
+/* No number to hang, so no hanging indent -- the text just starts
+   where a numbered sibling's text does, instead of its first line
+   poking out into the empty number column. */
 .prov-nolabel { text-indent: 0; }
 /* Except a list item, which has no number because its source prints a
-   bullet instead of one (an Explanatory Memorandum's lists are set that
-   way -- see em_parser.py). It gets its marker back, hanging in the same
-   column a lettered sibling's "(a)" would. */
+   bullet instead of one (an Explanatory Memorandum's lists are set
+   that way -- see em_parser.py). It gets its marker back, hanging in
+   the same column a lettered sibling's "(a)" would. */
 .prov-paragraph.prov-nolabel,
 .prov-subparagraph.prov-nolabel,
 .prov-sub_subparagraph.prov-nolabel { text-indent: -2.4em; }
@@ -1153,15 +1154,15 @@ a:hover { text-decoration: underline; }
 
 /* Endnotes page: the Table of Amendments as a table. */
 .index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
-/* Which version this pipeline's own parse of the Act is, stated plainly
-   under its title -- the first thing a reader needs to know, and never
-   claimed as "the Authorised Version" itself. */
+/* Which version this pipeline's own parse of the Act is, stated
+   plainly under its title -- the first thing a reader needs to know,
+   and never claimed as "the Authorised Version" itself. */
 .act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
 .endnote-text { margin-bottom: 18px; }
 .endnote-text p { margin: 0 0 11px; }
-/* Only an Act parsed before the endnote block builder existed falls back
-   to this: its text still carries the source PDF's own wrap points, so
-   honouring them beats running every line together. */
+/* Only an Act parsed before the endnote block builder existed falls
+   back to this: its text still carries the source PDF's own wrap
+   points, so honouring them beats running every line together. */
 .endnote-raw { white-space: pre-line; }
 .endnote-heading { font-family: var(--sans); font-weight: 600; font-size: 13.5px; margin: 18px 0 7px; }
 .endnote-bullets { margin: 0 0 11px; padding-left: 20px; }
@@ -1192,23 +1193,25 @@ a:hover { text-decoration: underline; }
 .amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--fg); }
 a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
-/* The citation inside a margin note, linked to that Act's own entry in the
-   Endnotes. Inline, so the note still reads as the one line the source
-   prints; the Act's full name and dates are in the link's title. */
+/* The citation inside a margin note, linked to that Act's own entry
+   in the Endnotes. Inline, so the note still reads as the one line
+   the source prints; the Act's full name and dates are in the link's
+   title. */
 .hist-act { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
 .hist-act:hover { text-decoration: none; border-bottom-style: solid; }
-/* A citation detected but not resolved to anything more specific -- see
-   html_view._linked_citation_html. Muted rather than accent-coloured, so
-   it doesn't read as confidently as a citation this pipeline actually
-   knows the name of. */
+/* A citation detected but not resolved to anything more specific --
+   see html_view._linked_citation_html. Muted rather than accent-
+   coloured, so it doesn't read as confidently as a citation this
+   pipeline actually knows the name of. */
 .hist-act.unresolved { color: var(--muted); border-bottom-style: dashed; }
 .hist-act.unresolved:hover { color: var(--accent); }
 
-/* "Explained in" chips under a Section's title: the Bill clause it was
-   enacted from, and the Explanatory Memorandum's note on it. Ordinary
-   links, so the hover preview above reads them like any other -- which is
-   the whole point, since the question ("what does the EM say about this?")
-   is one a reader wants answered without leaving the section. */
+/* "Explained in" chips under a Section's title: the Bill clause it
+   was enacted from, and the Explanatory Memorandum's note on it.
+   Ordinary links, so the hover preview above reads them like any
+   other -- which is the whole point, since the question ("what does
+   the EM say about this?") is one a reader wants answered without
+   leaving the section. */
 .crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
 .crossrefs-label { font-size: 11.5px; color: var(--muted); }
 .crossref {
@@ -1219,9 +1222,10 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .crossref-em { border-style: dashed; }
 
 /* A provision's timeline -- see render_timeline. Collapsed by default:
-   the summary answers "has this changed, and when last?" without opening,
-   which is the question most readers actually have, and the words that
-   moved are one click away for the ones who want them. */
+   the summary answers "has this changed, and when last?" without
+   opening it, which is the question most readers actually have, and
+   the words that moved are one click away for the ones who want
+   them. */
 .timeline { margin: 0 0 20px; font-family: var(--sans); }
 .timeline-summary {
   cursor: pointer; font-size: 12.5px; padding: 6px 10px;
@@ -1251,9 +1255,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 2px; }
 .d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 2px; }
 
-/* The notice on a reprint that is no longer the law. Deliberately loud
-   and at the top of the page: a reader on a superseded version is reading
-   the wrong law, and that is worth interrupting them for. */
+/* The notice on a reprint that's no longer the law. Deliberately loud
+   and at the top of the page: a reader on a superseded version is
+   reading the wrong law, and that's worth interrupting them for. */
 .supersede {
   font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
   background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 3px;
@@ -1295,17 +1299,19 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   font-family: var(--sans);
 }
 
-/* Below the width the two columns need, the margin notes fold in underneath
-   their provision rather than being squeezed into an unreadable strip. */
+/* Below the width the two columns need, the margin notes fold in
+   underneath their provision instead of being squeezed into an
+   unreadable strip. */
 @media (max-width: 720px) {
   .provisions { display: block; }
   .prov-notes { padding-left: 12px; margin: -4px 0 12px; }
 }
 """
 
-# Applied in <head>, before first paint, so a dark-mode reader doesn't get a
-# white flash on every page load; the button wiring below runs after the DOM
-# exists. Both halves read/write the same key static/review.html does.
+# Applied in <head>, before the first paint, so a dark-mode reader
+# doesn't get a white flash on every page load; the button wiring
+# below runs after the DOM exists. Both halves read and write the same
+# key static/review.html does.
 THEME_HEAD_SCRIPT = """
 try {
   if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark";
@@ -1332,23 +1338,24 @@ THEME_BODY_SCRIPT = """
 """
 
 
-# Hover previews. Every link on a browse page points either at a Section
-# page (optionally with a provision's anchor) or at an index anchor, so the
-# href alone says what to preview -- no data has to be embedded in the page.
-# Deliberately hover-with-a-delay rather than click: the point is checking
-# what a defined term means without losing your place, and a card that
-# appeared instantly would flash open every time the pointer crossed a
-# link mid-sentence. It also opens on keyboard focus, where there's no
-# accidental-hover problem to guard against, so a card is reachable
-# without a pointer.
+# Hover previews. Every link on a browse page points either at a
+# Section page (optionally with a provision's anchor) or at an index
+# anchor, so the href alone says what to preview -- no data needs to be
+# embedded in the page. Deliberately hover-with-a-delay rather than
+# click: the point is checking what a defined term means without
+# losing your place, and a card that appeared instantly would flash
+# open every time the pointer crossed a link mid-sentence. It also
+# opens on keyboard focus, where there's no accidental-hover problem
+# to guard against, so a card is reachable without a pointer.
 PREVIEW_SCRIPT = r"""
 (function () {
   var BASE = document.body.dataset.baseUrl;
   if (!BASE) return;
-  // Everything above this document's own slug, e.g. "/browse". Previews
-  // work for any document under it, not just this one -- a Section's
-  // "Explained in" chips point at the Bill and its Explanatory
-  // Memorandum, and those are exactly the links most worth previewing.
+  // Everything above this document's own slug, e.g. "/browse".
+  // Previews work for any document under it, not just this one -- a
+  // Section's "Explained in" chips point at the Bill and its
+  // Explanatory Memorandum, and those are exactly the links most worth
+  // previewing.
   var ROOT = BASE.slice(0, BASE.lastIndexOf("/"));
   var OPEN_DELAY = 500;   // long enough that skimming past a link doesn't trigger one
   var CLOSE_DELAY = 220;  // long enough to move the pointer from the link into the card
@@ -1359,9 +1366,10 @@ PREVIEW_SCRIPT = r"""
   var cache = {};
   var openTimer = null, closeTimer = null, activeLink = null, requestSeq = 0;
 
-  // Which link target this is, as the preview endpoint's two parameters.
-  // Anything that isn't a link into this Act (the preview bar's own links,
-  // an external href) returns null and is left alone.
+  // Which link target this is, as the preview endpoint's two
+  // parameters. Anything that isn't a link into this Act (the preview
+  // bar's own links, an external href) returns null and is left
+  // alone.
   function targetOf(a) {
     var url;
     try { url = new URL(a.getAttribute("href"), location.href); } catch (e) { return null; }
@@ -1382,18 +1390,19 @@ PREVIEW_SCRIPT = r"""
     card.classList.add("open");  // must be laid out before the overflow check below can measure it
     var more = data.truncated
       ? '<div class="peek-more">Continues &mdash; open the link to read the rest.</div>' : "";
-    // A link into another document (a Bill clause, an EM note) is named
-    // by that document as well as by the provision -- without it a card
-    // reading "Clause 5" gives no clue which of the three it came from.
+    // A link into another document (a Bill clause, an EM note) is
+    // named by that document as well as by the provision -- without
+    // it a card reading "Clause 5" gives no clue which of the three it
+    // came from.
     var subBits = [];
     if (crossDocument && data.document) subBits.push(data.document);
     if (data.subtitle) subBits.push(data.subtitle);
     var sub = subBits.length ? '<div class="peek-sub">' + escapeText(subBits.join(" \u00b7 ")) + "</div>" : "";
     card.innerHTML = '<div class="peek-title">' + escapeText(data.title) + "</div>" + sub + data.html + more;
     // A card can also overflow without the server having truncated
-    // anything -- short provisions that simply wrap past its height. Say so
-    // there too, so a clipped last line always reads as "there's more",
-    // never as a rendering glitch.
+    // anything -- short provisions that simply wrap past its height.
+    // Say so there too, so a clipped last line always reads as
+    // "there's more", never as a rendering glitch.
     if (!more && card.scrollHeight > card.clientHeight) {
       card.insertAdjacentHTML("beforeend", '<div class="peek-more">Continues &mdash; scroll, or open the link.</div>');
     }
@@ -1405,9 +1414,9 @@ PREVIEW_SCRIPT = r"""
     return d.innerHTML;
   }
 
-  // Anchored to the link in page coordinates so the card scrolls with it,
-  // flipped above when there isn't room below and nudged back inside the
-  // viewport horizontally.
+  // Anchored to the link in page coordinates so the card scrolls with
+  // it, flipped above when there isn't room below, and nudged back
+  // inside the viewport horizontally.
   function place(a) {
     var r = a.getBoundingClientRect();
     card.style.left = "0px";
@@ -1484,10 +1493,11 @@ PREVIEW_SCRIPT = r"""
 
 
 def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: str | None = None) -> str:
-    """base_url is this Act's own root (e.g. "/browse/crimes-act"). Given
-    one, the page also gets link hover previews -- the script needs it to
-    tell a link into this Act from any other href on the page. Omitted,
-    the page renders exactly as before, without them."""
+    """base_url is this Act's own root (e.g. "/browse/crimes-act"). If
+    given, the page also gets link hover previews -- the script needs
+    it to tell a link into this Act apart from any other href on the
+    page. If omitted, the page renders exactly as before, without
+    them."""
     body_attr = f' data-base-url="{_esc(base_url)}"' if base_url else ""
     preview_script = f"<script>{PREVIEW_SCRIPT}</script>\n" if base_url else ""
     return (
