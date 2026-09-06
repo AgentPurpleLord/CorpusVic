@@ -1,21 +1,20 @@
 """
-Turns the parser's own bookkeeping into a report you can act on, instead of
-either trusting it blindly or re-reading a 900-page tree by hand. Three
-kinds of check:
+Turns the parser's own bookkeeping into a report a human can act on,
+instead of either trusting the parse blindly or reading a 900-page tree
+by hand. Three kinds of check:
 
-1. Completeness -- did every input line make it into the output at all.
-   This is checkable exactly (lines_total vs lines_consumed) because the
-   rule parser tracks it as it goes; nothing here is inferred after the
-   fact.
-2. Structural anomalies -- things that are *possible* but worth a human
+1. Completeness -- did every line of the input actually make it into the
+   output. This can be checked exactly (lines_total vs lines_consumed)
+   because the rule parser counts as it goes; nothing here is a guess.
+2. Structural oddities -- things that are allowed but worth a human
    glance: duplicate numbers under the same parent, empty leaf nodes, a
-   non-trivial synthetic preamble bucket.
-3. History-linking confidence -- notes attached on a guess (fell back to a
-   broader node because the one they actually cited couldn't be found),
-   and notes that couldn't be linked at all.
+   large chunk of text filed under the synthetic preamble bucket.
+3. How confident the amendment-history linking is -- a note attached to
+   the wrong provision because the one it actually names couldn't be
+   found, or a note that couldn't be attached at all.
 
-Nothing here is silently dropped or silently "fixed" -- every finding names
-the exact node/page so review.py can jump straight to it.
+Nothing here is silently dropped or silently fixed -- every finding names
+the exact node and page so review.py can jump straight to it.
 """
 from dataclasses import dataclass, field
 

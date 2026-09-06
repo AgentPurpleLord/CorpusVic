@@ -1,39 +1,42 @@
 """
-The legislative hierarchy: the ordered list of container levels, and the
-helpers for reasoning about relative depth.
+The legislative hierarchy: the ordered list of container levels (Chapter,
+Part, Division, ...), and helpers for reasoning about which level is
+deeper than which.
 
-The default order below covers every Victorian Act checked so far. An
-individual Act can override it from its profile (a `hierarchy:` list in
-ai_pipeline/profiles/<act-slug>.yaml) -- e.g. the Criminal Procedure Act
-groups its Parts under Chapters, so its profile puts "chapter" on top and
-adds a `chapter:` pattern. See profiles.py's `load_hierarchy`.
+The default order below covers every Victorian Act checked so far. A
+particular Act can override it from its own profile (a `hierarchy:` list
+in ai_pipeline/profiles/<act-slug>.yaml) -- for example, the Criminal
+Procedure Act groups its Parts under Chapters, so its profile puts
+"chapter" on top and adds a `chapter:` pattern. See profiles.py's
+`load_hierarchy`.
 
-Because the order can vary per Act, code that walks a parsed Act should
-take the resolved order as a parameter (the rule parser threads it in from
-the profile; run_pipeline.py persists it into data/ai_parsed/<act>.json so
-the exporters can read it back without re-loading the profile). The
-module-level HIERARCHY_ORDER / HIERARCHY_RANK / HEADING_LEVELS are the
-defaults, used as the fallback when a node list carries no hierarchy of
-its own.
+Because the order can differ between Acts, code that walks a parsed Act
+should take the resolved order as a parameter, rather than assuming the
+default (the rule parser gets it from the profile; run_pipeline.py saves
+it into data/ai_parsed/<act>.json so the exporters can read it back
+without reloading the profile). The module-level HIERARCHY_ORDER /
+HIERARCHY_RANK / HEADING_LEVELS below are just the defaults, used when a
+node list doesn't carry its own hierarchy.
 
-"schedule" sits shallower than "chapter", not nested under it: a Schedule
-doesn't belong to any enclosing Part/Division the way the rest of the
-Act's own structure does -- it's a separate, self-contained sequence that
-starts after the Act's substantive Parts/Divisions/Sections end and
-restarts its own numbering from 1 (see basic-structure.yaml's own notes
-on this). Putting it at the very top means opening one always closes out
-whatever Chapter/Part/Division/.../Section was still open, which is
-exactly right. Its own internal numbered items reuse the ordinary
-section/subsection/paragraph/subparagraph types rather than getting
-schedule-specific ones -- real Schedules number their own clauses "in the
-same way as sections" (again see basic-structure.yaml), so the existing
-patterns already recognise most Schedule content correctly with no extra
-code; anything that doesn't match (a reprinted treaty's own numbering,
-say) just falls back to being the Schedule's own plain text, same as any
-other unrecognised line does everywhere else in this parser.
+"schedule" sits above "chapter" in this list, not nested under it: a
+Schedule doesn't belong to any enclosing Part or Division the way the
+rest of the Act's structure does -- it's a separate, self-contained block
+that comes after the Act's main Parts/Divisions/Sections end, and starts
+its own numbering from 1 again (see basic-structure.yaml's own notes on
+this). Putting it at the very top of the list means starting a new
+Schedule always closes out whatever Chapter/Part/Division/.../Section
+was still open, which is exactly right. Its own numbered items reuse the
+ordinary section/subsection/paragraph/subparagraph types rather than
+getting Schedule-specific ones of their own -- real Schedules number
+their clauses "in the same way as sections" (again see basic-
+structure.yaml), so the existing patterns already recognise most
+Schedule content with no extra code needed. Anything that doesn't match
+(a reprinted treaty with its own numbering, say) just becomes plain
+Schedule text, the same way any other unrecognised line does elsewhere
+in this parser.
 "sub_subparagraph" -- bracketed capital letters, "(A)", "(B)" -- is the
-one level rarer than the rest (drafters avoid it where possible), but
-real Acts do use it in heavily-amended sections.
+rarest of these levels (drafters avoid it where they can), but real Acts
+do use it in sections that have been heavily amended.
 """
 
 HIERARCHY_ORDER = [
@@ -50,29 +53,32 @@ HIERARCHY_ORDER = [
 ]
 
 
-# The two types that sit at section rank: an Act's "section" and a Bill's
-# (or an Explanatory Memorandum's) "clause" -- see make_ranks below, which
-# aliases the second onto the first. Anything that asks "is this a
-# top-level provision?" -- which gets its own page in the browse view and
-# its own file in the Markdown export, which types don't repeat their
-# number as a heading inside their own page -- has to accept both, or a
-# Bill/EM browses as an empty document.
+# The two types that sit at the same depth as a section: an Act's
+# "section" and a Bill's (or Explanatory Memorandum's) "clause" -- see
+# make_ranks below, which treats the second as the same depth as the
+# first. Anywhere that asks "is this a top-level provision?" (which gets
+# its own page in the browse view and its own file in the Markdown
+# export, and doesn't repeat its number as a heading on that page) has
+# to accept both, or a Bill/EM would browse as an empty document.
 SECTION_LEVEL_TYPES = ("section", "clause")
 
 
 def make_ranks(order: list[str]) -> dict[str, int]:
-    """level -> its index in `order` (0 = shallowest), plus "clause" mapped
-    onto "section"'s own rank -- see the module-level HIERARCHY_RANK's own
-    comment for why -- and "definition" mapped onto "subsection"'s: a
-    defined term inside a Definitions/Interpretation section (see
-    rule_parser.py's _try_definition_start) nests at exactly the same
-    depth a numbered subsection would -- a fresh definition closes out
-    whatever bracketed list belonged to the previous one, without closing
-    the enclosing Section itself -- it just isn't numbered, so it can't
-    literally share the "subsection" node type the way a Bill's clause
-    shares "section"'s. The dict form of the ordering, for the very
-    common "is level A shallower/deeper than level B" test -- a lookup
-    instead of an O(n) list.index() scan."""
+    """level -> its position in `order` (0 = shallowest). "clause" is
+    mapped onto "section"'s own depth, since a Bill's "clause" is just
+    the pre-enactment name for what an Act calls a "section" (see the
+    comment above HEADING_LEVELS below for more). "definition" is mapped
+    onto "subsection"'s depth: a defined term inside a Definitions or
+    Interpretation section (see rule_parser.py's _try_definition_start)
+    sits at exactly the same depth a numbered subsection would -- a new
+    definition closes out whatever bracketed list belonged to the
+    previous one, without closing the Section itself. It just isn't
+    numbered, so it can't literally share the "subsection" node type the
+    way a Bill's clause shares "section"'s.
+
+    Returning a dict rather than just using `order.index(...)` makes the
+    very common "is level A shallower or deeper than level B?" check a
+    quick lookup instead of scanning the whole list each time."""
     ranks = {level: i for i, level in enumerate(order)}
     if "section" in ranks:
         ranks["clause"] = ranks["section"]
@@ -82,12 +88,11 @@ def make_ranks(order: list[str]) -> dict[str, int]:
 
 
 def heading_levels(order: list[str]) -> set[str]:
-    """The levels whose headings are set bold at a distinct font size in
+    """The levels whose headings are printed bold, in a distinct size, in
     the source PDF (see rule_parser.py's module docstring) -- everything
     from the top of the hierarchy down to and including "section" (plus
-    "clause", a Bill's own name for that same level -- see HIERARCHY_RANK's
-    comment), as opposed to subsection/paragraph/subparagraph, which are
-    never bold."""
+    "clause", a Bill's own name for that same level), as opposed to
+    subsection/paragraph/subparagraph, which are never bold."""
     if "section" in order:
         levels = set(order[: order.index("section") + 1])
         levels.add("clause")
@@ -98,33 +103,35 @@ def heading_levels(order: list[str]) -> set[str]:
 # Defaults, for a node list that carries no hierarchy of its own.
 HIERARCHY_RANK = make_ranks(HIERARCHY_ORDER)
 # "clause" is a Bill's own name for the same top-level numbered provision
-# an Act calls a "section" -- same drafting shape, same nesting rank
-# (subsection/paragraph/subparagraph nest under either identically), just
-# the pre-enactment term (see rule_parser.py's top_level_type parameter,
-# used to parse a Bill instead of an Act). Mapped onto section's own rank
-# rather than getting the next free integer, since the two are never both
-# open at once -- a document is either an Act or a Bill, never both -- and
-# giving it a distinct rank would wrongly let one nest inside the other.
-# (Handled by make_ranks/heading_levels themselves for a resolved per-Act
-# hierarchy; the module-level defaults above get it the same way.)
+# an Act calls a "section" -- same shape, same nesting depth
+# (subsection/paragraph/subparagraph nest under either one identically),
+# just the term used before a Bill is enacted (see rule_parser.py's
+# top_level_type parameter, used when parsing a Bill instead of an Act).
+# It's mapped onto section's own depth rather than given a new one of its
+# own, since the two are never open at the same time -- a document is
+# either an Act or a Bill, never both -- and giving it a separate depth
+# would wrongly let one nest inside the other.
+# (make_ranks/heading_levels apply this for a particular Act's own
+# hierarchy too; the module-level defaults above just do it once here.)
 HEADING_LEVELS = heading_levels(HIERARCHY_ORDER)
 
-# A Section's (or a Bill's own Clause's -- same nesting rank, see
-# HIERARCHY_RANK above) own body runs from itself up to (not including)
-# the next node of one of these types -- the "everything nested under
-# this Section/Clause" grouping review.py's group_into_units,
-# link_targets.py's definition-index builder, and bill_linking.py's full-
-# text reconstruction all need independently. Lives here, not duplicated
-# in each, for the same reason HIERARCHY_ORDER itself does. Fixed
-# regardless of an individual Act's own resolved hierarchy order -- a
-# Chapter/Part/Division/Subdivision/Section/Clause/Schedule heading always
-# closes off whatever came before it, whatever order a particular profile
-# nests them in. Schedule is a boundary only, not a root: it doesn't
-# itself absorb the numbered items nested under it into one review unit
-# the way a Section does -- each of those is its own ordinary "section"-
-# type node (see rule_parser.py's own note on why Schedule reuses that
-# type rather than getting one of its own), so it already starts its own
-# unit via UNIT_ROOT_TYPES below with no help needed here.
+# A Section's (or a Bill's Clause's -- same nesting depth, see
+# HIERARCHY_RANK above) own content runs from itself up to, but not
+# including, the next node of one of these types. That's the "everything
+# nested under this Section/Clause" grouping that review.py's
+# group_into_units, link_targets.py's definition-index builder, and
+# bill_linking.py's full-text reconstruction all need on their own. It
+# lives here, not copied into each of them, for the same reason
+# HIERARCHY_ORDER itself does. This stays fixed no matter what order a
+# particular Act's profile puts these levels in -- a Chapter, Part,
+# Division, Subdivision, Section, Clause or Schedule heading always
+# closes off whatever came before it. Schedule only marks a boundary
+# here, it isn't a root: it doesn't gather the numbered items nested
+# under it into one review unit the way a Section does. Each of those
+# items is its own ordinary "section"-type node (see rule_parser.py's
+# note on why Schedule reuses that type instead of getting its own), so
+# it already starts its own unit through UNIT_ROOT_TYPES below with no
+# extra help needed here.
 UNIT_BOUNDARY_TYPES = {"schedule", "chapter", "part", "division", "subdivision", "section", "clause", "heading_group"}
 UNIT_ROOT_TYPES = {"section", "clause"}
 
@@ -132,22 +139,25 @@ UNIT_ROOT_TYPES = {"section", "clause"}
 def group_into_units(nodes: list[dict]) -> list[list[int]]:
     """Splits a node list into the "review units" a human works through
     one at a time: a Section (or a Bill's Clause) together with every
-    subsection, paragraph, definition and note nested under it, and a
+    subsection, paragraph, definition and note nested under it, plus a
     standalone unit for each Chapter/Part/Division heading in between.
-    Returns node *indices*, in order, covering every node exactly once.
+    Returns node *positions*, in order, covering every node exactly
+    once.
 
-    Every other node type is a boundary that starts (and, for Part/
-    Division/Subdivision/heading_group, immediately ends) its own
-    single-node unit. This mirrors exactly how the rules engine's own
-    stack nests things -- see rule_parser.py's HIERARCHY_ORDER -- without
-    needing to reconstruct the full tree (build_hierarchy_tree in
-    akn_export.py) just to find "everything under this Section": the flat
-    node list is already in document order, so a single pass is enough.
+    Every other node type marks a boundary that starts its own single-
+    node unit (and, for Part/Division/Subdivision/heading_group,
+    immediately ends it too). This matches exactly how the rules engine
+    nests things as it parses -- see rule_parser.py's HIERARCHY_ORDER --
+    without needing to build the full tree (build_hierarchy_tree in
+    akn_export.py) just to find "everything under this Section": the
+    flat node list is already in document order, so one pass through it
+    is enough.
 
-    Lives here rather than in review.py because it is the unit layout,
-    not the GUI: run_pipeline.py needs it to re-anchor stored review work
-    after a re-parse (see ai_pipeline/reparse.py), and must not have to
-    import a FastAPI app to get it."""
+    This lives here rather than in review.py because it's about how the
+    units are laid out, not about the review GUI: run_pipeline.py needs
+    it to reattach stored review work after a re-parse (see
+    ai_pipeline/reparse.py), and shouldn't have to import a FastAPI app
+    just to get it."""
     units: list[list[int]] = []
     current: list[int] | None = None
     for i, node in enumerate(nodes):
@@ -166,22 +176,24 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
 
 
 def schedule_numbers(nodes: list[dict]) -> list["str | None"]:
-    """Which Schedule each node sits in, by position -- the Schedule's own
-    number, or None for a node in the document's body.
+    """Which Schedule each node sits in, by its position in the list --
+    the Schedule's own number, or None for a node in the document's main
+    body.
 
-    A Schedule numbers its own provisions from 1 again (an Act's Schedule
-    items are numbered "in the same way as sections", per
-    acts/profiles/basic-structure.yaml), so a number alone does not
-    identify a provision: the Criminal Procedure Act has a section 11 and
-    a Schedule 1 clause 11, and its Bill and Explanatory Memorandum each
-    have both too. Anything matching provisions between documents has to
-    key on this as well as the number, or every Schedule provision
-    collides with the body provision sharing its number.
+    A Schedule starts numbering its own provisions from 1 again (an
+    Act's Schedule items are numbered "in the same way as sections", per
+    acts/profiles/basic-structure.yaml), so a number alone doesn't
+    identify a provision: the Criminal Procedure Act has both a section
+    11 and a Schedule 1 clause 11, and its Bill and Explanatory
+    Memorandum each have both too. Anything matching provisions between
+    documents needs to use this as well as the number, or every Schedule
+    provision would collide with the body provision sharing its number.
 
-    A node that records its own Schedule is believed (an Explanatory
-    Memorandum's entries carry one, since its Schedule headings are plain
-    heading_groups rather than container nodes -- see em_parser.py);
-    otherwise the enclosing Schedule is the last "schedule" node above it.
+    If a node already records its own Schedule, that's trusted as-is (an
+    Explanatory Memorandum's entries carry one, since its Schedule
+    headings are plain heading_groups rather than proper container nodes
+    -- see em_parser.py). Otherwise, the enclosing Schedule is whichever
+    "schedule" node came most recently before it.
     """
     out: list[str | None] = []
     current: str | None = None
@@ -190,3 +202,42 @@ def schedule_numbers(nodes: list[dict]) -> list["str | None"]:
             current = node.get("number")
         out.append(node.get("schedule") or current)
     return out
+
+
+def _subtree_has_section_level(tree_node: dict) -> bool:
+    """Whether a Section- or Clause-type node appears anywhere below this
+    tree node, at any depth -- used only by schedule_is_pageable."""
+    for child in tree_node["children"]:
+        if child["node"]["type"] in SECTION_LEVEL_TYPES or _subtree_has_section_level(child):
+            return True
+    return False
+
+
+def schedule_is_pageable(tree_node: dict) -> bool:
+    """Whether this Schedule gets a page of its own in the browse view
+    and the Markdown export, the way an ordinary Section always does.
+    False for anything that isn't a Schedule.
+
+    A Schedule whose own items are ordinary numbered provisions is
+    already fully covered by each of those items' own pages: real
+    Schedules number their clauses "in the same way as sections", and
+    those items reuse the plain Section/Clause node type rather than
+    getting one of their own (see UNIT_BOUNDARY_TYPES's note on why) --
+    Schedule 1 of the Criminal Procedure Act, say, has a "section 1"
+    that sits right alongside the body's own section 1, just in a
+    different Schedule.
+
+    A Schedule whose content is unnumbered prose sitting directly on its
+    own node -- or spread across a run of un-numbered heading_group/note
+    children beneath it -- doesn't get a page anywhere otherwise, not in
+    the browse view and not in the Markdown export. Schedule 3 of the
+    Criminal Procedure Act ("Persons who may witness statements in
+    preliminary brief, full brief or hand-up brief") and Schedule 1 of
+    the Evidence Act ("Style changes") are both like this, and both used
+    to be unreachable by anything except the Act's own AKN export, which
+    writes out the whole tree in one go rather than splitting it into
+    pages.
+    """
+    if tree_node["node"]["type"] != "schedule":
+        return False
+    return not _subtree_has_section_level(tree_node)

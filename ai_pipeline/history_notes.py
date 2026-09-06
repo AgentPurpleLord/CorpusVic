@@ -1,14 +1,15 @@
 """
-Parses the amendment-history margin notes (the sidebar notations saying when
-a section/subsection/definition was inserted, amended, substituted, or
-repealed, and by which amending Act) and links each one back to the node it
-annotates.
+Parses the amendment-history margin notes -- the sidebar text saying when
+a section, subsection or definition was inserted, amended, substituted or
+repealed, and by which Act -- and works out which provision each one is
+about.
 
-This is pure regex over the note's own citation prefix -- the notes already
-name what they amend ("S. 3(2) inserted by...", "Pt 1 Div. 1 Subdiv. (4)
-..."), so no LLM call is needed here. Coverage on the Crimes Act is ~98%;
-anything that doesn't parse is kept as an unattached note rather than
-dropped, for manual linking during review.
+This is done with plain pattern matching on the note's own opening words,
+since the notes already say what they amend ("S. 3(2) inserted by...",
+"Pt 1 Div. 1 Subdiv. (4) ..."). No AI model is needed here. On the Crimes
+Act this covers about 98% of notes; anything that doesn't match a known
+pattern is kept as an unattached note rather than thrown away, so it can
+still be linked by hand during review.
 """
 import re
 

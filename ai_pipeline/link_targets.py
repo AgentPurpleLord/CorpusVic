@@ -1,37 +1,37 @@
 """
-Resolves a labelled span (see link_annotations.py) to a concrete target --
-which node defines a "defined_term" span, which known Act an
-"act_citation" span names -- so the eventual hyperlink knows where to
-point. Resolution runs at the moment a span is labelled (see
-link_review.py's POST /api/links) rather than as a separate deferred
-pass, since the reviewer's own context (this Act, this node) is exactly
-what resolution needs and doesn't need to be reconstructed later.
+Works out what a labelled span (see link_annotations.py) actually points
+to -- which node defines a "defined_term" span, which Act an
+"act_citation" span names -- so the resulting hyperlink knows where to
+go. This runs as soon as a reviewer labels a span (see link_review.py's
+POST /api/links) rather than later in a separate pass, since everything
+needed to resolve it -- which Act, which node -- is already at hand right
+then.
 
-Only act_citation and defined_term have a resolvable data source right
-now:
+Only two label types can actually be resolved right now:
 
-  - act_citation resolves first against ai_pipeline/known_acts.yaml --
-    the other Acts this pipeline has actually parsed, so the result
-    carries a slug and can be linked *into*. Failing that, it falls back
-    to ai_pipeline/act_registry.py's comprehensive-but-shallow Act
-    registry (extracted from the OCPC's own "List of Acts in
-    chronological order" -- see extract_act_registry.py): no parsed
-    content behind it, so act_slug stays None, but it confirms the
-    citation names a real Act and reports its current in-force status.
-    Both paths are exact-or-suffix text match only, never fuzzy: linking
-    to the wrong Act is worse than leaving a citation unresolved, and
-    there's no ambiguity to arbitrate once the year is part of the match.
+  - act_citation is checked first against ai_pipeline/known_acts.yaml --
+    the other Acts this pipeline has actually parsed, so the match comes
+    with a slug it can link into. If that fails, it falls back to
+    ai_pipeline/act_registry.py's much bigger but shallower list of Acts
+    (taken from the OCPC's own "List of Acts in chronological order" --
+    see extract_act_registry.py): there's no parsed content behind it,
+    so act_slug stays None, but it confirms the citation names a real
+    Act and says whether it's still in force. Both checks require an
+    exact match (or an exact match with something extra before it,
+    like "the") -- never a fuzzy guess. Linking to the wrong Act would
+    be worse than leaving a citation unresolved, and since the year is
+    part of the match there's no real ambiguity to weigh anyway.
 
-  - defined_term resolves against this same Act's own "term means ..."
+  - defined_term is checked against this same Act's own "term means ..."
     clauses, reusing definitions.py's extraction -- the same convention
-    markdown_export.py already cross-links on for reading, just indexed
-    by flat node position instead of a markdown file/fragment.
+    markdown_export.py already cross-links on, just indexed by node
+    position instead of by markdown file and fragment.
 
-bill_reference and em_reference always resolve to None for now -- Bills
-and Explanatory Memoranda aren't parsed by anything in this pipeline, so
-there's nothing to resolve against yet. That's not a bug; a None target
-just means "resolve this again once that corpus exists," not "resolution
-failed."
+bill_reference and em_reference always resolve to None for now, because
+Bills and Explanatory Memoranda aren't parsed anywhere else in this
+pipeline -- there's nothing yet to check them against. That's expected,
+not a bug: a None target just means "check this again once that content
+exists," not "this failed."
 """
 from pathlib import Path
 
@@ -53,11 +53,11 @@ def load_known_acts() -> dict[str, str]:
 
 
 def resolve_act_citation(text: str) -> dict | None:
-    """Matches a citation span's raw text against the known-Acts registry
-    first, then the comprehensive Act registry (see the module
-    docstring). Allows the span to have included a leading "the " or
-    wrapping quotes (both common in how a reviewer might drag-select a
-    citation) but otherwise requires the full title, year included."""
+    """Checks a citation span's text against the known-Acts list first,
+    then the full Act registry (see the module docstring). Allows for a
+    leading "the " or surrounding quotes, since a reviewer's drag-select
+    often catches those, but otherwise needs the full title, year
+    included."""
     normalized = (text or "").strip().strip('"').rstrip(".,;:")
     for slug, title in load_known_acts().items():
         if normalized == title or normalized.endswith(f" {title}"):
@@ -76,22 +76,22 @@ def _find_section_by_number(nodes: list[dict], number: str) -> int | None:
 
 
 def build_definition_index(nodes: list[dict]) -> dict[str, int]:
-    """term (lowercase) -> the flat node_index that defines it. Walks each
-    Definitions-like Section's own body (itself plus every node up to the
-    next boundary-type node) looking for "term means ..." clauses, then a
+    """term (lowercase) -> the position of the node that defines it. Walks
+    each Definitions-like Section (itself, plus every node up to the next
+    Section/Part/etc.) looking for "term means ..." clauses, then makes a
     second pass for "term has the same meaning as in section N" pointers
-    anywhere at all -- same two-condition approach as markdown_export.py's
-    collect_definitions, just flat instead of tree/fragment-based.
+    anywhere in the document. Same two-part approach as
+    markdown_export.py's collect_definitions, just working on a flat list
+    of nodes instead of a tree of markdown pages.
 
-    A node the rules engine already split into its own "definition" type
-    (see rule_parser.py's _try_definition_start, gated on the same
-    looks_like_definitions_section check as this function) carries its
-    own term as `heading` directly -- used as-is rather than re-derived
-    from body text, since a split definition's own text starts straight
-    at "means ..."/"includes ..." with the term itself no longer inline
-    for extract_terms's own pattern to find. Anything not already split
-    this way (a node whose typesetting didn't
-    carry the bold+italic signal) still falls back to extract_terms."""
+    A node the rules engine already split out as its own "definition"
+    (see rule_parser.py's _try_definition_start) already has its term
+    stored directly as `heading`, so that's used as-is instead of being
+    re-extracted from the text -- a split definition's text starts
+    straight at "means ..."/"includes ...", with the term itself no
+    longer there for extract_terms to find. Anything not already split
+    this way (usually because the term wasn't printed in bold italic)
+    still falls back to extract_terms."""
     index: dict[str, int] = {}
 
     i = 0
@@ -130,12 +130,12 @@ def resolve_defined_term(text: str, nodes: list[dict], definition_index: dict[st
 
 
 def resolve_link(label: str, text: str, nodes: list[dict], definition_index: dict[str, int] | None = None) -> dict | None:
-    """Best-effort target for a newly-labelled span, or None if there's
-    nothing to resolve against (wrong text, or -- for bill_reference/
-    em_reference -- no corpus at all yet). The annotation is saved either
-    way; an unresolved target just means it can't be turned into a
-    hyperlink until either the highlighted text is fixed or (for Bills/
-    EMs) that corpus exists and resolution is re-run."""
+    """Works out where a newly-labelled span should point, or returns
+    None if there's nothing to check it against (wrong text, or -- for
+    bill_reference/em_reference -- no Bill/EM content parsed yet). The
+    label is saved either way; an unresolved target just means it can't
+    become a hyperlink yet, until either the highlighted text is fixed
+    or (for Bills/EMs) that content exists and this runs again."""
     if label == "act_citation":
         return resolve_act_citation(text)
     if label == "defined_term":

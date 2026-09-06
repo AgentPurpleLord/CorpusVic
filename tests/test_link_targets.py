@@ -40,10 +40,10 @@ def test_resolve_act_citation_falls_back_to_the_comprehensive_act_registry():
     known_acts.yaml) still resolves via the comprehensive registry (see
     ai_pipeline/act_registry.py) -- no slug to link into, but confirmed
     real, with its current in-force status."""
-    result = resolve_act_citation("Sentencing Act 1991")
+    result = resolve_act_citation("Bail Act 1977")
     assert result["kind"] == "act"
     assert result["act_slug"] is None
-    assert result["act_title"] == "Sentencing Act 1991"
+    assert result["act_title"] == "Bail Act 1977"
     assert "in_force" in result
 
 

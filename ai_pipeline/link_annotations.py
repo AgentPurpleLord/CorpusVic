@@ -1,22 +1,22 @@
 """
-Span-level "this should become a link" annotations -- references to other
-Acts, defined terms, Bills, Explanatory Memoranda -- layered on top of an
-Act's already-parsed nodes (data/ai_parsed/<act>.json) without touching
-them.
+Marks a piece of text as "this should become a link" -- a reference to
+another Act, a defined term, a Bill, an Explanatory Memorandum -- on top
+of an Act's already-parsed content (data/ai_parsed/<act>.json), without
+changing that content.
 
-Each annotation is a span within one node's stored `text` -- character
-offsets, not the reflowed/display text review.py shows for reading -- and
-records a *label* (which kind of link it'll become) but not yet a
-*target* (which specific Act/definition/Bill it resolves to). Resolving
-targets and actually generating hyperlinks is a separate, later pass;
-this only captures where a human said "this text should eventually link
-somewhere."
+Each mark covers a stretch of text within one node's stored `text` --
+by character position, not the cleaned-up text review.py displays for
+reading -- and records a *label* (what kind of link it should become)
+but not yet a *target* (which specific Act, definition or Bill it points
+to). Working out the target and actually building the hyperlink happens
+later, in a separate step. This only records that a human said "this
+text should eventually link to something."
 
-The actual storage (now data/legislation.db, a shared SQLite file --
-formerly one data/links/<act>.json per Act) lives in ai_pipeline/db.py
-alongside the other durable, human-created review data (verified state,
-the correction log); this module re-exports its link-annotation API
-under the name every existing caller already imports from, so nothing
+The actual storage (now data/legislation.db, a shared SQLite file -- it
+used to be one data/links/<act>.json file per Act) lives in
+ai_pipeline/db.py alongside the other review data people create by hand
+(verified state, the correction log). This module just re-exports that
+part of it under the name existing callers already use, so nothing
 importing add_link/delete_link/load_links/save_links/LABELS/LinkError
 from here needed to change."""
 from .db import LABELS, LinkError, add_link, delete_link, load_links, save_links

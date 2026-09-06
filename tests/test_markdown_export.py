@@ -7,6 +7,7 @@ from ai_pipeline.akn_export import build_hierarchy_tree
 from ai_pipeline.markdown_export import (
     _github_slug,
     export_to_markdown,
+    page_title,
 )
 
 from conftest import make_node
@@ -243,3 +244,63 @@ def test_a_lettered_list_still_exports_as_headed_paragraphs(tmp_path):
 
     assert "(a)" in body
     assert "- an offence referred to in Schedule 2;" not in body
+
+
+# ---------------------------------------------------------------------------
+# A Schedule whose content is unnumbered prose (see
+# hierarchy.schedule_is_pageable) -- previously invisible in both the
+# Markdown export and the browse view, since a Schedule got only a bare
+# <h4>/heading above whatever numbered children it had, and one with none
+# of its own had nowhere for its content to go at all.
+# ---------------------------------------------------------------------------
+
+def _act_with_prose_schedule() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("schedule", "3", "Persons who may witness statements",
+                 "1 A police officer.\n2 A justice of the peace."),
+    ]
+
+
+def test_a_schedule_with_no_numbered_items_gets_its_own_page(tmp_path):
+    export_to_markdown({"nodes": _act_with_prose_schedule()}, str(tmp_path), act_title="Test Act")
+
+    files = {f.name: f.read_text(encoding="utf-8") for f in (tmp_path / "sections").glob("*.md")}
+    schedule_files = [body for body in files.values() if "A police officer" in body]
+    assert len(schedule_files) == 1
+    body = schedule_files[0]
+    assert "# Schedule 3 - Persons who may witness statements" in body
+    assert "A justice of the peace" in body
+
+
+def test_the_schedule_page_is_linked_from_the_index(tmp_path):
+    export_to_markdown({"nodes": _act_with_prose_schedule()}, str(tmp_path), act_title="Test Act")
+
+    index = (tmp_path / "index.md").read_text(encoding="utf-8")
+    assert "Schedule 3 - Persons who may witness statements" in index
+    # Linked as an ordinary list item, not left as a bare, childless heading.
+    assert re.search(r"\[Schedule 3 - Persons who may witness statements[^]]*]\(sections/", index)
+
+
+def test_a_schedule_whose_items_are_ordinary_sections_gets_no_page_of_its_own(tmp_path):
+    # Schedule 1 of the Criminal Procedure Act, e.g.: its own numbered
+    # items already reuse the Section node type and so already have pages
+    # of their own -- giving the Schedule itself one too would be an
+    # empty, redundant page.
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("schedule", "1", "Charges on a charge-sheet"),
+        make_node("section", "1", "Statement of offence", "A charge-sheet must state the offence."),
+    ]
+    export_to_markdown({"nodes": nodes}, str(tmp_path), act_title="Test Act")
+
+    files = {f.name: f.read_text(encoding="utf-8") for f in (tmp_path / "sections").glob("*.md")}
+    assert not any(body.strip().startswith("# Schedule 1") for body in files.values())
+    assert any("A charge-sheet must state the offence." in body for body in files.values())
+
+
+def test_page_title_spells_out_a_pageable_schedule():
+    node = make_node("schedule", "3", "Persons who may witness statements")
+    assert page_title(node) == "Schedule 3 - Persons who may witness statements"

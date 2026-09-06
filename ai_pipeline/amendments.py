@@ -1,26 +1,27 @@
 """
-Joins the two halves of an Act's amendment history that the pipeline
-already holds but has never connected.
+Connects two pieces of an Act's amendment history that the pipeline
+already has, but hasn't linked together yet.
 
-An Act's margin notes cite the Act that changed a provision by number
-alone -- "S. 3 def. of accused amended by No. 68/2009 s. 51(b)(i)". Those
-are parsed and attached per node (ai_pipeline/history_notes.py), so the
-codes are structured. What they mean is in the Endnotes' own Table of
-Amendments (ai_pipeline/endnotes.py): No. 68/2009 is the Criminal
-Procedure Amendment (Consequential and Transitional Provisions) Act 2009,
-assented 24.11.09, ss 3-58 commencing 25.11.09.
+An Act's margin notes name the Act that changed a provision, but only by
+number -- "S. 3 def. of accused amended by No. 68/2009 s. 51(b)(i)".
+Those are already parsed and attached to each node
+(ai_pipeline/history_notes.py), so the numbers are there, structured.
+What that number actually means is in the Endnotes' Table of Amendments
+(ai_pipeline/endnotes.py): No. 68/2009 is the Criminal Procedure
+Amendment (Consequential and Transitional Provisions) Act 2009, assented
+24.11.09, sections 3-58 commencing 25.11.09.
 
-This module is the lookup between them, plus a fallback: an Act cited in
-a margin note but absent from this Act's own Table of Amendments (it
-amended a provision that has since been repealed, say) can still be named
-from ai_pipeline/act_registry.json, which knows every Victorian Act's
-title, number and in-force status. That fallback carries no assent or
-commencement detail -- the record says which source it came from, so a
-caller never presents registry-only data as if it were the Act's own
-endnotes.
+This module looks one up from the other, with a fallback: if an Act is
+named in a margin note but isn't in this Act's own Table of Amendments
+(maybe it amended a provision that's since been repealed), it can still
+be identified from ai_pipeline/act_registry.json, which has every
+Victorian Act's title, number and current in-force status. That fallback
+doesn't include assent or commencement dates, and the result always says
+which source it came from, so a caller never mistakes a registry-only
+guess for the Act's own official record.
 
-Pure lookup: everything comes in as already-parsed data, so this holds no
-file paths and reads nothing.
+This is a plain lookup: it works entirely on data already parsed
+elsewhere, so it doesn't open any files itself.
 """
 import re
 
@@ -47,14 +48,15 @@ def _registry_by_number(act_registry: dict) -> dict[str, list[dict]]:
 
 
 def build_amendment_index(endnotes: dict | None, act_registry: dict | None = None) -> dict:
-    """A lookup keyed both ways -- by "68/2009" and by the bare act number
-    "68" -- because a pre-1970s margin note cites an Act by a number with
-    no year at all ("No. 8679"), and within one Act's own Table of
-    Amendments those numbers are unique anyway.
+    """A lookup that works both ways -- by "68/2009" and by the bare Act
+    number "68" -- because a pre-1970s margin note sometimes cites an Act
+    by number alone, with no year ("No. 8679"). Within one Act's own
+    Table of Amendments those numbers are unique anyway.
 
     Returns {"by_citation": {...}, "by_act_no": {...}, "registry": {...}},
-    which resolve_citation reads. Built once per Act and reused; nothing
-    here is expensive, but it's a full pass over the registry."""
+    which resolve_citation reads. Built once per Act and reused -- it's a
+    full pass over the registry, so nothing expensive, but no reason to
+    redo it."""
     by_citation: dict[str, dict] = {}
     by_act_no: dict[str, dict] = {}
     for record in (endnotes or {}).get("amending_acts") or []:
@@ -80,12 +82,12 @@ def build_amendment_index(endnotes: dict | None, act_registry: dict | None = Non
 
 def resolve_citation(citation: dict, index: dict) -> dict | None:
     """What one margin-note citation refers to, or None if neither the
-    Act's own Table of Amendments nor the registry knows it.
+    Act's own Table of Amendments nor the registry recognises it.
 
-    Tried in that order deliberately: this Act's own endnotes are the
-    authoritative, Act-specific record (and the only source of assent and
-    commencement dates), while the registry is a general index that can
-    only supply a title and whether the Act is still in force."""
+    Checked in that order on purpose: this Act's own endnotes are the
+    authoritative record for this Act, and the only place with assent
+    and commencement dates. The registry is just a general list that can
+    only give a title and whether the Act is still in force."""
     act_no = str(citation.get("act_no") or "")
     year = citation.get("year")
     if not act_no:
@@ -103,9 +105,10 @@ def resolve_citation(citation: dict, index: dict) -> dict | None:
     if year is not None:
         candidates = [c for c in candidates if str(c.get("year")) == str(year)]
     if len(candidates) != 1:
-        # Zero: an Act neither source knows. More than one: the number
-        # alone is ambiguous and there's no year to pick with -- naming
-        # the wrong Act is worse than naming none.
+        # Zero matches: neither source knows this Act. More than one:
+        # the number alone is ambiguous and there's no year to choose
+        # between them -- naming the wrong Act would be worse than
+        # naming none.
         return None
     entry = candidates[0]
     return {
@@ -154,21 +157,29 @@ def resolve_note(raw: str, index: dict) -> list[dict]:
 
 
 def linkify_note(raw: str, index: "dict | None") -> list[dict]:
-    """One margin note broken into the pieces a renderer needs to link it:
-    a list of {"text"} runs, where a run that names an amending Act this
-    index knows also carries {"record"}.
+    """Breaks one margin note into the pieces a renderer needs in order to
+    link it: a list of {"text"} runs, where a run naming an amending Act
+    carries either {"record"} (this Act's own endnotes, or the general
+    registry, recognise it) or {"citation"} (it looks like a citation, but
+    nothing recognises what it names).
+
+    Every citation found becomes one of those two kinds of run -- never
+    left as plain, unclickable text. A run with a "record" links to this
+    Act's own Endnotes entry for that citation. A run with just a
+    "citation" links instead to the standing page at
+    /legislation/<act_no>[-<year>] (see dashboard.py), which redirects to
+    that Act's parse once one exists, and otherwise says plainly that it
+    hasn't been parsed yet. A reader should never come across a citation
+    this pipeline spotted and then said nothing about.
 
     The note itself only ever writes the bare citation ("No. 68/2009"),
-    and that citation is the thing a reader wants to click -- the Act's
-    own Table of Amendments is what says which Act that is. Naming the Act
-    in full beside every note instead pushes the note itself out of the
-    margin it is printed in, for a name the reader mostly already knows;
-    the full name and its dates belong in the link's own tooltip.
+    which is what a reader wants to click -- the full name and dates
+    belong in the link's tooltip, not spelled out next to every note.
 
-    Runs are returned in order and concatenate back to `raw` exactly, so a
-    renderer escapes each one and never has to do span arithmetic of its
-    own. Without an index (or with none of the citations resolvable), the
-    result is simply the whole note as one unlinked run."""
+    Runs are returned in order and, joined together, reproduce `raw`
+    exactly, so a renderer can just escape each one in turn without doing
+    any character-position math of its own. If no citations are found at
+    all, the result is just the whole note as one plain run."""
     resolved = {}
     for record in resolve_note(raw, index) if index else []:
         resolved[record["cited_as"]] = record
@@ -176,12 +187,15 @@ def linkify_note(raw: str, index: "dict | None") -> list[dict]:
     runs: list[dict] = []
     cursor = 0
     for citation in citations_in(raw):
-        record = resolved.get(citation["label"])
-        if record is None:
-            continue
         if citation["start"] > cursor:
             runs.append({"text": raw[cursor : citation["start"]]})
-        runs.append({"text": raw[citation["start"] : citation["end"]], "record": record})
+        record = resolved.get(citation["label"])
+        run = {"text": raw[citation["start"] : citation["end"]]}
+        if record is not None:
+            run["record"] = record
+        else:
+            run["citation"] = {"act_no": citation["act_no"], "year": citation["year"]}
+        runs.append(run)
         cursor = citation["end"]
     if cursor < len(raw):
         runs.append({"text": raw[cursor:]})
@@ -208,14 +222,14 @@ def provision_label(node: dict) -> str:
 
 
 def summarise_by_act(nodes: list[dict], index: dict) -> list[dict]:
-    """Every amending Act that this Act's own margin notes cite, with the
+    """Every amending Act named in this Act's own margin notes, with the
     provisions each one touched -- the Table of Amendments read the other
-    way round, which is the question a reader actually has ("what did
+    way round, answering the question a reader actually has ("what did
     No. 68/2009 change here?").
 
-    Ordered by the Table of Amendments' own order, which is chronological
-    by assent; an Act cited in a note but absent from that table (resolved
-    from the registry instead) is appended after it rather than dropped."""
+    Ordered the same way the Table of Amendments is: chronologically by
+    assent. An Act named in a note but missing from that table (found
+    from the registry instead) is added at the end rather than dropped."""
     by_citation: dict[str, dict] = {}
     for node in nodes:
         for note in node.get("history") or []:
@@ -224,10 +238,11 @@ def summarise_by_act(nodes: list[dict], index: dict) -> list[dict]:
                 entry = by_citation.setdefault(key, {"record": record, "provisions": [], "seen": set()})
                 path = node.get("path") or {}
                 label = provision_label(node)
-                # One Act commonly amends the same provision more than once
-                # (in different years, or several notes on one section), and
-                # a provision listed four times reads as an error rather
-                # than as history. Counted once, keeping the first note.
+                # One Act often amends the same provision more than once
+                # (in different years, or with several notes on one
+                # section), and listing a provision four times would look
+                # like a mistake rather than real history. So it's counted
+                # once, keeping the first note.
                 if label in entry["seen"]:
                     continue
                 entry["seen"].add(label)

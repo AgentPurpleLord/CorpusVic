@@ -689,12 +689,12 @@ def test_top_level_type_clause_parses_a_bill_the_same_way_as_an_act():
     assert not any(n["type"] == "section" for n in result.nodes)
 
 
-def test_skip_front_matter_discards_bills_table_of_provisions():
+def test_front_matter_is_skipped_past_a_bills_table_of_provisions():
     """A Bill's introduction print opens with a title page and a multi-
     page Table of Provisions whose rows repeat real Part/clause headings
-    closely enough to fool the heading classifiers -- skip_front_matter
-    discards everything up to the fixed enacting words every Bill's real
-    text opens with, rather than trying to parse the TOC as structure."""
+    closely enough to fool the heading classifiers -- parse_act discards
+    everything up to the fixed enacting words every Bill's real text
+    opens with, rather than trying to parse the TOC as structure."""
     lines = [
         line("TABLE OF PROVISIONS", bold=True, size=14.0),
         line("PART 2.1—WAYS IN WHICH A CRIMINAL PROCEEDING IS", bold=True),
@@ -709,7 +709,7 @@ def test_skip_front_matter_discards_bills_table_of_provisions():
         line("The purposes of this Act are—", x0=HEAD_X0),
         line("(a) to clarify the law.", x0=PARA_X0),
     ]
-    result = parse_act([page(lines)], top_level_type="clause", skip_front_matter=True)
+    result = parse_act([page(lines)], top_level_type="clause")
     assert result.lines_total == result.lines_consumed
     assert any("skipped 8 front-matter line" in w for w in result.warnings)
     clause = find(result.nodes, "clause", "1")
@@ -720,9 +720,62 @@ def test_skip_front_matter_discards_bills_table_of_provisions():
     assert not any("How a criminal proceeding" in (n.get("text") or "") for n in result.nodes)
 
 
-def test_skip_front_matter_leaves_act_parsing_unaffected():
-    """skip_front_matter defaults to False -- an enacted Act's own PDF has
-    no equivalent front matter to skip, and must parse exactly as before."""
+def test_front_matter_is_skipped_past_an_acts_own_reprinted_identity_block():
+    # Every Authorised Version reprints its own identity -- version
+    # number, title, "incorporating amendments as at", the date -- right
+    # at the top of its real operative text. Left in, this became two
+    # spurious heading_group nodes reading as though this pipeline's own
+    # output *were* the Authorised Version, rather than this pipeline's
+    # own reading of one.
+    lines = [
+        line("Authorised Version No. 114", bold=True, size=14.0),
+        line("Criminal Procedure Act 2009", bold=True, size=16.0),
+        line("No. 7 of 2009", bold=True),
+        line("Authorised Version incorporating amendments as at"),
+        line("1 July 2026"),
+        line("The Parliament of Victoria enacts:", bold=True),
+        line("Part I—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+    ]
+    result = parse_act([page(lines)])
+    assert result.lines_total == result.lines_consumed
+    assert any("skipped 6 front-matter line" in w for w in result.warnings)
+    assert not any(n["type"] == "heading_group" for n in result.nodes)
+    section = find(result.nodes, "section", "1")
+    assert section["heading"] == "Purposes"
+
+
+def test_front_matter_is_skipped_past_an_older_acts_enacting_words():
+    # An Act drafted before "The Parliament of Victoria enacts:" came into
+    # use closes its own, longer-form enacting words with "... (that is
+    # to say):" instead (Crimes Act 1958, e.g.), wrapped across several
+    # lines -- only the fixed tail is matched.
+    lines = [
+        line("Authorised Version No. 321", bold=True),
+        line("Crimes Act 1958", bold=True),
+        line("No. 6231 of 1958", bold=True),
+        line("An Act to consolidate the Law Relating to Crimes."),
+        line("BE IT ENACTED by the Queen's Most Excellent Majesty by and"),
+        line("with the advice and consent of the Legislative Council and"),
+        line("the Legislative Assembly of Victoria in this present"),
+        line("Parliament assembled and by the authority of the same as"),
+        line("follows (that is to say):"),
+        line("Part I—Preliminary", bold=True),
+        line("1 Short title", bold=True),
+        line("This Act may be cited as the Crimes Act 1958.", x0=HEAD_X0),
+    ]
+    result = parse_act([page(lines)])
+    assert result.lines_total == result.lines_consumed
+    assert not any(n["type"] == "heading_group" for n in result.nodes)
+    section = find(result.nodes, "section", "1")
+    assert section["heading"] == "Short title"
+
+
+def test_front_matter_skip_is_a_no_op_without_any_enacting_words():
+    # A layout this doesn't recognise at all (or a test fixture with no
+    # front matter) is used unchanged, rather than discarding the whole
+    # document looking for a formula that was never going to appear.
     lines = [
         line("Part I—Preliminary", bold=True),
         line("1 Purposes", bold=True),

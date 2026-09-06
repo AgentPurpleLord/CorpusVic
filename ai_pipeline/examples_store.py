@@ -1,19 +1,20 @@
 """
-Records every human review decision -- what the parser produced vs. what
-you approved -- as a log of where it actually gets things wrong.
+Records every human review decision -- what the parser produced versus
+what you approved -- as a log of where it actually gets things wrong.
 
-This used to feed a model-backed parser's prompt as few-shot examples.
-That parser is gone (see run_pipeline.py's own docstring), so the log is
-no longer read back by anything automatic: it is evidence for a person.
-A pattern that keeps needing the same correction is the signal to add a
-profile override for that Act (ai_pipeline/profiles.py), which fixes it
-for every future parse deterministically rather than probabilistically.
+This used to be fed back into an AI-model-based parser as example
+corrections. That parser is gone (see run_pipeline.py's own docstring),
+so nothing automatic reads this log any more -- it's just evidence for a
+person to look at. If the same correction keeps coming up, that's the
+sign to add a profile override for that Act instead (ai_pipeline/
+profiles.py), which fixes it for every future parse for certain, rather
+than hoping a model gets it right.
 
-The actual storage (data/legislation.db, a shared SQLite file -- formerly
-the append-only data/corrections.jsonl) lives in ai_pipeline/db.py
-alongside the other durable, human-created review data (verified state,
-link annotations); this module re-exports its correction-log API under
-the name every existing caller already imports from."""
+The actual storage (data/legislation.db, a shared SQLite file -- it used
+to be the plain text file data/corrections.jsonl) lives in
+ai_pipeline/db.py alongside the other review data people create by hand
+(verified state, link labels). This module just re-exports that
+correction-log part of it under the name existing callers already use."""
 from .db import add_correction, stats
 
 __all__ = ["add_correction", "stats"]

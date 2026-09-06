@@ -1,8 +1,9 @@
 """
-Reconstructs hierarchy from the parser's flat, ordered node list (rather than
-asking the model to emit nested JSON or explicit parent paths, which is more
-error-prone) and attaches parsed amendment-history notes to the node they
-belong to.
+Rebuilds the Chapter/Part/Division/Section tree from the parser's flat,
+ordered list of nodes, and attaches each parsed amendment-history note to
+the node it belongs to. No AI model is asked to produce a nested tree or
+parent references directly -- that's more error-prone than building the
+tree ourselves from a flat list we already trust.
 """
 from .hierarchy import HIERARCHY_ORDER, make_ranks, schedule_numbers
 from .history_notes import collect_page_notes
@@ -10,34 +11,31 @@ from .history_notes import collect_page_notes
 
 def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
     """Adds a node["path"] breadcrumb (e.g. {"part": "I", "division": "1",
-    "section": "3", "subsection": "(2)", ...}) to every node, by tracking the
-    most recent number seen at each hierarchy level and resetting deeper
-    levels whenever a shallower one changes.
+    "section": "3", "subsection": "(2)", ...}) to every node. It works by
+    remembering the most recent number seen at each level, and clearing
+    out anything deeper whenever a shallower level changes.
 
-    "definition" is the one level identified by its heading rather than a
-    number (see rule_parser.py's _try_definition_start -- a defined term
-    has no legislative numbering of its own): using node.get("number")
-    for it the way every other level does would just be None every time,
-    so every paragraph/subparagraph nested under a defined term would
-    silently carry path["definition"] = None forever, with nothing
-    recording which definition they actually belong to. That's exactly
-    the "wonky" labelling a Definitions section's own paragraphs used to
-    get in review.py (several different terms' own "(a)"/"(b)" lists are
-    all indistinguishable without this) -- see compute_unit_labels, which
-    reads this same field back to disambiguate them.
+    "definition" is the odd one out: a defined term is identified by its
+    heading, not a number (see rule_parser.py's _try_definition_start --
+    a defined term has no legislative number of its own). If we used
+    node.get("number") for it like every other level, it would always be
+    None, and every paragraph nested under a defined term would have no
+    record of which term it actually belongs to. That used to make a
+    Definitions section's own sub-paragraphs impossible to tell apart in
+    review.py -- several different terms' own "(a)"/"(b)" lists all
+    looked the same. See compute_unit_labels, which reads this same field
+    back to tell them apart.
 
-    "definition" also needs its *own* reset rule, separate from the
-    hierarchy_order-indexed loop below: because it's aliased onto
-    subsection's own rank (see make_ranks) rather than getting a literal
-    slot in hierarchy_order, that loop's `hierarchy_order[rank[t] + 1:]`
-    slice never actually names "definition" as one of the keys it clears.
-    Left alone, a Definitions section anywhere in the Act would leak its
-    last term into path["definition"] for every following section's own
-    subsections for the rest of the document -- there's no later
-    "definition" node to overwrite it, since a Definitions section is
-    usually the only one. Cleared here instead, explicitly, whenever
-    anything at or shallower than that same rank opens (a new section, or
-    a genuine numbered subsection instead of a defined term)."""
+    "definition" also needs its own separate clearing rule below, because
+    it doesn't get a real slot in hierarchy_order (it shares subsection's
+    rank instead -- see make_ranks), so the generic loop that clears
+    deeper levels never mentions it by name. Without a rule of its own,
+    a Definitions section anywhere in the Act would leave its last term
+    stuck in path["definition"] for every later section's subsections,
+    for the rest of the document -- there's usually no later Definitions
+    section to overwrite it. So it's cleared explicitly here, whenever
+    anything at or above its own level starts (a new section, or a real
+    numbered subsection rather than a defined term)."""
     rank = make_ranks(hierarchy_order)
     definition_rank = rank.get("definition")
     current = {level: None for level in hierarchy_order}
@@ -89,18 +87,19 @@ def _find_definition(candidates: list[dict], def_name: str) -> dict | None:
 
 
 def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
-    """Attaches parsed margin notes to the most specific matching node's
-    node["history"] list. Notes that can't be matched to any node are
-    returned separately for manual follow-up, not discarded."""
+    """Attaches each parsed margin note to the most specific node it
+    matches, adding it to that node's node["history"] list. Notes that
+    don't match any node are returned separately for manual follow-up,
+    not thrown away."""
     annotate_paths(nodes, hierarchy_order)
     section_runs = _runs_by(nodes, "section")
     division_runs = _runs_by(nodes, "division")
     part_runs = _runs_by(nodes, "part")
     chapter_runs = _runs_by(nodes, "chapter")
 
-    # Which Schedule each node sits in, so "Sch. 1 cl. 4A" reaches the
-    # clause 4A *of Schedule 1* rather than the body's own section 4A --
-    # a Schedule numbers its own provisions from 1 again.
+    # Which Schedule each node sits in, so "Sch. 1 cl. 4A" reaches clause
+    # 4A of Schedule 1, not section 4A of the main body -- a Schedule
+    # starts numbering its own provisions from 1 again.
     schedules = schedule_numbers(nodes)
     schedule_roots = {
         node.get("number"): node for node in nodes if node["type"] == "schedule" and node.get("number")
@@ -114,16 +113,18 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
     for note in collect_page_notes(pages):
         target = None
         if note.get("kind") == "provenance":
-            # Records where the provision came from, not how it changed --
-            # it names no provision of this Act to attach to. Kept for the
-            # reviewer to see, never counted as a failed link.
+            # Says where the provision came from, not how it changed --
+            # it doesn't name any provision of this Act to attach to.
+            # Kept for the reviewer to see, but never counted as a
+            # failed link.
             unattached.append(note)
             continue
-        # A note is only "confidence: high" when either (a) it names no
-        # deeper reference and lands on the section/division/part itself, or
-        # (b) it names one and we found that exact node. Falling back to a
-        # broader node because the specific one couldn't be found is a
-        # guess -- tag it "low" rather than presenting it as equally solid.
+        # A note only counts as "confidence: high" when either (a) it
+        # doesn't name anything more specific than the section/division/
+        # part itself, or (b) it names something more specific and we
+        # actually found that exact node. Falling back to a broader node
+        # because the specific one couldn't be found is a guess -- so
+        # it's tagged "low" rather than shown as equally reliable.
         wanted_specific = bool(note["sub_path"] or note["def_name"])
         found_specific = False
 
@@ -132,9 +133,10 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
             if root is not None:
                 target = root
                 if note["section"]:
-                    # A clause of the Schedule. Its own items reuse the
+                    # A clause of the Schedule. Schedule items reuse the
                     # "section" type (see rule_parser.py), so this is the
-                    # same lookup, narrowed to that Schedule's own run.
+                    # same lookup, just narrowed to that Schedule's own
+                    # nodes.
                     within = in_schedule.get(note["schedule"], [])
                     found = _find_by_number(within, note["section"], {"section", "clause"})
                     if found is not None:
@@ -169,8 +171,8 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
             if candidates:
                 target = candidates[0]
         elif note.get("chapter"):
-            # An Act that groups its Parts under Chapters cites the
-            # Chapter alone for a note about the Chapter's own heading:
+            # An Act that groups its Parts under Chapters cites just the
+            # Chapter for a note about the Chapter's own heading:
             # "Ch. 10 (Heading and s. 439) inserted by No. 68/2009 s. 55."
             candidates = chapter_runs.get(note["chapter"], [])
             if candidates:
