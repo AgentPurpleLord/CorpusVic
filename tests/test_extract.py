@@ -3,7 +3,7 @@ bold+italic leading-run detection -- pure logic, tested directly on plain
 line/span dicts rather than a real PDF fixture (the rest of extract_pages
 needs an actual PyMuPDF document and is exercised indirectly through the
 full pipeline instead)."""
-from ai_pipeline.extract import _drop_margin_line_numbers, _leading_bold_italic
+from ai_pipeline.extract import _drop_margin_line_numbers, _leading_bold_italic, _line_text
 
 
 def _bl(text, x0, y0=0.0):
@@ -104,3 +104,40 @@ def test_leading_bold_italic_stops_at_the_first_non_matching_span():
     introduction."""
     line = {"spans": [_span("see the definition of ", _PLAIN), _span("accused", _BOLD_ITALIC)]}
     assert _leading_bold_italic(line) is None
+
+
+def _fspan(text, font="TimesNewRomanPSMT"):
+    return {"text": text, "font": font}
+
+
+def test_line_text_fixes_known_symbol_font_pua_codes():
+    """A decimal fraction ("0.2 penalty unit") occasionally set in the
+    SymbolMT font rather than the body font -- PyMuPDF surfaces its
+    (3,0) symbolic cmap codes as raw 0xF0xx Private Use Area characters
+    rather than the glyph the page actually shows. Confirmed by
+    rendering the source PDF page as an image: 0xF0D7 is a centered dot
+    used as a decimal point here, not the "multiplication sign" its
+    Latin-1 code point would suggest."""
+    line = {"spans": [_fspan("0", "SymbolMT"), _fspan("", "SymbolMT"), _fspan("2 penalty unit", "SymbolMT")]}
+    assert _line_text(line) == "0·2 penalty unit"
+
+
+def test_line_text_fixes_a_run_of_symbol_font_digits_and_a_period():
+    line = {"spans": [_fspan("Part ", "TimesNewRomanPSMT"), _fspan("", "SymbolMT")]}
+    assert _line_text(line) == "Part 3.10"
+
+
+def test_line_text_leaves_an_unmapped_symbol_font_pua_code_untouched():
+    """An unrecognised code stays a visible, honest signal that needs
+    the same treatment -- guessing wrong would silently corrupt the
+    Act's own wording."""
+    line = {"spans": [_fspan("", "SymbolMT")]}
+    assert _line_text(line) == ""
+
+
+def test_line_text_leaves_pua_characters_from_a_non_symbol_font_untouched():
+    """The remapping is scoped to the Symbol font specifically -- a
+    Private Use Area code from some other font isn't assumed to mean
+    the same thing."""
+    line = {"spans": [_fspan("", "Wingdings")]}
+    assert _line_text(line) == ""

@@ -125,8 +125,39 @@ def _drop_margin_line_numbers(block_lines: list[dict]) -> list[dict]:
     ]
 
 
+# A PDF's own convention for a "symbolic" TrueType font's (3,0) cmap
+# subtable: character codes are looked up prefixed with 0xF000 rather
+# than through a normal Unicode cmap (PDF 32000-1:2008 sec 9.6.6.4).
+# PyMuPDF passes that raw 0xF0xx value straight through as if it were a
+# real Unicode codepoint, landing in the Private Use Area instead of
+# whatever glyph the page actually shows -- Victorian Acts occasionally
+# set a decimal fraction like "0.2 penalty unit" or a cross-reference
+# like "Part 3.10" using the "SymbolMT" font's own built-in glyphs
+# rather than the body TimesNewRoman font. The entries below are the
+# ones actually seen in these documents, confirmed by rendering the
+# source PDF page as an image and reading the glyph directly rather
+# than guessing from the codepoint alone (0xF0D7, for instance, is
+# nowhere near ASCII/Latin-1 0xD7's "multiplication sign" -- Symbol's
+# own encoding puts a centered dot there, used here as a raised decimal
+# point). Any other Private Use Area code is left untouched: an
+# unmapped code stays a visible, honest signal that something needs the
+# same treatment, whereas a wrong guess would silently corrupt the
+# Act's own wording.
+_SYMBOL_FONT_PUA = {
+    0xF02E: ".",
+    **{0xF030 + i: str(i) for i in range(10)},
+    0xF0D7: "·",  # MIDDLE DOT -- used here as a decimal point
+}
+
+
+def _fix_symbol_font_pua(text: str, font: str) -> str:
+    if "Symbol" not in font:
+        return text
+    return "".join(_SYMBOL_FONT_PUA.get(ord(c), c) for c in text)
+
+
 def _line_text(line) -> str:
-    return "".join(span["text"] for span in line["spans"]).strip()
+    return "".join(_fix_symbol_font_pua(span["text"], span["font"]) for span in line["spans"]).strip()
 
 
 def _line_font(line) -> tuple[float, bool]:
