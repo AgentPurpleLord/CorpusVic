@@ -2,67 +2,68 @@
 Renders a parsed Act as a live, read-only, AustLII-style HTML browsing
 view -- an index page (Part/Division/Subdivision headings, each Section
 listed as a link, in document order) plus one page per Section, with
-defined terms and Part/Division/"section N" cross-references hyperlinked
-between them, the same way a real AustLII page reads.
+defined terms and Part/Division/"section N" cross-references
+hyperlinked between them, the same way a real AustLII page reads.
 
 This reuses markdown_export.py's document model wholesale -- the tree
-walk, filename/slug assignment, and definition/cross-reference collection
-are all the exact same functions that module already uses to write
-Markdown files (see the imports below). The only thing that differs here
-is the output format (HTML strings with real <a href> links, rendered
-straight into an HTTP response) and the data source: dashboard.py calls
-this against review.py's build_current_nodes (verified where a unit's
-been committed, the original parse otherwise -- see its own docstring),
-not a static file, and does so fresh on every request. The point is
-letting a reviewer immediately see how their in-progress edits will read
-to an actual user, without running export_markdown.py as a separate step
-first.
+walk, filename and slug assignment, and definition/cross-reference
+collection are all the exact same functions that module already uses
+to write Markdown files (see the imports below). The only things that
+differ here are the output format (HTML strings with real <a href>
+links, rendered straight into an HTTP response) and the data source:
+dashboard.py calls this against review.py's build_current_nodes
+(verified where a unit's been committed, the original parse otherwise
+-- see its own docstring), not a static file, and does so fresh on
+every request. The point is letting a reviewer immediately see how
+their in-progress edits will read to an actual user, without running
+export_markdown.py as a separate step first.
 
-A Section page is laid out the way the Act itself prints rather than the
-way the Markdown export has to: subsections/paragraphs/subparagraphs are
-indented by their nesting depth with their number hanging in the left
-margin, and each provision's amendment-history notes sit in a margin
-column beside it. Markdown has no indentation of its own to carry
-structure with, so markdown_export.py turns every one of those into a
-heading and pools the history at the foot -- that's a limitation of the
-format, not the intended reading.
+A Section page is laid out the way the Act itself prints, rather than
+the way the Markdown export has to: subsections, paragraphs and
+subparagraphs are indented by their nesting depth with their number
+hanging in the left margin, and each provision's amendment-history
+notes sit in a margin column beside it. Markdown has no indentation of
+its own to carry structure with, so markdown_export.py turns every one
+of those into a heading and gathers the history at the foot instead --
+that's a limitation of the format, not how it's meant to be read.
 
 The Act's own Endnotes get a page of their own (render_endnotes): the
-General information block, the Table of Amendments read as a real table --
-each amending Act with its assent and commencement dates and the
-provisions of this Act it actually touched -- and the Explanatory details.
-Each margin note on a Section page links into it, naming the Act behind
-its citation, because a note only ever says "No. 68/2009" and no reader
-holds a hundred Act numbers in their head.
+General information block, the Table of Amendments read as a real
+table -- each amending Act with its assent and commencement dates and
+the provisions of this Act it actually touched -- and the Explanatory
+details. Each margin note on a Section page links into it, naming the
+Act behind its citation, because a note only ever says "No. 68/2009"
+and no reader keeps a hundred Act numbers in their head.
 
-A Section page also carries an "Explained in" bar: the Bill clause it was
-enacted from and the Explanatory Memorandum's note on it, worked out by
-ai_pipeline/commentary.py from run_bill_linking.py's link records and
-handed here as ready-made chips. They're ordinary links into those
-documents' own browse pages, so hovering one answers "what does the EM
-say about this provision?" without leaving the section.
+A Section page also carries an "Explained in" bar: the Bill clause it
+was enacted from and the Explanatory Memorandum's note on it, worked
+out by ai_pipeline/commentary.py from run_bill_linking.py's link
+records and handed here as ready-made chips. They're ordinary links
+into those documents' own browse pages, so hovering one answers "what
+does the EM say about this provision?" without leaving the section.
 
-The same renderers serve a Bill and an Explanatory Memorandum, not just
-an Act: those call their top-level provisions clauses rather than
+The same renderers serve a Bill and an Explanatory Memorandum too, not
+just an Act: those call their top-level provisions clauses rather than
 sections (see hierarchy.SECTION_LEVEL_TYPES), and an EM's entries carry
-no headings at all, so an index row falls back to the opening of the
+no headings at all, so an index row falls back to the start of the
 entry's own text.
 
 Every link on those pages also has a hover preview: pause on a defined
-term, a "section N" reference or a "Part N" reference and a small card
-shows what's behind it -- the definition and its own paragraphs, the
-Section's opening provisions, the Sections under that Part. Checking what
-a term means is the single most common reason to follow a link here, and
-following it costs you your place; render_preview builds those cards, and
-PREVIEW_SCRIPT is the browser side.
+term, a "section N" reference or a "Part N" reference, and a small
+card shows what's behind it -- the definition and its own paragraphs,
+the Section's opening provisions, the Sections under that Part.
+Checking what a term means is the single most common reason to follow
+a link here, and following it costs you your place, so render_preview
+builds those cards, and PREVIEW_SCRIPT is the browser side of it.
 
-Kept intentionally independent of review.py's own live server process:
-rendering a page here needs no interactive state (no edit/split/merge),
-just whatever build_current_nodes reads off disk, so a Section page can
-be rendered without that Act's review.py child process even running.
+Kept deliberately independent of review.py's own live server process:
+rendering a page here needs no interactive state (no edit, split or
+merge), just whatever build_current_nodes reads off disk, so a Section
+page can be rendered without that Act's review.py child process even
+running.
 
-Known gap shared with markdown_export.py: cross-reference and defined-term
-matching is a text-pattern heuristic (see definitions.py), not a
+A gap shared with markdown_export.py: cross-reference and defined-term
+matching relies on text patterns (see definitions.py), not a
 guarantee -- an unmatched or ambiguous mention is left as plain text
 rather than linked to the wrong place.
 """
@@ -112,17 +113,18 @@ def _build_context(parsed: dict, act_title: str) -> dict:
     filenames_by_eid, section_files = assign_filenames(sections)
     definitions = collect_definitions(sections, filenames_by_eid, section_files)
     index_slugs = compute_index_slugs(tree_roots, act_title, structural_types)
-    # "section N" in an Act, "clause N" in a Bill or an EM -- decided from
-    # the document's own provisions (see markdown_export's own comment on
-    # why not simply always matching both words).
+    # "section N" in an Act, "clause N" in a Bill or an EM -- decided
+    # from the document's own provisions (see markdown_export's own
+    # comment on why this isn't simply always matching both words).
     secref_re = section_ref_pattern(sections)
-    # A Bill's or an EM's front page isn't an "Act index" -- and calling it
-    # one on every page of both was the sort of small wrongness that makes
-    # a reader doubt everything else on the page.
+    # A Bill's or an EM's front page isn't an "Act index" -- calling it
+    # one on every page of both was the kind of small wrongness that
+    # makes a reader doubt everything else on the page.
     index_link_text = "Contents" if any(tn["node"]["type"] == "clause" for tn, _b in sections) else "Act index"
 
-    # Part/Division eId lookups for prose "Part N" / "Division N" links --
-    # same one-pass walk export_to_markdown does for the same reason.
+    # Part/Division eId lookups for prose "Part N" / "Division N"
+    # links -- the same one-pass walk export_to_markdown does for the
+    # same reason.
     part_eids: dict[str, str] = {}
     division_eids: dict[str, str] = {}
     for root in tree_roots:
@@ -150,31 +152,33 @@ def _build_context(parsed: dict, act_title: str) -> dict:
     }
 
 
-# An Act or Bill's name as it would actually appear inline in a sentence:
-# a run of Capitalised words (allowing a handful of lowercase connectors --
-# "of", "the", "and", ... -- since a title routinely carries them, "Justice
-# Legislation Amendment (Sexual Offences and Other Matters) Act 2022") that
-# ends in "Act"/"Bill" and a year. Never matched by itself: a citation this
-# loose would find plenty of prose that merely happens to end that way ("A
-# person authorised by or under section 229 of the Transport ... Act 1983"
-# swallows the whole clause if the connector list is too generous or a bare
-# capital letter is allowed to start it) -- what makes it safe is that a
-# match is discarded unless it's then found *verbatim* in known_acts.yaml
-# or act_registry.json (see _build_linkifier_html), so an over-matched or
-# truncated span (most of them, in practice -- a parenthesised subtitle
-# breaks the word-by-word chain this pattern requires) just fails to link
-# rather than linking to the wrong place. This is also why the registry's
-# some 8000 titles are never turned into a matching alternation the way
-# known_acts.yaml's own handful are elsewhere in this function: one small
-# fixed pattern here, then a dict lookup per candidate it happens to find,
-# costs nothing close to compiling an alternation that size on every page.
+# An Act or Bill's name as it would actually appear inline in a
+# sentence: a run of Capitalised words (allowing a handful of lowercase
+# connectors -- "of", "the", "and", ... -- since a title routinely
+# carries them, "Justice Legislation Amendment (Sexual Offences and
+# Other Matters) Act 2022") that ends in "Act"/"Bill" and a year. This
+# is never matched on its own: a citation this loose would catch plenty
+# of prose that merely happens to end that way ("A person authorised by
+# or under section 229 of the Transport ... Act 1983" would swallow the
+# whole clause if the connector list were too generous, or a bare
+# capital letter were allowed to start it) -- what makes it safe is
+# that a match is thrown away unless it's then found *word for word* in
+# known_acts.yaml or act_registry.json (see _build_linkifier_html), so
+# an over-matched or truncated span (most of them, in practice -- a
+# parenthesised subtitle breaks the word-by-word chain this pattern
+# requires) just fails to link rather than linking to the wrong place.
+# This is also why the registry's roughly 8000 titles are never turned
+# into one giant matching pattern the way known_acts.yaml's own handful
+# are elsewhere in this function: one small fixed pattern here, then a
+# dict lookup for each candidate it happens to find, costs nothing
+# close to compiling a pattern that size on every page.
 _ACT_TITLE_WORD = r"[A-Z][\w'()-]*"
 _ACT_TITLE_CONNECTOR = r"(?:of|the|and|for|in|on|to|by|or)"
 # The whole span is wrapped in (?-i:...): master (below) is compiled
-# case-insensitively for the sake of def/secref/partref/divref, and under
-# that flag [A-Z] would also match a lowercase letter -- which is exactly
-# the capitalisation test this pattern exists to enforce, so it has to
-# opt back out of it explicitly rather than inherit it.
+# case-insensitively for the sake of def/secref/partref/divref, and
+# under that flag [A-Z] would also match a lowercase letter -- which is
+# exactly the capitalisation check this pattern exists to enforce, so
+# it has to opt back out of that flag explicitly rather than inherit it.
 _ACT_TITLE_SPAN_RE = (
     rf"(?-i:\b{_ACT_TITLE_WORD}(?:\s+(?:{_ACT_TITLE_WORD}|{_ACT_TITLE_CONNECTOR}))*"
     rf"\s+(?:Act|Bill)\s+(?:18|19|20)\d{{2}}\b)"
@@ -182,23 +186,25 @@ _ACT_TITLE_SPAN_RE = (
 
 
 def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str, own_title: "str | None" = None):
-    """Same regex/priority scheme as markdown_export._build_linkifier, but
-    emits <a href> tags instead of Markdown link syntax. Must only ever be
-    called on text that's *already* been HTML-escaped (see _esc) -- the
-    patterns below match plain words/digits, never anything an escape pass
-    would have altered, so escaping first and linkifying second is safe:
-    the substituted spans are exact, already-escaped slices of the input,
+    """Same pattern and priority scheme as
+    markdown_export._build_linkifier, but produces <a href> tags instead
+    of Markdown link syntax. Must only ever be called on text that's
+    *already* been HTML-escaped (see _esc) -- the patterns below match
+    plain words and digits, never anything an escape pass would have
+    changed, so escaping first and linkifying second is safe: the
+    substituted spans are exact, already-escaped slices of the input,
     never re-derived from unescaped source.
 
-    Also links a mention of another Act by name -- "the Crimes Act 1958",
-    say, in a Schedule's own prose. A candidate span (see
-    _ACT_TITLE_SPAN_RE) is checked first against ai_pipeline/known_acts.yaml
-    (this pipeline's own parsed Acts, linked straight to their /browse/
-    page) and, failing that, against the general act_registry.json (linked
-    instead to the standing /legislation/<act_no> resolver -- see
-    dashboard.py's legislation_resolver -- for an Act this pipeline hasn't
-    parsed). `own_title` -- this document's own citation -- is excluded
-    from both, so an Act's own name inside its own text doesn't link to
+    Also links a mention of another Act by name -- "the Crimes Act
+    1958", say, in a Schedule's own prose. A candidate span (see
+    _ACT_TITLE_SPAN_RE) is checked first against
+    ai_pipeline/known_acts.yaml (this pipeline's own parsed Acts, linked
+    straight to their /browse/ page) and, failing that, against the
+    general act_registry.json (linked instead to the standing
+    /legislation/<act_no> resolver -- see dashboard.py's
+    legislation_resolver -- for an Act this pipeline hasn't parsed).
+    `own_title` -- this document's own citation -- is excluded from
+    both, so an Act's own name inside its own text doesn't link to
     itself."""
     known_acts = {slug: title for slug, title in load_known_acts().items() if title != own_title}
     known_acts_by_lower = {title.lower(): (slug, title) for slug, title in known_acts.items()}
@@ -226,7 +232,7 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             if not info:
                 return text
             if info["file"] == current_file and info.get("fragment") == current_fragment:
-                return text  # already sitting under this exact heading -- don't link a term to itself
+                return text  # already sitting under this exact heading -- don't link a term back to itself
             href = section_href(info["file"])
             if info.get("fragment"):
                 href = f"{href}#{info['fragment']}"
@@ -244,11 +250,12 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             fragment = division_eids.get(num.lower())
             return f'<a href="{base_url}/#{fragment}">{text}</a>' if fragment else text
         if m.lastgroup == "actref":
-            # A leading "The "/"the " is how a sentence actually names an
-            # Act ("under the Public Administration Act 2004"), but is
-            # never part of the Act's own citation -- stripped before
-            # either lookup, exactly as link_targets.resolve_act_citation
-            # already does for a reviewer-labelled citation span.
+            # A leading "The "/"the " is how a sentence actually names
+            # an Act ("under the Public Administration Act 2004"), but
+            # is never part of the Act's own citation -- stripped
+            # before either lookup, exactly as
+            # link_targets.resolve_act_citation already does for a
+            # reviewer-labelled citation span.
             key = re.sub(r"^the\s+", "", text, flags=re.IGNORECASE).lower()
             known = known_acts_by_lower.get(key)
             if known:
@@ -279,12 +286,12 @@ def _verification_badge(verification: dict) -> str:
 
 def _legislation_href(citation: dict) -> str:
     """The standing address for a citation this pipeline detected but
-    doesn't (yet) know how to name -- /legislation/<act_no>[-<year>] (see
-    dashboard.py's legislation_resolver), which redirects to that Act's
-    own parse once one exists and otherwise says plainly that it hasn't
-    been parsed yet. Every citation this pipeline notices becomes a link
-    to *something*; this is the standing "something" for one that
-    resolved to nothing more specific."""
+    doesn't (yet) know how to name -- /legislation/<act_no>[-<year>]
+    (see dashboard.py's legislation_resolver), which redirects to that
+    Act's own parse once one exists, and otherwise says plainly that it
+    hasn't been parsed yet. Every citation this pipeline notices becomes
+    a link to *something*; this is the standing "something" for one
+    that resolved to nothing more specific."""
     act_no = citation.get("act_no")
     year = citation.get("year")
     return f"/legislation/{act_no}-{year}" if year else f"/legislation/{act_no}"
@@ -292,12 +299,13 @@ def _legislation_href(citation: dict) -> str:
 
 def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
     """One linkify_note run, marked up: a resolved citation links into
-    this Act's own Endnotes entry (full name and dates in the tooltip); an
-    unresolved one -- still detected, just not nameable from what this Act
-    or the general registry holds -- links to the standing resolver
-    instead, marked so a reader can tell "click through to read this
-    elsewhere" from "click through to find out this hasn't been parsed
-    yet". Plain text only for a run that named no citation at all."""
+    this Act's own Endnotes entry (full name and dates in the tooltip);
+    an unresolved one -- still detected, just not nameable from what
+    this Act or the general registry holds -- links to the standing
+    resolver instead, marked so a reader can tell "click through to
+    read this elsewhere" apart from "click through to find out this
+    hasn't been parsed yet". Plain text only for a run that named no
+    citation at all."""
     record = run.get("record")
     if record is not None:
         href = f'{base_url}/endnotes#{anchor_id(record.get("citation"))}'
@@ -311,21 +319,23 @@ def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
 
 
 def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | None = None) -> str:
-    """This one provision's own amendment-history notes, for the right-hand
-    margin column beside it -- the same place the source PDF prints them,
-    rather than pooled into one list at the foot of the page. A note whose
-    own attachment was a guess (confidence "low" -- see tree.py's
-    attach_history) is marked, so a reader can tell "the drafter put this
-    here" apart from "the parser worked out where this probably goes".
+    """This one provision's own amendment-history notes, for the right-
+    hand margin column beside it -- the same place the source PDF
+    prints them, rather than gathered into one list at the foot of the
+    page. A note whose attachment was a guess (confidence "low" -- see
+    tree.py's attach_history) is marked, so a reader can tell "the
+    drafter put this here" apart from "the parser worked out where this
+    probably goes".
 
-    Given an amendment_index (see ai_pipeline/amendments.py), the citation
-    *within* the note is a link to that Act's entry in the Endnotes, with
-    the Act's full name and dates in its tooltip. The citation is what the
-    note actually says and what a reader wants to click; spelling the Act
-    out in full beside every note pushed the note itself out of the margin
-    it is printed in, for a name that is one hover away. A citation this
-    pipeline can't name at all still links, to the standing
-    /legislation/<act_no> resolver -- see _linked_citation_html."""
+    Given an amendment_index (see ai_pipeline/amendments.py), the
+    citation *within* the note is a link to that Act's entry in the
+    Endnotes, with the Act's full name and dates in its tooltip. The
+    citation is what the note actually says and what a reader wants to
+    click; spelling the Act out in full beside every note would push
+    the note itself out of the margin it's printed in, for a name
+    that's just one hover away. A citation this pipeline can't name at
+    all still links, to the standing /legislation/<act_no> resolver --
+    see _linked_citation_html."""
     bits = []
     for h in node.get("history") or []:
         low = h.get("confidence") == "low"
@@ -347,16 +357,16 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     page id being what render_index links to and render_section matches
     on.
 
-    Keyed by Schedule as well as number because a Schedule numbers its own
-    provisions from 1 again: this Act has a section 11 and a Schedule 1
-    clause 11, on different pages ("s11" and "s11_2"), and a lookup by
-    number alone silently returned the first of them for both. Keyed by
-    kind too (diffing.provision_identity, not the bare
-    commentary.provision_key most other callers use) because a pageable
-    Schedule (see hierarchy.schedule_is_pageable) is addressed by its own
-    number with no Schedule of its own to sit in -- the same (None,
-    number) pair an ordinary body section with that number would use --
-    and the two must not collide."""
+    Keyed by Schedule as well as number because a Schedule starts
+    numbering its own provisions from 1 again: this Act has a section
+    11 and a Schedule 1 clause 11, on different pages ("s11" and
+    "s11_2"), and a lookup by number alone used to silently return the
+    first of them for both. Keyed by kind too (diffing.provision_identity,
+    not the bare commentary.provision_key most other callers use)
+    because a pageable Schedule (see hierarchy.schedule_is_pageable) is
+    addressed by its own number with no Schedule of its own to sit in
+    -- the same (None, number) pair an ordinary body section with that
+    number would use -- and the two must not collide."""
     ctx = _build_context(parsed, act_title)
     position_of = {id(node): i for i, node in enumerate(parsed["nodes"])}
     schedules = schedule_numbers(parsed["nodes"])
@@ -369,7 +379,7 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
         if position is None:
             continue
         page = _strip_md(ctx["filenames_by_eid"][tree_node["eid"]])
-        # A Schedule is not "inside itself": its own page is keyed as
+        # A Schedule isn't "inside itself": its own page is keyed as
         # sitting in no Schedule at all, the same way diffing.py's own
         # provisions() keys it -- see that function's docstring.
         schedule = None if node["type"] == "schedule" else schedules[position]
@@ -386,8 +396,8 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
-    trailing slash) -- every link rendered here and in render_section is
-    built from it, so the caller controls the URL scheme entirely.
+    trailing slash) -- every link rendered here and in render_section
+    is built from it, so the caller controls the URL scheme entirely.
 
     superseded, if given, is {"version", "current", "current_url",
     "as_at_printed"} -- see render_superseded_banner."""
@@ -404,13 +414,14 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             superseded.get("version"), superseded.get("current"),
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
-    # Which expression of the Act this is, as the PDF's own front matter
-    # states it (see ai_pipeline/versions.py). A statement of fact, not yet
-    # a judgement about currency -- knowing this is superseded needs to
-    # know what other versions exist, which is the timeline's job.
-    # This is this pipeline's own reading of the document, stated as such --
-    # never "the Authorised Version", which is the name for the government's
-    # own published text and not for anything reconstructed from it here.
+    # Which reprint of the Act this is, as the PDF's own front matter
+    # states it (see ai_pipeline/versions.py). This is just a statement
+    # of fact, not yet a judgement about whether it's current --
+    # knowing whether this has been superseded needs to know what other
+    # versions exist, which is the timeline's job. This is stated as
+    # this pipeline's own reading of the document, never as "the
+    # Authorised Version", which is the name for the government's own
+    # published text, not for anything reconstructed from it here.
     version = parsed.get("version") or {}
     if version.get("version") is not None:
         as_at = f' &mdash; incorporating amendments as at {_esc(version["as_at_printed"])}' if version.get("as_at_printed") else ""
@@ -435,11 +446,12 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         pageable_schedule = t == "schedule" and schedule_is_pageable(tree_node)
         if t in SECTION_LEVEL_TYPES or pageable_schedule:
             href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
-            # A pageable Schedule gets the same "type spelled out" label as
-            # its own heading used to be, before it became a page instead
-            # of a bare <h4> above a list -- "3 Persons who may witness..."
-            # would otherwise read as though 3 were this Act's own section
-            # number, which it isn't (see hierarchy.schedule_is_pageable).
+            # A pageable Schedule gets the same "type spelled out"
+            # label its own heading used to have, before it became a
+            # page instead of a bare <h4> above a list -- "3 Persons
+            # who may witness..." would otherwise read as though 3
+            # were this Act's own section number, which it isn't (see
+            # hierarchy.schedule_is_pageable).
             label = _display_title(t, node.get("number"), node.get("heading")) if pageable_schedule else index_label(node)
             if not list_open:
                 out.append('<ul class="section-list">')
@@ -466,10 +478,11 @@ def render_index(parsed: dict, act_title: str, base_url: str,
 def _crossrefs_html(crossrefs: list[dict]) -> str:
     """The "where else this provision is explained" bar -- one chip per
     related document (the Bill clause this section was enacted from, an
-    Explanatory Memorandum note about it). Each chip is an ordinary link
-    into that document's own page, so hovering one previews it the same
-    way every other link on the page does; the caller (dashboard.py, via
-    ai_pipeline/commentary.py) works out what belongs here."""
+    Explanatory Memorandum note about it). Each chip is an ordinary
+    link into that document's own page, so hovering one previews it the
+    same way every other link on the page does; the caller
+    (dashboard.py, via ai_pipeline/commentary.py) works out what
+    belongs here."""
     if not crossrefs:
         return ""
     chips = "".join(
@@ -484,24 +497,26 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 # A provision's timeline
 # ---------------------------------------------------------------------------
-# An Act is reprinted every few weeks and each reprint restates the whole
-# thing, so the only way to see how a provision's wording has moved is to
-# compare the reprints (ai_pipeline/diffing.py). What comes back is
-# rendered here, on the provision's own page, because that is where a
-# reader is when the question occurs to them -- not on a separate
-# compare-two-versions screen they would have to know to go and look for.
+# An Act is reprinted every few weeks and each reprint restates the
+# whole thing, so the only way to see how a provision's wording has
+# moved is to compare the reprints (ai_pipeline/diffing.py). What comes
+# back is rendered here, on the provision's own page, because that's
+# where a reader is when the question occurs to them -- not on a
+# separate compare-two-versions screen they'd have to know to go and
+# look for.
 #
-# It is shown only on a provision that actually changed. A control on
-# every provision that mostly says "nothing happened" trains a reader to
-# stop opening it, which costs more than it gives.
+# It's shown only on a provision that actually changed. A control on
+# every provision that mostly just says "nothing happened" trains a
+# reader to stop opening it, which costs more than it gives.
 
 
 def _diff_html(diff: list[dict]) -> str:
-    """One version's change, as the words moved: what went, struck
-    through, and what arrived, marked. Unchanged words are kept around
-    them so a reader sees the amendment in its sentence rather than as a
-    pair of disembodied phrases -- which is how the amending Act itself
-    reads ("in section 366(1)(d), after 'offence' insert ...")."""
+    """One version's change, showing how the words moved: what went,
+    struck through, and what arrived, marked. Unchanged words are kept
+    around them so a reader sees the amendment in its sentence rather
+    than as a pair of disembodied phrases -- which is how the amending
+    Act itself reads ("in section 366(1)(d), after 'offence' insert
+    ...")."""
     out = []
     for segment in diff:
         text = _esc(segment["text"])
@@ -518,7 +533,8 @@ def _timeline_note_html(raw: str, base_url: str, amendment_index: "dict | None")
     """One amendment note, with the Act it names linked to that Act's
     entry in the Endnotes -- the same treatment the note gets in the
     margin, so the citation means the same thing and goes to the same
-    place wherever a reader meets it (see _linked_citation_html)."""
+    place no matter where a reader meets it (see
+    _linked_citation_html)."""
     marked = [_linked_citation_html(run, base_url, "hist-act") for run in linkify_note(raw, amendment_index)]
     return f'<span class="tl-note">{"".join(marked)}</span>'
 
@@ -536,9 +552,9 @@ def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | No
     heading = f'<a class="tl-version" href="{_esc(href)}">{stamp}</a>' if href else f'<span class="tl-version">{stamp}</span>'
 
     change = entry.get("change")
-    # The Act's own words for what happened to a provision. Using anything
-    # else here would have the timeline describe the amendment in language
-    # the amendment does not use.
+    # The Act's own words for what happened to a provision. Using
+    # anything else here would have the timeline describe the
+    # amendment in language the amendment itself doesn't use.
     verb = {"inserted": "Inserted", "repealed": "Repealed", "changed": "Amended"}.get(change, "Changed")
     notes = "".join(_timeline_note_html(raw, base_url, amendment_index)
                     for raw in entry.get("new_history") or [])
@@ -553,14 +569,15 @@ def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | No
 
 def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
                     version_urls: "dict | None" = None) -> str:
-    """A provision's history across the versions of the Act held here, or
-    "" where it has none.
+    """A provision's history across the versions of the Act held here,
+    or "" where it has none.
 
-    Newest first: a reader arriving at this control almost always wants
-    the most recent change, and having to scroll a long timeline to reach
-    it would make the common case the expensive one. The collapsed
-    summary says how many changes there are and when the last one was, so
-    the control answers the first question without being opened.
+    Newest first: a reader arriving at this control almost always
+    wants the most recent change, and having to scroll a long timeline
+    to reach it would make the common case the expensive one. The
+    collapsed summary says how many changes there are and when the
+    last one was, so the control answers the first question without
+    being opened.
     """
     if not entries:
         return ""
@@ -583,13 +600,13 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
 
 def render_superseded_banner(version: "int | None", current: "int | None", current_url: "str | None",
                              as_at_printed: "str | None" = None) -> str:
-    """The notice on a version that is no longer the law.
+    """The notice on a version that's no longer the law.
 
-    Shown at the top of every page of a superseded version, not only where
-    that page's own provision changed: a reader who has arrived at an old
-    reprint is reading the wrong law whether or not this particular section
-    is one of the ones that moved, and finding that out at the bottom of
-    the page is finding it out too late.
+    Shown at the top of every page of a superseded version, not just
+    where that page's own provision changed: a reader who's arrived at
+    an old reprint is reading the wrong law whether or not this
+    particular section is one of the ones that moved, and finding that
+    out at the bottom of the page is finding it out too late.
     """
     if version is None or current is None or version >= current:
         return ""
@@ -613,16 +630,17 @@ def render_section(
     Section matches -- the caller (dashboard.py) turns that into a 404.
 
     crossrefs, if given, are the related-document chips described in
-    _crossrefs_html; amendment_index, if given, is what lets each margin
-    note name the Act behind its citation (see _margin_notes_html).
+    _crossrefs_html; amendment_index, if given, is what lets each
+    margin note name the Act behind its citation (see
+    _margin_notes_html).
 
     timeline, if given, is this provision's own entries from
-    ai_pipeline/diffing.build_timeline -- how its wording has moved across
-    the versions of the Act held here -- with version_urls mapping a
-    version number to that version's page for this same provision.
-    superseded, if given, is {"version", "current", "current_url",
-    "as_at_printed"} for the banner saying this reprint is no longer the
-    law."""
+    ai_pipeline/diffing.build_timeline -- how its wording has moved
+    across the versions of the Act held here -- with version_urls
+    mapping a version number to that version's page for this same
+    provision. superseded, if given, is {"version", "current",
+    "current_url", "as_at_printed"} for the banner saying this reprint
+    is no longer the law."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
