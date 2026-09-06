@@ -1,8 +1,9 @@
 """
-Which version of an Act a PDF is, and which versions of it we hold.
+Works out which version of an Act a PDF is, and which versions of it we
+hold.
 
-An Authorised Version states its own identity on its first page, above the
-Table of Provisions:
+An Authorised Version states its own identity on its first page, above
+the Table of Provisions:
 
     Authorised Version No. 114
     Criminal Procedure Act 2009
@@ -10,23 +11,24 @@ Table of Provisions:
     Authorised Version incorporating amendments as at
     1 July 2026
 
-Two of those lines are the timeline this whole diff feature hangs off. The
-**version number** is the Act's own sequential count of its reprints and is
-what orders them -- No. 110 is unambiguously older than No. 111, with no
-date arithmetic and no reliance on filenames. The **as-at date** is what a
-reader actually wants to see ("as at 1 July 2026"), and is what connects a
-change to the amending Act that caused it, since the Table of Amendments
-records commencement dates (see amendments.py).
+Two of those lines are what the whole version-timeline feature relies
+on. The **version number** is the Act's own count of its reprints, and
+is what orders them -- No. 110 is unambiguously older than No. 111, no
+date maths or filenames needed. The **as-at date** is what a reader
+actually wants to see ("as at 1 July 2026"), and is also what connects a
+change to the amending Act that caused it, since the Table of
+Amendments records commencement dates too (see amendments.py).
 
-The other two lines identify the *work* rather than this expression of it:
-the title, and "No. 7 of 2009" -- the Act's own number, fixed for its
-whole life. Two PDFs sharing that number are versions of the same Act
-however they are named, which is what lets a directory of files be read as
-one Act's history rather than trusted from its filenames.
+The other two lines identify the Act itself, rather than this particular
+reprint of it: the title, and "No. 7 of 2009" -- the Act's own number,
+fixed for its whole life. Two PDFs that share that number are versions
+of the same Act no matter what they're named, which is what lets a
+directory of files be read as one Act's history instead of having to
+trust filenames.
 
-A Bill, an Explanatory Memorandum, and a consolidated Act printed before
-this convention carry no version block at all. That is not an error: they
-have no version, and `version` comes back None.
+A Bill, an Explanatory Memorandum, or an Act printed before this
+convention started carry no version information at all. That's not an
+error -- they simply have no version, and `version` comes back None.
 """
 import re
 from datetime import datetime
@@ -59,9 +61,10 @@ _FRONT_MATTER_PAGES = 2
 
 
 def _iso_date(printed: str) -> "str | None":
-    """"1 July 2026" -> "2026-07-01". Returned as ISO because these dates
-    get sorted and compared far more often than they get printed, and the
-    printed form sorts alphabetically into nonsense."""
+    """"1 July 2026" -> "2026-07-01". Returned in this YYYY-MM-DD form
+    because these dates get sorted and compared far more often than
+    they get displayed, and sorting the printed form alphabetically
+    would give nonsense results."""
     for fmt in ("%d %B %Y", "%d %b %Y"):
         try:
             return datetime.strptime(printed.strip(), fmt).date().isoformat()
@@ -72,12 +75,13 @@ def _iso_date(printed: str) -> "str | None":
 
 def parse_front_matter(text: str) -> dict:
     """{"version", "as_at", "as_at_printed", "title", "act_no", "year"} for
-    a document's own front matter. Every field is None where the document
+    a document's front matter. Every field is None where the document
     doesn't state it -- a Bill has no version or as-at date, and an Act
     reprinted before the current convention may have neither.
 
-    `version` is an int so it sorts numerically; `as_at` is ISO for the
-    same reason, with the date as printed kept alongside it for display.
+    `version` is a plain int so it sorts numerically; `as_at` is in
+    YYYY-MM-DD form for the same reason, with the date as it was printed
+    kept alongside it for display.
     """
     version_m = _VERSION_RE.search(text)
     as_at_m = _AS_AT_RE.search(text)
@@ -100,10 +104,11 @@ def parse_front_matter(text: str) -> dict:
 
 
 def read_front_matter(pdf_path: "str | Path") -> dict:
-    """parse_front_matter over the first pages of a PDF. An unreadable or
-    missing file gives the same all-None result a document with no version
-    block does: this is metadata about a document, and not having it is
-    never a reason to fail a parse that otherwise succeeded."""
+    """Runs parse_front_matter over the first pages of a PDF. An
+    unreadable or missing file gives the same all-None result as a
+    document with no version information -- this is just metadata about
+    a document, and not having it is never a reason to fail a parse that
+    otherwise succeeded."""
     path = Path(pdf_path)
     if not path.exists():
         return parse_front_matter("")
@@ -118,17 +123,17 @@ def read_front_matter(pdf_path: "str | Path") -> dict:
 
 
 def discover_versions(directory: "str | Path") -> list[dict]:
-    """Every Authorised Version in one directory, oldest first, each as its
-    front matter plus the "path" it was read from.
+    """Every Authorised Version in one directory, oldest first, each
+    given as its front matter plus the "path" it was read from.
 
-    A document with no version number is not a version of anything and is
-    left out -- a Bill and its Explanatory Memorandum commonly sit in the
-    same directory as the Act they became, and they belong to that Act's
-    history without being points on its timeline.
+    A document with no version number isn't a version of anything, and
+    is left out -- a Bill and its Explanatory Memorandum commonly sit in
+    the same directory as the Act they became, and they're part of that
+    Act's history without being points on its version timeline.
 
     Ordered by the Act's own version number rather than by date or
-    filename: it is the only one of the three the Act itself guarantees to
-    be sequential.
+    filename, since that's the only one of the three the Act itself
+    guarantees will be in sequence.
     """
     directory = Path(directory)
     if not directory.is_dir():
@@ -161,18 +166,18 @@ def describe(meta: dict) -> str:
 #
 # A "work" is the Act itself -- the Criminal Procedure Act 2009 -- and a
 # "version" is one Authorised Version of it. Everything in this pipeline
-# addresses a document by a single slug, from the parse's filename through
-# the review database's own key to the browse URL, so a version is given a
-# slug of its own rather than a second identifier threaded alongside the
-# first: "criminal-procedure-act-v114". That composes and decomposes here,
-# and every existing caller keeps working on one string.
+# addresses a document by a single slug, from the parse's filename to the
+# review database's key to the browse URL, so a version gets a slug of
+# its own rather than tracking a second identifier alongside the first:
+# "criminal-procedure-act-v114". This module builds and reads apart that
+# slug, so every existing caller keeps working with just one string.
 #
-# An Act opts into version tracking by having its PDFs put in a directory
-# named after it (acts/criminal-procedure-act/cpa-114.pdf). A PDF sitting
-# directly in acts/ keeps its own filename as its slug however many
-# versions it may state -- so adding this changed nothing about the
-# documents already parsed, and a reviewer's work on them stayed where it
-# was.
+# An Act opts into version tracking by having its PDFs put in a
+# directory named after it (acts/criminal-procedure-act/cpa-114.pdf). A
+# PDF sitting directly in acts/ keeps its own filename as its slug no
+# matter what version it states -- so adding this feature changed
+# nothing about documents already parsed, and nobody's review work on
+# them moved.
 # ---------------------------------------------------------------------------
 
 _DOCUMENT_SLUG_RE = re.compile(r"^(?P<work>[a-z0-9]+(?:-[a-z0-9]+)*?)-v(?P<version>\d+)$")
@@ -180,8 +185,8 @@ _DOCUMENT_SLUG_RE = re.compile(r"^(?P<work>[a-z0-9]+(?:-[a-z0-9]+)*?)-v(?P<versi
 
 def document_slug(work: str, version: "int | None") -> str:
     """The slug one version of a work is stored and addressed under. An
-    unversioned document is just its work slug -- a Bill is not version 1
-    of anything."""
+    unversioned document just uses its work's own slug -- a Bill isn't
+    version 1 of anything."""
     return f"{work}-v{version}" if version is not None else work
 
 
@@ -193,15 +198,17 @@ def split_document_slug(slug: str) -> "tuple[str, int | None]":
 
 
 def work_directory(pdf_path: "str | Path", acts_dir: "str | Path" = "acts") -> "str | None":
-    """The work a PDF belongs to by where it sits: acts/<work>/<file>.pdf
-    is a version of <work>; acts/<file>.pdf belongs to no work and keeps
-    its own name. Returns the directory's name, or None.
+    """The work a PDF belongs to, based on where it sits:
+    acts/<work>/<file>.pdf is a version of <work>; acts/<file>.pdf
+    belongs to no work and keeps its own name. Returns the directory's
+    name, or None.
 
-    Deliberately positional rather than inferred from the PDF's own
-    contents. An Act states its version whether or not anyone wants it
-    tracked, so reading that alone would have renamed every document here
-    the moment this landed, and taken each one's review work with it.
-    Putting the file in a directory is the opt-in."""
+    This is based on the file's location on purpose, not on reading the
+    PDF's own contents. An Act states its version number whether or not
+    anyone wants it tracked, so if this went by content alone, every
+    document here would have been renamed the moment this feature
+    landed, along with its review work. Putting a file in a directory is
+    what actually opts it in."""
     pdf_path = Path(pdf_path)
     acts_dir = Path(acts_dir)
     try:
@@ -213,13 +220,14 @@ def work_directory(pdf_path: "str | Path", acts_dir: "str | Path" = "acts") -> "
 
 def group_versions(documents: list[dict]) -> dict[str, list[dict]]:
     """{work slug -> its versions, oldest first} for documents that are
-    versions of something. Each document is whatever the caller holds,
-    needing only a "slug" -- the work and version are read back out of it,
-    so this never disagrees with what the documents are actually stored
-    under.
+    versions of something. Each document can be whatever the caller
+    holds, as long as it has a "slug" -- the work and version are read
+    back out of that, so this can never disagree with what the
+    documents are actually stored under.
 
-    A document that is not a version of anything is left out: it has no
-    timeline, and a work with one version has nothing to compare.
+    A document that isn't a version of anything is left out: it has no
+    timeline, and a work with only one version has nothing to compare
+    it against.
     """
     works: dict[str, list[dict]] = {}
     for document in documents:

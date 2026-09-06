@@ -33,13 +33,13 @@ NODE_TYPES = [
 ]
 
 
-# Which of the above a given kind of document actually uses, for the
-# relabel dropdown and the "Legislation part types" window in review.py.
-# One flat enum offered every reviewer every type: an Act was asked
-# whether a provision might be a "clause" (it never is -- that is a
-# Bill's word for the same thing, see hierarchy.make_ranks), and a Bill
-# was offered "section". Same list, filtered to what the document in
-# hand can contain.
+# Which of the above types a given kind of document actually uses, for
+# the relabel dropdown and the "Legislation part types" window in
+# review.py. Offering every reviewer the same full list used to mean an
+# Act's reviewer could pick "clause" (which an Act never has -- that's a
+# Bill's word for the same thing, see hierarchy.make_ranks), and a
+# Bill's reviewer could pick "section". Same list as above, just
+# filtered to what the document in hand can actually contain.
 #
 # A type this pipeline no longer emits stays available to the documents
 # that already carry it ("em_entry" -- see em_parser.py), and review.py

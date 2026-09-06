@@ -1,7 +1,8 @@
 """
-Heuristically extracts defined terms so markdown_export.py can hyperlink a
-term back to where it's defined -- the AustLII-style linked-definitions
-idea. A term counts as "defined" under either of two conditions:
+Finds defined terms, by pattern rather than any certain method, so
+markdown_export.py can hyperlink a term back to where it's defined --
+the AustLII-style linked-definitions idea. A term counts as "defined"
+under either of two conditions:
 
   1. It's introduced by "term means ..." / "has the same meaning ..." /
      "includes ..." inside a section whose heading suggests it defines
@@ -15,12 +16,12 @@ idea. A term counts as "defined" under either of two conditions:
      itself the signal -- and the term should link to *that* section, not
      wherever the pointer happens to sit.
 
-This is pattern-based, not a re-run of the PDF's font info (italics aren't
-captured at extraction time), so it's a navigation aid rather than a
-legal-grade extraction: it looks for the standard drafting conventions
-above and will miss anything phrased unusually. False negatives just mean
-a missed hyperlink, not lost or corrupted text -- the underlying markdown
-content is unaffected either way.
+This works from text patterns, not the PDF's own font info (italics
+aren't captured at extraction time), so it's a navigation aid, not a
+guarantee that every definition gets found -- it looks for the standard
+drafting conventions above and will miss anything phrased unusually.
+Missing a term just means one missed hyperlink, not lost or wrong text
+-- the underlying document is unaffected either way.
 """
 import re
 
@@ -30,46 +31,48 @@ _TERMS = r'"?[A-Za-z][\w \'()/-]*?"?(?:\s*,\s*"?[A-Za-z][\w \'()/-]*?"?)*(?:\s+a
 
 # A definition clause can define more than one term at once, e.g.
 # "custodial officer, emergency worker on duty and emergency worker have
-# the same meanings as in section 10AA ...". Capture the (possibly
-# multi-term, comma/and-separated) subject up to the defining verb.
+# the same meanings as in section 10AA ...". This captures that whole
+# subject (possibly several terms, separated by commas or "and") up to
+# the word that introduces the definition.
 #
-# Applied per-line (re.MULTILINE, matched at the start of any line within a
-# node's text), not just at the very start of the text: a "Definitions"
-# section's un-numbered clauses often end up concatenated into one node's
-# text blob ("abortion has the meaning ...;\nchild means\n(a) ...— see the
-# module docstring), each still starting its own source line even though
-# the rule parser didn't split them into separate nodes. A definition whose
-# list of paragraphs lives in *sibling* nodes (rather than inline in the
-# same clause) still won't be caught this way -- multi-node list
-# reconstruction is out of scope here, same as it is for the rule parser's
-# own node model.
+# Checked on every line (re.MULTILINE), not just at the very start of the
+# text: a "Definitions" section's clauses often end up joined into one
+# block of text on one node ("abortion has the meaning ...;\nchild
+# means\n(a) ..." -- see the module docstring), with each clause still
+# starting its own line even though the rule parser didn't split them
+# into separate nodes. A definition whose list of paragraphs lives on
+# *separate* nodes (rather than inline in the same clause) still won't
+# be caught this way -- putting a multi-node list back together is out
+# of scope here, same as it is for the rule parser itself.
 _DEF_RE = re.compile(
-    # "means" not followed by "of" specifically excludes the common idiom
-    # "by means of ..." ("by" preceding "means" would otherwise parse as a
-    # one-word defined term "by"). "has"/"have" both appear in real Act
-    # text -- a compound subject ("X, Y and Z have the same meanings as
-    # ...") takes the plural verb, same as "means"/"mean" would.
+    # "means" not followed by "of" rules out the common phrase "by means
+    # of ..." -- without this, "by" would get parsed as a one-word
+    # defined term. "has"/"have" both appear in real Act text -- a
+    # compound subject ("X, Y and Z have the same meanings as ...") takes
+    # the plural verb, same as "means"/"mean" would.
     rf"^(?P<terms>{_TERMS})\s+(?:means\b(?!\s+of\b)|means,|(?:has|have)(?: the| its)? same meanings?\b|includes\b)",
     re.MULTILINE,
 )
 
-# Legislative defined terms are never a bare closed-class function word --
-# this catches anything that slips through the phrasing patterns above by
-# accident (e.g. a term regex matching just the tail of a larger idiom).
+# A defined term in an Act is never just a plain word like "the" or
+# "and" on its own -- this catches anything that slips through the
+# patterns above by accident (e.g. the term pattern matching only the
+# tail end of some other phrase).
 _STOPWORDS = {
     "a", "an", "the", "by", "of", "in", "on", "at", "to", "for", "with",
     "and", "or", "but", "is", "are", "as", "it", "this", "that", "these",
     "those", "any", "each", "such", "means",
 }
 
-# The specific "references a Section" sub-case: same leading shape, but
-# requires "same meaning(s) as in section N" and captures N -- except when
-# it's actually "section N of the/that ... Act", which names a *different*
-# Act's section (as in "firearm has the same meaning as in section 3(1) of
-# the Firearms Act 1996"), not this Act's. The lookahead tolerates an
-# optional pinpoint cite ("(1)") sitting between the number and the "of ...
-# Act" tell, same reasoning as markdown_export.py's own section-reference
-# guard for prose mentions.
+# The specific case of a term pointing to another section: same opening
+# shape as above, but requires "same meaning(s) as in section N" and
+# captures N -- except when it's really "section N of the/that ... Act",
+# which names a section of a *different* Act (as in "firearm has the
+# same meaning as in section 3(1) of the Firearms Act 1996"), not this
+# one. This allows for an optional pinpoint cite ("(1)") between the
+# number and the "of ... Act" part that gives it away, for the same
+# reason as markdown_export.py's own check for section references in
+# prose.
 _SAME_MEANING_SECTION_RE = re.compile(
     rf"^(?P<terms>{_TERMS})\s+(?:has|have)(?: the| its)? same meanings?\s+as\s+in\s+section\s+(?P<section>\d+[A-Za-z]*)\b"
     r"(?!(?:\s*\([^)]*\))?\s+of\s+(?:the|that|any)\b)",
@@ -84,11 +87,11 @@ def looks_like_definitions_section(heading: str | None) -> bool:
 
 
 def is_definition_start(line: str) -> bool:
-    """Does this single line open a new "term means ..." clause? Used to
-    re-paragraph a Definitions section's text (its clauses commonly arrive
-    concatenated into one text blob -- see the module/rule_parser notes)
-    without breaking apart clauses that merely wrapped onto a second
-    printed line."""
+    """Does this one line start a new "term means ..." clause? Used to
+    split a Definitions section's text back into separate clauses (they
+    often arrive joined into one block of text -- see the module and
+    rule_parser notes) without breaking apart a clause that simply
+    wrapped onto a second printed line."""
     return bool(_DEF_RE.match(line.strip()))
 
 
@@ -110,8 +113,9 @@ def extract_terms(text: str) -> list[str]:
 
 def extract_section_ref_terms(text: str) -> list[tuple[list[str], str]]:
     """[(terms, referenced_section_number), ...] for every "term has the
-    same meaning as in section N" clause, wherever it occurs -- unlike
-    extract_terms, not gated on the enclosing section's heading."""
+    same meaning as in section N" clause, wherever it appears -- unlike
+    extract_terms, this doesn't care what the enclosing section's
+    heading says."""
     results = []
     for m in _SAME_MEANING_SECTION_RE.finditer((text or "").strip()):
         terms = [t for t in _split_terms(m.group("terms")) if t and len(t.split()) <= _MAX_TERM_WORDS]
@@ -123,11 +127,11 @@ def extract_section_ref_terms(text: str) -> list[tuple[list[str], str]]:
 def split_definition_clauses(text: str) -> list[str]:
     """Splits a node's text into one chunk per "term means ..." clause
     (plus a leading chunk for any lead-in text before the first clause,
-    e.g. "In this Part—"), re-joining lines that merely wrapped within a
-    clause. Used both to render each clause as its own paragraph (instead
-    of the whole node collapsing into one run-on line) and to anchor a
-    term's link at the specific clause that defines it rather than the top
-    of a node that might hold several."""
+    e.g. "In this Part—"), joining lines back together where they had
+    simply wrapped within a clause. Used to show each clause as its own
+    paragraph, instead of the whole node running together as one block,
+    and to link a term to the specific clause that defines it rather
+    than the top of a node that might hold several definitions."""
     chunks: list[str] = []
     current: list[str] = []
     for raw_line in (text or "").split("\n"):
