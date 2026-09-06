@@ -1,44 +1,45 @@
 """
-SQLite-backed storage for the durable, human-created review data that used
-to live in data/verified/<act>.json, data/links/<act>.json, and
-data/corrections.jsonl -- one shared file, data/legislation.db, holding
-every Act.
+SQLite-backed storage for the durable, human-created review data that
+used to live in data/verified/<act>.json, data/links/<act>.json, and
+data/corrections.jsonl -- now one shared file, data/legislation.db,
+holding every Act.
 
-Deliberately scoped to *only* that data, not the whole pipeline:
-data/extracted/, data/diagnostics/, data/akn/, and data/markdown/ stay
-exactly as they are, plain JSON/XML/Markdown files under data/, because
-they're pure regenerable pipeline output -- re-running run_pipeline.py /
-export_akn.py / export_markdown.py recreates them from the source PDF,
-so there's nothing there that "longevity" is actually about. What
-genuinely needs it is the other three: hours of a human's own
-accept/flag/edit decisions, span-level link annotations, and the
-correction log recording what a human actually changed -- exactly the
-things a crash mid `path.write_text(json.dumps(whole_file))` could
-previously corrupt outright.
+This is deliberately scoped to *only* that data, not the whole
+pipeline: data/extracted/, data/diagnostics/, data/akn/, and
+data/markdown/ stay exactly as they are, plain JSON/XML/Markdown files
+under data/, because they're pipeline output that can always be
+regenerated -- re-running run_pipeline.py, export_akn.py or
+export_markdown.py recreates them from the source PDF, so there's
+nothing there that "durability" really needs to protect. What actually
+needs it is the other three: hours of a human's own accept/flag/edit
+decisions, span-level link labels, and the correction log recording
+what a human actually changed -- exactly the things a crash partway
+through writing a whole JSON file back out used to be able to corrupt.
 
-data/ai_parsed/<act>.json (the raw parse) is technically regenerable the
-same way, but is committed to git *alongside* data/legislation.db as a
-deliberate pair -- see .gitignore's own comment on this -- since this
-file's own verified rows are keyed by a positional index into that exact
-parse, and a mismatched regeneration would silently misalign them (see
-migrate_json_to_sqlite.py for bringing any pre-migration JSON review data
-into this file, and checkpoint_db.py before committing this one).
+data/ai_parsed/<act>.json (the raw parse) could technically be
+regenerated the same way, but it's committed to git *alongside*
+data/legislation.db as a deliberate pair -- see .gitignore's own
+comment on this -- because this file's verified rows are keyed by a
+position in that exact parse, and regenerating a mismatched one would
+silently misalign them (see migrate_json_to_sqlite.py for bringing any
+pre-migration JSON review data into this file, and checkpoint_db.py
+before committing this one).
 
-Every function here keeps the exact name and dict/list shape its old
-JSON-backed counterpart had (load_verified/save_verified in review.py,
+Every function here keeps the exact name and shape its old JSON-backed
+counterpart had (load_verified/save_verified in review.py,
 load_links/save_links/add_link/delete_link in link_annotations.py,
-add_correction/stats in examples_store.py) -- callers
-elsewhere in the pipeline don't change at all, only where this data
-actually lives.
+add_correction/stats in examples_store.py) -- callers elsewhere in the
+pipeline don't change at all, only where this data actually lives.
 
 Connections are cached per resolved absolute path, not just opened once
-at import time: every consumer resolves "data/legislation.db" relative to
-the current working directory exactly the way the old JSON paths did
-(Path("data/verified") / f"{act}.json", etc), and tests rely on that --
-monkeypatch.chdir(tmp_path) to isolate a test still works unchanged,
-because a different CWD resolves to a different absolute db path and
-therefore a fresh connection/schema, the same isolation a fresh directory
-of JSON files used to give for free.
+when the module loads: every caller resolves "data/legislation.db"
+relative to the current working directory, exactly the way the old JSON
+paths did (Path("data/verified") / f"{act}.json", etc), and tests rely
+on that -- using monkeypatch.chdir(tmp_path) to isolate a test still
+works unchanged, because a different working directory resolves to a
+different absolute database path, and therefore a fresh connection and
+schema -- the same isolation a fresh directory of JSON files used to
+give for free.
 """
 import json
 import sqlite3
@@ -51,8 +52,8 @@ LABELS = ["act_citation", "defined_term", "bill_reference", "em_reference", "oth
 
 
 class LinkError(ValueError):
-    """A link annotation request was invalid -- an out-of-range or empty
-    span, or a label outside LABELS. Raised before anything is written,
+    """A link-labelling request was invalid -- an out-of-range or empty
+    span, or a label not in LABELS. Raised before anything is written,
     so a bad request from the frontend can't corrupt stored link data."""
 
 
@@ -121,29 +122,31 @@ CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 
 -- Extra node types one Act's reviewer defined for themselves, on top of
 -- schema.NODE_TYPES and whatever levels that Act's profile declares.
--- Per-Act rather than global on purpose: a label that's meaningful in one
--- Act ("penalty", say) is noise in the relabel dropdown of every other.
--- These are labels, not hierarchy levels -- an Act's nesting order comes
--- from its profile (see ai_pipeline/hierarchy.py), so a type added here
--- doesn't nest and can't be nested under.
+-- Kept per-Act rather than shared across all of them on purpose: a
+-- label that makes sense in one Act ("penalty", say) would just be
+-- clutter in the relabel dropdown of every other. These are labels,
+-- not hierarchy levels -- an Act's nesting order comes from its profile
+-- (see ai_pipeline/hierarchy.py), so a type added here doesn't nest and
+-- can't have anything nested under it.
 -- Which parse the rows in `verified` were reviewed against.
--- Those rows are keyed by a *position* into data/ai_parsed/<act>.json, so
--- they only mean anything against the exact parse that produced them.
+-- Those rows are keyed by a *position* in data/ai_parsed/<act>.json, so
+-- they only make sense against the exact parse that produced them.
 -- Storing that parse's fingerprint (ai_pipeline/reparse.parse_fingerprint)
--- makes a mismatch detectable instead of silent -- review.py refuses to
--- infer anything from positions it can't vouch for, and run_pipeline.py
--- knows when a re-parse needs its rows re-anchored.
+-- lets a mismatch be detected instead of passing silently -- review.py
+-- refuses to infer anything from positions it can't vouch for, and
+-- run_pipeline.py knows when a re-parse needs its rows reattached.
 CREATE TABLE IF NOT EXISTS parse_state (
     act TEXT PRIMARY KEY,
     fingerprint TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 
--- Reviewed pieces a re-parse could no longer find anywhere in the new
--- node list. They have no position left to be keyed by, so they can't
--- stay in `verified` -- but they are a human's work, and deleting them
--- because the parser changed its mind is the exact failure re-anchoring
--- exists to prevent. Kept here, reported, and never silently dropped.
+-- Reviewed pieces a re-parse couldn't find anywhere in the new node
+-- list any more. They have no position left to be keyed by, so they
+-- can't stay in `verified` -- but they're a human's work, and deleting
+-- them just because the parser changed its mind is exactly the failure
+-- that reattaching review work exists to prevent. Kept here, reported,
+-- and never silently dropped.
 CREATE TABLE IF NOT EXISTS orphaned_reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     act TEXT NOT NULL,
@@ -164,15 +167,15 @@ _connections: dict[str, sqlite3.Connection] = {}
 
 
 def db_path(base_dir: "str | Path | None" = None) -> Path:
-    """base_dir anchors the db file at a caller-chosen directory instead
-    of the current working directory -- review.py assumes it's always
-    launched from the repo root, same as its own existing data/*.json
+    """base_dir puts the database file at a caller-chosen directory
+    instead of the current working directory. review.py assumes it's
+    always launched from the repo root, the same way its old data/*.json
     paths always did, so it never needs to pass this. dashboard.py is
-    designed to be run from anywhere (it resolves its own data/ paths off
-    its own BASE_DIR, not cwd), so it passes that explicitly on every
-    call rather than this module trying to cache a base dir globally --
-    which would go stale the moment a test (or anything else) points
-    BASE_DIR somewhere else after the fact."""
+    designed to run from anywhere (it resolves its own data/ paths off
+    its own BASE_DIR, not the working directory), so it passes that
+    explicitly on every call, rather than this module trying to cache a
+    base directory globally -- which would go stale the moment a test
+    (or anything else) points BASE_DIR somewhere else afterwards."""
     return Path(base_dir or ".") / "data" / "legislation.db"
 
 
@@ -235,11 +238,11 @@ def load_verified(act: str, base_dir: "str | Path | None" = None) -> list[dict]:
 
 def save_verified(act: str, verified: list[dict], base_dir: "str | Path | None" = None) -> None:
     """Replaces every stored verified entry for this Act with exactly
-    what's in `verified` now -- the same "overwrite the whole file with
-    the current in-memory list" semantics review.py's callers already
-    rely on (they hold the complete, authoritative in-memory list and
-    call this every time any part of it changes), just as one transaction
-    instead of one whole-file rewrite."""
+    what's in `verified` now. This matches the "overwrite the whole
+    thing with the current in-memory list" behaviour review.py's callers
+    already rely on (they hold the complete, up-to-date list in memory
+    and call this every time any part of it changes) -- just as one
+    database transaction instead of rewriting a whole file."""
     conn = _connect(base_dir)
     with conn:
         conn.execute("DELETE FROM verified WHERE act = ?", (act,))
@@ -266,10 +269,11 @@ def save_verified(act: str, verified: list[dict], base_dir: "str | Path | None" 
 # ---------------------------------------------------------------------------
 
 def load_parse_fingerprint(act: str, base_dir: "str | Path | None" = None) -> "str | None":
-    """The fingerprint of the parse this Act's verified rows were reviewed
-    against, or None for rows stored before fingerprints existed -- which
-    is not the same as "matches": a caller that needs to trust a stored
-    `_source_node_index` must treat None as "can't vouch for this"."""
+    """The fingerprint of the parse this Act's verified rows were
+    reviewed against, or None for rows stored before fingerprints
+    existed. None is not the same as "matches" -- a caller that needs to
+    trust a stored `_source_node_index` must treat None as "can't vouch
+    for this"."""
     row = _connect(base_dir).execute(
         "SELECT fingerprint FROM parse_state WHERE act = ?", (act,)
     ).fetchone()
@@ -294,8 +298,9 @@ def load_orphaned_reviews(act: str, base_dir: "str | Path | None" = None) -> lis
 
 
 def add_orphaned_reviews(act: str, nodes: list[dict], base_dir: "str | Path | None" = None) -> None:
-    """Appends, never replaces: two successive re-parses can each strand a
-    different piece, and the second must not erase the first."""
+    """Adds to the table, never replaces it -- two re-parses in a row can
+    each strand a different piece, and the second one running must not
+    erase what the first one recorded."""
     if not nodes:
         return
     conn = _connect(base_dir)
@@ -307,36 +312,38 @@ def add_orphaned_reviews(act: str, nodes: list[dict], base_dir: "str | Path | No
         )
 
 
-# A human's own work, keyed by document slug. custom_types is here too: a
-# reviewer's own label is theirs like the rest, and a rename that left it
-# behind would strand it under a slug nothing addresses.
+# A human's own work, keyed by document slug. custom_types is here too:
+# a reviewer's own label belongs to them like everything else, and a
+# rename that left it behind would strand it under a slug nothing
+# addresses any more.
 _HUMAN_WORK_TABLES = (
     "verified", "links", "corrections", "blind_reviews", "orphaned_reviews", "custom_types",
 )
 
-# Bookkeeping the pipeline writes about a parse rather than anything a
-# person did. Moved with the rest, but overwritten at the destination
-# instead of blocking the move.
+# Bookkeeping the pipeline writes about a parse, not anything a person
+# did. Moved along with the rest, but overwritten at the destination
+# rather than blocking the move.
 _DERIVED_TABLES = ("parse_state",)
 
 
 def rename_act(old: str, new: str, base_dir: "str | Path | None" = None) -> dict[str, int]:
-    """Moves every stored row from one document slug to another, returning
-    {table: rows moved}.
+    """Moves every stored row from one document slug to another,
+    returning {table: rows moved}.
 
-    Needed because a document's slug is its identity here -- the parse's
-    filename, the review database's key, the browse URL -- so re-filing a
-    document under a new name (an Act taking up version tracking becomes
-    "criminal-procedure-act-v114") would otherwise strand hours of review
-    work under a slug nothing looks up any more.
+    This is needed because a document's slug is its identity here -- the
+    parse's filename, the review database's key, the browse URL -- so
+    filing a document under a new name (an Act starting version
+    tracking becomes "criminal-procedure-act-v114") would otherwise
+    strand hours of review work under a slug nothing looks up any more.
 
-    Refuses rather than merges if `new` already holds a person's work: two
-    documents' review interleaved by node position would be worse than
-    either alone, and there is no way to tell afterwards which decision was
-    whose. The parse fingerprint is not that -- it is what the pipeline
-    recorded about the destination's own parse, and it has to give way, or
-    the moved rows would be left claiming to belong to a parse they were
-    never reviewed against.
+    Refuses to run rather than merging if `new` already holds a
+    person's work: two documents' review interleaved by node position
+    would be worse than either alone, with no way to tell afterwards
+    which decision belonged to which. The parse fingerprint doesn't
+    count as that kind of work -- it's just what the pipeline recorded
+    about the destination's own parse, and it has to be overwritten, or
+    the moved rows would be left claiming to belong to a parse they
+    were never actually reviewed against.
     """
     conn = _connect(base_dir)
     existing = sum(
@@ -378,10 +385,10 @@ def load_links(act: str) -> list[dict]:
 
 
 def save_links(act: str, links: list[dict]) -> None:
-    """Bulk-replace, same "whole file" semantics as save_verified -- not
-    on review.py's own hot path (it uses add_link/delete_link, each one
-    a single-row change), but kept for parity with the old JSON API and
-    for tests/bulk imports (see migrate_json_to_sqlite.py)."""
+    """Replaces the whole set at once, same as save_verified -- not
+    something review.py itself uses often (it calls add_link/delete_link
+    instead, one row at a time), but kept to match the old JSON API and
+    for tests and bulk imports (see migrate_json_to_sqlite.py)."""
     conn = _connect()
     with conn:
         conn.execute("DELETE FROM links WHERE act = ?", (act,))
@@ -400,21 +407,21 @@ def save_links(act: str, links: list[dict]) -> None:
 
 
 def add_link(act: str, node_index: int, start: int, end: int, label: str, node_text: str, target: dict | None = None) -> dict:
-    """Validates and stores one span annotation, returning the saved
-    record (with a fresh id and timestamp). `node_text` is the exact
-    stored text of the node being annotated, passed in by the caller
-    (which already has the parsed nodes loaded) rather than reloaded here
-    -- keeps this a pure function callers can unit-test without touching
-    any Act's own parsed data at all.
+    """Checks and stores one span label, returning the saved record
+    (with a fresh id and timestamp). `node_text` is the exact stored
+    text of the node being labelled, passed in by the caller (which
+    already has the parsed nodes loaded) rather than reloaded here --
+    that keeps this a plain function callers can test without touching
+    any Act's parsed data at all.
 
-    `target` is an optional pre-resolved destination (see
+    `target` is an optional destination worked out ahead of time (see
     ai_pipeline/link_targets.py's resolve_link) -- which Act, which
-    definition node, etc. this span points to. Resolution is the caller's
-    job, not this module's: this stays a plain storage/validation layer,
-    with no opinion on what counts as a valid target beyond "whatever the
-    caller decided." None means unresolved (most bill_reference/
-    em_reference spans, or any span whose text didn't match anything),
-    not an error."""
+    definition node, etc. this span points to. Working that out is the
+    caller's job, not this module's: this stays a plain storage and
+    validation layer, with no opinion on what counts as a valid target
+    beyond "whatever the caller decided." None means unresolved (most
+    bill_reference/em_reference spans, or any span whose text didn't
+    match anything) -- that's not an error."""
     if label not in LABELS:
         raise LinkError(f"Unknown label {label!r} -- must be one of {LABELS}")
     if not (0 <= start < end <= len(node_text)):
@@ -443,8 +450,8 @@ def add_link(act: str, node_index: int, start: int, end: int, label: str, node_t
 
 
 def delete_link(act: str, link_id: str) -> bool:
-    """Removes one annotation by id. Returns False (no-op) if the id
-    isn't found for this Act -- callers surface that as a 404 rather than
+    """Removes one label by id. Returns False (does nothing) if the id
+    isn't found for this Act -- callers turn that into a 404 rather than
     silently succeeding on a stale or mistyped id."""
     conn = _connect()
     with conn:
@@ -476,12 +483,11 @@ def stats() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Blind reviews -- a reviewer's own, independent classification of an
-# elevated-risk piece (one carrying a diagnostics
-# finding), recorded *before* review.py's UI reveals what the parser
-# actually produced. New in this project: there's no prior JSON-file
-# equivalent, so it goes straight into the DB rather than following an
-# existing shape.
+# Blind reviews -- a reviewer's own independent classification of a
+# higher-risk piece (one carrying a diagnostics finding), recorded
+# *before* review.py's UI shows what the parser actually produced. This
+# is new to the project, with no earlier JSON-file version, so it goes
+# straight into the database rather than following an existing shape.
 # ---------------------------------------------------------------------------
 
 def _blind_review_row_to_dict(row: sqlite3.Row) -> dict:
@@ -504,9 +510,9 @@ def save_blind_review(
     act: str, node_index: int, *, guessed_type: str, guessed_number: "str | None", guessed_heading: "str | None",
     reasoning: str, matched_type: bool, matched_number: bool,
 ) -> dict:
-    """One row per (act, node_index): re-submitting overwrites rather than
-    accumulating a history, since the point is a single honest first
-    read, not a record of every attempt at guessing again."""
+    """One row per (act, node_index): resubmitting overwrites rather
+    than building up a history, since the point is a single honest first
+    read, not a record of every time someone guessed again."""
     reviewed_at = _now_iso()
     conn = _connect()
     with conn:
@@ -530,11 +536,11 @@ def save_blind_review(
 
 
 def blind_review_stats(act: "str | None" = None) -> dict:
-    """Aggregate agreement rate across every blind review recorded so far
-    (one Act, or every Act when act is None) -- a genuine accuracy signal
-    on the parser itself, not just a review-friction nudge: how often a
-    reviewer's own first, independent read actually matched what the
-    parser produced, before they ever saw it."""
+    """Overall agreement rate across every blind review recorded so far
+    (one Act, or every Act when act is None) -- a genuine measure of the
+    parser's own accuracy, not just a nudge to review more carefully:
+    how often a reviewer's own first, independent read actually matched
+    what the parser produced, before they'd seen it."""
     conn = _connect()
     query = "SELECT COUNT(*) AS total, COALESCE(SUM(matched_type), 0) AS type_matched, COALESCE(SUM(matched_number), 0) AS number_matched FROM blind_reviews"
     row = conn.execute(f"{query} WHERE act = ?", (act,)).fetchone() if act is not None else conn.execute(query).fetchone()
@@ -545,10 +551,10 @@ def blind_review_stats(act: "str | None" = None) -> dict:
 # Per-Act custom node types
 # ---------------------------------------------------------------------
 def load_custom_types(act: str) -> list[str]:
-    """This Act's own extra node types, oldest first -- the order they were
-    added is the order they show up in the relabel dropdown, under the
-    built-in ones, so adding a type never reshuffles the list a reviewer
-    has already built muscle memory for."""
+    """This Act's own extra node types, oldest first -- the order they
+    were added is the order they appear in the relabel dropdown, below
+    the built-in ones, so adding a new type never reshuffles the list a
+    reviewer has already gotten used to."""
     rows = _connect().execute(
         "SELECT name FROM custom_types WHERE act = ? ORDER BY created_at, name", (act,)
     ).fetchall()
@@ -565,9 +571,9 @@ def add_custom_type(act: str, name: str) -> None:
 
 
 def rename_custom_type(act: str, old_name: str, new_name: str) -> None:
-    """Kept as an insert+delete rather than an UPDATE of the primary key so
-    the renamed type keeps its original created_at (and therefore its
-    place in load_custom_types' order)."""
+    """Implemented as an insert plus a delete, rather than updating the
+    primary key directly, so the renamed type keeps its original
+    created_at -- and therefore its place in load_custom_types' order."""
     conn = _connect()
     with conn:
         row = conn.execute(
