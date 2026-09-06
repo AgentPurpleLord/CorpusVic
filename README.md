@@ -138,12 +138,28 @@ so it only ever does anything the first time a new version is parsed.
 A margin note or a Schedule's own prose routinely names another Act this
 pipeline may never parse. Every citation this pipeline can detect the
 shape of — a bare "No. 68/2009" in a margin note, or another Act's own
-name where it's listed in `ai_pipeline/known_acts.yaml` — becomes a link,
-never inert text: to that Act's own page where one is parsed here, or
-otherwise to the standing address `/legislation/<act_no>[-<year>]` (see
-dashboard.py's `legislation_resolver`), which says plainly that the Act
-hasn't been parsed here yet rather than a bare framework 404. Parsing
-that Act later needs no other change: the same link starts resolving.
+name anywhere in a provision's text — becomes a link, never inert text:
+to that Act's own page where one is parsed here (`ai_pipeline/known_acts.yaml`,
+a small hand-curated slug registry), or otherwise to the standing address
+`/legislation/<act_no>[-<year>]` (see dashboard.py's `legislation_resolver`),
+which says plainly that the Act hasn't been parsed here yet rather than a
+bare framework 404. Parsing that Act later needs no other change: the
+same link starts resolving.
+
+A body-prose Act name is recognised by shape, not by a fixed list: any
+run of Capitalised words (plus a small set of lowercase connectors —
+"of", "the", "and", ...) ending in "Act <year>" or "Bill <year>" is a
+candidate, so this isn't limited to Acts already in `known_acts.yaml`.
+Each candidate is only ever linked if it exact-matches a real title in
+`ai_pipeline/known_acts.yaml` or in the much larger, comprehensive
+`ai_pipeline/act_registry.json` (~8000 Victorian Acts, extracted from the
+OCPC's own "List of Acts in chronological order" — see
+`extract_act_registry.py`); anything that doesn't match either is left as
+plain text. This "extract broadly, verify narrowly" split is deliberate:
+the regex is intentionally generous about what looks like a title, but a
+candidate only ever becomes a link by exact lookup against a trusted
+source, never by pattern alone, so a stray capitalised phrase can't be
+mistaken for a real Act.
 
 An Act whose numbering doesn't match the defaults gets a profile rather
 than a code change — copy `ai_pipeline/profiles/TEMPLATE.yaml`, and see

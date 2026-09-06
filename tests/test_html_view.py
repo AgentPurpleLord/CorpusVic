@@ -3,6 +3,8 @@ render_preview, which decides what one hover card gets to show. The
 dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
+import re
+
 from ai_pipeline.amendments import build_amendment_index
 from ai_pipeline.diffing import provision_identity
 from ai_pipeline.html_view import (
@@ -513,9 +515,27 @@ def test_a_known_acts_own_name_is_linked_in_body_prose(monkeypatch):
     assert '<a href="/browse/crimes-act/">Crimes Act 1958</a>' in body
 
 
+def test_a_capitalised_leading_the_is_not_part_of_the_link(monkeypatch):
+    # "The Crimes Act 1958" at a sentence's own start is a valid Capitalised
+    # word run in its own right, so the span pattern includes "The" in the
+    # match -- but no real title is recorded with a leading "The", so the
+    # lookup strips it first (matching link_targets.resolve_act_citation's
+    # own convention for a reviewer-labelled citation span).
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Stalking", "The Crimes Act 1958 governs this."),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s1")
+
+    assert '<a href="/browse/crimes-act/">The Crimes Act 1958</a>' in body
+
+
 def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
     import ai_pipeline.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
+    monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {"Crimes Act 1958": {"act_no": "6231", "year": "1958"}})
     nodes = [
         make_node("part", "1", "Preliminary"),
         make_node("section", "1", "Purposes", "This Crimes Act 1958 does this."),
@@ -526,9 +546,48 @@ def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
     assert "This Crimes Act 1958 does this." in body
 
 
-def test_an_act_not_in_known_acts_is_left_as_plain_text(monkeypatch):
+def test_an_acts_own_name_is_excluded_from_the_registry_fallback_too(monkeypatch):
+    # own_title is filtered out of known_acts *and* the registry
+    # separately -- an Act not yet parsed here (so absent from
+    # known_acts.yaml) must still not link its own name to itself via the
+    # registry fallback.
     import ai_pipeline.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
+    monkeypatch.setattr(html_view_module, "load_act_registry",
+                        lambda: {"Sentencing Act 1991": {"act_no": "49", "year": "1991"}})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "This Sentencing Act 1991 does this."),
+    ]
+    body = render_section(_parsed(nodes), "Sentencing Act 1991", "/browse/sentencing-act", "s1")
+
+    assert "Sentencing Act 1991</a>" not in body
+    assert "This Sentencing Act 1991 does this." in body
+
+
+def test_an_act_in_the_general_registry_links_to_the_legislation_resolver(monkeypatch):
+    # Not in known_acts.yaml (this pipeline hasn't parsed it), but a real
+    # Act the general registry knows -- links to the standing resolver
+    # rather than sitting as plain text, the same treatment an unresolved
+    # margin-note citation gets (see _linked_citation_html).
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
+    monkeypatch.setattr(html_view_module, "load_act_registry",
+                        lambda: {"Public Administration Act 2004": {"act_no": "108", "year": "2004"}})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Heading", "under the Public Administration Act 2004."),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s1")
+
+    assert '<a class="unresolved" href="/legislation/108-2004"' in body
+    assert "Public Administration Act 2004</a>" in body
+
+
+def test_an_act_in_neither_source_is_left_as_plain_text(monkeypatch):
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
+    monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {})
     nodes = [
         make_node("part", "1", "Preliminary"),
         make_node("section", "1", "Heading", "under the Public Administration Act 2004."),
@@ -537,3 +596,30 @@ def test_an_act_not_in_known_acts_is_left_as_plain_text(monkeypatch):
 
     assert "Public Administration Act 2004</a>" not in body
     assert "Public Administration Act 2004" in body
+
+
+def test_a_run_on_sentence_does_not_get_swallowed_into_a_false_act_name(monkeypatch):
+    # The whole reason the span pattern requires every word to be
+    # Capitalised or a connector: ordinary sentence prose must not be
+    # captured as if it were one long Act title. A registry entry for
+    # ordinary lowercase sentence words would prove nothing (they'd never
+    # even reach the "is this a real Act" check) -- what has to be shown
+    # is that the leading, lowercase-heavy run of the sentence is excluded
+    # from the match at all, not merely that the match then fails to
+    # resolve.
+    import ai_pipeline.html_view as html_view_module
+    monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
+    monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {})
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Heading",
+                 "a person authorised by or under section 229 of the Transport (Compliance and Miscellaneous) Act 1983."),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s1")
+
+    assert "a person authorised by or under section 229 of the" in body
+    # Ordinary lowercase sentence words must never end up as a link's own
+    # text -- that would mean the actref pattern swallowed them into what
+    # it thought was an Act title.
+    linked_text = re.findall(r'<a\b[^>]*>([^<]*)</a>', body)
+    assert not any("person" in t or "authorised" in t for t in linked_text)

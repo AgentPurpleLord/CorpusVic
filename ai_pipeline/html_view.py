@@ -73,6 +73,7 @@ from .akn_export import build_hierarchy_tree
 from .amendments import anchor_id, describe, linkify_note
 from .diffing import provision_identity
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
+from .act_registry import load_act_registry
 from .link_targets import load_known_acts
 from .markdown_export import (
     _DIVISION_REF_RE,
@@ -149,6 +150,37 @@ def _build_context(parsed: dict, act_title: str) -> dict:
     }
 
 
+# An Act or Bill's name as it would actually appear inline in a sentence:
+# a run of Capitalised words (allowing a handful of lowercase connectors --
+# "of", "the", "and", ... -- since a title routinely carries them, "Justice
+# Legislation Amendment (Sexual Offences and Other Matters) Act 2022") that
+# ends in "Act"/"Bill" and a year. Never matched by itself: a citation this
+# loose would find plenty of prose that merely happens to end that way ("A
+# person authorised by or under section 229 of the Transport ... Act 1983"
+# swallows the whole clause if the connector list is too generous or a bare
+# capital letter is allowed to start it) -- what makes it safe is that a
+# match is discarded unless it's then found *verbatim* in known_acts.yaml
+# or act_registry.json (see _build_linkifier_html), so an over-matched or
+# truncated span (most of them, in practice -- a parenthesised subtitle
+# breaks the word-by-word chain this pattern requires) just fails to link
+# rather than linking to the wrong place. This is also why the registry's
+# some 8000 titles are never turned into a matching alternation the way
+# known_acts.yaml's own handful are elsewhere in this function: one small
+# fixed pattern here, then a dict lookup per candidate it happens to find,
+# costs nothing close to compiling an alternation that size on every page.
+_ACT_TITLE_WORD = r"[A-Z][\w'()-]*"
+_ACT_TITLE_CONNECTOR = r"(?:of|the|and|for|in|on|to|by|or)"
+# The whole span is wrapped in (?-i:...): master (below) is compiled
+# case-insensitively for the sake of def/secref/partref/divref, and under
+# that flag [A-Z] would also match a lowercase letter -- which is exactly
+# the capitalisation test this pattern exists to enforce, so it has to
+# opt back out of it explicitly rather than inherit it.
+_ACT_TITLE_SPAN_RE = (
+    rf"(?-i:\b{_ACT_TITLE_WORD}(?:\s+(?:{_ACT_TITLE_WORD}|{_ACT_TITLE_CONNECTOR}))*"
+    rf"\s+(?:Act|Bill)\s+(?:18|19|20)\d{{2}}\b)"
+)
+
+
 def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str, own_title: "str | None" = None):
     """Same regex/priority scheme as markdown_export._build_linkifier, but
     emits <a href> tags instead of Markdown link syntax. Must only ever be
@@ -159,16 +191,20 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     never re-derived from unescaped source.
 
     Also links a mention of another Act by name -- "the Crimes Act 1958",
-    say, in a Schedule's own prose -- against ai_pipeline/known_acts.yaml,
-    the small curated list of Acts this pipeline has actually parsed.
-    Deliberately not matched against the full act_registry.json (some
-    8000 Acts): building an alternation that large on every render is not
-    a cost worth paying for links this project is unlikely to parse, and
-    known_acts.yaml is exactly the list that grows as it does. `own_title`
-    -- this document's own citation -- is left out of the match, so an
-    Act's own name inside its own text doesn't link to itself."""
+    say, in a Schedule's own prose. A candidate span (see
+    _ACT_TITLE_SPAN_RE) is checked first against ai_pipeline/known_acts.yaml
+    (this pipeline's own parsed Acts, linked straight to their /browse/
+    page) and, failing that, against the general act_registry.json (linked
+    instead to the standing /legislation/<act_no> resolver -- see
+    dashboard.py's legislation_resolver -- for an Act this pipeline hasn't
+    parsed). `own_title` -- this document's own citation -- is excluded
+    from both, so an Act's own name inside its own text doesn't link to
+    itself."""
     known_acts = {slug: title for slug, title in load_known_acts().items() if title != own_title}
     known_acts_by_lower = {title.lower(): (slug, title) for slug, title in known_acts.items()}
+    registry_by_lower = {
+        title.lower(): (title, entry) for title, entry in load_act_registry().items() if title != own_title
+    }
 
     parts = []
     if definitions:
@@ -177,9 +213,7 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     parts.append(f"(?P<secref>{secref_re})")
     parts.append(f"(?P<partref>{_PART_REF_RE})")
     parts.append(f"(?P<divref>{_DIVISION_REF_RE})")
-    if known_acts:
-        act_alt = "|".join(re.escape(t) for t in sorted(known_acts.values(), key=lambda t: (-len(t), t)))
-        parts.append(f"(?P<actref>\\b(?:{act_alt})\\b)")
+    parts.append(f"(?P<actref>{_ACT_TITLE_SPAN_RE})")
     master = re.compile("|".join(parts), re.IGNORECASE)
 
     def section_href(filename: str) -> str:
@@ -210,8 +244,21 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             fragment = division_eids.get(num.lower())
             return f'<a href="{base_url}/#{fragment}">{text}</a>' if fragment else text
         if m.lastgroup == "actref":
-            found = known_acts_by_lower.get(text.lower())
-            return f'<a href="/browse/{found[0]}/">{text}</a>' if found else text
+            # A leading "The "/"the " is how a sentence actually names an
+            # Act ("under the Public Administration Act 2004"), but is
+            # never part of the Act's own citation -- stripped before
+            # either lookup, exactly as link_targets.resolve_act_citation
+            # already does for a reviewer-labelled citation span.
+            key = re.sub(r"^the\s+", "", text, flags=re.IGNORECASE).lower()
+            known = known_acts_by_lower.get(key)
+            if known:
+                return f'<a href="/browse/{known[0]}/">{text}</a>'
+            registry = registry_by_lower.get(key)
+            if registry:
+                _title, entry = registry
+                href = _legislation_href(entry)
+                return f'<a class="unresolved" href="{href}" title="Not yet parsed into this pipeline">{text}</a>'
+            return text
         return text
 
     def linkify(escaped_text: str, current_file: str, current_fragment: str | None = None) -> str:
