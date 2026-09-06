@@ -1,44 +1,46 @@
 """
 Exports a parsed Act (data/ai_parsed/<act>.json, merged with whatever
-review.py has since verified in data/legislation.db) to Akoma Ntoso XML
-(OASIS AKN v1.0, schema namespace akn/3.0).
+review.py has verified so far in data/legislation.db) to Akoma Ntoso
+XML (OASIS AKN v1.0, schema namespace akn/3.0).
 
-This is an export step, not a rewrite of the pipeline: extraction, the rule
-parser, history-note linking, diagnostics, and review.py's editing workflow
-are unchanged -- this module just serializes whichever node list you point
-it at into a conformant .xml file.
+This is an export step, not a rewrite of the pipeline: extraction, the
+rule parser, history-note linking, diagnostics and review.py's editing
+workflow are all unchanged -- this module just turns whichever node
+list you point it at into a valid .xml file.
 
-Structural mapping (verified against the actual OASIS akomantoso30.xsd,
-not recalled from memory):
-  chapter/part/division/subdivision/section/subsection/paragraph/subparagraph
-      -> the native AKN elements of the same name. All eight exist directly
-      in the core vocabulary's hierarchy group, so no generic <hcontainer>
-      workaround is needed for any of them. ("chapter" only appears for
-      Acts whose profile puts it in the hierarchy -- see hierarchy.py.)
+Structural mapping (checked against the actual OASIS akomantoso30.xsd
+schema file, not just remembered):
+  chapter/part/division/subdivision/section/subsection/paragraph/
+      subparagraph -> the native AKN elements of the same name. All
+      eight exist directly in the core vocabulary's hierarchy group, so
+      no generic <hcontainer> workaround is needed for any of them.
+      ("chapter" only appears for Acts whose profile puts it in the
+      hierarchy -- see hierarchy.py.)
   heading_group (a bare topical heading with no number, e.g. "Fraud and
-      blackmail") -> <crossHeading>, AKN's element for exactly this: "a
-      heading placed side by side with hierarchical containers."
-  note / definition / example / repealed / schedule / sub_subparagraph ->
-      <hcontainer name="...">, the generic escape hatch for a
+      blackmail") -> <crossHeading>, AKN's own element for exactly
+      this: "a heading placed side by side with hierarchical
+      containers."
+  note / definition / example / repealed / schedule / sub_subparagraph
+      -> <hcontainer name="...">, the generic fallback for a
       jurisdiction-specific container with no matching core element.
       schedule and sub_subparagraph are part of this pipeline's own
-      hierarchy_order (see hierarchy.py -- both still nest with full
-      parent/child fidelity via build_hierarchy_tree's own rank-based
-      logic below) but have no *confirmed* native AKN element: a real
-      Schedule properly belongs in AKN as a separate <attachment>
-      document component, not a body hierarchy element, and nesting one
-      level past AKN's own native subparagraph isn't a documented
-      element either -- see _NATIVE_HIERARCHY_TYPES.
-  A node's own text becomes <intro> if it has children (text introducing
-  the nested list) or <content><p> if it's a leaf.
+      hierarchy_order (see hierarchy.py -- both still nest correctly
+      with the rest via build_hierarchy_tree's own logic below), but
+      have no *confirmed* native AKN element: a real Schedule properly
+      belongs in AKN as a separate <attachment> document component,
+      not a body hierarchy element, and nesting one level past AKN's
+      own native subparagraph isn't a documented element either -- see
+      _NATIVE_HIERARCHY_TYPES.
+  A node's own text becomes <intro> if it has children (text
+  introducing the nested list) or <content><p> if it's a leaf.
 
-Amendment history -> full lifecycle/analysis modelling, not
+Amendment history maps to full lifecycle/analysis modelling, not
 temporalGroup/period: temporalGroup+period is for encoding *multiple
 alternate wordings* of the same provision in one file (point-in-time
 versioning), which doesn't apply here -- these PDFs are a single
-consolidated snapshot, not a multi-expression series. What the margin notes
-actually describe is a straightforward "provision X was later amended by
-Act Y" fact, which AKN represents as:
+consolidated snapshot, not a series of alternate versions in one file.
+What the margin notes actually describe is a plain "provision X was
+later amended by Act Y" fact, which AKN represents as:
   <meta><lifecycle>            one dated <eventRef> per distinct amending Act
   <meta><analysis>
     <passiveModifications>     one <textualMod> per (note, provision) link,
@@ -47,13 +49,14 @@ Act Y" fact, which AKN represents as:
   <meta><references>           one <passiveRef>/<TLCOrganization> per
                                  distinct amending Act / issuing authority
 
-Real limitation this surfaces: <eventRef>'s date attribute requires a full
-YYYY-MM-DD per the schema, but a citation like "No. 49/1991" only gives a
-year, and pre-1970s Victorian Act numbers ("No. 8679") don't even give
-that. Where a year is known, YYYY-01-01 is used as a documented
-day/month-unknown placeholder. Where it isn't, the note is kept as a plain
-<meta><notes><note> annotation instead of a fabricated dated event --
-faking a date would be worse than not having one.
+A real limitation shows up here: <eventRef>'s date attribute needs a
+full YYYY-MM-DD under the schema, but a citation like "No. 49/1991"
+only gives a year, and pre-1970s Victorian Act numbers ("No. 8679")
+don't even give that. Where a year is known, YYYY-01-01 is used as a
+clearly-documented day/month-unknown placeholder. Where it isn't, the
+note is kept as a plain <meta><notes><note> annotation instead of a
+made-up dated event -- inventing a date would be worse than not having
+one.
 """
 import re
 import sys
@@ -67,22 +70,23 @@ from .versions import read_front_matter
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
 ET.register_namespace("", AKN_NS)
 
-# The eight levels verified against the real OASIS schema (see the module
-# docstring). "schedule" and "sub_subparagraph" are also part of this
-# pipeline's own hierarchy_order (see hierarchy.py) but have no confirmed
-# native AKN element of their own. ("clause" is in the native set below on
-# the same footing as the rest: AKN 3.0 defines <clause> as a hierarchy
-# element -- verified against the schema in tests/fixtures, same as every
-# other name here.) -- a real Schedule is properly an AKN
-# <attachment>, a separate document component outside the main body's
-# hierarchy entirely, which this export doesn't attempt to model, and
-# nesting one level past AKN's own native subparagraph isn't a documented
-# element either. Both render as the same generic <hcontainer> escape
-# hatch "note"/"definition"/"example" already use (see render_tree_node)
-# rather than guessing at an unverified element name -- they still
-# participate fully in build_hierarchy_tree's own rank-based nesting
-# below, since that's a question of tree *structure*, independent of
-# which XML element ends up wrapping each node.
+# The eight levels checked against the real OASIS schema (see the
+# module docstring). "schedule" and "sub_subparagraph" are also part of
+# this pipeline's own hierarchy_order (see hierarchy.py) but have no
+# confirmed native AKN element of their own. ("clause" is in the native
+# set below on the same footing as the rest: AKN 3.0 defines <clause>
+# as a hierarchy element -- checked against the schema in
+# tests/fixtures, same as every other name here.) A real Schedule
+# properly belongs in AKN as an <attachment>, a separate document
+# component outside the main body's hierarchy entirely, which this
+# export doesn't attempt to model, and nesting one level past AKN's
+# own native subparagraph isn't a documented element either. Both
+# render using the same generic <hcontainer> fallback "note",
+# "definition" and "example" already use (see render_tree_node) rather
+# than guessing at an unverified element name -- they still nest
+# correctly through build_hierarchy_tree's logic below regardless,
+# since that's a question of tree *structure*, separate from which XML
+# element ends up wrapping each node.
 _NATIVE_HIERARCHY_TYPES = {"chapter", "part", "division", "subdivision", "section", "clause", "subsection", "paragraph", "subparagraph"}
 
 # Native AKN element name per hierarchy type (identical to the type name
@@ -95,12 +99,12 @@ EID_PREFIX = {
     "paragraph": "para", "subparagraph": "subpara", "sub_subparagraph": "subsubpara",
 }
 
-# Part/Division/Section/Schedule numbers are written bare in the source
-# ("Part I", "Division 1", "3 Punishment for murder", "Schedule 1");
-# Subdivision/Subsection/Paragraph/Subparagraph/Sub-subparagraph are
-# always bracketed ("(1)", "(a)", "(i)", "(A)") -- the rule parser strips
-# the brackets when capturing the number, so restore them here to match
-# both the source text and standard AKN <num> style.
+# Part/Division/Section/Schedule numbers are written bare in the
+# source ("Part I", "Division 1", "3 Punishment for murder", "Schedule
+# 1"); Subdivision/Subsection/Paragraph/Subparagraph/Sub-subparagraph
+# are always bracketed ("(1)", "(a)", "(i)", "(A)") -- the rule parser
+# strips the brackets when capturing the number, so they're restored
+# here to match both the source text and standard AKN <num> style.
 BRACKETED_LEVELS = {"subdivision", "subsection", "paragraph", "subparagraph", "sub_subparagraph"}
 
 
@@ -121,22 +125,24 @@ def _sanitize_token(s: str | None) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Tree reconstruction: the node list is flat and ordered (see tree.py); this
-# replays the same stack-based logic to get real parent/child nesting, which
-# XML needs but the JSON form deliberately doesn't carry.
+# Tree reconstruction: the node list is flat and ordered (see tree.py);
+# this replays the same stack-based logic to get real parent/child
+# nesting, which XML needs but the JSON form deliberately doesn't
+# carry.
 # ---------------------------------------------------------------------------
 
 def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
-    """Reconstructs real nesting from the flat, ordered node list. eId
-    collisions are possible and not actually a bug in this function: e.g. a
-    "Definitions" section can contain several independent defined terms,
-    each with its own unnumbered (a)/(b) list, directly under the section
-    with no numbered subsection between them to disambiguate -- the source
-    text itself doesn't distinguish these, so two separate lists can both
-    legitimately produce "para_b". AKN requires every eId to be unique
-    document-wide, so collisions here get a disambiguating numeric suffix;
-    this is flagged by the caller as worth a human look, not silently
-    resolved as if it were unambiguous."""
+    """Rebuilds real nesting from the flat, ordered node list. eId
+    collisions can happen, and that's not actually a bug in this
+    function: e.g. a "Definitions" section can contain several
+    independent defined terms, each with its own unnumbered (a)/(b)
+    list, directly under the section with no numbered subsection
+    between them to tell them apart -- the source text itself doesn't
+    distinguish these, so two separate lists can both legitimately
+    produce "para_b". AKN requires every eId to be unique across the
+    whole document, so a collision here gets a numeric suffix added to
+    make it unique; the caller flags this as worth a human look, rather
+    than silently treating it as if it were never ambiguous."""
     rank = make_ranks(hierarchy_order)
     root = {"node": None, "eid": None, "children": []}
     level_stack = [(-1, root)]
@@ -168,26 +174,28 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
             level_stack.append((idx, tree_node))
         else:
             if t == "heading_group":
-                # A bare topical heading grouping a run of sections always
-                # sits between two Sections (or before the first one in a
-                # Division/Part) -- never inside one -- however deep the
-                # stack happened to be when the rules engine noticed it
-                # text-wise (it's appended without going through the
-                # open_node/stack machinery above, since it isn't itself a
-                # hierarchy level). Pop down the same way a new Section
-                # opening would, so it attaches as a sibling of sections
-                # under the enclosing Division/Part instead of getting
-                # buried inside whatever subsection happened to be open.
+                # A bare topical heading grouping a run of sections
+                # always sits between two Sections (or before the
+                # first one in a Division/Part) -- never inside one --
+                # no matter how deep the stack happened to be when the
+                # rules engine noticed it (it's appended without going
+                # through the open_node/stack machinery above, since it
+                # isn't itself a hierarchy level). Pop back the same
+                # way a new Section opening would, so it attaches as a
+                # sibling of sections under the enclosing Division/Part
+                # instead of getting buried inside whatever subsection
+                # happened to be open.
                 section_idx = rank["section"]
                 while level_stack and level_stack[-1][0] >= section_idx:
                     level_stack.pop()
             parent_level, parent = level_stack[-1]
-            # "definition" reaches here only if `rank` has no "subsection"
-            # entry at all to alias it onto (see hierarchy.py's
-            # make_ranks) -- a pathological profile missing that level
-            # entirely; the ordinary case is handled by the `if t in
-            # rank:` branch above instead, with proper popping/nesting so
-            # a defined term's own (a)/(b) list attaches under it.
+            # "definition" reaches here only if `rank` has no
+            # "subsection" entry at all for it to line up with (see
+            # hierarchy.py's make_ranks) -- an unusual profile missing
+            # that level entirely; the ordinary case is handled by the
+            # `if t in rank:` branch above instead, with proper popping
+            # and nesting so a defined term's own (a)/(b) list attaches
+            # under it.
             prefix = {"note": "note", "example": "ex", "heading_group": "hd", "definition": "def"}.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
@@ -200,7 +208,7 @@ def _render_p(parent_el, text: str) -> None:
     p = ET.SubElement(parent_el, _q("p"))
     # Reflowed, not raw: the stored text carries the source PDF's own
     # line-wrap points, and an AKN consumer should get the provision's
-    # words, not the page's layout (see extract.reflow).
+    # actual words, not the page's layout (see extract.reflow).
     p.text = reflow(text)
 
 
@@ -211,12 +219,12 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
     if t in _NATIVE_HIERARCHY_TYPES:
         el = ET.Element(_q(HIERARCHY_ELEMENT.get(t, t)), {"eId": tree_node["eid"]})
     elif t == "heading_group" and not top_level:
-        # <crossHeading> ("a heading placed side by side with hierarchical
-        # containers") is only valid nested inside a hierarchy element's own
-        # content model -- not as a direct child of <body> itself, which a
-        # heading_group can land as if it occurs before any Part is opened
-        # (e.g. leftover front-matter text). Fall back to a generic
-        # hcontainer there instead.
+        # <crossHeading> ("a heading placed side by side with
+        # hierarchical containers") is only valid nested inside a
+        # hierarchy element's own content -- not as a direct child of
+        # <body> itself, which a heading_group can end up as if it
+        # occurs before any Part is opened (e.g. leftover front-matter
+        # text). Falls back to a generic hcontainer there instead.
         el = ET.Element(_q("crossHeading"), {"eId": tree_node["eid"]})
         el.text = node.get("heading") or node.get("text") or ""
         return el
@@ -246,18 +254,20 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
 # ---------------------------------------------------------------------------
 
 # A modern citation is matched on its "NN/YYYY" shape alone, without
-# requiring the "No." in front: a note citing several Acts writes the word
-# once and then lists bare numbers ("amended by Nos 26/2014 s. 455(Sch.
-# item 8.1), 19/2019 s. 258(a), 39/2022 s. 39"), so a prefix-anchored
-# pattern silently found only the first -- or, with "Nos", none at all.
-# Nothing else in a margin note takes this shape (checked against every
-# note in the Criminal Procedure Act: 52 distinct bare matches, all of them
-# real Acts in its own Table of Amendments).
+# requiring the word "No." in front: a note citing several Acts writes
+# the word once and then lists bare numbers ("amended by Nos 26/2014 s.
+# 455(Sch. item 8.1), 19/2019 s. 258(a), 39/2022 s. 39"), so a pattern
+# anchored on the prefix would silently find only the first -- or, with
+# "Nos", none at all. Nothing else in a margin note takes this shape
+# (checked against every note in the Criminal Procedure Act: 52
+# distinct bare matches, all of them real Acts in its own Table of
+# Amendments).
 _MODERN_CITATION_RE = re.compile(r"\b(\d{1,5})\s*/\s*((?:18|19|20)\d{2})\b")
-# A pre-1970s Act has no year in its number at all, and a bare 4-5 digit
-# number is not safely a citation on its own -- so this one does need the
-# "No."/"Nos" in front, and a second, unprefixed number in such a list
-# ("Nos 8679, 9576") is left unmatched rather than guessed at.
+# A pre-1970s Act has no year in its number at all, and a bare 4-5
+# digit number isn't safely a citation on its own -- so this one does
+# need the "No."/"Nos" in front, and a second, unprefixed number in
+# such a list ("Nos 8679, 9576") is left unmatched rather than guessed
+# at.
 _OLD_CITATION_RE = re.compile(r"Nos?\.?\s*(\d{3,6})\b(?!\s*/)")
 
 _MOD_TYPE_KEYWORDS = [
@@ -274,26 +284,27 @@ _MOD_TYPE_KEYWORDS = [
 ]
 
 
-# The "No."/"Nos" a modern citation is usually introduced by. Not part of
-# _MODERN_CITATION_RE itself -- the plural form writes it once and then
-# lists bare numbers ("Nos 26/2014 s. 455, 68/2009 s. 3"), so requiring it
-# would find only the first. Matched separately, purely to widen a
-# citation's reported *span* over the words a reader would call part of it.
+# The "No."/"Nos" a modern citation is usually introduced by. Not part
+# of _MODERN_CITATION_RE itself -- the plural form writes it once and
+# then lists bare numbers ("Nos 26/2014 s. 455, 68/2009 s. 3"), so
+# requiring it there would only find the first. Matched separately,
+# purely to widen a citation's reported *span* to cover the words a
+# reader would consider part of it.
 _CITATION_PREFIX_RE = re.compile(r"Nos?\.?\s*$")
 
 
 def _extract_citations(raw: str) -> list[dict]:
-    """Every amending-Act citation named in one note, each as {label, act_no,
-    year (or None if undatable), start, end}. A note commonly cites more
-    than one Act ("substituted by Nos 8679 s. 2, 37/1986 s. 8, amended by
-    ...").
+    """Every amending-Act citation named in one note, each as {label,
+    act_no, year (or None if undatable), start, end}. A note commonly
+    cites more than one Act ("substituted by Nos 8679 s. 2, 37/1986 s.
+    8, amended by ...").
 
-    start/end bound the citation as it is actually written in `raw`, which
-    is not the same string as `label`: the label is normalised to
-    "No. 68/2009", while the note itself may write "Nos 26/2014, 68/2009"
-    and give the second citation no "No." of its own. A caller marking up
-    the note (linking each citation where it stands -- see
-    amendments.linkify_note) needs the span, not the label."""
+    start/end mark the citation as it's actually written in `raw`,
+    which isn't the same string as `label`: the label is normalised to
+    "No. 68/2009", while the note itself may write "Nos 26/2014,
+    68/2009" and give the second citation no "No." of its own. A
+    caller marking up the note (linking each citation where it stands
+    -- see amendments.linkify_note) needs the span, not the label."""
     citations = []
     seen_spans = set()
     for m in _MODERN_CITATION_RE.finditer(raw):
@@ -323,13 +334,14 @@ def _mod_type_for(raw: str) -> str:
 
 def collect_history_events(tree_roots: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
     """Walks the tree once, returning (citation_refs, event_refs,
-    textual_mods) for every history note with a datable citation. A note
-    with no datable citation (no embeddable year -- pre-1970s Victorian Act
-    numbers give no year at all) can't honestly become a dated <eventRef>,
-    so instead of faking one, this appends it directly into the tree as an
-    inline body annotation right where it occurred (mutates tree_node in
-    place) -- same mechanism as the rule parser's own inline "note" nodes,
-    rather than a fabricated <meta><notes> cross-reference."""
+    textual_mods) for every history note with a datable citation. A
+    note with no datable citation (no year to embed -- pre-1970s
+    Victorian Act numbers give no year at all) can't honestly become a
+    dated <eventRef>, so instead of making one up, this appends it
+    directly into the tree as an inline body annotation right where it
+    occurred (mutates tree_node in place) -- the same mechanism the
+    rule parser's own inline "note" nodes use, rather than a made-up
+    <meta><notes> cross-reference."""
     citation_refs: dict[str, dict] = {}  # act_no -> {eid, label, year, act_no}
     event_refs: dict[str, dict] = {}  # act_no -> {eid, date, act_eid}
     textual_mods: list[dict] = []
@@ -373,15 +385,16 @@ def collect_history_events(tree_roots: list[dict]) -> tuple[list[dict], list[dic
 # ---------------------------------------------------------------------------
 
 def _detect_act_citation(source_pdf: str | None) -> dict:
-    """Best-effort Act title/number/year for the FRBR metadata block, read
-    from the PDF's own front matter rather than guessed.
+    """Best-effort Act title, number and year for the FRBR metadata
+    block, read from the PDF's own front matter rather than guessed.
 
-    versions.read_front_matter reads the same block (it also carries the
-    Authorised Version number and as-at date, which the FRBR expression
-    layer will want -- see versions.py), so this is a narrowing of that
-    rather than a second set of regexes over the same six lines. It is
-    also much cheaper: this used to re-extract the whole PDF through the
-    body-line pipeline to read two lines off page 1."""
+    versions.read_front_matter reads the same block (it also carries
+    the Authorised Version number and as-at date, which the FRBR
+    expression layer will want -- see versions.py), so this just narrows
+    that down, rather than running a second set of patterns over the
+    same six lines. It's also much cheaper: this used to re-extract the
+    whole PDF through the body-line pipeline just to read two lines off
+    page 1."""
     if not source_pdf:
         return {"title": None, "act_no": None, "year": None}
     meta = read_front_matter(source_pdf)
@@ -414,9 +427,10 @@ def export_to_akn(parsed: dict, source_pdf: str | None = None) -> ET.ElementTree
     work_uri = f"/akn/au-vic/act/{work_year}/{work_no}"
     work_date = f"{citation['year']:04d}-01-01" if citation["year"] else "9999-01-01"
 
-    # coreProperties (shared by Work/Expression/Manifestation, in this exact
-    # order per the schema): FRBRthis, FRBRuri, FRBRdate, FRBRauthor, then
-    # each level's own properties (FRBRcountry / FRBRlanguage / FRBRformat).
+    # coreProperties (shared by Work/Expression/Manifestation, in this
+    # exact order per the schema): FRBRthis, FRBRuri, FRBRdate,
+    # FRBRauthor, then each level's own properties (FRBRcountry /
+    # FRBRlanguage / FRBRformat).
     frbr_work = ET.SubElement(ident, _q("FRBRWork"))
     ET.SubElement(frbr_work, _q("FRBRthis"), {"value": f"{work_uri}/main"})
     ET.SubElement(frbr_work, _q("FRBRuri"), {"value": work_uri})
