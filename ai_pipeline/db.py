@@ -139,6 +139,39 @@ CREATE TABLE IF NOT EXISTS ai_suggestions (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_suggestions_act ON ai_suggestions(act);
 
+-- One row per *unit* (a Section/Clause and everything nested under it --
+-- the same grouping review.py works through, see hierarchy.
+-- group_into_units), from a whole-document AI scan (see
+-- ai_pipeline/ai_scan.py and run_ai_review.py) rather than the one-piece
+-- second opinion ai_suggestions holds. node_index is the unit's own root
+-- node -- a scan judges a unit as a whole, the same size piece a
+-- reviewer works through, not each of its subsections separately.
+--
+-- severity is "warning" or "info" for an actual concern, merged into
+-- review.py's own diagnostics findings (see main()'s own load of this
+-- table) so it gates blind-review and stays hidden pre-blind-review
+-- exactly like a rules-engine finding does -- an AI scan's opinion gets
+-- no less scrutiny than the deterministic checks, and no more either.
+-- It is never "error": only a broken invariant the parser itself can
+-- prove gets to say a piece is definitely wrong; a model's opinion is
+-- always just something worth a look.
+--
+-- "clean" marks a unit the scan looked at and found nothing worth
+-- flagging -- kept as its own row (not just the absence of one) purely
+-- so re-running the scan can skip units it already covered rather than
+-- re-asking the model the same question, since asking is the expensive
+-- part here. A "clean" row is never merged into diagnostics findings.
+CREATE TABLE IF NOT EXISTS ai_scan_findings (
+    act TEXT NOT NULL,
+    node_index INTEGER NOT NULL,
+    severity TEXT NOT NULL,
+    message TEXT NOT NULL,
+    model TEXT NOT NULL,
+    scanned_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_index)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_scan_findings_act ON ai_scan_findings(act);
+
 -- Extra node types one Act's reviewer defined for themselves, on top of
 -- schema.NODE_TYPES and whatever levels that Act's profile declares.
 -- Kept per-Act rather than shared across all of them on purpose: a
@@ -334,13 +367,14 @@ def add_orphaned_reviews(act: str, nodes: list[dict], base_dir: "str | Path | No
 # A human's own work, keyed by document slug. custom_types is here too:
 # a reviewer's own label belongs to them like everything else, and a
 # rename that left it behind would strand it under a slug nothing
-# addresses any more. ai_suggestions isn't a human's own work, but it's
-# cached against a specific node position the same way blind_reviews
-# is, so it needs the same move-or-block treatment or a rename would
-# leave it silently pointing at whatever node now sits in that old
-# position.
+# addresses any more. ai_suggestions and ai_scan_findings aren't a
+# human's own work, but both are cached against a specific node
+# position the same way blind_reviews is, so they need the same
+# move-or-block treatment or a rename would leave them silently
+# pointing at whatever node now sits in that old position.
 _HUMAN_WORK_TABLES = (
-    "verified", "links", "corrections", "blind_reviews", "orphaned_reviews", "custom_types", "ai_suggestions",
+    "verified", "links", "corrections", "blind_reviews", "orphaned_reviews", "custom_types",
+    "ai_suggestions", "ai_scan_findings",
 )
 
 # Bookkeeping the pipeline writes about a parse, not anything a person
@@ -605,6 +639,72 @@ def save_ai_suggestion(act: str, node_index: int, *, answer: str, reasoning: str
             (act, node_index, answer, reasoning, confidence, model, requested_at),
         )
     return {"answer": answer, "reasoning": reasoning, "confidence": confidence, "model": model, "requested_at": requested_at}
+
+
+# ---------------------------------------------------------------------
+# AI scan findings -- a whole-document AI audit pass, one row per unit
+# (see ai_pipeline/ai_scan.py and run_ai_review.py)
+# ---------------------------------------------------------------------
+
+def _ai_scan_finding_row_to_dict(row: sqlite3.Row) -> dict:
+    return {
+        "node_index": row["node_index"], "severity": row["severity"], "message": row["message"],
+        "model": row["model"], "scanned_at": row["scanned_at"],
+    }
+
+
+def load_ai_scan_findings(act: str) -> list[dict]:
+    """Every unit this Act's scan has looked at so far, "clean" ones
+    included -- run_ai_review.py's own resume logic filters those back
+    out; review.py's startup filters out everything *except* an actual
+    concern (see main()'s own load of this)."""
+    rows = _connect().execute(
+        "SELECT * FROM ai_scan_findings WHERE act = ? ORDER BY node_index", (act,)
+    ).fetchall()
+    return [_ai_scan_finding_row_to_dict(row) for row in rows]
+
+
+def ai_scan_progress(act: str) -> dict:
+    """{"scanned", "concerns"} counts, for a progress display without
+    pulling every row's own text over just to count them."""
+    conn = _connect()
+    row = conn.execute(
+        "SELECT COUNT(*) AS scanned, "
+        "COALESCE(SUM(CASE WHEN severity != 'clean' THEN 1 ELSE 0 END), 0) AS concerns "
+        "FROM ai_scan_findings WHERE act = ?",
+        (act,),
+    ).fetchone()
+    return {"scanned": row["scanned"], "concerns": row["concerns"]}
+
+
+def save_ai_scan_finding(act: str, node_index: int, *, severity: str, message: str, model: str) -> dict:
+    """One row per (act, node_index) -- see the table's own comment on
+    why "clean" is stored as a real row rather than nothing. Re-scanning
+    a unit (a fresh run_ai_review.py --restart) overwrites rather than
+    accumulating, the same as every other cached AI answer here."""
+    scanned_at = _now_iso()
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT INTO ai_scan_findings (act, node_index, severity, message, model, scanned_at) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_index) DO UPDATE SET severity=excluded.severity, message=excluded.message, "
+            "model=excluded.model, scanned_at=excluded.scanned_at",
+            (act, node_index, severity, message, model, scanned_at),
+        )
+    return {"node_index": node_index, "severity": severity, "message": message, "model": model, "scanned_at": scanned_at}
+
+
+def clear_ai_scan_findings(act: str) -> int:
+    """Wipes this Act's scan progress entirely -- what run_ai_review.py's
+    --restart flag uses instead of relying on ON CONFLICT overwrites, so
+    a unit the rules engine no longer even has (after a re-parse) can't
+    leave a stale row an ordinary re-scan would never revisit to
+    overwrite."""
+    conn = _connect()
+    with conn:
+        cur = conn.execute("DELETE FROM ai_scan_findings WHERE act = ?", (act,))
+    return cur.rowcount
 
 
 # ---------------------------------------------------------------------

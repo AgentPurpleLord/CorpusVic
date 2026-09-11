@@ -1039,7 +1039,15 @@ function renderUnit() {
     const headingLine = !blindPending && piece.heading && piece.type !== "definition"
       ? `<div class="piece-heading">${escapeHtml(piece.heading)}</div>` : "";
     const findingsHtml = blindPending ? "" : (piece.findings || [])
-      .map((f) => `<div>&#9888; (${escapeHtml(f.severity)}) ${escapeHtml(f.message)}</div>`).join("");
+      .map((f) => {
+        // "ai-scan" findings come from run_ai_review.py's whole-document
+        // audit pass (ai_pipeline/ai_scan.py) rather than diagnostics.py's
+        // deterministic checks -- tagged so a reviewer can tell a model's
+        // opinion apart from a rules-engine fact, same distinction the
+        // "Ask local AI" second opinion already draws.
+        const tag = f.category === "ai-scan" ? "&#129302; " : "";
+        return `<div>&#9888; ${tag}(${escapeHtml(f.severity)}) ${escapeHtml(f.message)}</div>`;
+      }).join("");
     const verifiedHtml = piece.verified_at
       ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>` : "";
     const statusBadgeHtml = isAccepted

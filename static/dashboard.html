@@ -345,6 +345,28 @@
   </div>
 </div>
 
+<!-- Whole-document AI scan modal -->
+<div class="overlay" id="ai-scan-modal">
+  <div class="modal">
+    <h2>AI scan &mdash; <span id="ai-scan-slug"></span></h2>
+    <div class="hint">
+      The same local model reads every unit of this document, not just the pieces diagnostics has
+      already flagged, and says whether each one's type/number/heading/text classification looks
+      right. This can take a long time on a real Act -- it runs in the background and picks up
+      where it left off if stopped or restarted. Nothing it finds is applied automatically: results
+      show up as findings in this Act's review screen, hidden the same way every other finding is
+      until a reviewer has recorded their own independent judgement first.
+    </div>
+    <div id="ai-scan-status"></div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeAiScanModal()">Close</button>
+      <button type="button" class="btn" id="ai-scan-stop-btn" onclick="stopAiScan()" style="display:none">Stop</button>
+      <button type="button" class="btn" id="ai-scan-restart-btn" onclick="startAiScan(true)" style="display:none">Restart from scratch</button>
+      <button type="button" class="btn primary" id="ai-scan-start-btn" onclick="startAiScan(false)" style="display:none">Start scan</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -465,6 +487,7 @@ function actCardHtml(s) {
         ${browseBtn}
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
+        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
         ${dlAkn}
         ${dlMd}
       </div>
@@ -753,6 +776,78 @@ async function installAiModel() {
     toast(String(err), true);
   } finally {
     installBtn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------
+// Whole-document AI scan -- see run_ai_review.py and ai_pipeline/ai_scan.py.
+// Runs as a background process per Act; this just starts/stops it and
+// polls its progress while the modal is open.
+// ---------------------------------------------------------------------
+
+let aiScanSlug = null;
+let aiScanPollHandle = null;
+
+function openAiScanModal(slug) {
+  aiScanSlug = slug;
+  document.getElementById("ai-scan-slug").textContent = slug;
+  openModal("ai-scan-modal");
+  loadAiScanProgress();
+  aiScanPollHandle = setInterval(loadAiScanProgress, 3000);
+}
+
+function closeAiScanModal() {
+  closeModal("ai-scan-modal");
+  if (aiScanPollHandle) { clearInterval(aiScanPollHandle); aiScanPollHandle = null; }
+}
+
+function describeAiScanProgress(p) {
+  const scannedLine = p.total_units
+    ? `${p.scanned}/${p.total_units} unit(s) scanned, ${p.concerns} concern(s) flagged for review.`
+    : `${p.scanned} unit(s) scanned, ${p.concerns} concern(s) flagged for review.`;
+  if (p.running) return `Running... ${scannedLine}`;
+  if (p.exit_code !== null && p.exit_code !== 0) return `Stopped unexpectedly (exit code ${p.exit_code}). ${scannedLine}`;
+  if (p.total_units && p.scanned >= p.total_units) return `Done. ${scannedLine}`;
+  return p.scanned ? `Paused. ${scannedLine}` : `Not started yet. ${scannedLine}`;
+}
+
+async function loadAiScanProgress() {
+  if (!aiScanSlug) return;
+  const el = document.getElementById("ai-scan-status");
+  try {
+    const p = await (await fetch(`/api/ai-scan/${aiScanSlug}/progress`)).json();
+    el.textContent = describeAiScanProgress(p);
+    const done = p.total_units > 0 && p.scanned >= p.total_units;
+    document.getElementById("ai-scan-stop-btn").style.display = p.running ? "" : "none";
+    document.getElementById("ai-scan-start-btn").style.display = !p.running && p.scanned === 0 ? "" : "none";
+    document.getElementById("ai-scan-restart-btn").style.display = !p.running && p.scanned > 0 ? "" : "none";
+    if (done && aiScanPollHandle) { clearInterval(aiScanPollHandle); aiScanPollHandle = null; }
+  } catch (e) {
+    el.textContent = String(e);
+  }
+}
+
+async function startAiScan(restart) {
+  try {
+    const res = await fetch(`/api/ai-scan/${aiScanSlug}/start?restart=${restart}`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast(data.detail || `Couldn't start the scan for ${aiScanSlug}`, true);
+      return;
+    }
+    if (!aiScanPollHandle) aiScanPollHandle = setInterval(loadAiScanProgress, 3000);
+    await loadAiScanProgress();
+  } catch (e) {
+    toast(String(e), true);
+  }
+}
+
+async function stopAiScan() {
+  try {
+    await fetch(`/api/ai-scan/${aiScanSlug}/stop`, { method: "POST" });
+    await loadAiScanProgress();
+  } catch (e) {
+    toast(String(e), true);
   }
 }
 
