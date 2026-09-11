@@ -75,6 +75,7 @@ from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
 from ai_pipeline.extract import slugify
 from ai_pipeline.link_targets import load_known_acts
+from ai_pipeline.llm_backend import OllamaBackend, pull_model
 from ai_pipeline.versions import document_slug, read_front_matter, split_document_slug
 from review import _resume_point, build_current_nodes, group_into_units
 
@@ -802,6 +803,33 @@ def bill_link(bill_slug: str = Form(...), act_slug: str = Form(...), em_slug: st
         cmd += ["--em", em_slug.strip()]
     result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=300)
     return {"ok": result.returncode == 0, "log": result.stdout + result.stderr}
+
+
+@app.get("/api/ai/status")
+def ai_status():
+    """Whether the AI-assist feature (see ai_pipeline/ai_assist.py, and
+    the "Ask local AI" button in each Act's review.py) is actually ready
+    to use -- Ollama installed, running, and its model pulled. A quick
+    local check, not a parse-time dependency: this feature stays
+    entirely optional, so nothing here blocks anything else on the
+    dashboard if it comes back not-ready."""
+    return OllamaBackend().status()
+
+
+@app.post("/api/ai/install-model")
+def ai_install_model():
+    """Pulls the AI-assist feature's model via `ollama pull` (see
+    ai_pipeline.llm_backend.pull_model) -- the same action
+    install_ai_model.py performs from the command line, offered here
+    too since a user who's already at this dashboard shouldn't have to
+    leave it to set this up. Still refuses to do anything about Ollama
+    itself not being installed or not running (see pull_model), for the
+    same reason install_ai_model.py does: this dashboard has no
+    business deciding to install and start a background service on its
+    own behalf."""
+    backend = OllamaBackend()
+    ok, log = pull_model(backend.model, host=backend.host)
+    return {"ok": ok, "model": backend.model, "log": log}
 
 
 _current_nodes_cache: dict[str, tuple[tuple, tuple]] = {}

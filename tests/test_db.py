@@ -165,6 +165,36 @@ def test_blind_review_stats_with_nothing_recorded_yet():
     assert db.blind_review_stats() == {"total": 0, "type_matched": 0, "number_matched": 0}
 
 
+def test_get_ai_suggestion_is_none_when_nothing_recorded():
+    assert db.get_ai_suggestion("crimes-act", 5) is None
+
+
+def test_save_and_get_ai_suggestion_round_trips():
+    saved = db.save_ai_suggestion(
+        "crimes-act", 5, answer="Likely the mis-numbered one.",
+        reasoning="Its own text reads as a continuation of the previous paragraph.",
+        confidence="medium", model="qwen2.5:7b-instruct",
+    )
+    assert saved["requested_at"]  # stamped
+
+    loaded = db.get_ai_suggestion("crimes-act", 5)
+    assert loaded["answer"] == "Likely the mis-numbered one."
+    assert loaded["confidence"] == "medium"
+    assert loaded["model"] == "qwen2.5:7b-instruct"
+
+
+def test_save_ai_suggestion_overwrites_rather_than_accumulating():
+    db.save_ai_suggestion(
+        "crimes-act", 5, answer="first answer", reasoning="r1", confidence="low", model="m1",
+    )
+    db.save_ai_suggestion(
+        "crimes-act", 5, answer="second answer", reasoning="r2", confidence="high", model="m2",
+    )
+    loaded = db.get_ai_suggestion("crimes-act", 5)
+    assert loaded["answer"] == "second answer"
+    assert loaded["model"] == "m2"
+
+
 def test_load_custom_types_is_empty_for_an_act_with_none():
     assert db.load_custom_types("crimes-act") == []
 
@@ -216,17 +246,21 @@ def test_rename_act_moves_every_kind_of_stored_row(tmp_path, monkeypatch):
     db.add_correction("cpa", parser_output={"type": "section"}, human_output={"type": "section"}, changed=False)
     db.save_blind_review("cpa", 0, guessed_type="section", guessed_number="1", guessed_heading=None,
                          reasoning="reads like a section", matched_type=True, matched_number=True)
+    db.save_ai_suggestion("cpa", 0, answer="a", reasoning="r", confidence="low", model="m")
     db.save_parse_fingerprint("cpa", "abc123")
     db.add_custom_type("cpa", "penalty")
 
     moved = db.rename_act("cpa", "cpa-v114")
 
-    assert set(moved) == {"verified", "links", "corrections", "blind_reviews", "parse_state", "custom_types"}
+    assert set(moved) == {
+        "verified", "links", "corrections", "blind_reviews", "ai_suggestions", "parse_state", "custom_types",
+    }
     assert db.load_verified("cpa") == []
     assert len(db.load_verified("cpa-v114")) == 1
     assert db.load_parse_fingerprint("cpa-v114") == "abc123"
     assert db.load_custom_types("cpa-v114") == ["penalty"]
     assert db.load_links("cpa-v114")[0]["node_index"] == 0
+    assert db.get_ai_suggestion("cpa-v114", 0)["answer"] == "a"
 
 
 def test_rename_act_refuses_to_merge_into_a_slug_that_already_has_work(tmp_path, monkeypatch):

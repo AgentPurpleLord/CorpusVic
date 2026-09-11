@@ -436,3 +436,60 @@ def test_a_piece_with_no_findings_is_not_gated(monkeypatch):
     _findings(monkeypatch)
 
     assert _is_elevated_risk(7) is False
+
+
+# ---------------------------------------------------------------------
+# _ai_suggestion_precondition -- an AI suggestion (ai_pipeline/
+# ai_assist.py) only ever becomes available once a reviewer's own
+# independent blind-review guess is already recorded, so it can never
+# anchor the judgement that step exists to protect. See that module's
+# own docstring for why.
+# ---------------------------------------------------------------------
+
+def _setup_ai_precondition(monkeypatch, *, findings, node_count=1):
+    import review
+    monkeypatch.setattr(review, "_nodes", [make_node("section", "1") for _ in range(node_count)])
+    monkeypatch.setattr(review, "_merged_away", set())
+    monkeypatch.setattr(review, "_act", "test-act")
+    monkeypatch.setattr(review, "_findings_by_node", {0: list(findings)} if findings else {})
+    return review
+
+
+def test_ai_precondition_404s_for_an_out_of_range_node(monkeypatch, isolate_corrections):
+    from fastapi import HTTPException
+    review = _setup_ai_precondition(monkeypatch, findings=[{"severity": "warning", "message": "m"}])
+
+    with pytest.raises(HTTPException) as exc:
+        review._ai_suggestion_precondition(99)
+    assert exc.value.status_code == 404
+
+
+def test_ai_precondition_refuses_a_piece_with_no_elevated_risk_finding(monkeypatch, isolate_corrections):
+    from fastapi import HTTPException
+    review = _setup_ai_precondition(monkeypatch, findings=[])
+
+    with pytest.raises(HTTPException) as exc:
+        review._ai_suggestion_precondition(0)
+    assert exc.value.status_code == 400
+    assert "isn't flagged" in exc.value.detail
+
+
+def test_ai_precondition_refuses_before_a_blind_review_is_recorded(monkeypatch, isolate_corrections):
+    from fastapi import HTTPException
+    review = _setup_ai_precondition(monkeypatch, findings=[{"severity": "warning", "message": "duplicate numbering"}])
+
+    with pytest.raises(HTTPException) as exc:
+        review._ai_suggestion_precondition(0)
+    assert exc.value.status_code == 400
+    assert "independent assessment" in exc.value.detail
+
+
+def test_ai_precondition_returns_the_finding_once_a_blind_review_exists(monkeypatch, isolate_corrections):
+    review = _setup_ai_precondition(monkeypatch, findings=[{"severity": "warning", "message": "duplicate numbering"}])
+    db.save_blind_review(
+        "test-act", 0, guessed_type="section", guessed_number="1", guessed_heading=None,
+        reasoning="looks like a section", matched_type=True, matched_number=True,
+    )
+
+    finding = review._ai_suggestion_precondition(0)
+    assert finding == {"severity": "warning", "message": "duplicate numbering"}

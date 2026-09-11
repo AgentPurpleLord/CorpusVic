@@ -352,6 +352,13 @@
   .blind-match.yes { color: var(--accepted-text); }
   .blind-match.no { color: var(--flagged-text); }
   .blind-reasoning { color: var(--muted); font-style: italic; margin-top: 4px; }
+  .ai-suggest { background: var(--sidebar-bg); border-radius: 6px; padding: 9px 12px; margin-bottom: 10px; font-size: 12.5px; }
+  .ai-suggest-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+  .ai-suggest-model { font-weight: 400; text-transform: none; }
+  .ai-suggest-answer { margin-bottom: 4px; }
+  .ai-suggest-reasoning { color: var(--muted); font-style: italic; }
+  .ai-suggest-hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; }
+  .ai-suggest-hint code { font-size: 11px; }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .piece-label { font-weight: 700; font-size: 13px; }
   .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
@@ -1077,6 +1084,22 @@ function renderUnit() {
         </div>
         <div class="blind-reasoning">&ldquo;${escapeHtml(review.reasoning)}&rdquo;</div>
       </div>` : "";
+    // Only offered once `review` exists -- see review.py's
+    // _ai_suggestion_precondition and ai_pipeline/ai_assist.py's own
+    // docstring on why an AI suggestion never appears before a
+    // reviewer's own independent guess is already locked in.
+    const suggestion = piece.ai_suggestion;
+    const aiSuggestHtml = piece.elevated_risk && review ? `
+      <div class="ai-suggest">
+        ${suggestion ? `
+          <div class="ai-suggest-label">Local AI's second opinion <span class="ai-suggest-model">(${escapeHtml(suggestion.model)}, confidence: ${escapeHtml(suggestion.confidence)})</span></div>
+          <div class="ai-suggest-answer">${escapeHtml(suggestion.answer)}</div>
+          <div class="ai-suggest-reasoning">&ldquo;${escapeHtml(suggestion.reasoning)}&rdquo;</div>
+        ` : `
+          <button class="btn small ai-suggest-btn">&#129302; Ask local AI for a second opinion</button>
+          <div class="ai-suggest-hint">Uses a local, open-source model -- run <code>python install_ai_model.py</code> once to set it up.</div>
+        `}
+      </div>` : "";
     // The Section itself (idx 0) is never a drag *source* -- dragging "the
     // whole section" onto something else isn't a meaningful gesture, and
     // merge_endpoint already refuses to merge it away while it still has
@@ -1102,6 +1125,7 @@ function renderUnit() {
       <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece)}</div>
       ${blindFormHtml}
       ${blindResultHtml}
+      ${aiSuggestHtml}
       <div class="piece-findings">${findingsHtml}</div>
       ${verifiedHtml}
     `;
@@ -1114,6 +1138,8 @@ function renderUnit() {
     if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
     const blindSubmitBtn = div.querySelector(".blind-submit-btn");
     if (blindSubmitBtn) blindSubmitBtn.onclick = () => submitBlindGuess(div, piece.node_index);
+    const aiSuggestBtn = div.querySelector(".ai-suggest-btn");
+    if (aiSuggestBtn) aiSuggestBtn.onclick = () => requestAiSuggestion(piece.node_index, aiSuggestBtn);
     if (idx > 0) {
       const grip = document.createElement("div");
       grip.className = "piece-grip";
@@ -1445,6 +1471,19 @@ async function submitBlindGuess(pieceDiv, nodeIndex) {
     toast("Assessment recorded.");
     await afterMutation();
   } catch (e) { toast(e.message, true); }
+}
+
+async function requestAiSuggestion(nodeIndex, btn) {
+  btn.disabled = true;
+  btn.textContent = "Asking...";
+  try {
+    await api(`api/nodes/${nodeIndex}/ai-suggest`, { method: "POST" });
+    await afterMutation();
+  } catch (e) {
+    toast(e.message, true);
+    btn.disabled = false;
+    btn.textContent = "\u{1F916} Ask local AI for a second opinion";
+  }
 }
 
 // ---------------------------------------------------------------------

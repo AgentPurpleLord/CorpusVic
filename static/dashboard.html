@@ -203,6 +203,7 @@
 <main>
   <div id="tools-row">
     <button class="btn" onclick="openModal('link-modal')">Link a Bill to its Act / EM</button>
+    <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
   </div>
   <div id="acts"></div>
   <div id="empty" style="display:none">No Acts yet -- click "+ Add Act / Bill / EM" to parse your first one.</div>
@@ -317,6 +318,29 @@
     <div id="link-log-wrap" style="display:none">
       <label>Output</label>
       <pre id="link-log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- AI-assist model modal -->
+<div class="overlay" id="ai-modal">
+  <div class="modal">
+    <h2>AI-assist model</h2>
+    <div class="hint">
+      An optional local model gives a second opinion on pieces diagnostics has already flagged as
+      uncertain, in each Act's review screen -- it never parses anything itself, and its answer is
+      never applied automatically. Everything runs on this machine via <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>,
+      an open-source model server; nothing is sent anywhere else.
+    </div>
+    <div id="ai-status"></div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeModal('ai-modal')">Close</button>
+      <button type="button" class="btn" id="ai-refresh-btn" onclick="loadAiStatus()">Check again</button>
+      <button type="button" class="btn primary" id="ai-install-btn" onclick="installAiModel()" style="display:none">Download model</button>
+    </div>
+    <div id="ai-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="ai-log"></pre>
     </div>
   </div>
 </div>
@@ -665,6 +689,72 @@ document.getElementById("link-form").addEventListener("submit", async (e) => {
     submitBtn.disabled = false;
   }
 });
+
+// ---------------------------------------------------------------------
+// AI-assist model -- see ai_pipeline/llm_backend.py and
+// install_ai_model.py, which this mirrors so a user doesn't have to
+// leave the dashboard to set the local model up.
+// ---------------------------------------------------------------------
+
+function openAiModal() {
+  openModal("ai-modal");
+  loadAiStatus();
+}
+
+function describeAiStatus(status) {
+  if (!status.installed) {
+    return {
+      text: "Ollama isn't installed. Install it from ollama.com, then check again.",
+      canInstall: false,
+    };
+  }
+  if (!status.running) {
+    return {
+      text: "Ollama is installed but not running. Start it (`ollama serve`, or open the Ollama app), then check again.",
+      canInstall: false,
+    };
+  }
+  if (!status.model_present) {
+    return { text: `Ollama is running. The model (${status.model}) hasn't been pulled yet.`, canInstall: true };
+  }
+  return { text: `Ready -- ${status.model} is pulled and Ollama is running.`, canInstall: false };
+}
+
+async function loadAiStatus() {
+  const el = document.getElementById("ai-status");
+  const installBtn = document.getElementById("ai-install-btn");
+  el.textContent = "Checking...";
+  installBtn.style.display = "none";
+  try {
+    const status = await (await fetch("/api/ai/status")).json();
+    const { text, canInstall } = describeAiStatus(status);
+    el.textContent = text;
+    installBtn.style.display = canInstall ? "" : "none";
+  } catch (e) {
+    el.textContent = String(e);
+  }
+}
+
+async function installAiModel() {
+  const installBtn = document.getElementById("ai-install-btn");
+  const logWrap = document.getElementById("ai-log-wrap");
+  const logEl = document.getElementById("ai-log");
+  installBtn.disabled = true;
+  logWrap.style.display = "block";
+  logEl.textContent = "Downloading -- this can take a while the first time...";
+  try {
+    const res = await fetch("/api/ai/install-model", { method: "POST" });
+    const data = await res.json();
+    logEl.textContent = data.log || "(no output)";
+    toast(data.ok ? "Model ready." : "Download failed -- see log below", !data.ok);
+    await loadAiStatus();
+  } catch (err) {
+    logEl.textContent = String(err);
+    toast(String(err), true);
+  } finally {
+    installBtn.disabled = false;
+  }
+}
 
 loadActs();
 </script>

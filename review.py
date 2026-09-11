@@ -104,7 +104,9 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from ai_pipeline import db
+from ai_pipeline.ai_assist import build_suggestion
 from ai_pipeline.examples_store import add_correction, stats
+from ai_pipeline.llm_backend import OllamaUnavailable
 from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from ai_pipeline.link_targets import build_definition_index, resolve_link
@@ -876,6 +878,7 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "source": node.get("source"),
         "elevated_risk": _is_elevated_risk(node_index),
         "blind_review": db.get_blind_review(_act, node_index),
+        "ai_suggestion": db.get_ai_suggestion(_act, node_index),
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),
         "page_start": node.get("page_start"),
@@ -1408,6 +1411,60 @@ def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
         "review": record,
         "actual": {"type": actual["type"], "number": actual.get("number"), "heading": actual.get("heading")},
     }
+
+
+def _ai_suggestion_precondition(node_index: int) -> dict:
+    """The elevated-risk finding an AI suggestion would answer, or raises
+    an HTTPException if this node isn't a valid target for one (yet).
+
+    Refuses before a reviewer's own blind_reviews row exists for this
+    node on purpose -- see ai_pipeline.ai_assist's own module docstring
+    on why: an AI suggestion is a third opinion to weigh against a
+    human's own independent one and the parser's, never a first one
+    read before forming that independent view in the first place."""
+    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    if not _is_elevated_risk(node_index):
+        raise HTTPException(400, "This piece isn't flagged by diagnostics -- there's nothing here for a second opinion to weigh in on.")
+    if db.get_blind_review(_act, node_index) is None:
+        raise HTTPException(
+            400,
+            "Record your own independent assessment above first -- an AI suggestion is a second "
+            "opinion to weigh against yours, not a first one to read before forming it.",
+        )
+    finding = next((f for f in _findings_by_node.get(node_index, []) if f.get("severity") in ("error", "warning")), None)
+    if finding is None:
+        raise HTTPException(400, "No warning or error finding on this piece to ask about.")
+    return finding
+
+
+@app.post("/api/nodes/{node_index}/ai-suggest")
+def ai_suggest_endpoint(node_index: int):
+    """A local model's second opinion on an elevated-risk piece (see
+    ai_pipeline/ai_assist.py), asked only once the reviewer's own
+    independent blind-review guess is already recorded (see
+    _ai_suggestion_precondition), and cached (see db.save_ai_suggestion)
+    so asking again doesn't needlessly re-run the model. Never applied
+    to the piece automatically -- the review panel shows it alongside
+    the reviewer's own guess and the parser's actual answer, for a
+    human to weigh, same as every other signal here.
+
+    503s with the backend's own message (see
+    ai_pipeline.llm_backend.OllamaBackend.ensure_ready) if the local
+    model isn't set up yet -- that message already names the exact next
+    command to run (see install_ai_model.py), so it's passed through
+    rather than wrapped."""
+    finding = _ai_suggestion_precondition(node_index)
+    current_nodes = [_current_node(i) for i in range(len(_nodes))]
+    try:
+        suggestion = build_suggestion(finding, node_index, current_nodes)
+    except OllamaUnavailable as e:
+        raise HTTPException(503, str(e)) from e
+    record = db.save_ai_suggestion(
+        _act, node_index, answer=suggestion["answer"], reasoning=suggestion["reasoning"],
+        confidence=suggestion["confidence"], model=suggestion["model"],
+    )
+    return {"node_index": node_index, "suggestion": record}
 
 
 # ---------------------------------------------------------------------------
