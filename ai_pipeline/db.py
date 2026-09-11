@@ -120,6 +120,25 @@ CREATE TABLE IF NOT EXISTS blind_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 
+-- A local model's answer to one bounded question about one elevated-risk
+-- node (see ai_pipeline/ai_assist.py) -- offered only after a reviewer's
+-- own blind_reviews row already exists for that node, never before, so
+-- it can't anchor the independent judgement that step is there to get.
+-- Keyed the same way blind_reviews is, and moved/blocked by rename_act
+-- the same way, since it's cached against a specific parse position too
+-- -- see _HUMAN_WORK_TABLES below.
+CREATE TABLE IF NOT EXISTS ai_suggestions (
+    act TEXT NOT NULL,
+    node_index INTEGER NOT NULL,
+    answer TEXT NOT NULL,
+    reasoning TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    model TEXT NOT NULL,
+    requested_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_index)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_suggestions_act ON ai_suggestions(act);
+
 -- Extra node types one Act's reviewer defined for themselves, on top of
 -- schema.NODE_TYPES and whatever levels that Act's profile declares.
 -- Kept per-Act rather than shared across all of them on purpose: a
@@ -315,9 +334,13 @@ def add_orphaned_reviews(act: str, nodes: list[dict], base_dir: "str | Path | No
 # A human's own work, keyed by document slug. custom_types is here too:
 # a reviewer's own label belongs to them like everything else, and a
 # rename that left it behind would strand it under a slug nothing
-# addresses any more.
+# addresses any more. ai_suggestions isn't a human's own work, but it's
+# cached against a specific node position the same way blind_reviews
+# is, so it needs the same move-or-block treatment or a rename would
+# leave it silently pointing at whatever node now sits in that old
+# position.
 _HUMAN_WORK_TABLES = (
-    "verified", "links", "corrections", "blind_reviews", "orphaned_reviews", "custom_types",
+    "verified", "links", "corrections", "blind_reviews", "orphaned_reviews", "custom_types", "ai_suggestions",
 )
 
 # Bookkeeping the pipeline writes about a parse, not anything a person
@@ -545,6 +568,43 @@ def blind_review_stats(act: "str | None" = None) -> dict:
     query = "SELECT COUNT(*) AS total, COALESCE(SUM(matched_type), 0) AS type_matched, COALESCE(SUM(matched_number), 0) AS number_matched FROM blind_reviews"
     row = conn.execute(f"{query} WHERE act = ?", (act,)).fetchone() if act is not None else conn.execute(query).fetchone()
     return {"total": row["total"], "type_matched": row["type_matched"], "number_matched": row["number_matched"]}
+
+
+# ---------------------------------------------------------------------
+# AI suggestions -- a local model's cached answer to one bounded question
+# about one elevated-risk node (see ai_pipeline/ai_assist.py)
+# ---------------------------------------------------------------------
+
+def _ai_suggestion_row_to_dict(row: sqlite3.Row) -> dict:
+    return {
+        "answer": row["answer"], "reasoning": row["reasoning"], "confidence": row["confidence"],
+        "model": row["model"], "requested_at": row["requested_at"],
+    }
+
+
+def get_ai_suggestion(act: str, node_index: int) -> "dict | None":
+    row = _connect().execute(
+        "SELECT * FROM ai_suggestions WHERE act = ? AND node_index = ?", (act, node_index)
+    ).fetchone()
+    return _ai_suggestion_row_to_dict(row) if row is not None else None
+
+
+def save_ai_suggestion(act: str, node_index: int, *, answer: str, reasoning: str, confidence: str, model: str) -> dict:
+    """One row per (act, node_index): re-asking overwrites rather than
+    accumulating a history, the same as save_blind_review -- a reviewer
+    wants this node's current answer, not a log of every time they
+    clicked the button."""
+    requested_at = _now_iso()
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT INTO ai_suggestions (act, node_index, answer, reasoning, confidence, model, requested_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_index) DO UPDATE SET answer=excluded.answer, reasoning=excluded.reasoning, "
+            "confidence=excluded.confidence, model=excluded.model, requested_at=excluded.requested_at",
+            (act, node_index, answer, reasoning, confidence, model, requested_at),
+        )
+    return {"answer": answer, "reasoning": reasoning, "confidence": confidence, "model": model, "requested_at": requested_at}
 
 
 # ---------------------------------------------------------------------

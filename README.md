@@ -19,11 +19,16 @@ match. That way, a bug that drops half a Schedule fails loudly instead
 of shipping silently. CI runs the whole pipeline over four real Acts on
 every push to check this.
 
-Parsing doesn't use an AI model — it's plain pattern matching over each
-PDF's font size, boldness and position on the page. An earlier version
-used a model instead, but it read the page as plain text and missed the
-formatting clues the current parser relies on, so it was removed. See
-`run_pipeline.py`'s docstring for more.
+Parsing itself doesn't use an AI model — it's plain pattern matching
+over each PDF's font size, boldness and position on the page. An
+earlier version used a model instead, but it read the page as plain
+text and missed the formatting clues the current parser relies on, so
+it was removed. See `run_pipeline.py`'s docstring for more.
+
+A local model has a narrower, optional role instead: a second opinion
+a reviewer can ask for on a piece diagnostics has already flagged as
+uncertain, never a replacement for the parser or for a human's own
+judgement. See "An optional second opinion from a local model" below.
 
 ## How it flows
 
@@ -168,6 +173,50 @@ An Act whose numbering doesn't match the usual pattern gets its own
 profile instead of a code change — copy `ai_pipeline/profiles/TEMPLATE.yaml`,
 and see `acts/profiles/basic-structure.yaml` for how Victorian Acts are
 normally structured.
+
+## An optional second opinion from a local model
+
+review.py's "Ask local AI for a second opinion" button gives a reviewer
+a local model's read on a piece diagnostics has already flagged as
+uncertain — a duplicate section number, an amendment note that named a
+more specific provision than the parser could find. It never parses
+anything itself, its answer is never applied automatically, and it
+only appears *after* the reviewer's own independent blind-review guess
+is already recorded — showing it any earlier would just be a different
+way of anchoring the judgement that blind-review step exists to
+protect (see `ai_pipeline/ai_assist.py`'s own docstring).
+
+This is not the same thing as the model-backed parser mentioned above,
+brought back. That one failed for three reasons: it was fed plain
+text and lost the font/position signal that actually identifies
+structure; it never ran through the completeness check or diagnostics;
+and nothing ever tagged its output for the extra scrutiny it needed,
+so it got none. This feature avoids all three by construction —
+parsing stays 100% the rules engine's job, so the completeness
+guarantee and diagnostics still cover every document in full; the
+model only ever answers a narrow, already-scoped question over text
+the rules engine already extracted (never raw font or position data,
+since geometry's job — telling a heading from a sentence — is already
+done by the time diagnostics flags something as worth asking about);
+and every answer is tagged with the model that gave it and shown
+beside the reviewer's own guess, never folded into the parse.
+
+It also only ever runs locally. [Ollama](https://ollama.com) serves an
+open-source model file from disk on this machine; nothing is sent
+anywhere else, and the feature is entirely optional — nothing in the
+pipeline depends on it. Set it up with:
+
+```bash
+python install_ai_model.py          # checks Ollama, pulls the default model
+```
+
+which explains exactly what's missing if Ollama itself isn't installed
+or running (that part is left to you — installing and starting a
+background service is a bigger decision than a script should make on
+its own). The same check and a "Download model" button are on the
+dashboard too, under "AI-assist model". Change the model with
+`--model` (see `ai_pipeline/llm_backend.py` for the default and what
+size of model it needs).
 
 ## The rule that will bite you
 
