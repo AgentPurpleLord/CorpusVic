@@ -81,6 +81,35 @@ one row rather than three unrelated cards, grouped from whatever
 `run_bill_linking.py` has recorded (`data/bill_links/`). Anything not
 part of such a group still shows up, just on its own.
 
+## Publishing a public site
+
+`export_static_site.py` builds a static, read-only copy of the browse
+view -- the same pages `dashboard.py` serves live at `/browse/*` -- as
+plain HTML files, and `.github/workflows/pages.yml` runs it automatically
+on every push to `main` that touches `data/ai_parsed/` or
+`data/legislation.db`, publishing the result to GitHub Pages. Reviewing
+an Act through the dashboard and pushing the result *is* the publishing
+step; there's nothing else to run.
+
+Only a document whose newest parsed version is fully reviewed gets a
+page -- an Act still "in progress" or "not yet reviewed" simply isn't in
+the output, so the public site never shows a caveat about incomplete
+review the way the live dashboard's own browse pages do. Two things the
+live dashboard offers aren't in the static build: the hover-preview cards
+degrade to plain links (nothing to fetch from, on a static host), and an
+unresolved citation's standing `/legislation/<no>` address isn't
+pre-built, so that one link 404s instead of explaining that the Act
+hasn't been parsed here.
+
+The one manual step this needs, once: in the repo's Settings → Pages, set
+**Source** to **GitHub Actions** -- a repository setting, not something a
+workflow file can turn on for you.
+
+```bash
+python export_static_site.py --out _site          # what the Action runs
+python -m http.server --directory _site           # preview it locally
+```
+
 ## Versions of an Act
 
 An Act is a *work*; each reprint of it (an Authorised Version, as the

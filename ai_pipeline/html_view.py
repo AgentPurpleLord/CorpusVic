@@ -259,11 +259,11 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             key = re.sub(r"^the\s+", "", text, flags=re.IGNORECASE).lower()
             known = known_acts_by_lower.get(key)
             if known:
-                return f'<a href="/browse/{known[0]}/">{text}</a>'
+                return f'<a href="{_site_prefix(base_url)}/browse/{known[0]}/">{text}</a>'
             registry = registry_by_lower.get(key)
             if registry:
                 _title, entry = registry
-                href = _legislation_href(entry)
+                href = _legislation_href(entry, base_url)
                 return f'<a class="unresolved" href="{href}" title="Not yet parsed into this pipeline">{text}</a>'
             return text
         return text
@@ -284,7 +284,18 @@ def _verification_badge(verification: dict) -> str:
     return f'<div class="verify-badge verify-{status}">{_esc(label)}</div>'
 
 
-def _legislation_href(citation: dict) -> str:
+def _site_prefix(base_url: str) -> str:
+    """The part of a page's own base_url before "/browse/<slug>" --
+    "" when a page is served from the domain root (the live dashboard,
+    per deploy/README.md), or a path like "/repo-name" when the whole
+    site sits under a subpath (a GitHub Pages project site -- see
+    export_static_site.py). Used by the handful of links below that
+    don't already build on base_url the way every in-Act link does, so
+    they still land inside the site instead of at the real domain root."""
+    return base_url.rsplit("/browse/", 1)[0] if "/browse/" in base_url else ""
+
+
+def _legislation_href(citation: dict, base_url: str = "") -> str:
     """The standing address for a citation this pipeline detected but
     doesn't (yet) know how to name -- /legislation/<act_no>[-<year>]
     (see dashboard.py's legislation_resolver), which redirects to that
@@ -294,7 +305,8 @@ def _legislation_href(citation: dict) -> str:
     that resolved to nothing more specific."""
     act_no = citation.get("act_no")
     year = citation.get("year")
-    return f"/legislation/{act_no}-{year}" if year else f"/legislation/{act_no}"
+    prefix = _site_prefix(base_url)
+    return f"{prefix}/legislation/{act_no}-{year}" if year else f"{prefix}/legislation/{act_no}"
 
 
 def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
@@ -312,7 +324,7 @@ def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
         return f'<a class="{css_class}" href="{_esc(href)}" title="{_esc(describe(record))}">{_esc(run["text"])}</a>'
     citation = run.get("citation")
     if citation is not None:
-        href = _legislation_href(citation)
+        href = _legislation_href(citation, base_url)
         return (f'<a class="{css_class} unresolved" href="{_esc(href)}" '
                 f'title="Not yet parsed into this pipeline">{_esc(run["text"])}</a>')
     return _esc(run["text"])

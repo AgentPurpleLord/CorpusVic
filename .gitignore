@@ -6,6 +6,10 @@ data/diagnostics/
 data/akn/
 data/markdown/
 
+# export_static_site.py's own output -- rebuilt by .github/workflows/pages.yml
+# on every push, never committed.
+_site/
+
 # run_ai_review.py's own stdout/stderr, captured per-Act by dashboard.py
 # so a failed AI scan's reason (e.g. Ollama not installed) is visible in
 # the UI -- not durable state, just the latest run's output.
