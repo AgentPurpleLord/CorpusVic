@@ -364,6 +364,10 @@
       <button type="button" class="btn" id="ai-scan-restart-btn" onclick="startAiScan(true)" style="display:none">Restart from scratch</button>
       <button type="button" class="btn primary" id="ai-scan-start-btn" onclick="startAiScan(false)" style="display:none">Start scan</button>
     </div>
+    <div id="ai-scan-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="ai-scan-log"></pre>
+    </div>
   </div>
 </div>
 
@@ -806,7 +810,7 @@ function describeAiScanProgress(p) {
     ? `${p.scanned}/${p.total_units} unit(s) scanned, ${p.concerns} concern(s) flagged for review.`
     : `${p.scanned} unit(s) scanned, ${p.concerns} concern(s) flagged for review.`;
   if (p.running) return `Running... ${scannedLine}`;
-  if (p.exit_code !== null && p.exit_code !== 0) return `Stopped unexpectedly (exit code ${p.exit_code}). ${scannedLine}`;
+  if (p.exit_code !== null && p.exit_code !== 0) return `Stopped unexpectedly (exit code ${p.exit_code}) -- see the output below for why. ${scannedLine}`;
   if (p.total_units && p.scanned >= p.total_units) return `Done. ${scannedLine}`;
   return p.scanned ? `Paused. ${scannedLine}` : `Not started yet. ${scannedLine}`;
 }
@@ -814,9 +818,17 @@ function describeAiScanProgress(p) {
 async function loadAiScanProgress() {
   if (!aiScanSlug) return;
   const el = document.getElementById("ai-scan-status");
+  const logWrap = document.getElementById("ai-scan-log-wrap");
+  const logEl = document.getElementById("ai-scan-log");
   try {
     const p = await (await fetch(`/api/ai-scan/${aiScanSlug}/progress`)).json();
     el.textContent = describeAiScanProgress(p);
+    if (p.log) {
+      logWrap.style.display = "block";
+      logEl.textContent = p.log;
+    } else {
+      logWrap.style.display = "none";
+    }
     const done = p.total_units > 0 && p.scanned >= p.total_units;
     document.getElementById("ai-scan-stop-btn").style.display = p.running ? "" : "none";
     document.getElementById("ai-scan-start-btn").style.display = !p.running && p.scanned === 0 ? "" : "none";
