@@ -10,58 +10,68 @@
   /* Same variable names, and the same localStorage["reviewTheme"] key, as
      static/review.html and ai_pipeline/html_view.py's PAGE_CSS: the theme
      is one preference shared by every surface in the GUI, so switching it
-     here and then opening a review or a browse page keeps it. */
+     here and then opening a review or a browse page keeps it.
+
+     Palette: "Modernist" -- flat, architectural, a near-mono red accent on
+     a warm off-white ground, zero corner radius, strong dividers (see the
+     imported Claude Design system this was adapted from). The dark values
+     aren't the light ones inverted: they're a separate OKLCH ramp on the
+     same hue/chroma family (accent hue ~31.5°, neutral hue ~17.3°, matching
+     the light palette's own red and warm gray), pulled to the lightness
+     steps that stay legible on a dark ground -- e.g. the accent moves to a
+     lighter step (its own "accent-400") rather than reusing the deep red
+     that only reads correctly on a light ground. */
   :root {
     color-scheme: light;
-    --bg: #ffffff;
-    --panel: #ffffff;
-    --fg: #1a1a1a;
-    --muted: #6b6b6b;
-    --border: #d7d7d7;
-    --accent: #2b6cb0;
-    --accent-hover: #2558a0;
-    --card-bg: #f5f5f4;
-    --pending: #9ca3af;
+    --bg: #f3f2f2;
+    --panel: #eae9e9;
+    --fg: #201e1d;
+    --muted: #605d5d;
+    --border: color-mix(in srgb, #201e1d 40%, transparent);
+    --accent: #ec3013;
+    --accent-hover: #dd2b0f;
+    --card-bg: #eae9e9;
+    --pending: #7d7979;
     --done: #16a34a;
     --flagged: #d97706;
-    --hover-bg: #f0f0f0;
-    --badge-bg: #e5e7eb;
-    --badge-fg: #374151;
+    --hover-bg: color-mix(in srgb, #201e1d 6%, transparent);
+    --badge-bg: color-mix(in srgb, #201e1d 10%, transparent);
+    --badge-fg: #201e1d;
     --badge-done-bg: #dcfce7;
     --badge-progress-bg: #fef3c7;
     --warning-bg: #fef3c7;
     --warning-fg: #92400e;
     --warning-border: #fde68a;
-    --log-bg: #111827;
-    --log-fg: #d1fae5;
-    --toast-bg: #1f2937;
-    --toast-error-bg: #991b1b;
+    --log-bg: #201e1d;
+    --log-fg: #f3f2f2;
+    --toast-bg: #201e1d;
+    --toast-error-bg: #ae1800;
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #16181d;
-    --panel: #1e2126;
-    --fg: #e8e8ea;
-    --muted: #9aa1ab;
-    --border: #34383f;
-    --accent: #5b9bd9;
-    --accent-hover: #6fabe3;
-    --card-bg: #1e2126;
-    --pending: #8b93a0;
-    --done: #34d17f;
-    --flagged: #f0ad4e;
-    --hover-bg: #2a2e35;
-    --badge-bg: #262a31;
-    --badge-fg: #c3c9d2;
-    --badge-done-bg: #132a1c;
-    --badge-progress-bg: #2c2410;
-    --warning-bg: #2c2410;
-    --warning-fg: #fbbf24;
+    --bg: #120e0e;
+    --panel: #1c1717;
+    --fg: #eeeaea;
+    --muted: #969191;
+    --border: #413b3b;
+    --accent: #ff7f67;
+    --accent-hover: #ec5a3f;
+    --card-bg: #1c1717;
+    --pending: #989090;
+    --done: #5fd37f;
+    --flagged: #f0b135;
+    --hover-bg: color-mix(in srgb, #eeeaea 8%, transparent);
+    --badge-bg: color-mix(in srgb, #eeeaea 12%, transparent);
+    --badge-fg: #eeeaea;
+    --badge-done-bg: #092c13;
+    --badge-progress-bg: #3b2400;
+    --warning-bg: #3b2400;
+    --warning-fg: #f0b135;
     --warning-border: #6b551c;
-    --log-bg: #05070a;
-    --log-fg: #a7f3d0;
-    --toast-bg: #05070a;
-    --toast-error-bg: #7f1d1d;
+    --log-bg: #0a0808;
+    --log-fg: #eeeaea;
+    --toast-bg: #0a0808;
+    --toast-error-bg: #4c1108;
   }
   * { box-sizing: border-box; }
   body {
@@ -75,7 +85,7 @@
     align-items: center;
     gap: 14px;
     padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
   }
   header h1 { font-size: 17px; margin: 0; font-weight: 600; }
   header .spacer { flex: 1; }
@@ -83,7 +93,7 @@
   button, .btn {
     border: 1px solid var(--border);
     background: var(--panel);
-    border-radius: 6px;
+    border-radius: 0;
     padding: 6px 12px;
     cursor: pointer;
     font-size: 13px;
@@ -99,7 +109,7 @@
   .act-card {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 0;
     padding: 14px 16px;
   }
   .act-card .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -107,7 +117,7 @@
   .badge {
     font-size: 11.5px;
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: 0;
     background: var(--badge-bg);
     color: var(--badge-fg);
   }
@@ -124,7 +134,7 @@
   .doc-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
   .doc-row .act-card { flex: 1 1 260px; margin: 0; }
   .doc-row.grouped {
-    border: 1px dashed var(--border); border-radius: 10px; padding: 10px;
+    border: 1px dashed var(--border); border-radius: 0; padding: 10px;
   }
   #empty { color: var(--muted); font-size: 13.5px; padding: 30px 0; text-align: center; }
 
@@ -138,7 +148,7 @@
   .overlay.open { display: flex; }
   .modal {
     background: var(--panel);
-    border-radius: 10px;
+    border-radius: 0;
     padding: 20px 22px;
     width: 440px;
     max-width: 92vw;
@@ -148,7 +158,7 @@
   .modal h2 { font-size: 15px; margin: 0 0 14px; }
   .modal label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
   .modal input[type=text], .modal input[type=number], .modal select {
-    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 0; font-size: 13px;
     background: var(--panel); color: var(--fg);
   }
   .modal input[type=file] { font-size: 13px; }
@@ -158,14 +168,14 @@
   .modal .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
   .modal .warning {
     background: var(--warning-bg); color: var(--warning-fg); border: 1px solid var(--warning-border);
-    border-radius: 6px; padding: 8px 10px; font-size: 12.5px; margin-bottom: 6px;
+    border-radius: 0; padding: 8px 10px; font-size: 12.5px; margin-bottom: 6px;
   }
   .modal label:has(input[type=checkbox]) {
     display: flex; align-items: center; font-size: 13px; color: var(--fg); margin: 12px 0 0;
   }
   pre#log {
     background: var(--log-bg); color: var(--log-fg);
-    padding: 10px; border-radius: 6px;
+    padding: 10px; border-radius: 0;
     font-size: 12px; max-height: 300px; overflow: auto;
     white-space: pre-wrap; word-break: break-word;
   }
@@ -174,7 +184,7 @@
     display: none;
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     background: var(--toast-bg); color: white;
-    padding: 8px 16px; border-radius: 6px; font-size: 13px;
+    padding: 8px 16px; border-radius: 0; font-size: 13px;
     z-index: 100;
   }
   #toast.error { background: var(--toast-error-bg); }
