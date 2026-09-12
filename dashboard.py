@@ -260,6 +260,23 @@ def _kill_review_process(slug: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# run_ai_review.py child-process management -- the whole-document AI scan
+# (see ai_pipeline/ai_scan.py). Unlike review.py's child above, this one
+# isn't proxied: it has no HTTP server of its own, just stdout progress
+# and rows it writes to data/legislation.db as it goes (see
+# db.ai_scan_progress), which is what the dashboard polls instead.
+# ---------------------------------------------------------------------------
+
+_ai_scan_procs: dict[str, dict] = {}
+
+
+def _shutdown_ai_scan_processes() -> None:
+    for entry in _ai_scan_procs.values():
+        if entry["proc"].poll() is None:
+            entry["proc"].terminate()
+
+
+# ---------------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------------
 
@@ -830,6 +847,57 @@ def ai_install_model():
     backend = OllamaBackend()
     ok, log = pull_model(backend.model, host=backend.host)
     return {"ok": ok, "model": backend.model, "log": log}
+
+
+@app.post("/api/ai-scan/{slug}/start")
+def start_ai_scan(slug: str, restart: bool = False):
+    """Starts run_ai_review.py's whole-document audit pass in the
+    background for one Act -- see that script's own docstring for why
+    it's a separate, offline process rather than something started
+    inline: scanning every unit with a local model is genuinely slow,
+    far past what one HTTP request should be left holding open for."""
+    _validate_slug(slug)
+    entry = _ai_scan_procs.get(slug)
+    if entry and entry["proc"].poll() is None:
+        raise HTTPException(409, f"An AI scan for {slug!r} is already running.")
+    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+
+    cmd = [sys.executable, "run_ai_review.py", slug]
+    if restart:
+        cmd.append("--restart")
+    proc = subprocess.Popen(cmd, cwd=str(BASE_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    _ai_scan_procs[slug] = {"proc": proc}
+    return {"ok": True}
+
+
+@app.get("/api/ai-scan/{slug}/progress")
+def ai_scan_progress_endpoint(slug: str):
+    """How far run_ai_review.py has gotten for this Act -- units scanned
+    and concerns found so far (see db.ai_scan_progress), plus whether a
+    scan is currently running and, if one just stopped, whether it
+    exited cleanly. Polled from the dashboard rather than pushed, since
+    a scan can span a dashboard restart and this reads straight from
+    data/legislation.db either way."""
+    _validate_slug(slug)
+    progress = db.ai_scan_progress(slug)
+    entry = _ai_scan_procs.get(slug)
+    running = bool(entry and entry["proc"].poll() is None)
+    exit_code = None if running or entry is None else entry["proc"].returncode
+    total_units = len(group_into_units(build_current_nodes(slug)[0])) if (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists() else 0
+    return {**progress, "total_units": total_units, "running": running, "exit_code": exit_code}
+
+
+@app.post("/api/ai-scan/{slug}/stop")
+def stop_ai_scan(slug: str):
+    """Terminates this Act's running scan (if any); already-saved rows
+    stay put, so a later start (or --restart) picks up from there, same
+    as an interruption from Ctrl-C or a crash would."""
+    _validate_slug(slug)
+    entry = _ai_scan_procs.pop(slug, None)
+    if entry and entry["proc"].poll() is None:
+        entry["proc"].terminate()
+    return {"ok": True}
 
 
 _current_nodes_cache: dict[str, tuple[tuple, tuple]] = {}
@@ -1557,6 +1625,7 @@ def main():
         uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     finally:
         _shutdown_review_processes()
+        _shutdown_ai_scan_processes()
 
 
 if __name__ == "__main__":

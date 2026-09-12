@@ -232,6 +232,38 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     return current_nodes, unattached_notes, hierarchy
 
 
+def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[list[int]], "str | None"]:
+    """The same "verified where committed, original parser output
+    otherwise" merge as build_current_nodes, but keyed by *original*
+    data/ai_parsed/<act>.json position instead of dropping merged-away
+    nodes and reindexing the rest: a merged-away position holds None
+    rather than disappearing, so every other position keeps the same
+    node_index it has everywhere else this tool keys things by position
+    (diagnostics findings, blind_reviews, ai_suggestions, and
+    ai_scan_findings below all key this way -- see
+    positions_are_trustworthy). run_ai_review.py needs exactly that: a
+    scan's findings are only useful if they land back on the same
+    node_index a reviewer sees in the live server.
+
+    Returns (nodes, units, fingerprint) -- units from group_into_units
+    over the *original* nodes, so a unit's own indices are also stable
+    node_index values a caller can hand straight to db.save_ai_scan_finding."""
+    nodes, _unattached_notes, _hierarchy, fingerprint = load_parsed(act)
+    units = group_into_units(nodes)
+    verified = load_verified(act)
+    verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
+
+    merged_away: set[int] = set()
+    if positions_are_trustworthy(act, fingerprint):
+        for u in range(_resume_point(units, list(verified), markers_are_complete=True)):
+            for i in units[u]:
+                if i not in verified_by_source_index:
+                    merged_away.add(i)
+
+    effective_nodes = [None if i in merged_away else verified_by_source_index.get(i, node) for i, node in enumerate(nodes)]
+    return effective_nodes, units, fingerprint
+
+
 _WRAP_RE = re.compile(r"\s*\n\s*")
 
 
@@ -1738,6 +1770,24 @@ def main():
     for finding in load_diagnostics(args.act):
         if finding.get("node_index") is not None:
             _findings_by_node.setdefault(finding["node_index"], []).append(finding)
+
+    # ai_scan_findings holds one row per unit run_ai_review.py has already
+    # scanned, including a "clean" row for a unit it looked at and found
+    # nothing wrong with (see db.py's own table comment) -- only the
+    # genuine concerns join diagnostics' own findings here. Gated on
+    # positions_are_trustworthy for the same reason blind_reviews and
+    # ai_suggestions already are: these rows are cached against a node
+    # position from whenever the scan ran, and a re-parse that wasn't
+    # re-anchored can no longer vouch for what that position now holds.
+    if positions_are_trustworthy(args.act, _parse_fingerprint):
+        for row in db.load_ai_scan_findings(args.act):
+            if row["severity"] != "clean":
+                _findings_by_node.setdefault(row["node_index"], []).append({
+                    "severity": row["severity"],
+                    "category": "ai-scan",
+                    "message": row["message"],
+                    "node_index": row["node_index"],
+                })
 
     _verified = [] if args.restart else load_verified(args.act)
     for v in _verified:

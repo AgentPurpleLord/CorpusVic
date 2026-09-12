@@ -16,6 +16,7 @@ from review import (
     _now_iso,
     _resume_point,
     build_current_nodes,
+    build_effective_nodes_indexed,
     can_renest_under,
     commit_unit,
     compute_unit_labels,
@@ -354,6 +355,53 @@ def test_build_current_nodes_keeps_every_node_when_the_parse_has_moved(tmp_path,
     current, _notes, _hierarchy = build_current_nodes("crimes-act")
 
     assert [n["type"] for n in current] == ["section", "subsection"]
+
+
+def test_build_effective_nodes_indexed_keeps_original_positions_for_an_unverified_parse(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    _write_parsed("crimes-act", nodes)
+
+    effective, units, fingerprint = build_effective_nodes_indexed("crimes-act")
+
+    assert [n["heading"] for n in effective] == ["Murder", "Manslaughter"]
+    assert units == group_into_units(nodes)
+    assert fingerprint == parse_fingerprint(nodes)
+
+
+def test_build_effective_nodes_indexed_holds_none_at_a_merged_away_position(tmp_path, monkeypatch):
+    # Unlike build_current_nodes, which drops a merged-away node and
+    # reindexes everything after it, this keeps every position stable --
+    # run_ai_review.py needs node_index values that still match
+    # diagnostics/ai_scan_findings' own keying (see the function's own
+    # docstring).
+    monkeypatch.chdir(tmp_path)
+    section = make_node("section", "1", "Murder")
+    subsection = make_node("subsection", "1", None, "text merged into the section")
+    trailing = make_node("section", "2", "Manslaughter")
+    _write_parsed("crimes-act", [section, subsection, trailing])
+    merged_target = dict(section, text="Murder, including: text merged into the section", verified_at="2024-01-01T00:00:00+00:00", _source_node_index=0, _unit_end_index=0)
+    _write_verified("crimes-act", [merged_target])
+
+    effective, _units, _fingerprint = build_effective_nodes_indexed("crimes-act")
+
+    assert effective[0]["text"] == "Murder, including: text merged into the section"
+    assert effective[1] is None
+    assert effective[2]["heading"] == "Manslaughter"  # untouched, and at its original position
+
+
+def test_build_effective_nodes_indexed_keeps_every_node_when_the_parse_has_moved(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    section = make_node("section", "1", "Murder")
+    subsection = make_node("subsection", "1", None, "text merged into the section")
+    _write_parsed("crimes-act", [section, subsection], record_fingerprint=False)
+    merged_target = dict(section, verified_at="2024-01-01T00:00:00+00:00", _source_node_index=0, _unit_end_index=0)
+    _write_verified("crimes-act", [merged_target])
+
+    effective, _units, _fingerprint = build_effective_nodes_indexed("crimes-act")
+
+    assert [n is not None for n in effective] == [True, True]
+    assert [n["type"] for n in effective] == ["section", "subsection"]
 
 
 # ---------------------------------------------------------------------

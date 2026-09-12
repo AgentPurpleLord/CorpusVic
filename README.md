@@ -218,6 +218,46 @@ dashboard too, under "AI-assist model". Change the model with
 `--model` (see `ai_pipeline/llm_backend.py` for the default and what
 size of model it needs).
 
+### A whole-document AI scan
+
+The button above only ever looks at a piece diagnostics has already
+flagged. `run_ai_review.py` goes further: it reads *every* unit of an
+Act — not just the flagged ones — and asks the same local model
+whether each one's own type/number/heading/text classification looks
+right, the same "does this look like a parsing mistake" question
+`ai_pipeline/ai_assist.py` asks, just asked of the whole document
+instead of only what was already flagged (see `ai_pipeline/ai_scan.py`'s
+own docstring for exactly what it looks for, and what it deliberately
+ignores).
+
+```bash
+python run_ai_review.py crimes-act
+python run_ai_review.py crimes-act --batch-size 20 --model llama3.1:8b-instruct
+python run_ai_review.py crimes-act --restart   # ignore prior progress, scan everything again
+```
+
+It's a separate, offline script rather than a button that blocks
+review.py, because scanning everything is genuinely slow — several
+units are batched into each model call to keep it practical, but a
+real Act can still mean dozens of calls, and a local model's own speed
+depends entirely on the machine running it. It's resumable and safe to
+interrupt: every unit's result (including a "clean" one, for a unit the
+model looked at and found nothing wrong with) is saved to
+`data/legislation.db` as soon as its batch comes back, and a later run
+just picks up where it left off. The dashboard offers the same thing as
+a background job per Act ("AI scan"), with a progress count instead of
+a terminal to watch.
+
+Its findings land exactly where diagnostics.py's own do: review.py
+loads them at startup and they gate blind-review the same way, staying
+hidden from a reviewer until their own independent judgement is already
+recorded (tagged with a small robot mark in the findings list, so it's
+still obvious which ones came from a model rather than a deterministic
+check). Nothing here is ever applied to the parse automatically, same
+guarantee as the single-piece second opinion above — this just asks
+the question of everything, instead of waiting to be asked about one
+piece at a time.
+
 ## The rule that will bite you
 
 `data/ai_parsed/<slug>.json` and `data/legislation.db` must be
