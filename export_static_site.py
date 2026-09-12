@@ -167,6 +167,33 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     }
 
 
+# The official source. Every page this pipeline produces is a reading of
+# what's published there, so the disclaimer points at it by name rather
+# than describing it vaguely -- a reader who needs the authorised text
+# needs to be able to go straight to it.
+OFFICIAL_SOURCE_URL = "https://www.legislation.vic.gov.au"
+OFFICIAL_SOURCE_NAME = "legislation.vic.gov.au"
+
+_NOT_OFFICIAL_HTML = (
+    "<strong>These are not official legislative texts.</strong> "
+    "For full, authorised legislative texts you must refer to "
+    f'<a href="{OFFICIAL_SOURCE_URL}" rel="noopener">{OFFICIAL_SOURCE_NAME}</a>. '
+    "This site provides a computer-based interpretation of that text, with enhanced linking."
+)
+
+# Repeated at the foot of the page as well as the head, because the two
+# are read by different people: the header catches someone arriving, the
+# footer catches someone who has just finished reading a provision and is
+# deciding what to do with it.
+_FOOTER_HTML = (
+    '<footer class="site-footer">'
+    f"<p>{_NOT_OFFICIAL_HTML}</p>"
+    "<p>This site does not provide legal advice or commentary. Anyone relying on this "
+    "site as the text of legislation does so at their own risk.</p>"
+    "</footer>"
+)
+
+
 def _landing_page_html(published: list[dict], base_path: str) -> str:
     kind_labels = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}
     rows = "".join(
@@ -183,9 +210,13 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
         if published else "Nothing has been fully reviewed yet."
     )
     body = (
+        # First in the body, before the heading: a reader should meet the
+        # caveat without scrolling, not after deciding what to click.
+        f'<div class="disclaimer">{_NOT_OFFICIAL_HTML}</div>'
         "<h1>Published legislation</h1>"
         f"<p>{intro}</p>"
         + (f'<ul class="section-list">{rows}</ul>' if published else "")
+        + _FOOTER_HTML
     )
     return html_view.page_shell("Published legislation", body)
 

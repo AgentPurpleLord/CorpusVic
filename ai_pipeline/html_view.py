@@ -1291,6 +1291,24 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .supersede-link { white-space: nowrap; }
 
+/* The published site's standing caveat -- this is a machine's reading of
+   the law, not the law. Same tokens and shape as .supersede above: both
+   say "before you trust this text, know something about it", so they
+   shouldn't compete for a reader's attention by looking different. Sits
+   first in the page body, before the heading, so it is read rather than
+   scrolled past. */
+.disclaimer {
+  font-family: var(--sans); font-size: 13.5px; line-height: 1.55;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 4px;
+  padding: 12px 16px; margin: 0 0 26px;
+}
+.site-footer {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted);
+  border-top: 2px solid var(--border); margin-top: 44px; padding-top: 16px;
+}
+.site-footer p { margin: 0 0 10px; }
+.site-footer p:last-child { margin-bottom: 0; }
+
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
    coordinates (not fixed) so it scrolls with the link it belongs to. */

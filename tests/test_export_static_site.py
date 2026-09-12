@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ai_pipeline.html_view import _legislation_href, _site_prefix
 from ai_pipeline.site_crypto import SiteGate, derive_key
-from export_static_site import select_published_slugs
+from export_static_site import OFFICIAL_SOURCE_URL, _landing_page_html, select_published_slugs
 
 
 def _status(parsed=True, review_status="reviewed"):
@@ -92,6 +92,43 @@ def test_legislation_href_omits_the_year_when_not_known():
 def test_legislation_href_carries_the_site_prefix_from_base_url():
     href = _legislation_href({"act_no": "68", "year": 2009}, "/vic-legislation-parser/browse/crimes-act")
     assert href == "/vic-legislation-parser/legislation/68-2009"
+
+
+# ---------------------------------------------------------------------
+# The landing page's disclaimers. Pinned down rather than left to eyeball
+# because they're the site's legal caveat: a refactor that quietly
+# dropped one would leave unofficial text looking authoritative.
+# ---------------------------------------------------------------------
+
+_DOC = {"slug": "crimes-act", "title": "Crimes Act 1958", "kind": "act", "as_at": "1 May 2026", "pages": 3}
+
+
+def test_the_landing_page_disclaims_before_the_heading():
+    """Above the fold means before <h1>, not somewhere further down."""
+    page = _landing_page_html([_DOC], "")
+    assert "These are not official legislative texts." in page
+    assert page.index("not official legislative texts") < page.index("<h1>")
+
+
+def test_the_landing_page_points_at_the_official_source():
+    page = _landing_page_html([_DOC], "")
+    assert OFFICIAL_SOURCE_URL in page
+    assert "authorised legislative texts" in page
+
+
+def test_the_landing_page_footer_repeats_the_caveat_and_adds_the_rest():
+    page = _landing_page_html([_DOC], "")
+    footer = page[page.index('<footer class="site-footer">'):]
+    assert "These are not official legislative texts." in footer
+    assert "does not provide legal advice or commentary" in footer
+    assert "at their own risk" in footer
+
+
+def test_the_disclaimers_are_there_even_with_nothing_published():
+    """An empty site is still making the same claim about itself."""
+    page = _landing_page_html([], "")
+    assert "These are not official legislative texts." in page
+    assert "at their own risk" in page
 
 
 # ---------------------------------------------------------------------
