@@ -269,6 +269,21 @@ def _kill_review_process(slug: str) -> None:
 
 _ai_scan_procs: dict[str, dict] = {}
 
+# run_ai_review.py's own stdout/stderr (progress lines, and -- critically
+# -- the exact OllamaUnavailable message when Ollama isn't installed,
+# running, or missing its model) has nowhere else to go: unlike
+# review.py's child, this one has no HTTP server of its own for a
+# reviewer to open directly. Discarding it (as review.py's own child
+# does, harmlessly, since that one's success is checked by whether its
+# port comes up) would leave a failed scan saying only "exit code 1"
+# with no way to tell why -- so it's captured to a small per-Act log
+# file instead, and the progress endpoint below hands back its tail.
+_AI_SCAN_LOG_DIR = BASE_DIR / "data" / "ai_scan_logs"
+
+
+def _ai_scan_log_path(slug: str) -> Path:
+    return _AI_SCAN_LOG_DIR / f"{slug}.log"
+
 
 def _shutdown_ai_scan_processes() -> None:
     for entry in _ai_scan_procs.values():
@@ -863,10 +878,16 @@ def start_ai_scan(slug: str, restart: bool = False):
     if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
 
+    _AI_SCAN_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = _ai_scan_log_path(slug)
     cmd = [sys.executable, "run_ai_review.py", slug]
     if restart:
         cmd.append("--restart")
-    proc = subprocess.Popen(cmd, cwd=str(BASE_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        # Popen dup()s this fd for the child before returning, so closing
+        # our own copy (the `with` block exiting) right after doesn't
+        # affect the child's writes.
+        proc = subprocess.Popen(cmd, cwd=str(BASE_DIR), stdout=log_file, stderr=subprocess.STDOUT)
     _ai_scan_procs[slug] = {"proc": proc}
     return {"ok": True}
 
@@ -878,14 +899,21 @@ def ai_scan_progress_endpoint(slug: str):
     scan is currently running and, if one just stopped, whether it
     exited cleanly. Polled from the dashboard rather than pushed, since
     a scan can span a dashboard restart and this reads straight from
-    data/legislation.db either way."""
+    data/legislation.db either way.
+
+    Also hands back the tail of the script's own output (see
+    _AI_SCAN_LOG_DIR) -- the only place a failure reason like "Ollama
+    isn't installed" ends up, since this process has no HTTP server of
+    its own to report through."""
     _validate_slug(slug)
     progress = db.ai_scan_progress(slug)
     entry = _ai_scan_procs.get(slug)
     running = bool(entry and entry["proc"].poll() is None)
     exit_code = None if running or entry is None else entry["proc"].returncode
     total_units = len(group_into_units(build_current_nodes(slug)[0])) if (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists() else 0
-    return {**progress, "total_units": total_units, "running": running, "exit_code": exit_code}
+    log_path = _ai_scan_log_path(slug)
+    log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-4000:] if log_path.exists() else ""
+    return {**progress, "total_units": total_units, "running": running, "exit_code": exit_code, "log": log_tail}
 
 
 @app.post("/api/ai-scan/{slug}/stop")

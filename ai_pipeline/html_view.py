@@ -1062,27 +1062,39 @@ PAGE_CSS = """
    uses the same set of variable names static/review.html uses, driven
    by the same localStorage["reviewTheme"] key -- toggling the theme in
    the review GUI and then clicking through to a browse page keeps the
-   theme, because both surfaces read the one preference. */
+   theme, because both surfaces read the one preference.
+
+   Palette: "Modernist" -- flat, architectural, a near-mono red accent on
+   a warm off-white ground, zero corner radius, strong dividers (see the
+   imported Claude Design system this was adapted from, and
+   static/review.html's own copy of this note). The dark values are a
+   separate OKLCH ramp on the same hue/chroma family (accent hue ~31.5°,
+   neutral hue ~17.3°), not the light ones inverted -- the accent moves to
+   a lighter step for legibility on a dark ground. --reading is the one
+   token that isn't theme-toggled: the actual Act/Bill text a reader is
+   reading (.prov, .endnote-quote) is set in it; everything else here
+   (headings, notes, chips, nav) stays in --sans. */
 :root {
   color-scheme: light;
-  --bg: #ffffff; --panel: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b;
-  --border: #d7d7d7; --accent: #2b6cb0;
-  --done: #16a34a; --pending: #9ca3af; --flagged: #d97706;
-  --verify-full-bg: #dcfce7; --verify-partial-bg: #fef3c7; --verify-none-bg: #e5e7eb;
-  --bar-bg: #111827; --bar-fg: #d1d5db; --bar-link: #93c5fd;
+  --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
+  --border: color-mix(in srgb, #201e1d 40%, transparent); --accent: #ec3013;
+  --done: #16a34a; --pending: #7d7979; --flagged: #d97706;
+  --verify-full-bg: #dcfce7; --verify-partial-bg: #fef3c7; --verify-none-bg: color-mix(in srgb, #201e1d 10%, transparent);
+  --bar-bg: #201e1d; --bar-fg: #eae9e9; --bar-link: #ff9783;
   --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
   --warn-bg: #fef3c7; --warn-border: #d97706;
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --reading: "Times New Roman", Times, Georgia, serif;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #16181d; --panel: #1e2126; --fg: #e8e8ea; --muted: #9aa1ab;
-  --border: #34383f; --accent: #5b9bd9;
-  --done: #34d17f; --pending: #8b93a0; --flagged: #f0ad4e;
-  --verify-full-bg: #132a1c; --verify-partial-bg: #2c2410; --verify-none-bg: #262a31;
-  --bar-bg: #05070a; --bar-fg: #b6bcc6; --bar-link: #7fb6ea;
-  --ins-bg: #14321f; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
-  --warn-bg: #2c2410; --warn-border: #f0ad4e;
+  --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #969191;
+  --border: #413b3b; --accent: #ff7f67;
+  --done: #5fd37f; --pending: #989090; --flagged: #f0b135;
+  --verify-full-bg: #092c13; --verify-partial-bg: #3b2400; --verify-none-bg: color-mix(in srgb, #eeeaea 12%, transparent);
+  --bar-bg: #0a0808; --bar-fg: #eeeaea; --bar-link: #ffa08b;
+  --ins-bg: #092c13; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
+  --warn-bg: #3b2400; --warn-border: #f0b135;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; }
@@ -1093,20 +1105,20 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sa
 .previewbar a { color: var(--bar-link); }
 .page { max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
 h1 { font-size: 22px; margin: 0 0 10px; font-family: var(--sans); }
-h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
+h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 2px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
 h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: var(--fg); }
 h4, h5, h6 { font-size: 14px; margin: 16px 0 4px; font-weight: 600; font-family: var(--sans); }
 p { margin: 0 0 13px; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .breadcrumb { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
-.verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 2px 9px; border-radius: 10px; margin-bottom: 18px; }
+.verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 2px 9px; border-radius: 0; margin-bottom: 18px; }
 .verify-full { background: var(--verify-full-bg); color: var(--done); }
 .verify-partial { background: var(--verify-partial-bg); color: var(--flagged); }
 .verify-none { background: var(--verify-none-bg); color: var(--pending); }
 .section-list { list-style: none; padding-left: 0; margin: 0 0 10px; }
 .section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
-.section-nav { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); font-family: var(--sans); font-size: 13px; }
+.section-nav { margin-top: 32px; padding-top: 14px; border-top: 2px solid var(--border); font-family: var(--sans); font-size: 13px; }
 
 /* The Section body, laid out the way the Act itself prints: one two-
    column grid whose rows alternate provision and margin note, so a
@@ -1118,6 +1130,7 @@ a:hover { text-decoration: underline; }
    reads as a subsection without needing its own heading. */
 .provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
 .prov {
+  font-family: var(--reading);
   margin: 0 0 11px;
   padding-left: calc(var(--depth, 0) * 26px + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
@@ -1170,6 +1183,7 @@ a:hover { text-decoration: underline; }
 /* A provision the endnotes reproduce verbatim -- the Act's own words, not
    the endnote's commentary about them. */
 .endnote-quote {
+  font-family: var(--reading);
   margin: 0 0 11px; padding: 2px 0 2px 14px;
   border-left: 3px solid var(--border); color: var(--fg);
 }
@@ -1182,7 +1196,7 @@ a:hover { text-decoration: underline; }
 .amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
 .amend-cite {
   display: inline-block; font-weight: 500; font-size: 11.5px; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; margin-right: 8px;
+  border: 1px solid var(--border); border-radius: 0; padding: 1px 8px; margin-right: 8px;
 }
 .amend-fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 14px; margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px; }
 .amend-fields dt { color: var(--muted); }
@@ -1190,7 +1204,7 @@ a:hover { text-decoration: underline; }
 .amend-provisions { font-family: var(--sans); font-size: 12.5px; }
 .amend-provisions summary { cursor: pointer; color: var(--accent); }
 .amend-prov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--fg); }
+.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 0; padding: 1px 6px; color: var(--fg); }
 a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
 /* The citation inside a margin note, linked to that Act's own entry
@@ -1215,7 +1229,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
 .crossrefs-label { font-size: 11.5px; color: var(--muted); }
 .crossref {
-  font-size: 11.5px; padding: 2px 9px; border-radius: 10px;
+  font-size: 11.5px; padding: 2px 9px; border-radius: 0;
   border: 1px solid var(--border); background: var(--panel); color: var(--fg);
 }
 .crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
@@ -1230,10 +1244,10 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .timeline-summary {
   cursor: pointer; font-size: 12.5px; padding: 6px 10px;
   border: 1px solid var(--border); border-left: 3px solid var(--flagged);
-  border-radius: 4px; background: var(--panel); color: var(--fg);
+  border-radius: 0; background: var(--panel); color: var(--fg);
 }
 .timeline-summary:hover { border-color: var(--accent); }
-.timeline[open] .timeline-summary { border-radius: 4px 4px 0 0; }
+.timeline[open] .timeline-summary { border-radius: 0; }
 .tl-count { color: var(--muted); }
 .tl-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-top: none; }
 .tl-entry { padding: 10px 12px; border-top: 1px solid var(--border); }
@@ -1242,7 +1256,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-version { font-size: 12.5px; font-weight: 600; }
 .tl-verb {
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 1px 7px; border-radius: 9px; background: var(--verify-none-bg); color: var(--muted);
+  padding: 1px 7px; border-radius: 0; background: var(--verify-none-bg); color: var(--muted);
 }
 .tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
 .tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
@@ -1252,8 +1266,8 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
   max-height: 20em; overflow-y: auto;
 }
-.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 2px; }
-.d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 2px; }
+.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 0; }
+.d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 0; }
 
 /* The notice on a reprint that's no longer the law. Deliberately loud
    and at the top of the page: a reader on a superseded version is
@@ -1261,7 +1275,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .supersede {
   font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
   background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 3px;
-  border-radius: 4px; padding: 8px 12px; margin: 0 0 16px;
+  border-radius: 0; padding: 8px 12px; margin: 0 0 16px;
 }
 .supersede-link { white-space: nowrap; }
 
@@ -1272,7 +1286,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   position: absolute; z-index: 40; display: none;
   width: min(420px, 90vw); max-height: 340px; overflow-y: auto;
   background: var(--panel); color: var(--fg);
-  border: 1px solid var(--border); border-radius: 8px;
+  border: 1px solid var(--border); border-radius: 0;
   padding: 12px 14px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
   font-size: 13.5px; line-height: 1.55;
@@ -1295,7 +1309,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .theme-toggle {
   position: fixed; top: 10px; right: 14px; z-index: 30;
   border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-  border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 13px;
+  border-radius: 0; padding: 4px 9px; cursor: pointer; font-size: 13px;
   font-family: var(--sans);
 }
 

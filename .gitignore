@@ -6,6 +6,11 @@ data/diagnostics/
 data/akn/
 data/markdown/
 
+# run_ai_review.py's own stdout/stderr, captured per-Act by dashboard.py
+# so a failed AI scan's reason (e.g. Ollama not installed) is visible in
+# the UI -- not durable state, just the latest run's output.
+data/ai_scan_logs/
+
 # data/ai_parsed/<act>.json (the raw parse) and data/legislation.db (the
 # durable, human-created review state overlaid on it -- verified rows,
 # link annotations, the correction log; see ai_pipeline/db.py's module
