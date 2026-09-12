@@ -9,6 +9,14 @@ the whole publishing step -- no separate export command to remember.
 Usage:
     python export_static_site.py --out _site
     python export_static_site.py --out _site --base-path /vic-legislation-parser
+    SITE_PASSWORD='a long passphrase' python export_static_site.py --out _site
+
+A passphrase (via $SITE_PASSWORD, or --password for a local build) puts
+the whole site behind an unlock page: every page is encrypted at build
+time, so the published files are ciphertext rather than readable text
+with a decorative gate over it -- see ai_pipeline/site_crypto.py for what
+that does and doesn't protect. Without one the site is open to anyone
+with the URL, which is the right default once it's meant to be public.
 
 --base-path is the path prefix the site will actually be served under.
 GitHub Pages serves a repo's default Pages site at
@@ -57,6 +65,7 @@ from pathlib import Path
 
 import dashboard
 from ai_pipeline import html_view
+from ai_pipeline.site_crypto import ROBOTS_TXT, SiteGate
 from ai_pipeline.versions import split_document_slug
 
 
@@ -95,12 +104,15 @@ def _default_base_path() -> str:
     return f"/{repo.split('/')[-1]}" if repo else ""
 
 
-def _write(path: Path, html: str) -> None:
+def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
+    """One page, encrypted behind the passphrase gate first if there is
+    one (see ai_pipeline/site_crypto.py). Everything the site publishes
+    goes through here, so a gated build has no page that was missed."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(html, encoding="utf-8")
+    path.write_text(gate.wrap(page_html) if gate else page_html, encoding="utf-8")
 
 
-def _build_doc(slug: str, out_dir: Path, base_path: str) -> dict:
+def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None" = None) -> dict:
     """Every page for one document: its index, one per section, and its
     Endnotes if it has any -- exactly what browse_index/browse_section/
     browse_endnotes each build for one HTTP request, just written to
@@ -118,7 +130,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str) -> dict:
          "version": dashboard._act_version(slug)},
         title, base_url, superseded=dashboard._superseded(slug),
     )
-    _write(doc_dir / "index.html", html_view.page_shell(title, index_body, base_url=base_url))
+    _write(doc_dir / "index.html", html_view.page_shell(title, index_body, base_url=base_url), gate)
 
     for node_index, section_slug in page_index["by_node_index"].items():
         node = nodes[node_index]
@@ -138,7 +150,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str) -> dict:
         if body is None:
             continue  # not expected -- page_index only ever names real sections
         _write(doc_dir / "section" / section_slug / "index.html",
-               html_view.page_shell(title, body, base_url=base_url))
+               html_view.page_shell(title, body, base_url=base_url), gate)
 
     endnotes_body = html_view.render_endnotes(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
@@ -146,7 +158,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str) -> dict:
     )
     if endnotes_body is not None:
         _write(doc_dir / "endnotes" / "index.html",
-               html_view.page_shell(f"{title} — Endnotes", endnotes_body, base_url=base_url))
+               html_view.page_shell(f"{title} — Endnotes", endnotes_body, base_url=base_url), gate)
 
     status = dashboard.act_status(slug)
     return {
@@ -178,11 +190,21 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
     return html_view.page_shell("Published legislation", body)
 
 
-def build_site(out: Path, base_path: str) -> list[dict]:
+def build_site(out: Path, base_path: str, password: "str | None" = None) -> list[dict]:
+    """The whole site. With a passphrase, every page is encrypted behind
+    the unlock gate and a Disallow-everything robots.txt goes out beside
+    them -- a site that isn't ready to be read isn't ready to be indexed
+    either, and a crawler that got there first would keep serving a
+    snapshot of it long after the gate went up."""
+    gate = SiteGate(password) if password else None
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
     slugs = select_published_slugs(statuses)
-    published = [_build_doc(slug, out, base_path) for slug in slugs]
-    _write(out / "index.html", _landing_page_html(published, base_path))
+    published = [_build_doc(slug, out, base_path, gate) for slug in slugs]
+    _write(out / "index.html", _landing_page_html(published, base_path), gate)
+    if gate:
+        # Never encrypted: a crawler has to be able to read the one file
+        # that tells it to go away.
+        _write(out / "robots.txt", ROBOTS_TXT)
     return published
 
 
@@ -190,13 +212,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default="_site", help="output directory (default: _site)")
     ap.add_argument("--base-path", default=None, help="URL path prefix the site will be served under (default: derived from $GITHUB_REPOSITORY, else empty)")
+    ap.add_argument("--password", default=None, help="passphrase to encrypt every page behind (default: $SITE_PASSWORD; unset means an open, ungated site)")
     args = ap.parse_args()
 
     base_path = args.base_path if args.base_path is not None else _default_base_path()
+    # Preferred over --password: a passphrase on the command line is
+    # visible to anything that can list processes, and in CI it comes
+    # from a repository secret rather than from the workflow file.
+    password = args.password or os.environ.get("SITE_PASSWORD") or None
     out = Path(args.out)
 
     all_slugs = dashboard.discover_slugs()
-    published = build_site(out, base_path)
+    published = build_site(out, base_path, password)
     published_slugs = {doc["slug"] for doc in published}
     skipped = [s for s in all_slugs if s not in published_slugs]
 
@@ -207,6 +234,11 @@ def main():
         print(f"Skipped {len(skipped)} document(s) (not parsed, an older version, or not yet fully reviewed):")
         for slug in skipped:
             print(f"  {slug}")
+    print(
+        "Every page is encrypted behind the passphrase, and robots.txt disallows crawlers."
+        if password else
+        "No passphrase set -- the site is open to anyone who has the URL."
+    )
 
 
 if __name__ == "__main__":

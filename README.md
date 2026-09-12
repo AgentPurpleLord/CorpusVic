@@ -110,6 +110,35 @@ python export_static_site.py --out _site          # what the Action runs
 python -m http.server --directory _site           # preview it locally
 ```
 
+### Keeping it private while it's being tested
+
+Add a repository secret named `SITE_PASSWORD` (Settings → Secrets and
+variables → Actions) and the whole site goes behind a passphrase you can
+hand out to testers. Delete the secret to publish openly again; nothing
+else changes either way.
+
+It is a real lock, not a hidden div. GitHub Pages has no server-side
+login, so a gate that merely *hid* the text would leave it sitting in the
+HTML for anyone who viewed source or fetched the page with `curl`.
+Instead every page is encrypted at build time (AES-256-GCM, key derived
+by PBKDF2 at the same 200,000 iterations `dashboard.py` uses for its own
+login) and what gets published is ciphertext plus a small unlock page.
+Entering the passphrase once unlocks every page for that tab. The
+passphrase itself is only ever in the secret -- never in the repository,
+never in the built output. While the gate is up, a
+`Disallow: /` robots.txt goes out with it.
+
+What it doesn't do: it's one shared passphrase, not per-user accounts, so
+anyone you give it to can decrypt the site and pass the plaintext on; and
+because the ciphertext is public, a short passphrase could be guessed
+offline. It's sized for "this isn't ready to be read yet" -- which, for
+legislation the government already publishes, is the actual risk. See
+`ai_pipeline/site_crypto.py`.
+
+```bash
+SITE_PASSWORD='a long passphrase' python export_static_site.py --out _site
+```
+
 ## Versions of an Act
 
 An Act is a *work*; each reprint of it (an Authorised Version, as the
