@@ -623,3 +623,51 @@ def test_a_run_on_sentence_does_not_get_swallowed_into_a_false_act_name(monkeypa
     # it thought was an Act title.
     linked_text = re.findall(r'<a\b[^>]*>([^<]*)</a>', body)
     assert not any("person" in t or "authorised" in t for t in linked_text)
+
+
+# The "Copy section" button. Its JavaScript reads the rendered page and
+# writes two clipboard flavours, so what it produces can only really be
+# judged in a browser -- and was: both flavours were read back out of a
+# real clipboard on the Interpretation of Legislation Act's s3 (defined
+# terms) and s14 (subsections nested two deep), confirming the
+# "(1) / (a) / (i)" progression arrives in Word and Docs as 0pt / 36pt /
+# 72pt paragraph indents. What is worth pinning down here is the wiring
+# either side of that: the button exists on a section page, the script
+# that gives it behaviour is shipped with every page, and the indent step
+# stays one Word tab stop.
+def test_a_section_page_offers_a_copy_button():
+    body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
+
+    assert 'id="copy-section-btn"' in body
+    # Before the provisions, so tabbing into the page reaches it without
+    # first walking the whole section.
+    assert body.index("copy-section-btn") < body.index('<div class="provisions">')
+
+
+def test_the_copy_script_ships_with_the_page():
+    from ai_pipeline.html_view import page_shell
+
+    page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
+
+    assert "copy-section-btn" in page
+    assert "text/html" in page and "text/plain" in page
+
+
+def test_one_level_of_nesting_is_one_word_tab_stop():
+    """36pt is half an inch -- the default tab stop in both Word and
+    Google Docs, so a copied paragraph lands where a reader's own tab
+    key would have put it."""
+    from ai_pipeline.html_view import COPY_SCRIPT
+
+    assert "var INDENT_PT = 36;" in COPY_SCRIPT
+
+
+def test_a_defined_term_keeps_its_own_punctuation_tight():
+    """"amended, in relation to ..." -- the term runs into a comma, and
+    the copy must not open a gap the page itself doesn't show. Both
+    clipboard flavours go through the same rule, which is why there is
+    one helper rather than two spellings of it."""
+    from ai_pipeline.html_view import COPY_SCRIPT
+
+    assert COPY_SCRIPT.count("function gap(") == 1
+    assert COPY_SCRIPT.count("gap(p.text)") == 2

@@ -38,11 +38,13 @@ directly and writing the returned HTML to a file instead of an
 HTTPResponse is the whole job. tests/test_dashboard.py already imports
 dashboard.py the same way for the same reason.
 
-Only publishes a work's newest parsed version, and only once that
-version's own review_status is "reviewed" -- see select_published_slugs.
-A document that isn't ready yet simply isn't in the output; there's no
-"almost done" page for the public site the way the live dashboard's own
-"reflects your saved review progress" banner allows for.
+Publishes a work's newest parsed version, one approved provision at a
+time: a Section appears once a reviewer has accepted every piece of it
+(see approved_units), so an Act fills in as review proceeds rather than
+waiting to be finished. A provision still to come keeps its place in the
+contents, marked, with a page saying it hasn't been published yet -- a
+silently absent section would read as a section that doesn't exist. A
+document with nothing approved in it at all isn't published.
 
 Two things the live dashboard offers that this doesn't attempt:
   - Hover-preview cards (ai_pipeline/html_view.py's PREVIEW_SCRIPT) fetch
@@ -61,6 +63,7 @@ Two things the live dashboard offers that this doesn't attempt:
 import argparse
 import html
 import os
+import shutil
 from pathlib import Path
 
 import dashboard
@@ -154,7 +157,7 @@ def _unpublished_page_body(node: dict, base_url: str, act_title: str) -> str:
     return (
         f"<h1>{html.escape(_provision_label(node))}</h1>"
         '<div class="disclaimer">'
-        "<strong>This provision hasn't been published here yet.</strong> "
+        "<strong>This provision hasn’t been published here yet.</strong> "
         "It has been parsed but not yet checked by a human, and this site only publishes "
         "provisions that have been. It says nothing about whether the provision is in force "
         f"— for the authorised text, see <a href=\"{OFFICIAL_SOURCE_URL}\" rel=\"noopener\">"
@@ -172,6 +175,19 @@ def _partial_notice_html(approved: int, total: int) -> str:
         "in the contents below and marked, so nothing here is silently missing."
         "</div>"
     )
+
+
+def _copy_fonts(out: Path) -> None:
+    """Junicode, plus the licence it has to travel with. Copied to the
+    site root because that's where page_shell points every page's
+    @font-face at, and self-hosted rather than pulled off a CDN so that
+    reading the law here doesn't announce itself to a third party (see
+    static/fonts/README.md)."""
+    src = Path(__file__).parent / "static" / "fonts"
+    dest = out / "fonts"
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in sorted(p.name for p in src.iterdir() if p.suffix == ".woff2" or p.name == "OFL.txt"):
+        shutil.copyfile(src / name, dest / name)
 
 
 def _page(title: str, body: str, base_url: "str | None" = None) -> str:
@@ -325,9 +341,9 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
         for doc in published
     )
     intro = (
-        "Automatically generated from this project's review pipeline. Only provisions a "
+        "Automatically generated from this project’s review pipeline. Only provisions a "
         "human has checked are published, so a document may appear here with part of its "
-        "text still to come -- where it does, the count says how much."
+        "text still to come \u2014 where it does, the count says how much."
         if published else "Nothing has been checked and published yet."
     )
     body = (
@@ -348,6 +364,7 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> list
     either, and a crawler that got there first would keep serving a
     snapshot of it long after the gate went up."""
     gate = SiteGate(password) if password else None
+    _copy_fonts(out)
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
     slugs = select_candidate_slugs(statuses)
     # _build_doc returns None for a candidate with nothing approved in it.

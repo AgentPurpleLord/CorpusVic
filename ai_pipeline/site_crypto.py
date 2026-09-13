@@ -119,7 +119,8 @@ _GATE_TEMPLATE = """<!doctype html>
   body {
     margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
     padding: 24px; background: var(--bg); color: var(--fg);
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; line-height: 1.55;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.45;
+    font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
   }
   form { width: 320px; max-width: 100%; }
   h1 { font-size: 19px; margin: 0 0 6px; }
@@ -141,8 +142,8 @@ _GATE_TEMPLATE = """<!doctype html>
 </head>
 <body>
 <form id="f">
-  <h1>This site isn't public yet</h1>
-  <p>It's being tested. Enter the passphrase you were given to read it.</p>
+  <h1>This site isn’t public yet</h1>
+  <p>It’s being tested. Enter the passphrase you were given to read it.</p>
   <input type="password" id="pw" autocomplete="current-password" aria-label="Passphrase" autofocus>
   <button type="submit">View the site</button>
   <div id="err" role="alert"></div>
@@ -233,7 +234,7 @@ _GATE_TEMPLATE = """<!doctype html>
         });
       })
       .catch(function () {
-        err.textContent = "That passphrase didn't work.";
+        err.textContent = "That passphrase didn\u2019t work.";
         button.disabled = false;
         button.textContent = "View the site";
         input.select();

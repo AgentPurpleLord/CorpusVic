@@ -720,6 +720,13 @@ def render_section(
     # _build_linkifier_html's `fragment`) -- just moved onto the
     # provision <div> itself.
     slugs = compute_section_slugs(tree_node)
+    # Copying a provision into advice, a submission or an email is one of
+    # the things people most often come here to do, so it's a button
+    # rather than a careful drag-select that picks up the margin notes
+    # and loses the indentation (see COPY_SCRIPT).
+    out.append(
+        '<button type="button" class="copy-section" id="copy-section-btn">Copy section</button>'
+    )
     out.append('<div class="provisions">')
     for unit in _iter_body_units(tree_node):
         unit_tree_node = unit["tree_node"]
@@ -1120,7 +1127,7 @@ PAGE_CSS = """
   --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
   --warn-bg: #fef3c7; --warn-border: #d97706;
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --reading: "Times New Roman", Times, Georgia, serif;
+  --reading: 'Junicode', Georgia, serif;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -1132,8 +1139,33 @@ PAGE_CSS = """
   --ins-bg: #092c13; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
   --warn-bg: #3b2400; --warn-border: #f0b135;
 }
+/* Junicode, self-hosted: it isn't on any font CDN, and a public register
+   of the law shouldn't hand every reader's IP to a third party to render
+   its own text. One file per style covers 300-700 because the weight
+   axis is left variable -- see static/fonts/README.md. __FONT_BASE__ is
+   substituted per page by page_shell, since the site can be served from
+   a domain root or from under a repository path. */
+@font-face {
+  font-family: 'Junicode';
+  src: url('__FONT_BASE__/Junicode-Roman.woff2') format('woff2');
+  font-weight: 300 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Junicode';
+  src: url('__FONT_BASE__/Junicode-Italic.woff2') format('woff2');
+  font-weight: 300 700; font-style: italic; font-display: swap;
+}
+
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; }
+/* Typography follows Butterick's summary of key rules: body text 15-25px,
+   line spacing 120-145% of it, and a measure of 45-90 characters (set on
+   .prov below, where the actual reading happens). Kerning and the normal
+   ligatures are asked for explicitly rather than left to the browser. */
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--sans); font-size: 17px; line-height: 1.45;
+  font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
+}
 .previewbar {
   background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
   padding: 6px 20px; display: flex; gap: 14px; align-items: center;
@@ -1167,6 +1199,17 @@ a:hover { text-decoration: underline; }
 .provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
 .prov {
   font-family: var(--reading);
+  /* 19px/1.42 with the measure capped just under 70 characters: the
+     three numbers Butterick's rules turn on, and the ones that decide
+     whether a long provision is readable. The cap is per provision
+     rather than on the column, so a nested paragraph's own indent
+     doesn't eat into its measure. Space between provisions (11px, ~8pt)
+     rather than a first-line indent -- never both. The negative
+     text-indent isn't that: it hangs the provision number out in the
+     margin, which is how the Act itself prints. */
+  font-size: 19px;
+  line-height: 1.42;
+  max-width: 34em;
   margin: 0 0 11px;
   padding-left: calc(var(--depth, 0) * 26px + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
@@ -1189,7 +1232,10 @@ a:hover { text-decoration: underline; }
   display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
 }
 .prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
-.prov-term { font-weight: 600; font-style: italic; }
+/* Italic alone, never italic *and* bold: two emphases at once is one
+   more than the text needs, and a defined term is already announced by
+   being defined. */
+.prov-term { font-style: italic; }
 .prov-heading {
   font-family: var(--sans); font-weight: 600; font-size: 14px;
   margin: 20px 0 8px; text-indent: 0;
@@ -1219,7 +1265,8 @@ a:hover { text-decoration: underline; }
 /* A provision the endnotes reproduce verbatim -- the Act's own words, not
    the endnote's commentary about them. */
 .endnote-quote {
-  font-family: var(--reading);
+  /* The Act's own words again, so the same reading settings as .prov. */
+  font-family: var(--reading); font-size: 19px; line-height: 1.42; max-width: 34em;
   margin: 0 0 11px; padding: 2px 0 2px 14px;
   border-left: 3px solid var(--border); color: var(--fg);
 }
@@ -1291,7 +1338,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 5px; }
 .tl-version { font-size: 12.5px; font-weight: 600; }
 .tl-verb {
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
   padding: 1px 7px; border-radius: 0; background: var(--verify-none-bg); color: var(--muted);
 }
 .tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
@@ -1332,6 +1379,16 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .site-footer p { margin: 0 0 10px; }
 .site-footer p:last-child { margin-bottom: 0; }
+
+/* Sits above the provisions, out of the reading column: useful, not
+   competing with the text it copies. */
+.copy-section {
+  font-family: var(--sans); font-size: 12.5px;
+  color: var(--fg); background: var(--panel);
+  border: 1px solid var(--border); border-radius: 0;
+  padding: 4px 10px; margin: 0 0 14px; cursor: pointer;
+}
+.copy-section:hover { border-color: var(--accent); color: var(--accent); }
 
 /* A provision listed in the contents but not released to readers yet --
    see render_index's own unpublished_pages note. Quiet: it marks an
@@ -1393,6 +1450,141 @@ THEME_HEAD_SCRIPT = """
 try {
   if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark";
 } catch (e) {}
+"""
+
+COPY_SCRIPT = r"""
+(function () {
+  var btn = document.getElementById("copy-section-btn");
+  if (!btn) return;
+
+  // Half an inch, which is what Word and Google Docs both treat as one
+  // tab stop -- so "(a) is one tab in" comes out as a real paragraph
+  // indent in either, not as a run of spaces that reflows on edit.
+  var INDENT_PT = 36;
+  var LABEL = ".prov-num, .prov-term";
+
+  // One entry per provision, in reading order: how deep it sits, its
+  // own number (or defined term), and its text with the source PDF's
+  // line wraps collapsed back into running prose. Margin notes are left
+  // out -- they're the amendment history printed beside the provision,
+  // not part of its words.
+  function provisions() {
+    var out = [];
+    document.querySelectorAll(".provisions > .prov").forEach(function (el) {
+      var clone = el.cloneNode(true);
+      var labelEl = clone.querySelector(LABEL);
+      var label = "";
+      var isTerm = false;
+      if (labelEl) {
+        label = labelEl.textContent.trim();
+        isTerm = labelEl.classList.contains("prov-term");
+        labelEl.remove();
+      }
+      var text = clone.textContent.replace(/\s+/g, " ").trim();
+      if (!label && !text) return;
+      var depth = parseInt(el.style.getPropertyValue("--depth"), 10) || 0;
+      out.push({ depth: depth, label: label, text: text, term: isTerm });
+    });
+    return out;
+  }
+
+  // A defined term runs straight on into its own text, so it takes a
+  // space -- except where that text opens with punctuation ("appear, in
+  // relation to a party, ..."), which sits tight against it. Same rule
+  // render_section applies when it builds the page, kept in step so the
+  // copy reads exactly as the screen does.
+  var TIGHT = [",", ".", ";", ":", ")", "—", "-"];
+
+  function gap(text) {
+    return !text || TIGHT.indexOf(text.charAt(0)) !== -1 ? "" : " ";
+  }
+
+  function joined(p) {
+    if (!p.label) return p.text;
+    if (!p.text) return p.label;
+    return p.label + gap(p.text) + p.text;
+  }
+
+  function asText(heading, rows) {
+    var lines = heading ? [heading, ""] : [];
+    rows.forEach(function (p) {
+      lines.push(new Array(p.depth + 1).join("\t") + joined(p));
+    });
+    return lines.join("\n");
+  }
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // Word and Docs both read text/html in preference to text/plain, and
+  // both turn margin-left into a real indent -- which is the whole
+  // reason this writes two flavours instead of one.
+  function asHtml(heading, rows) {
+    var parts = ['<meta charset="utf-8">'];
+    if (heading) {
+      parts.push('<p style="margin:0 0 8pt 0;font-weight:bold">' + esc(heading) + "</p>");
+    }
+    rows.forEach(function (p) {
+      var indent = p.depth * INDENT_PT;
+      var body = p.term && p.label
+        ? "<i>" + esc(p.label) + "</i>" + gap(p.text) + esc(p.text)
+        : esc(joined(p));
+      parts.push(
+        '<p style="margin:0 0 6pt 0;margin-left:' + indent + 'pt">' + body + "</p>"
+      );
+    });
+    return parts.join("");
+  }
+
+  function flash(message) {
+    btn.textContent = message;
+    setTimeout(function () { btn.textContent = "Copy section"; }, 1800);
+  }
+
+  // The modern path needs a secure context; the fallback is what runs on
+  // plain http (a local preview, say) and in older browsers, and can
+  // only carry the rich flavour -- so the selection is made over real
+  // nodes and copied, which keeps the indents.
+  function legacyCopy(html, text) {
+    var holder = document.createElement("div");
+    holder.setAttribute("style", "position:fixed;left:-9999px;top:0;white-space:pre-wrap");
+    holder.innerHTML = html;
+    document.body.appendChild(holder);
+    var range = document.createRange();
+    range.selectNodeContents(holder);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    sel.removeAllRanges();
+    holder.remove();
+    if (!ok) { window.prompt("Copy the text below", text); }
+    return ok;
+  }
+
+  btn.addEventListener("click", function () {
+    var rows = provisions();
+    if (!rows.length) { flash("Nothing to copy"); return; }
+    var h1 = document.querySelector(".page h1");
+    var heading = h1 ? h1.textContent.replace(/\s+/g, " ").trim() : "";
+    var html = asHtml(heading, rows);
+    var text = asText(heading, rows);
+
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
+      navigator.clipboard
+        .write([new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        })])
+        .then(function () { flash("Copied"); })
+        .catch(function () { flash(legacyCopy(html, text) ? "Copied" : "Copy failed"); });
+      return;
+    }
+    flash(legacyCopy(html, text) ? "Copied" : "Copy failed");
+  });
+})();
 """
 
 THEME_BODY_SCRIPT = """
@@ -1574,16 +1766,25 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: 
     given, the page also gets link hover previews -- the script needs
     it to tell a link into this Act apart from any other href on the
     page. If omitted, the page renders exactly as before, without
-    them."""
+    them.
+
+    It also decides where the page loads Junicode from: the fonts sit at
+    the site root (served by dashboard.py and review.py, copied into the
+    build by export_static_site.py), which is "/fonts" when the site is
+    the whole domain and "/<repo>/fonts" when it's a GitHub Pages
+    project site -- the same prefix every other absolute link derives
+    from."""
     body_attr = f' data-base-url="{_esc(base_url)}"' if base_url else ""
     preview_script = f"<script>{PREVIEW_SCRIPT}</script>\n" if base_url else ""
+    page_css = PAGE_CSS.replace("__FONT_BASE__", f"{_site_prefix(base_url or '')}/fonts")
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        f"<title>{_esc(title)}</title>\n{_FONT_LINKS}\n<style>{PAGE_CSS}</style>\n"
+        f"<title>{_esc(title)}</title>\n{_FONT_LINKS}\n<style>{page_css}</style>\n"
         f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body{body_attr}>\n"
         f"{previewbar_html}"
         "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"
         f"<div class=\"page\">\n{body_html}\n</div>\n"
-        f"<script>{THEME_BODY_SCRIPT}</script>\n{preview_script}</body>\n</html>"
+        f"<script>{THEME_BODY_SCRIPT}</script>\n<script>{COPY_SCRIPT}</script>\n"
+        f"{preview_script}</body>\n</html>"
     )
