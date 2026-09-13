@@ -101,6 +101,14 @@ unresolved citation's standing `/legislation/<no>` address isn't
 pre-built, so that one link 404s instead of explaining that the Act
 hasn't been parsed here.
 
+Every published page carries a footer saying that these aren't the
+official texts, that the authorised ones are at legislation.vic.gov.au,
+and that the site offers no legal advice and is relied on at the reader's
+own risk. The landing page states the first of those again as a banner
+above the fold. It's a footer rather than a landing-page-only notice
+because almost nobody arrives at the front door -- a shared link to one
+provision is how this gets read.
+
 The one manual step this needs, once: in the repo's Settings → Pages, set
 **Source** to **GitHub Actions** -- a repository setting, not something a
 workflow file can turn on for you.

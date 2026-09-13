@@ -104,6 +104,18 @@ def _default_base_path() -> str:
     return f"/{repo.split('/')[-1]}" if repo else ""
 
 
+def _page(title: str, body: str, base_url: "str | None" = None) -> str:
+    """A finished page: the body, then the site footer. Every published
+    page is built through here rather than calling page_shell directly,
+    because the footer is the site's legal notice and the failure to
+    design against is a new kind of page quietly shipping without it.
+
+    The live dashboard's own /browse pages don't get this -- they're an
+    internal preview behind a login, already labelled as one, not a thing
+    the public reads."""
+    return html_view.page_shell(title, body + _FOOTER_HTML, base_url=base_url)
+
+
 def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
     """One page, encrypted behind the passphrase gate first if there is
     one (see ai_pipeline/site_crypto.py). Everything the site publishes
@@ -130,7 +142,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
          "version": dashboard._act_version(slug)},
         title, base_url, superseded=dashboard._superseded(slug),
     )
-    _write(doc_dir / "index.html", html_view.page_shell(title, index_body, base_url=base_url), gate)
+    _write(doc_dir / "index.html", _page(title, index_body, base_url), gate)
 
     for node_index, section_slug in page_index["by_node_index"].items():
         node = nodes[node_index]
@@ -150,7 +162,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
         if body is None:
             continue  # not expected -- page_index only ever names real sections
         _write(doc_dir / "section" / section_slug / "index.html",
-               html_view.page_shell(title, body, base_url=base_url), gate)
+               _page(title, body, base_url), gate)
 
     endnotes_body = html_view.render_endnotes(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
@@ -158,7 +170,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     )
     if endnotes_body is not None:
         _write(doc_dir / "endnotes" / "index.html",
-               html_view.page_shell(f"{title} — Endnotes", endnotes_body, base_url=base_url), gate)
+               _page(f"{title} — Endnotes", endnotes_body, base_url), gate)
 
     status = dashboard.act_status(slug)
     return {
@@ -216,9 +228,8 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
         "<h1>Published legislation</h1>"
         f"<p>{intro}</p>"
         + (f'<ul class="section-list">{rows}</ul>' if published else "")
-        + _FOOTER_HTML
     )
-    return html_view.page_shell("Published legislation", body)
+    return _page("Published legislation", body)
 
 
 def build_site(out: Path, base_path: str, password: "str | None" = None) -> list[dict]:

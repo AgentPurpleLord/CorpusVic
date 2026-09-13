@@ -16,7 +16,12 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ai_pipeline.html_view import _legislation_href, _site_prefix
 from ai_pipeline.site_crypto import SiteGate, derive_key
-from export_static_site import OFFICIAL_SOURCE_URL, _landing_page_html, select_published_slugs
+from export_static_site import (
+    OFFICIAL_SOURCE_URL,
+    _landing_page_html,
+    _page,
+    select_published_slugs,
+)
 
 
 def _status(parsed=True, review_status="reviewed"):
@@ -129,6 +134,22 @@ def test_the_disclaimers_are_there_even_with_nothing_published():
     page = _landing_page_html([], "")
     assert "These are not official legislative texts." in page
     assert "at their own risk" in page
+
+
+def test_every_page_built_through_the_shell_carries_the_footer():
+    """The landing page isn't where most readers arrive -- a shared link
+    to one provision is -- so the footer belongs on whatever page they
+    land on, not just the front door."""
+    page = _page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
+    assert "These are not official legislative texts." in page
+    assert "does not provide legal advice or commentary" in page
+    assert "at their own risk" in page
+
+
+def test_the_landing_page_carries_the_footer_exactly_once():
+    """It builds its own disclaimer banner and goes through the same
+    shell as everything else -- easy to end up with two footers."""
+    assert _landing_page_html([_DOC], "").count('<footer class="site-footer">') == 1
 
 
 # ---------------------------------------------------------------------
