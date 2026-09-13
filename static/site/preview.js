@@ -10,6 +10,10 @@
 (function () {
   var BASE = document.body.dataset.baseUrl;
   if (!BASE) return;
+  // "api" where a server can render a card on demand (the dashboard);
+  // "static" on the published site, which has no server to ask and so
+  // carries a preview.json beside each page anything links to.
+  var STATIC = document.body.dataset.preview === "static";
   // Everything above this document's own slug, e.g. "/browse".
   // Previews work for any document under it, not just this one -- a
   // Section's "Explained in" chips point at the Bill and its
@@ -98,9 +102,7 @@
     if (cache[href]) { render(cache[href], target.base !== BASE); place(a); return; }
     card.innerHTML = '<div class="peek-loading">Loading&hellip;</div>';
     place(a);
-    var query = "section=" + encodeURIComponent(target.section) + "&fragment=" + encodeURIComponent(target.fragment);
-    fetch("/api" + target.base + "/preview?" + query)
-      .then(function (res) { return res.ok ? res.json() : null; })
+    (STATIC ? staticCard(target) : apiCard(target))
       .then(function (data) {
         if (seq !== requestSeq || activeLink !== a) return;  // pointer moved on before this landed
         if (!data) { hide(); return; }
@@ -109,6 +111,64 @@
         place(a);
       })
       .catch(function () { if (seq === requestSeq) hide(); });
+  }
+
+  function apiCard(target) {
+    var query = "section=" + encodeURIComponent(target.section) +
+      "&fragment=" + encodeURIComponent(target.fragment);
+    return fetch("/api" + target.base + "/preview?" + query)
+      .then(function (res) { return res.ok ? res.json() : null; });
+  }
+
+  // One file per target page, holding every anchor within it that
+  // anything links to -- so following several links into the same section
+  // costs one request, and a page nothing links to costs none at all. A
+  // missing file is an ordinary answer, not an error: it is what a link
+  // into a document this site hasn't published looks like, and the card
+  // simply doesn't appear.
+  var files = {};
+
+  function staticCard(target) {
+    var url = target.base + (target.section ? "/section/" + target.section : "") + "/preview.json";
+    if (!files[url]) {
+      files[url] = fetch(url)
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(decryptIfGated)
+        .catch(function () { return null; });
+    }
+    return files[url].then(function (previews) {
+      return (previews && previews[target.fragment]) || null;
+    });
+  }
+
+  // A preview is the provision's own words, so on a gated build it is
+  // encrypted exactly as the pages are (see ai_pipeline/site_crypto.py).
+  // The key is the one the unlock page already derived -- found by the
+  // salt this page carries, so no passphrase is handled here and a reader
+  // who hasn't unlocked simply gets no card.
+  var siteKey = null;
+
+  function decryptIfGated(payload) {
+    if (!payload || !payload.iv) return payload;
+    if (!siteKey) {
+      var salt = document.body.dataset.siteSalt;
+      var cached = null;
+      try { cached = salt && sessionStorage.getItem("siteKey:" + salt); } catch (e) {}
+      siteKey = cached
+        ? crypto.subtle.importKey("raw", bytes(cached), { name: "AES-GCM", length: 256 }, true, ["decrypt"])
+        : Promise.reject();
+    }
+    return siteKey
+      .then(function (key) {
+        return crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes(payload.iv) }, key, bytes(payload.ct));
+      })
+      .then(function (plain) { return JSON.parse(new TextDecoder().decode(plain)); });
+  }
+
+  function bytes(b64) {
+    var binary = atob(b64), out = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
   }
 
   function hide() {

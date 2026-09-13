@@ -1349,7 +1349,8 @@ def _asset_base(base_url: str) -> str:
 
 
 def page_shell(title: str, body_html: str, previewbar_html: str = "",
-               base_url: str | None = None, reader: bool = False) -> str:
+               base_url: str | None = None, reader: bool = False,
+               preview_source: str = "api", site_salt: str | None = None) -> str:
     """One page, built into static/site/page.html -- see that file for
     what each placeholder is.
 
@@ -1362,11 +1363,22 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
 
     reader lays the page out as a section: an outline column beside the
     text, rather than one centred column (see static/site/reader.css).
-    """
+
+    preview_source is where the hover cards get their content: "api" for
+    a server that can render one on demand (the dashboard), or "static"
+    for pre-built preview.json files beside each page (the published
+    site, which has no server to ask). site_salt, on a gated build, is
+    how preview.js finds the key the unlock page derived -- the preview
+    data is encrypted with it like everything else."""
+    body_attrs = ""
+    if base_url:
+        body_attrs = f' data-base-url="{_esc(base_url)}" data-preview="{_esc(preview_source)}"'
+        if site_salt:
+            body_attrs += f' data-site-salt="{_esc(site_salt)}"'
     replacements = {
         "{{TITLE}}": _esc(title),
         "{{ASSETS}}": _esc(_asset_base(base_url or "")),
-        "{{BODY_ATTRS}}": f' data-base-url="{_esc(base_url)}"' if base_url else "",
+        "{{BODY_ATTRS}}": body_attrs,
         "{{MAIN_CLASS}}": "page page-reader" if reader else "page",
         "{{PREVIEWBAR}}": previewbar_html,
         # Last, so a stray "{{...}}" inside the page's own text -- a

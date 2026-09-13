@@ -16,7 +16,9 @@
                 dashboard, "/<repo>/assets" on a GitHub Pages project
                 site. Every asset URL must go through it.
     BODY_ATTRS  data-base-url, which the reader and preview scripts need
-                to tell a link into this document from any other
+                to tell a link into this document from any other, plus
+                data-preview (where the hover cards' content comes from)
+                and, on a gated build, data-site-salt
     MAIN_CLASS  "page" for an ordinary page, "page page-reader" for a
                 section, which reader.css lays out differently
     PREVIEWBAR  the dashboard's "this is an internal preview" strip,
