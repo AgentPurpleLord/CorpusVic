@@ -65,18 +65,21 @@ from pathlib import Path
 
 import dashboard
 from ai_pipeline import html_view
+from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.site_crypto import ROBOTS_TXT, SiteGate
 from ai_pipeline.versions import split_document_slug
 
 
-def select_published_slugs(statuses: dict[str, dict]) -> list[str]:
-    """Which of dashboard.act_status()'s own results are worth a public
-    page: parsed, the newest version of its work (never an older,
-    superseded reprint -- see README.md's "Versions of an Act"), and
-    fully reviewed. Pure and file-I/O-free so it's unit-testable on
-    fabricated status dicts -- see tests/test_export_static_site.py.
+def select_candidate_slugs(statuses: dict[str, dict]) -> list[str]:
+    """Which documents are even eligible for the site: parsed, and the
+    newest version of their work (never an older, superseded reprint --
+    see README.md's "Versions of an Act"). Whether any of a candidate's
+    text has actually been approved is a separate question, answered
+    per provision by approved_page_slugs below.
 
-    `statuses` is {slug: dashboard.act_status(slug)}."""
+    Pure and file-I/O-free so it's unit-testable on fabricated status
+    dicts -- see tests/test_export_static_site.py. `statuses` is
+    {slug: dashboard.act_status(slug)}."""
     newest_by_work: dict[str, str] = {}
     for slug, status in statuses.items():
         if not status["parsed"]:
@@ -89,10 +92,40 @@ def select_published_slugs(statuses: dict[str, dict]) -> list[str]:
         _current_work, current_version = split_document_slug(current)
         if version is not None and (current_version is None or version > current_version):
             newest_by_work[work] = slug
-    return sorted(
-        slug for slug in newest_by_work.values()
-        if statuses[slug]["review_status"] == "reviewed"
-    )
+    return sorted(newest_by_work.values())
+
+
+def approved_units(nodes: list, units: list[list[int]]) -> set[int]:
+    """Which units a reviewer has actually approved -- positions into
+    `units`, for the effective nodes review.build_effective_nodes_indexed
+    returns (a merged-away node is None there, and doesn't count against
+    the unit it used to be in).
+
+    Approved means every node still in the unit carries verified_at and
+    none is flagged for follow-up. The two are deliberately exclusive in
+    review.py: flagging a piece means "not sure, revisit this", and
+    commit_unit leaves such a node unstamped on purpose. So a flagged
+    provision is not published, which is the whole point of the reviewer
+    having flagged it."""
+    approved = set()
+    for u, unit in enumerate(units):
+        live = [nodes[i] for i in unit if nodes[i] is not None]
+        if live and all(n.get("verified_at") and not n.get("needs_followup") for n in live):
+            approved.add(u)
+    return approved
+
+
+def approved_page_slugs(nodes: list, units: list[list[int]], by_node_index: dict[int, str]) -> set[str]:
+    """The page ids (build_page_index's own "s14", "s14_2", ...) whose
+    provision is approved and can carry real text. A page is one unit --
+    a Section and everything nested under it -- so it's approved exactly
+    when that unit is."""
+    approved = approved_units(nodes, units)
+    unit_of_root = {unit[0]: u for u, unit in enumerate(units)}
+    return {
+        page for node_index, page in by_node_index.items()
+        if unit_of_root.get(node_index) in approved
+    }
 
 
 def _default_base_path() -> str:
@@ -102,6 +135,43 @@ def _default_base_path() -> str:
     mapped at the root."""
     repo = os.environ.get("GITHUB_REPOSITORY")
     return f"/{repo.split('/')[-1]}" if repo else ""
+
+
+def _provision_label(node: dict) -> str:
+    """"14 Determination of limits" -- enough to name a provision on its
+    own placeholder page, so a reader who followed a link knows which one
+    they were reaching for."""
+    parts = [str(p) for p in (node.get("number"), node.get("heading")) if p]
+    return " ".join(parts) or str(node.get("type", "Provision")).replace("_", " ").capitalize()
+
+
+def _unpublished_page_body(node: dict, base_url: str, act_title: str) -> str:
+    """What stands in for a provision nobody has approved yet. It exists
+    rather than 404ing so that a gap reads as "not published here yet"
+    and never as "no such provision" -- and so every link into it, from
+    the contents list, a neighbouring page or another Act, keeps
+    working."""
+    return (
+        f"<h1>{html.escape(_provision_label(node))}</h1>"
+        '<div class="disclaimer">'
+        "<strong>This provision hasn't been published here yet.</strong> "
+        "It has been parsed but not yet checked by a human, and this site only publishes "
+        "provisions that have been. It says nothing about whether the provision is in force "
+        f"— for the authorised text, see <a href=\"{OFFICIAL_SOURCE_URL}\" rel=\"noopener\">"
+        f"{OFFICIAL_SOURCE_NAME}</a>."
+        "</div>"
+        f'<div class="section-nav"><a href="{base_url}/">{html.escape(act_title)} contents</a></div>'
+    )
+
+
+def _partial_notice_html(approved: int, total: int) -> str:
+    return (
+        '<div class="disclaimer">'
+        f"<strong>Only part of this document has been published: {approved} of {total} provisions.</strong> "
+        "The rest has been parsed but not yet checked by a human. Provisions still to come are listed "
+        "in the contents below and marked, so nothing here is silently missing."
+        "</div>"
+    )
 
 
 def _page(title: str, body: str, base_url: "str | None" = None) -> str:
@@ -124,12 +194,17 @@ def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
     path.write_text(gate.wrap(page_html) if gate else page_html, encoding="utf-8")
 
 
-def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None" = None) -> dict:
+def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None" = None) -> "dict | None":
     """Every page for one document: its index, one per section, and its
     Endnotes if it has any -- exactly what browse_index/browse_section/
     browse_endnotes each build for one HTTP request, just written to
-    files under out_dir/browse/<slug>/ instead. Returns the summary used
-    for the site's own landing page."""
+    files under out_dir/browse/<slug>/ instead.
+
+    A provision nobody has approved yet still gets a page, saying so
+    (see _unpublished_page_body) rather than its text. Returns the
+    summary used for the site's own landing page, or None for a document
+    with nothing approved in it at all -- which has nothing to show and
+    isn't published."""
     base_url = f"{base_path}/browse/{slug}"
     doc_dir = out_dir / "browse" / slug
     nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
@@ -137,15 +212,36 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     amendments = dashboard._amendments(slug)
     page_index = dashboard._page_index(slug)
 
+    # Units grouped over the same node list page_index was built from, so
+    # the two agree on what a node index means. (build_effective_nodes_
+    # indexed keeps original parse positions instead, which is what
+    # run_ai_review.py needs and exactly what must not be mixed in here:
+    # once anything has been merged the two numbering schemes diverge.)
+    # _current_nodes returns the stored verified row wherever there is
+    # one, so verified_at/needs_followup are readable straight off these.
+    units = group_into_units(nodes)
+    published_pages = approved_page_slugs(nodes, units, page_index["by_node_index"])
+    all_pages = set(page_index["by_node_index"].values())
+    if not published_pages:
+        return None
+    unpublished_pages = all_pages - published_pages
+
     index_body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
          "version": dashboard._act_version(slug)},
         title, base_url, superseded=dashboard._superseded(slug),
+        unpublished_pages=unpublished_pages, show_review_badge=False,
     )
+    if unpublished_pages:
+        index_body = _partial_notice_html(len(published_pages), len(all_pages)) + index_body
     _write(doc_dir / "index.html", _page(title, index_body, base_url), gate)
 
     for node_index, section_slug in page_index["by_node_index"].items():
         node = nodes[node_index]
+        if section_slug not in published_pages:
+            _write(doc_dir / "section" / section_slug / "index.html",
+                   _page(title, _unpublished_page_body(node, base_url, title), base_url), gate)
+            continue
         section_number = node.get("number")
         schedule = page_index["schedule_by_node_index"].get(node_index)
         node_type = node["type"]
@@ -175,7 +271,8 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     status = dashboard.act_status(slug)
     return {
         "slug": slug, "title": title, "kind": status["kind"],
-        "as_at": status["version_as_at"], "pages": 1 + len(page_index["by_node_index"]),
+        "as_at": status["version_as_at"], "pages": 1 + len(all_pages),
+        "published_provisions": len(published_pages), "total_provisions": len(all_pages),
     }
 
 
@@ -206,20 +303,32 @@ _FOOTER_HTML = (
 )
 
 
+def _provision_count_html(doc: dict) -> str:
+    """"12 of 112 provisions" for a document still being worked through,
+    and nothing at all for a finished one -- a count beside every entry
+    would just be noise once the answer is always "all of them"."""
+    published, total = doc["published_provisions"], doc["total_provisions"]
+    if published >= total:
+        return ""
+    return f" &middot; {published} of {total} provisions"
+
+
 def _landing_page_html(published: list[dict], base_path: str) -> str:
     kind_labels = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}
     rows = "".join(
         "<li>"
         f'<a href="{base_path}/browse/{doc["slug"]}/">{html.escape(doc["title"])}</a> '
         f'<span class="text-muted">{kind_labels.get(doc["kind"], doc["kind"])}'
-        f'{" &middot; as at " + html.escape(doc["as_at"]) if doc["as_at"] else ""}</span>'
+        f'{" &middot; as at " + html.escape(doc["as_at"]) if doc["as_at"] else ""}'
+        f"{_provision_count_html(doc)}</span>"
         "</li>"
         for doc in published
     )
     intro = (
-        "Automatically generated from this project's review pipeline -- "
-        "every document below has been fully reviewed."
-        if published else "Nothing has been fully reviewed yet."
+        "Automatically generated from this project's review pipeline. Only provisions a "
+        "human has checked are published, so a document may appear here with part of its "
+        "text still to come -- where it does, the count says how much."
+        if published else "Nothing has been checked and published yet."
     )
     body = (
         # First in the body, before the heading: a reader should meet the
@@ -240,8 +349,9 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> list
     snapshot of it long after the gate went up."""
     gate = SiteGate(password) if password else None
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
-    slugs = select_published_slugs(statuses)
-    published = [_build_doc(slug, out, base_path, gate) for slug in slugs]
+    slugs = select_candidate_slugs(statuses)
+    # _build_doc returns None for a candidate with nothing approved in it.
+    published = [doc for doc in (_build_doc(slug, out, base_path, gate) for slug in slugs) if doc]
     _write(out / "index.html", _landing_page_html(published, base_path), gate)
     if gate:
         # Never encrypted: a crawler has to be able to read the one file
@@ -271,9 +381,9 @@ def main():
 
     print(f"Published {len(published)} document(s) to {out}/ (base path: {base_path or '(none)'}):")
     for doc in published:
-        print(f"  {doc['slug']} -- {doc['pages']} page(s)")
+        print(f"  {doc['slug']} -- {doc['published_provisions']}/{doc['total_provisions']} provision(s) published")
     if skipped:
-        print(f"Skipped {len(skipped)} document(s) (not parsed, an older version, or not yet fully reviewed):")
+        print(f"Skipped {len(skipped)} document(s) (not parsed, an older version, or nothing approved in it yet):")
         for slug in skipped:
             print(f"  {slug}")
     print(

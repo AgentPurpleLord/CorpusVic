@@ -91,10 +91,23 @@ on every push to `main` that touches `data/ai_parsed/` or
 an Act through the dashboard and pushing the result *is* the publishing
 step; there's nothing else to run.
 
-Only a document whose newest parsed version is fully reviewed gets a
-page -- an Act still "in progress" or "not yet reviewed" simply isn't in
-the output, so the public site never shows a caveat about incomplete
-review the way the live dashboard's own browse pages do. Two things the
+Publishing is per provision, not per Act. A Section appears once a
+reviewer has accepted every piece of it -- so an Act starts appearing as
+soon as its first provision is approved, and fills in as review
+continues. Flagging a piece for follow-up ("not sure, revisit this")
+deliberately leaves it unstamped, so a flagged provision stays
+unpublished until the doubt is resolved. Only the newest version of a
+work is ever published, and a document with nothing approved in it yet
+doesn't appear at all.
+
+A provision still to come keeps its place: it's listed in the contents
+marked "not yet published", and its page says the same rather than
+404ing. That's deliberate -- for legislation, a section that silently
+vanished would read as a section that doesn't exist, which is the worse
+error. The Act's contents page says how much is published ("10 of 101
+provisions"), and so does the site's landing page.
+
+Two things the
 live dashboard offers aren't in the static build: the hover-preview cards
 degrade to plain links (nothing to fetch from, on a static host), and an
 unresolved citation's standing `/legislation/<no>` address isn't
