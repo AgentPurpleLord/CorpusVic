@@ -95,6 +95,18 @@
 /* The provision you are on: the one line in the outline that has to be
    findable at a glance. Weight and a rule rather than a block of colour,
    which at this size reads as a highlight over the text. */
+/* A provision this site hasn't released yet. The contents page spells it
+   out; here a dot carries it, because the words themselves would set most
+   of a part-published Act's sidebar in two-line entries. The words are
+   still in the markup for a screen reader, which has no dot to see. */
+.outline-leaf a.unpublished { opacity: 0.6; }
+.outline-leaf a.unpublished::after {
+  content: "\00b7"; color: var(--flagged); font-weight: 700; margin-left: 0.4em;
+}
+.outline-unpub {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
 .outline-leaf a[aria-current="page"] {
   color: var(--fg); font-weight: 600;
   box-shadow: -11px 0 0 -9px var(--accent);

@@ -668,20 +668,33 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
 
 
 def _outline_entry(tree_node: dict, base_url: str, filenames_by_eid: dict[str, str],
-                   target_filename: str) -> str:
+                   target_filename: str, unpublished_pages: "set[str] | None") -> str:
     """One section in the outline, marked when it is the page you're on --
     aria-current, so it reads as "you are here" to a screen reader and not
-    merely as a different colour."""
+    merely as a different colour.
+
+    A section whose provision hasn't been released to readers yet is
+    marked too, the way the contents page marks it (see render_index): a
+    line that looks like every other one, and turns out to be a page
+    saying the text isn't there, is worse than one that says so first. The
+    mark is a dot rather than the contents page's "not yet published",
+    which at this width would set most of the sidebar in two-line
+    entries -- with the words themselves kept for a screen reader, which
+    has no dot to see."""
     filename = filenames_by_eid[tree_node["eid"]]
     node = tree_node["node"]
     label = (
         _display_title(node["type"], node.get("number"), node.get("heading"))
         if node["type"] == "schedule" else index_label(node)
     )
+    page_id = _strip_md(filename)
     current = ' aria-current="page"' if filename == target_filename else ""
+    held_back = bool(unpublished_pages) and page_id in unpublished_pages
+    mark = '<span class="outline-unpub"> (not yet published)</span>' if held_back else ""
+    css = ' class="unpublished"' if held_back else ""
     return (
-        f'<li class="outline-leaf"><a href="{base_url}/section/{_strip_md(filename)}"{current}>'
-        f"{_esc(label)}</a></li>"
+        f'<li class="outline-leaf"><a href="{base_url}/section/{page_id}"{current}{css}>'
+        f"{_esc(label)}{mark}</a></li>"
     )
 
 
@@ -700,7 +713,8 @@ def _outline_range(tree_node: dict, provision_word: str) -> str:
 
 
 def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_filename: str,
-                  base_url: str, has_endnotes: bool = False) -> str:
+                  base_url: str, has_endnotes: bool = False,
+                  unpublished_pages: "set[str] | None" = None) -> str:
     """The rest of the document, beside the one provision you're reading.
 
     Collapsed except along the path to this page: the Parts and Divisions
@@ -733,7 +747,8 @@ def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_file
                 # Only the sections beside this one: a collapsed Part's own
                 # sections are what the contents page is for.
                 if expanded:
-                    items.append(_outline_entry(child, base_url, filenames_by_eid, target_filename))
+                    items.append(_outline_entry(child, base_url, filenames_by_eid,
+                                                target_filename, unpublished_pages))
                 continue
             if t not in (*structural_types, "heading_group"):
                 continue  # a provision hanging directly off a Part -- not an outline line
@@ -866,6 +881,7 @@ def render_section(
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
     timeline: list[dict] | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
+    unpublished_pages: "set[str] | None" = None, show_review_badge: bool = True,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -887,7 +903,17 @@ def render_section(
     what the "Compare with another version" choices are labelled with.
 
     parsed["version"], if present, is this reprint's own front matter --
-    what the "Text as at" line states."""
+    what the "Text as at" line states.
+
+    unpublished_pages is the page ids whose provision hasn't been released
+    to readers yet, marked in the outline the same way render_index marks
+    them in the contents.
+
+    show_review_badge is how much of this provision a human has checked --
+    on for the dashboard, whose job is tracking that, and off on a site
+    that only publishes checked provisions, where the badge would read
+    "Fully reviewed" on every page and so say nothing (see render_index,
+    which turns it off for the same reason)."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -911,13 +937,14 @@ def render_section(
         _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
         '<div class="reader-cols">',
         _outline_html(ctx, act_title, breadcrumb, target_filename, base_url,
-                      bool(parsed.get("endnotes"))),
+                      bool(parsed.get("endnotes")), unpublished_pages),
         '<div class="reader-main">',
     ]
     crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
     crumb_bits.extend(_esc(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading"))) for b in breadcrumb)
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
-    out.append(_verification_badge(verification))
+    if show_review_badge:
+        out.append(_verification_badge(verification))
     out.append(f"<h1>{_esc(title)}</h1>")
     # Ordered the way a reader needs them: whether this is even the
     # current law first, then how this provision got to its present
@@ -1339,6 +1366,9 @@ def template_text(name: str) -> str:
     return _template_cache[name][1]
 
 
+_TEMPLATE_COMMENT_RE = re.compile(r"<!--.*?-->\n?", re.S)
+
+
 def _asset_base(base_url: str) -> str:
     """Where static/site/ is served from for a page at base_url -- the
     site prefix plus "/assets", so it is "/assets" on a domain root and
@@ -1385,7 +1415,13 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
         # provision quoting a template, say -- is never substituted.
         "{{BODY}}": body_html,
     }
-    page = template_text("page.html")
+    # Comments are stripped from the template, and only from the template:
+    # they are notes to whoever edits page.html, and shipping them on
+    # every page of a public register of the law would be neither useful
+    # to a reader nor anything to make an editor think twice about writing.
+    # Done before substitution, so a comment in the page's own body (or in
+    # a provision quoting one) is left exactly as it was.
+    page = _TEMPLATE_COMMENT_RE.sub("", template_text("page.html"))
     for placeholder, value in replacements.items():
         page = page.replace(placeholder, value)
     return page

@@ -296,7 +296,8 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             title, base_url, section_slug,
             crossrefs=crossrefs, amendment_index=amendments["index"],
             timeline=entries, version_urls=version_urls, superseded=dashboard._superseded(slug),
-            version_dates=version_dates,
+            version_dates=version_dates, unpublished_pages=unpublished_pages,
+            show_review_badge=False,
         )
         if body is None:
             continue  # not expected -- page_index only ever names real sections

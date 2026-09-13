@@ -432,3 +432,18 @@ def test_a_published_page_says_where_its_previews_come_from(tmp_path):
     page = _page("Test Act", "<p>body</p>", "/browse/a", reader=True)
 
     assert 'data-preview="static"' in page
+
+
+def test_a_published_section_carries_no_review_badge():
+    """On a site that only publishes checked provisions the badge reads
+    "Fully reviewed" on every page, which tells a reader nothing -- the
+    same reason the contents page already drops it."""
+    from ai_pipeline.html_view import render_section
+
+    nodes = [
+        {"type": "part", "number": "1", "heading": "Preliminary", "text": None},
+        {"type": "section", "number": "1", "heading": "Purposes", "text": "This Act—"},
+    ]
+    parsed = {"nodes": nodes, "hierarchy": None}
+    assert "verify-badge" in render_section(parsed, "A", "/browse/a", "s1")
+    assert "verify-badge" not in render_section(parsed, "A", "/browse/a", "s1", show_review_badge=False)

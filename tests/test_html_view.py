@@ -861,3 +861,38 @@ def test_a_document_held_in_one_version_offers_no_comparison():
     # And nothing is claimed to be current when there is nothing to be
     # current against.
     assert "asat-tag" not in body
+
+
+def test_the_templates_own_comments_do_not_ship():
+    """page.html's comments are notes to whoever edits it. A public
+    register of the law has no use for them on every page, and an editor
+    should not have to weigh that before writing one."""
+    page = _shell(base_url="/browse/a")
+
+    assert "MAIN_CLASS" not in page
+    assert "<!--" not in page
+
+
+def test_a_comment_in_the_page_itself_is_left_alone():
+    """Only the template's own comments go: the body is the document's
+    text, and a provision that quotes one is still quoting it."""
+    page = _shell(base_url="/browse/a")
+    from ai_pipeline.html_view import page_shell
+
+    assert "<!-- kept -->" in page_shell("T", "<p>a <!-- kept --> note</p>")
+
+
+def test_the_outline_marks_a_provision_that_is_not_published_yet():
+    """Same reason the contents page marks it: a line that looks like
+    every other one, and turns out to be a page saying the text isn't
+    there, is worse than one that says so first."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10",
+                          unpublished_pages={"s11"})
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+
+    assert '<a href="/browse/a/section/s11" class="unpublished">' in outline
+    # The words are there for a screen reader, which has no dot to see.
+    assert "(not yet published)" in outline
+    assert 'href="/browse/a/section/s11"' in outline, "still linked, not hidden"
+    # And a published neighbour is left alone.
+    assert 'section/s10" aria-current="page">' in outline
