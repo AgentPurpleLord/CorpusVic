@@ -176,9 +176,13 @@ def test_the_landing_page_says_how_much_of_a_part_published_act_is_there():
 
 
 def test_a_fully_published_act_gets_no_provision_count():
-    """Once the answer is always "all of them", the count is noise."""
+    """Once the answer is always "all of them", the count is noise.
+    Asserted against the document's own list entry rather than the rest
+    of the page, which carries scripts of its own that say "provisions"
+    for unrelated reasons."""
     page = _landing_page_html([_doc(published=112, total=112)], "")
-    assert "provisions" not in page.split('<ul class="section-list">')[1]
+    entry = page.split('<ul class="section-list">')[1].split("</ul>")[0]
+    assert "provisions" not in entry
 
 
 def test_the_landing_page_disclaims_before_the_heading():
