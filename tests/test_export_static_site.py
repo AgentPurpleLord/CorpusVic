@@ -47,12 +47,57 @@ def test_select_candidate_slugs_does_not_care_how_far_review_has_got():
     assert select_candidate_slugs(statuses) == ["crimes-act", "evidence-act"]
 
 
-def test_select_candidate_slugs_offers_only_the_newest_version_of_a_work():
+def test_every_parsed_version_is_a_candidate():
+    """Older reprints are published too: "Compare with another version"
+    offers every version held, and an offer that 404s is worse than no
+    offer."""
     statuses = {
         "criminal-procedure-act-v110": _status(),
         "criminal-procedure-act-v114": _status(),
+        "half-parsed-act": _status(parsed=False),
     }
-    assert select_candidate_slugs(statuses) == ["criminal-procedure-act-v114"]
+    assert select_candidate_slugs(statuses) == [
+        "criminal-procedure-act-v110", "criminal-procedure-act-v114"]
+
+
+def test_the_newest_version_is_published_without_a_version_in_its_address():
+    """"/browse/criminal-procedure-act/" is the Act as it now stands and
+    stays that address as new reprints land; an older one keeps its
+    versioned name, so a link to it still means that version a year from
+    now. It is also the address known_acts.yaml has always pointed every
+    cross-Act reference at."""
+    from export_static_site import site_slugs
+
+    assert site_slugs([
+        "crimes-act", "criminal-procedure-act-v110", "criminal-procedure-act-v114",
+    ]) == {
+        "crimes-act": "crimes-act",
+        "criminal-procedure-act-v110": "criminal-procedure-act-v110",
+        "criminal-procedure-act-v114": "criminal-procedure-act",
+    }
+
+
+def test_a_dashboard_url_is_rewritten_to_the_published_address():
+    """dashboard.py builds its URLs for a server at a domain root, naming
+    documents by their parse slug. The published site is neither."""
+    from export_static_site import _rewrite_urls
+
+    slugs = {"criminal-procedure-act-v114": "criminal-procedure-act"}
+    rewrite = lambda v: _rewrite_urls(v, "/repo", slugs)
+
+    assert rewrite("/browse/criminal-procedure-act-v114/section/s5") == \
+        "/repo/browse/criminal-procedure-act/section/s5"
+    assert rewrite("/browse/criminal-procedure-act-v110/") == \
+        "/repo/browse/criminal-procedure-act-v110/"
+    # The shapes dashboard.py actually hands back.
+    assert rewrite({114: "/browse/criminal-procedure-act-v114/"}) == \
+        {114: "/repo/browse/criminal-procedure-act/"}
+    assert rewrite([{"href": "/browse/criminal-procedure-act-v114/section/s5"}]) == \
+        [{"href": "/repo/browse/criminal-procedure-act/section/s5"}]
+    # Anything that isn't a browse URL is left exactly as it was.
+    assert rewrite("https://www.legislation.vic.gov.au") == "https://www.legislation.vic.gov.au"
+    assert rewrite("/legislation/6231") == "/legislation/6231"
+    assert rewrite(None) is None
 
 
 # ---------------------------------------------------------------------
@@ -159,9 +204,10 @@ def test_legislation_href_carries_the_site_prefix_from_base_url():
 # dropped one would leave unofficial text looking authoritative.
 # ---------------------------------------------------------------------
 
-def _doc(published=3, total=3):
+def _doc(published=3, total=3, slug="crimes-act", site_slug=None):
     return {
-        "slug": "crimes-act", "title": "Crimes Act 1958", "kind": "act",
+        "slug": slug, "site_slug": site_slug or slug,
+        "title": "Crimes Act 1958", "kind": "act",
         "as_at": "1 May 2026", "pages": total + 1,
         "published_provisions": published, "total_provisions": total,
     }
@@ -327,8 +373,9 @@ def test_the_published_assets_are_the_template_directory(tmp_path):
 
     assert {"tokens.css", "page.css", "reader.css", "theme.js", "copy.js",
             "reader.js", "preview.js"} <= published
-    assert "Junicode-Roman.woff2" in published
-    assert "OFL.txt" in published, "the font's licence has to travel with it"
+    assert {"Junicode-Roman.woff2", "Inter.woff2"} <= published
+    assert {"Junicode-OFL.txt", "Inter-OFL.txt"} <= published, \
+        "each font's licence has to travel with it"
     assert "page.html" not in published
 
 
@@ -393,10 +440,14 @@ def test_a_preview_is_not_written_for_an_unpublished_provision(tmp_path, monkeyp
     written, out = _preview_site(
         tmp_path,
         {("a", "s1", ""), ("a", "s2", ""), ("b", "s1", "")},
-        {"a": {"s1"}},   # s2 is not approved; document b is not published at all
+        # s2 is not approved; document b is not published at all.
+        {"a": ("a-v3", {"s1"})},
     )
 
     assert written == 1
+    # Written under the published address, from the parse the site slug
+    # stands for.
+    assert calls and calls[0][1] == "Test Act"
     assert (out / "browse/a/section/s1/preview.json").exists()
     assert not (out / "browse/a/section/s2").exists()
     assert not (out / "browse/b").exists()
@@ -417,7 +468,7 @@ def test_a_gated_build_encrypts_its_previews(tmp_path, monkeypatch):
     monkeypatch.setattr(ess.dashboard, "_act_title", lambda slug: "Test Act")
 
     gate = SiteGate("a long enough passphrase")
-    _preview_site(tmp_path, {("a", "s1", "")}, {"a": {"s1"}}, gate)
+    _preview_site(tmp_path, {("a", "s1", "")}, {"a": ("a-v3", {"s1"})}, gate)
     payload = json.loads((tmp_path / "browse/a/section/s1/preview.json").read_text(encoding="utf-8"))
 
     assert set(payload) == {"iv", "ct"}

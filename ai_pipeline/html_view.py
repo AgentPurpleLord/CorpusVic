@@ -698,77 +698,54 @@ def _outline_entry(tree_node: dict, base_url: str, filenames_by_eid: dict[str, s
     )
 
 
-def _outline_range(tree_node: dict, provision_word: str) -> str:
-    """"ss 9-13" beside a Part the reader isn't in, so a collapsed line
-    still says which provisions are behind it. Nothing where the numbers
-    don't read as a range (an unnumbered provision, or just one of
-    them)."""
-    numbers = [
-        tn["node"].get("number") for tn in _iter_tree(tree_node)
-        if tn["node"]["type"] in SECTION_LEVEL_TYPES and tn["node"].get("number")
-    ]
-    if len(numbers) < 2:
-        return ""
-    return f'<span class="outline-range">{provision_word} {_esc(numbers[0])}&ndash;{_esc(numbers[-1])}</span>'
-
-
 def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_filename: str,
                   base_url: str, has_endnotes: bool = False,
                   unpublished_pages: "set[str] | None" = None) -> str:
-    """The rest of the document, beside the one provision you're reading.
+    """The provisions around the one you're reading -- and only those.
 
-    Collapsed except along the path to this page: the Parts and Divisions
-    you aren't in are one line each, the ones you are in are opened, and
-    the sections listed are the ones beside this one. A whole Act's
-    contents in every sidebar would be a second contents page rather than
-    a way of keeping your place -- the Criminal Procedure Act alone would
-    put over a thousand links on every page of itself.
+    Just the branch this page sits on: the Part it is in, the Division
+    within that, and the sections beside it. Not the other Parts, not the
+    Schedules, not the whole Act. An outline that listed everything would
+    be a second contents page in every sidebar (the Criminal Procedure Act
+    alone would put over a thousand links on every page of itself), and
+    what a reader wants beside a provision is its immediate neighbourhood.
+    Going further than that is what the contents page and the Home button
+    are for, and both are linked at the top of this.
 
     A structural line links to its heading on the contents page (the same
-    anchor render_index gives it), because a Part is not a page here.
-
-    It leads with the document's own name, which is otherwise nowhere on a
-    section page -- the heading is the provision's, and "Act index" in the
-    breadcrumb doesn't say which Act."""
+    anchor render_index gives it), because a Part is not a page here. The
+    outline also names the document, which a section page otherwise never
+    states: the heading is the provision's, and "Act index" doesn't say
+    which index."""
     structural_types = ctx["structural_types"]
     filenames_by_eid = ctx["filenames_by_eid"]
     index_slugs = ctx["index_slugs"]
-    # "ss" in an Act, "cll" in a Bill or an Explanatory Memorandum, decided
-    # the same way the contents link's own wording is.
-    provision_word = "cll" if ctx["index_link_text"] == "Contents" else "ss"
     open_eids = {b["eid"] for b in breadcrumb}
 
-    def children_html(tree_node: dict, expanded: bool) -> str:
+    def children_html(tree_node: dict) -> str:
         items = []
         for child in tree_node["children"]:
             node = child["node"]
             t = node["type"]
             if t in SECTION_LEVEL_TYPES or (t == "schedule" and schedule_is_pageable(child)):
-                # Only the sections beside this one: a collapsed Part's own
-                # sections are what the contents page is for.
-                if expanded:
-                    items.append(_outline_entry(child, base_url, filenames_by_eid,
-                                                target_filename, unpublished_pages))
+                items.append(_outline_entry(child, base_url, filenames_by_eid,
+                                            target_filename, unpublished_pages))
                 continue
-            if t not in (*structural_types, "heading_group"):
-                continue  # a provision hanging directly off a Part -- not an outline line
-            is_open = child["eid"] in open_eids
+            # A Part or Division that isn't on the way to this page is not
+            # the immediate context, so it isn't listed at all.
+            if t not in (*structural_types, "heading_group") or child["eid"] not in open_eids:
+                continue
             title = _display_title(t, node.get("number"), node.get("heading"))
             slug = index_slugs.get(child["eid"])
             href = f"{base_url}/#{_esc(slug)}" if slug else f"{base_url}/"
-            classes = "outline-struct open" if is_open else "outline-struct"
-            range_html = "" if is_open else _outline_range(child, provision_word)
             items.append(
-                f'<li class="{classes}"><a href="{href}">{_esc(title)}{range_html}</a>'
-                f"{children_html(child, True) if is_open else ''}</li>"
+                f'<li class="outline-struct"><a href="{href}">{_esc(title)}</a>'
+                f"{children_html(child)}</li>"
             )
         return f'<ul class="outline-list">{"".join(items)}</ul>' if items else ""
 
-    # A root-level section (a preliminary provision sitting outside every
-    # Part) is always listed: there are only ever a handful, and an Act
-    # with no Parts at all is nothing but root-level sections.
     body = "".join(
-        children_html({"children": [root], "node": {"type": ""}, "eid": ""}, True)
+        children_html({"children": [root], "node": {"type": ""}, "eid": ""})
         for root in ctx["tree_roots"]
     )
     endnotes = (
@@ -1369,18 +1346,10 @@ def template_text(name: str) -> str:
 _TEMPLATE_COMMENT_RE = re.compile(r"<!--.*?-->\n?", re.S)
 
 
-def _asset_base(base_url: str) -> str:
-    """Where static/site/ is served from for a page at base_url -- the
-    site prefix plus "/assets", so it is "/assets" on a domain root and
-    "/<repo>/assets" on a GitHub Pages project site. Font URLs inside
-    tokens.css are relative to the stylesheet and so need no prefix of
-    their own."""
-    return f"{_site_prefix(base_url)}/assets"
-
-
 def page_shell(title: str, body_html: str, previewbar_html: str = "",
                base_url: str | None = None, reader: bool = False,
-               preview_source: str = "api", site_salt: str | None = None) -> str:
+               preview_source: str = "api", site_salt: str | None = None,
+               site_prefix: str | None = None) -> str:
     """One page, built into static/site/page.html -- see that file for
     what each placeholder is.
 
@@ -1399,15 +1368,23 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
     for pre-built preview.json files beside each page (the published
     site, which has no server to ask). site_salt, on a gated build, is
     how preview.js finds the key the unlock page derived -- the preview
-    data is encrypted with it like everything else."""
+    data is encrypted with it like everything else.
+
+    site_prefix is what the asset URLs and the Home link are built from
+    for a page that has no base_url to derive them from -- the published
+    site's own landing page, which belongs to no document. Without it that
+    page reaches for the real domain root, which on a GitHub Pages project
+    site is somebody else's."""
     body_attrs = ""
     if base_url:
         body_attrs = f' data-base-url="{_esc(base_url)}" data-preview="{_esc(preview_source)}"'
         if site_salt:
             body_attrs += f' data-site-salt="{_esc(site_salt)}"'
+    prefix = _site_prefix(base_url or "") if site_prefix is None else site_prefix
     replacements = {
         "{{TITLE}}": _esc(title),
-        "{{ASSETS}}": _esc(_asset_base(base_url or "")),
+        "{{ASSETS}}": _esc(f"{prefix}/assets"),
+        "{{HOME}}": _esc(f"{prefix}/"),
         "{{BODY_ATTRS}}": body_attrs,
         "{{MAIN_CLASS}}": "page page-reader" if reader else "page",
         "{{PREVIEWBAR}}": previewbar_html,

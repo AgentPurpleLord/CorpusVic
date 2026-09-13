@@ -76,28 +76,51 @@ from ai_pipeline.versions import split_document_slug
 
 
 def select_candidate_slugs(statuses: dict[str, dict]) -> list[str]:
-    """Which documents are even eligible for the site: parsed, and the
-    newest version of their work (never an older, superseded reprint --
-    see README.md's "Versions of an Act"). Whether any of a candidate's
-    text has actually been approved is a separate question, answered
-    per provision by approved_page_slugs below.
+    """Which documents are even eligible for the site: every parsed one,
+    including older versions of a work. Whether any of a candidate's text
+    has actually been approved is a separate question, answered per
+    provision by approved_page_slugs below -- and a version nobody has
+    reviewed yet publishes nothing and so costs nothing.
+
+    Older reprints are published because a reader needs to be able to go
+    and read one: "Compare with another version" on a provision offers
+    every version this pipeline holds, and an offer that 404s is worse
+    than no offer. They are published at their own versioned addresses,
+    and are not listed on the landing page -- see site_slugs, which is
+    what decides those addresses, and _landing_page_html.
 
     Pure and file-I/O-free so it's unit-testable on fabricated status
     dicts -- see tests/test_export_static_site.py. `statuses` is
     {slug: dashboard.act_status(slug)}."""
-    newest_by_work: dict[str, str] = {}
-    for slug, status in statuses.items():
-        if not status["parsed"]:
-            continue
+    return sorted(slug for slug, status in statuses.items() if status["parsed"])
+
+
+def site_slugs(candidates: list[str]) -> dict[str, str]:
+    """{parse slug -> the path segment it is published under}.
+
+    The newest version of a work is published under the work's own name,
+    with no version in the address at all: /browse/criminal-procedure-act/
+    is the Act as it now stands, and stays that address as new reprints
+    land. Anything older keeps its versioned name, so a link to
+    /browse/criminal-procedure-act-v112/ still means version 112 a year
+    from now, which is exactly what a citation to a point in time needs.
+
+    It also makes the cross-Act links work: known_acts.yaml names a work
+    ("criminal-procedure-act"), so every reference to the Act from another
+    Act's text has always pointed at the unversioned address -- which,
+    until now, nothing was published at."""
+    newest: dict[str, str] = {}
+    for slug in candidates:
         work, version = split_document_slug(slug)
-        current = newest_by_work.get(work)
-        if current is None:
-            newest_by_work[work] = slug
+        held = newest.get(work)
+        if held is None:
+            newest[work] = slug
             continue
-        _current_work, current_version = split_document_slug(current)
-        if version is not None and (current_version is None or version > current_version):
-            newest_by_work[work] = slug
-    return sorted(newest_by_work.values())
+        _w, held_version = split_document_slug(held)
+        if version is not None and (held_version is None or version > held_version):
+            newest[work] = slug
+    current = {slug: work for work, slug in newest.items()}
+    return {slug: current.get(slug, slug) for slug in candidates}
 
 
 def approved_units(nodes: list, units: list[list[int]]) -> set[int]:
@@ -131,6 +154,41 @@ def approved_page_slugs(nodes: list, units: list[list[int]], by_node_index: dict
         page for node_index, page in by_node_index.items()
         if unit_of_root.get(node_index) in approved
     }
+
+
+# dashboard.py builds its browse URLs for the live dashboard: rooted at
+# the domain, and naming a document by its parse slug. Neither is right
+# here -- the site may sit under a repository path, and the newest version
+# of a work is published under the work's own name (see site_slugs). Every
+# such URL that reaches a published page therefore goes through here
+# first. It is a rewrite rather than a parameter threaded through
+# dashboard.py because those helpers serve a running server that is right
+# as it stands, and one rule applied at the boundary is easier to keep
+# whole than a prefix passed through a dozen call sites.
+_BROWSE_URL_RE = re.compile(r"^/browse/([^/]+)(/.*)?$")
+
+
+def _rewrite_url(url: "str | None", base_path: str, slugs: dict) -> "str | None":
+    if not url:
+        return url
+    m = _BROWSE_URL_RE.match(url)
+    if not m:
+        return url
+    slug, rest = m.group(1), m.group(2) or "/"
+    return f"{base_path}/browse/{slugs.get(slug, slug)}{rest}"
+
+
+def _rewrite_urls(value, base_path: str, slugs: dict):
+    """The same rewrite over the shapes dashboard.py hands back: a plain
+    URL, the {version -> URL} map behind "Compare with another version",
+    and the crossref chips' own hrefs."""
+    if isinstance(value, str):
+        return _rewrite_url(value, base_path, slugs)
+    if isinstance(value, dict):
+        return {k: _rewrite_urls(v, base_path, slugs) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rewrite_urls(v, base_path, slugs) for v in value]
+    return value
 
 
 def _default_base_path() -> str:
@@ -182,7 +240,7 @@ def _partial_notice_html(approved: int, total: int) -> str:
 def _copy_template(out: Path) -> None:
     """The whole template directory -- the stylesheets, the browser-side
     scripts and Junicode -- published as "assets/", which is where every
-    page's asset URLs point (see html_view._asset_base).
+    page's asset URLs point (see html_view.page_shell).
 
     Copied wholesale rather than file by file so that adding a stylesheet
     to static/site/ needs no change here; page.html is left out because
@@ -197,7 +255,7 @@ def _copy_template(out: Path) -> None:
     )
 
 def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = False,
-          gate: "SiteGate | None" = None) -> str:
+          gate: "SiteGate | None" = None, site_prefix: "str | None" = None) -> str:
     """A finished page: the body, then the site footer. Every published
     page is built through here rather than calling page_shell directly,
     because the footer is the site's legal notice and the failure to
@@ -212,6 +270,7 @@ def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = F
         # are pre-built (see _write_previews) and the page says so.
         preview_source="static",
         site_salt=base64.b64encode(gate.salt).decode("ascii") if gate else None,
+        site_prefix=site_prefix,
     )
 
 
@@ -223,7 +282,8 @@ def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
     path.write_text(gate.wrap(page_html) if gate else page_html, encoding="utf-8")
 
 
-def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None" = None) -> "dict | None":
+def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None" = None,
+               slugs: "dict | None" = None) -> "dict | None":
     """Every page for one document: its index, one per section, and its
     Endnotes if it has any -- exactly what browse_index/browse_section/
     browse_endnotes each build for one HTTP request, just written to
@@ -238,10 +298,19 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     The summary carries "pages" (the page ids this document released) and
     "links" (everything its pages point at), which between them are what
     _write_previews needs -- gathered here because a page's HTML is only
-    in hand before it is written and, on a gated build, encrypted."""
+    in hand before it is written and, on a gated build, encrypted.
+
+    slugs is site_slugs()'s {parse slug -> published path segment}: this
+    document is written under its own entry, and every URL dashboard.py
+    hands back is rewritten through the whole map."""
     links: set = set()
-    base_url = f"{base_path}/browse/{slug}"
-    doc_dir = out_dir / "browse" / slug
+    slugs = slugs or {}
+    site_slug = slugs.get(slug, slug)
+    base_url = f"{base_path}/browse/{site_slug}"
+    doc_dir = out_dir / "browse" / site_slug
+
+    def site(value):
+        return _rewrite_urls(value, base_path, slugs)
     nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
     title = dashboard._act_title(slug)
     amendments = dashboard._amendments(slug)
@@ -268,7 +337,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     index_body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
          "version": version},
-        title, base_url, superseded=dashboard._superseded(slug),
+        title, base_url, superseded=site(dashboard._superseded(slug)),
         unpublished_pages=unpublished_pages, show_review_badge=False,
     )
     if unpublished_pages:
@@ -294,8 +363,9 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             {"nodes": nodes, "hierarchy": hierarchy, "version": version,
              "endnotes": amendments["endnotes"]},
             title, base_url, section_slug,
-            crossrefs=crossrefs, amendment_index=amendments["index"],
-            timeline=entries, version_urls=version_urls, superseded=dashboard._superseded(slug),
+            crossrefs=site(crossrefs), amendment_index=amendments["index"],
+            timeline=entries, version_urls=site(version_urls),
+            superseded=site(dashboard._superseded(slug)),
             version_dates=version_dates, unpublished_pages=unpublished_pages,
             show_review_badge=False,
         )
@@ -316,7 +386,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
 
     status = dashboard.act_status(slug)
     return {
-        "slug": slug, "title": title, "kind": status["kind"],
+        "slug": slug, "site_slug": site_slug, "title": title, "kind": status["kind"],
         "as_at": status["version_as_at"], "pages": 1 + len(all_pages),
         "published_provisions": len(published_pages), "total_provisions": len(all_pages),
         "published_pages": published_pages, "links": links,
@@ -404,18 +474,25 @@ def _write_previews(out: Path, base_path: str, targets: set, published: dict,
     """One preview.json per linked-to page. Returns how many previews were
     written, for the build log.
 
-    published maps a slug to the page ids that document actually released
-    -- a link into a document that isn't published, or into a provision
+    published maps a document's published path segment to (its parse slug,
+    the page ids it actually released) -- the two differ for the newest
+    version of a work, which is published under the work's own name (see
+    site_slugs), and the targets are read off links and so name the
+    published one.
+
+    A link into a document that isn't published, or into a provision
     nobody has approved yet, gets no preview file and so no card, which is
     the same answer the page behind it would give."""
     by_page = {}
-    for slug, section, fragment in targets:
-        if slug not in published or (section and section not in published[slug]):
+    for site_slug, section, fragment in targets:
+        entry = published.get(site_slug)
+        if entry is None or (section and section not in entry[1]):
             continue
-        by_page.setdefault((slug, section), set()).add(fragment)
+        by_page.setdefault((site_slug, section), set()).add(fragment)
 
     written = 0
-    for (slug, section), fragments in sorted(by_page.items()):
+    for (site_slug, section), fragments in sorted(by_page.items()):
+        slug = published[site_slug][0]
         nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
         parsed = {"nodes": nodes, "hierarchy": hierarchy}
         title = dashboard._act_title(slug)
@@ -426,7 +503,7 @@ def _write_previews(out: Path, base_path: str, targets: set, published: dict,
                 previews[fragment] = card
         if not previews:
             continue
-        path = out / "browse" / slug
+        path = out / "browse" / site_slug
         if section:
             path = path / "section" / section
         path.mkdir(parents=True, exist_ok=True)
@@ -446,21 +523,30 @@ def _provision_count_html(doc: dict) -> str:
 
 
 def _landing_page_html(published: list[dict], base_path: str) -> str:
+    """The way in. Only current documents are listed: an older reprint is
+    published and readable, but it is reached by asking for it -- from the
+    provision you are on, where "Compare with another version" knows which
+    provision you mean. A list that offered five reprints of one Act side
+    by side would make choosing the right one the reader's first problem.
+
+    A document is current here exactly when site_slugs gave it the work's
+    own unversioned address."""
     kind_labels = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}
+    current = [doc for doc in published if doc["site_slug"] == split_document_slug(doc["slug"])[0]]
     rows = "".join(
         "<li>"
-        f'<a href="{base_path}/browse/{doc["slug"]}/">{html.escape(doc["title"])}</a> '
+        f'<a href="{base_path}/browse/{doc["site_slug"]}/">{html.escape(doc["title"])}</a> '
         f'<span class="text-muted">{kind_labels.get(doc["kind"], doc["kind"])}'
         f'{" &middot; as at " + html.escape(doc["as_at"]) if doc["as_at"] else ""}'
         f"{_provision_count_html(doc)}</span>"
         "</li>"
-        for doc in published
+        for doc in current
     )
     intro = (
         "Automatically generated from this project’s review pipeline. Only provisions a "
         "human has checked are published, so a document may appear here with part of its "
         "text still to come \u2014 where it does, the count says how much."
-        if published else "Nothing has been checked and published yet."
+        if current else "Nothing has been checked and published yet."
     )
     body = (
         # First in the body, before the heading: a reader should meet the
@@ -468,9 +554,9 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
         f'<div class="disclaimer">{_NOT_OFFICIAL_HTML}</div>'
         "<h1>Published legislation</h1>"
         f"<p>{intro}</p>"
-        + (f'<ul class="section-list">{rows}</ul>' if published else "")
+        + (f'<ul class="section-list">{rows}</ul>' if current else "")
     )
-    return _page("Published legislation", body)
+    return _page("Published legislation", body, site_prefix=base_path)
 
 
 def build_site(out: Path, base_path: str, password: "str | None" = None) -> tuple:
@@ -485,9 +571,12 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> tupl
     gate = SiteGate(password) if password else None
     _copy_template(out)
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
-    slugs = select_candidate_slugs(statuses)
+    candidates = select_candidate_slugs(statuses)
+    slugs = site_slugs(candidates)
     # _build_doc returns None for a candidate with nothing approved in it.
-    published = [doc for doc in (_build_doc(slug, out, base_path, gate) for slug in slugs) if doc]
+    published = [
+        doc for doc in (_build_doc(slug, out, base_path, gate, slugs) for slug in candidates) if doc
+    ]
     landing = _landing_page_html(published, base_path)
     _write(out / "index.html", landing, gate)
     # Across the whole site, not per document: the links most worth
@@ -496,7 +585,8 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> tupl
     # every document's own pages are known.
     targets = _link_targets(landing, base_path).union(*(doc["links"] for doc in published)) if published else set()
     preview_files = _write_previews(
-        out, base_path, targets, {doc["slug"]: doc["published_pages"] for doc in published}, gate)
+        out, base_path, targets,
+        {doc["site_slug"]: (doc["slug"], doc["published_pages"]) for doc in published}, gate)
     if gate:
         # Never encrypted: a crawler has to be able to read the one file
         # that tells it to go away.
@@ -525,10 +615,12 @@ def main():
 
     print(f"Published {len(published)} document(s) to {out}/ (base path: {base_path or '(none)'}):")
     for doc in published:
-        print(f"  {doc['slug']} -- {doc['published_provisions']}/{doc['total_provisions']} provision(s) published")
+        at = "" if doc["site_slug"] == doc["slug"] else f" (at /browse/{doc['site_slug']}/)"
+        print(f"  {doc['slug']}{at} -- "
+              f"{doc['published_provisions']}/{doc['total_provisions']} provision(s) published")
     print(f"{preview_files} page(s) carry hover-preview data for the links that reach them.")
     if skipped:
-        print(f"Skipped {len(skipped)} document(s) (not parsed, an older version, or nothing approved in it yet):")
+        print(f"Skipped {len(skipped)} document(s) (not parsed, or nothing approved in them yet):")
         for slug in skipped:
             print(f"  {slug}")
     print(

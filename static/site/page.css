@@ -57,11 +57,24 @@ a:hover { text-decoration: underline; }
   line-height: 1.42;
   max-width: 34em;
   margin: 0 0 11px;
-  /* Both in em, so the reading-size control moves the indent and the
+  /* Justified, which is how the Act itself prints, with hyphenation on --
+     justifying without it opens rivers of white space, and a provision's
+     measure is narrow enough that a long word would otherwise leave a
+     line half empty. */
+  text-align: justify;
+  hyphens: auto;
+  /* The number's own column. One value, used three times over: it is the
+     padding the text sits behind, the negative indent that pulls the
+     first line back out so the number hangs in that padding, and the
+     width of the number's box. They have to agree exactly, or wrapped
+     lines land somewhere other than under the first line's text -- so
+     they are one variable rather than three numbers to keep in step.
+     Both in em, so the reading-size control moves the indent and the
      measure with the text: a reader who asks for larger type wants
      larger type, not the same line broken into fewer words. */
-  padding-left: calc(var(--depth, 0) * 1.37em + 2.4em);
-  text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
+  --label: 2.4em;
+  padding-left: calc(var(--depth, 0) * 1.37em + var(--label));
+  text-indent: calc(-1 * var(--label));
 }
 /* No number to hang, so no hanging indent -- the text just starts
    where a numbered sibling's text does, instead of its first line
@@ -73,14 +86,31 @@ a:hover { text-decoration: underline; }
    the same column a lettered sibling's "(a)" would. */
 .prov-paragraph.prov-nolabel,
 .prov-subparagraph.prov-nolabel,
-.prov-sub_subparagraph.prov-nolabel { text-indent: -2.4em; }
+.prov-sub_subparagraph.prov-nolabel { text-indent: calc(-1 * var(--label)); }
 .prov-paragraph.prov-nolabel::before,
 .prov-subparagraph.prov-nolabel::before,
 .prov-sub_subparagraph.prov-nolabel::before {
   content: "•";
-  display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
+  color: var(--muted);
 }
-.prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
+/* The number, in the column the hanging indent opened for it. Two things
+   here are easy to get wrong and were:
+
+   text-indent is inherited, and an inline-block starts a line of its own
+   -- so without resetting it the number is painted a whole --label to the
+   left of its own box, hanging outside the text column entirely and, on a
+   section page, sliding under the outline beside it.
+
+   box-sizing is border-box for everything on this page, so a min-width
+   has to be the box's *whole* width, padding included -- a 1.9em box with
+   0.5em of padding is 1.9em wide, not 2.4em, and the half-em it is short
+   by is exactly how far wrapped lines end up out of line with the first. */
+.prov-num,
+.prov-paragraph.prov-nolabel::before,
+.prov-subparagraph.prov-nolabel::before,
+.prov-sub_subparagraph.prov-nolabel::before {
+  display: inline-block; min-width: var(--label); padding-right: 0.5em; text-indent: 0;
+}
 /* Italic alone, never italic *and* bold: two emphases at once is one
    more than the text needs, and a defined term is already announced by
    being defined. */
@@ -263,10 +293,10 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .linkpeek.open { display: block; }
 .linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
 .linkpeek .peek-sub { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
-.linkpeek .prov { margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + 2.2em); text-indent: -2.2em; }
+.linkpeek .prov { --label: 2.2em; margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + var(--label)); text-align: left; }
 .linkpeek .prov-nolabel { text-indent: 0; }
 .linkpeek .prov:last-child { margin-bottom: 0; }
-.linkpeek .prov-num { min-width: 1.7em; padding-right: 0.5em; }
+.linkpeek .prov-num { min-width: var(--label); }
 .linkpeek .peek-more {
   position: sticky; bottom: -12px;   /* cancels the card's own bottom padding */
   background: var(--panel);
@@ -275,8 +305,25 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .linkpeek .peek-loading { font-family: var(--sans); font-size: 12px; color: var(--muted); }
 
+/* The site's own bar: where you are in it, and the way back out. Sticky
+   because both are wanted from part-way down a long provision, not only
+   from the top of one -- and slim enough that keeping it costs little.
+   --header-h is what the outline's own sticky offset is measured from, so
+   the two never cover each other. */
+:root { --header-h: 41px; }
+.siteheader {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 20px; background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--sans);
+}
+.home {
+  font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: var(--fg);
+}
+.home:hover { color: var(--accent); text-decoration: none; }
 .theme-toggle {
-  position: fixed; top: 10px; right: 14px; z-index: 30;
+  margin-left: auto;
   border: 1px solid var(--border); background: var(--panel); color: var(--fg);
   border-radius: 0; padding: 4px 9px; cursor: pointer; font-size: 13px;
   font-family: var(--sans);
