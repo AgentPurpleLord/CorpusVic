@@ -1,5 +1,143 @@
-/* The section reading view: an outline column beside the text, the
-   reading controls above it, and the next/previous provisions below.
+/* The section reading view: the reading controls above the text, an
+   outline of the rest of the document beside it, and the provisions
+   either side of this one below.
+
    Everything here is scoped to .page-reader, which page_shell only puts
    on a section page -- the contents and Endnotes pages stay the single
-   centred column page.css lays out. */
+   centred column page.css lays out. The reading controls are driven by
+   reader.js, which sets two attributes on <html> and nothing else:
+   data-prov-size (a step from 0 to 4) and data-notes ("off"), both
+   remembered per reader. */
+
+/* Wider than an ordinary page, because the text column itself is not:
+   the extra width is the outline, and the provisions keep the same
+   measure they have everywhere else (see page.css's .prov). */
+.page-reader { max-width: 1240px; }
+
+/* --- the bar of reading controls ------------------------------------ */
+.readerbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px;
+  font-family: var(--sans); font-size: 13px;
+  border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 20px;
+}
+.asat { display: flex; align-items: baseline; gap: 8px; }
+/* Small caps-with-letterspacing for a label, per Butterick: all-caps set
+   without it is a wall, and 10% is the low end of what he asks for. */
+.asat-label, .ctl-label {
+  font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.asat strong { font-weight: 600; font-size: 13.5px; }
+.asat-tag {
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 7px; background: var(--verify-full-bg); color: var(--done);
+}
+.asat-tag.superseded { background: var(--warn-bg); color: var(--flagged); }
+
+/* A disclosure, not a menu: the versions are a short list a reader picks
+   from on the dates, and a native <details> needs no script to work. */
+.versions { position: relative; }
+.versions > summary {
+  cursor: pointer; color: var(--accent); font-size: 12.5px; list-style: none;
+}
+.versions > summary::-webkit-details-marker { display: none; }
+.versions > summary::after { content: " \2192"; }
+.versions[open] > summary::after { content: ""; }
+.versions > summary:hover { text-decoration: underline; }
+.version-list {
+  list-style: none; margin: 0; padding: 10px 14px;
+  position: absolute; z-index: 5; left: 0; top: 100%; min-width: 230px;
+  background: var(--panel); border: 1px solid var(--border);
+}
+.version-list li { padding: 3px 0; font-size: 13px; white-space: nowrap; }
+.version-date { color: var(--muted); font-size: 12px; }
+
+.readerctl { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.ctl-btn {
+  font-family: var(--sans); font-size: 12.5px; padding: 4px 9px; cursor: pointer;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 0;
+}
+.ctl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctl-btn[aria-pressed="false"] { color: var(--muted); }
+.ctl-btn:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--muted); }
+
+/* --- outline beside the text ---------------------------------------- */
+.reader-cols { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 0 34px; }
+.outline {
+  font-family: var(--sans); font-size: 13px; line-height: 1.4;
+  border-right: 1px solid var(--border); padding-right: 20px;
+  /* Sticky and self-scrolling: a long Part's sections must not push the
+     provision you are reading off the top of the screen. */
+  position: sticky; top: 16px; align-self: start;
+  max-height: calc(100vh - 32px); overflow-y: auto;
+}
+/* The document's name, which a section page otherwise never states. */
+.outline-doc {
+  display: block; color: var(--fg); font-weight: 600; font-size: 13.5px;
+  line-height: 1.3; margin-bottom: 6px;
+}
+.outline-doc:hover { color: var(--accent); }
+.outline-contents, .outline-endnotes { display: block; font-size: 12px; color: var(--muted); }
+.outline-endnotes { margin-bottom: 12px; }
+.outline-contents:hover, .outline-endnotes:hover { color: var(--accent); }
+.outline-range { margin-left: 0.4em; }
+.outline-list { list-style: none; margin: 0; padding: 0; }
+.outline-list .outline-list {
+  /* The opened branch, set in from its heading and ruled, so how deep a
+     provision sits is visible rather than inferred. */
+  margin: 3px 0 7px 2px; padding-left: 11px; border-left: 2px solid var(--border);
+}
+.outline-list a { display: block; padding: 3px 0; color: var(--muted); }
+.outline-list a:hover { color: var(--accent); text-decoration: none; }
+.outline-struct > a { color: var(--fg); font-size: 12.5px; }
+.outline-struct.open > a { font-weight: 600; color: var(--accent); }
+.outline-range { font-size: 11.5px; color: var(--muted); font-weight: 400; }
+/* The provision you are on: the one line in the outline that has to be
+   findable at a glance. Weight and a rule rather than a block of colour,
+   which at this size reads as a highlight over the text. */
+.outline-leaf a[aria-current="page"] {
+  color: var(--fg); font-weight: 600;
+  box-shadow: -11px 0 0 -9px var(--accent);
+}
+
+/* --- the provisions either side ------------------------------------- */
+.page-reader .section-nav { display: flex; align-items: baseline; gap: 18px; }
+.section-nav .nav-up { margin-left: auto; margin-right: auto; color: var(--muted); }
+.section-nav .nav-next { text-align: right; }
+
+/* --- what the reading controls change ------------------------------- */
+/* Five steps across Butterick's 15-25px range for body text, the default
+   sitting where the page has always been. Set on <html> so a provision in
+   a hover card scales with the page it was opened from. */
+:root { --prov-size: 19px; }
+:root[data-prov-size="0"] { --prov-size: 16px; }
+:root[data-prov-size="1"] { --prov-size: 17.5px; }
+:root[data-prov-size="2"] { --prov-size: 19px; }
+:root[data-prov-size="3"] { --prov-size: 21.5px; }
+:root[data-prov-size="4"] { --prov-size: 24px; }
+
+/* Turning the notes off gives the column back to nothing: the measure is
+   capped on the provision itself, so the text stays where it was rather
+   than stretching to fill the width. That keeps "Notes on" and "Text
+   only" the same reading, one with an apparatus and one without. */
+:root[data-notes="off"] .provisions { grid-template-columns: minmax(0, 1fr); }
+:root[data-notes="off"] .prov-notes { display: none; }
+
+@media (max-width: 950px) {
+  /* No room for a column beside the text, so the outline goes below it
+     rather than above: someone who opened a provision on a phone came to
+     read it, and twenty contents links before the first word would be a
+     page they have to scroll past every time. Reordering rather than
+     hiding keeps it reachable, and needs no script and no toggle -- it
+     lands beside the next/previous links, which is where a contents list
+     belongs on a phone anyway. */
+  .reader-cols { display: flex; flex-direction: column; }
+  .reader-main { order: 1; }
+  .outline {
+    order: 2;
+    position: static; max-height: none; overflow: visible;
+    border-right: 0; border-top: 2px solid var(--border);
+    padding: 16px 0 0; margin-top: 26px;
+  }
+  .readerctl { margin-left: 0; }
+}

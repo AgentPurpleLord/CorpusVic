@@ -34,12 +34,20 @@
 <link rel="stylesheet" href="{{ASSETS}}/tokens.css">
 <link rel="stylesheet" href="{{ASSETS}}/page.css">
 <link rel="stylesheet" href="{{ASSETS}}/reader.css">
-<!-- Inline, and in the head, on purpose: a dark-mode reader must not be
-     shown a white page first. Anything deferred to a file or to the end
-     of the body paints before it runs. -->
+<!-- Inline, and in the head, on purpose: every one of these is a stored
+     preference about how the page looks, and anything deferred to a file
+     or to the end of the body paints before it runs -- a dark-mode reader
+     would get a white page first, and a reader who has asked for large
+     text would watch it resize. reader.js owns the two reading
+     preferences once the page is up; this only puts them on before the
+     first paint. -->
 <script>
 try {
-  if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark";
+  var d = document.documentElement.dataset;
+  if (localStorage.getItem("reviewTheme") === "dark") d.theme = "dark";
+  var size = localStorage.getItem("readerProvSize");
+  if (size !== null) d.provSize = size;
+  if (localStorage.getItem("readerNotes") === "off") d.notes = "off";
 } catch (e) {}
 </script>
 </head>

@@ -194,7 +194,7 @@ def _copy_template(out: Path) -> None:
         dirs_exist_ok=True,
     )
 
-def _page(title: str, body: str, base_url: "str | None" = None) -> str:
+def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = False) -> str:
     """A finished page: the body, then the site footer. Every published
     page is built through here rather than calling page_shell directly,
     because the footer is the site's legal notice and the failure to
@@ -203,7 +203,7 @@ def _page(title: str, body: str, base_url: "str | None" = None) -> str:
     The live dashboard's own /browse pages don't get this -- they're an
     internal preview behind a login, already labelled as one, not a thing
     the public reads."""
-    return html_view.page_shell(title, body + _FOOTER_HTML, base_url=base_url)
+    return html_view.page_shell(title, body + _FOOTER_HTML, base_url=base_url, reader=reader)
 
 
 def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
@@ -231,6 +231,10 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     title = dashboard._act_title(slug)
     amendments = dashboard._amendments(slug)
     page_index = dashboard._page_index(slug)
+    # Read once for the whole document rather than per section page: both
+    # are the same answer on every page of it.
+    version = dashboard._act_version(slug)
+    version_dates = dashboard._version_dates(slug)
 
     # Units grouped over the same node list page_index was built from, so
     # the two agree on what a node index means. (build_effective_nodes_
@@ -248,7 +252,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
 
     index_body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
-         "version": dashboard._act_version(slug)},
+         "version": version},
         title, base_url, superseded=dashboard._superseded(slug),
         unpublished_pages=unpublished_pages, show_review_badge=False,
     )
@@ -271,14 +275,17 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             if node_type in ("section", "clause") else []
         )
         body = html_view.render_section(
-            {"nodes": nodes, "hierarchy": hierarchy}, title, base_url, section_slug,
+            {"nodes": nodes, "hierarchy": hierarchy, "version": version,
+             "endnotes": amendments["endnotes"]},
+            title, base_url, section_slug,
             crossrefs=crossrefs, amendment_index=amendments["index"],
             timeline=entries, version_urls=version_urls, superseded=dashboard._superseded(slug),
+            version_dates=version_dates,
         )
         if body is None:
             continue  # not expected -- page_index only ever names real sections
         _write(doc_dir / "section" / section_slug / "index.html",
-               _page(title, body, base_url), gate)
+               _page(title, body, base_url, reader=True), gate)
 
     endnotes_body = html_view.render_endnotes(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},

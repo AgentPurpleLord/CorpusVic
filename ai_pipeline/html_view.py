@@ -657,11 +657,215 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
     )
 
 
+# ---------------------------------------------------------------------------
+# The section reading view
+# ---------------------------------------------------------------------------
+# A section page carries three pieces of furniture the contents and
+# Endnotes pages don't: an outline of the rest of the document beside the
+# text, a bar of reading controls above it, and the provisions either side
+# of this one below it. See static/site/reader.css and reader.js for the
+# other half of each.
+
+
+def _outline_entry(tree_node: dict, base_url: str, filenames_by_eid: dict[str, str],
+                   target_filename: str) -> str:
+    """One section in the outline, marked when it is the page you're on --
+    aria-current, so it reads as "you are here" to a screen reader and not
+    merely as a different colour."""
+    filename = filenames_by_eid[tree_node["eid"]]
+    node = tree_node["node"]
+    label = (
+        _display_title(node["type"], node.get("number"), node.get("heading"))
+        if node["type"] == "schedule" else index_label(node)
+    )
+    current = ' aria-current="page"' if filename == target_filename else ""
+    return (
+        f'<li class="outline-leaf"><a href="{base_url}/section/{_strip_md(filename)}"{current}>'
+        f"{_esc(label)}</a></li>"
+    )
+
+
+def _outline_range(tree_node: dict, provision_word: str) -> str:
+    """"ss 9-13" beside a Part the reader isn't in, so a collapsed line
+    still says which provisions are behind it. Nothing where the numbers
+    don't read as a range (an unnumbered provision, or just one of
+    them)."""
+    numbers = [
+        tn["node"].get("number") for tn in _iter_tree(tree_node)
+        if tn["node"]["type"] in SECTION_LEVEL_TYPES and tn["node"].get("number")
+    ]
+    if len(numbers) < 2:
+        return ""
+    return f'<span class="outline-range">{provision_word} {_esc(numbers[0])}&ndash;{_esc(numbers[-1])}</span>'
+
+
+def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_filename: str,
+                  base_url: str, has_endnotes: bool = False) -> str:
+    """The rest of the document, beside the one provision you're reading.
+
+    Collapsed except along the path to this page: the Parts and Divisions
+    you aren't in are one line each, the ones you are in are opened, and
+    the sections listed are the ones beside this one. A whole Act's
+    contents in every sidebar would be a second contents page rather than
+    a way of keeping your place -- the Criminal Procedure Act alone would
+    put over a thousand links on every page of itself.
+
+    A structural line links to its heading on the contents page (the same
+    anchor render_index gives it), because a Part is not a page here.
+
+    It leads with the document's own name, which is otherwise nowhere on a
+    section page -- the heading is the provision's, and "Act index" in the
+    breadcrumb doesn't say which Act."""
+    structural_types = ctx["structural_types"]
+    filenames_by_eid = ctx["filenames_by_eid"]
+    index_slugs = ctx["index_slugs"]
+    # "ss" in an Act, "cll" in a Bill or an Explanatory Memorandum, decided
+    # the same way the contents link's own wording is.
+    provision_word = "cll" if ctx["index_link_text"] == "Contents" else "ss"
+    open_eids = {b["eid"] for b in breadcrumb}
+
+    def children_html(tree_node: dict, expanded: bool) -> str:
+        items = []
+        for child in tree_node["children"]:
+            node = child["node"]
+            t = node["type"]
+            if t in SECTION_LEVEL_TYPES or (t == "schedule" and schedule_is_pageable(child)):
+                # Only the sections beside this one: a collapsed Part's own
+                # sections are what the contents page is for.
+                if expanded:
+                    items.append(_outline_entry(child, base_url, filenames_by_eid, target_filename))
+                continue
+            if t not in (*structural_types, "heading_group"):
+                continue  # a provision hanging directly off a Part -- not an outline line
+            is_open = child["eid"] in open_eids
+            title = _display_title(t, node.get("number"), node.get("heading"))
+            slug = index_slugs.get(child["eid"])
+            href = f"{base_url}/#{_esc(slug)}" if slug else f"{base_url}/"
+            classes = "outline-struct open" if is_open else "outline-struct"
+            range_html = "" if is_open else _outline_range(child, provision_word)
+            items.append(
+                f'<li class="{classes}"><a href="{href}">{_esc(title)}{range_html}</a>'
+                f"{children_html(child, True) if is_open else ''}</li>"
+            )
+        return f'<ul class="outline-list">{"".join(items)}</ul>' if items else ""
+
+    # A root-level section (a preliminary provision sitting outside every
+    # Part) is always listed: there are only ever a handful, and an Act
+    # with no Parts at all is nothing but root-level sections.
+    body = "".join(
+        children_html({"children": [root], "node": {"type": ""}, "eid": ""}, True)
+        for root in ctx["tree_roots"]
+    )
+    endnotes = (
+        f'<a class="outline-endnotes" href="{base_url}/endnotes">Endnotes</a>' if has_endnotes else ""
+    )
+    return (
+        '<nav class="outline" aria-label="Contents">'
+        f'<a class="outline-doc" href="{base_url}/">{_esc(act_title)}</a>'
+        f'<a class="outline-contents" href="{base_url}/">{_esc(ctx["index_link_text"])}</a>'
+        f"{endnotes}{body}</nav>"
+    )
+
+
+def _version_choices_html(version_urls: "dict | None", version_dates: "dict | None",
+                          this_version: "int | None") -> str:
+    """"Compare with another version" -- every other version of the Act
+    held here that pages this same provision, so the comparison lands on
+    the same words rather than on that version's front page.
+
+    A disclosure rather than a button that goes somewhere: which version
+    you want is a choice, and the dates are what you make it on. Nothing
+    at all where this is the only version that has the provision, which is
+    most documents -- a control offering no choices is worse than none."""
+    others = sorted(
+        (version, url) for version, url in (version_urls or {}).items() if version != this_version
+    )
+    if not others:
+        return ""
+    items = []
+    for version, url in reversed(others):  # newest first: the likeliest comparison
+        when = (version_dates or {}).get(version)
+        dated = f' <span class="version-date">as at {_esc(when)}</span>' if when else ""
+        items.append(f'<li><a href="{_esc(url)}">Version {_esc(str(version))}</a>{dated}</li>')
+    return (
+        '<details class="versions"><summary>Compare with another version</summary>'
+        f'<ul class="version-list">{"".join(items)}</ul></details>'
+    )
+
+
+def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dict | None",
+                    version_dates: "dict | None") -> str:
+    """The bar above the text: which day's law this is, how to compare it
+    with another, and the two reading controls.
+
+    "Text as at" is the date the reprint itself states it incorporates
+    amendments to, read off the PDF's front matter -- not the day the file
+    was parsed, and never offered as the authorised text. A document with
+    no version at all (a Bill, an Explanatory Memorandum) says nothing
+    rather than guessing, and keeps the reading controls."""
+    bits = []
+    as_at = version.get("as_at_printed")
+    this_version = version.get("version")
+    if as_at or this_version is not None:
+        stated = _esc(as_at) if as_at else f"Version {_esc(str(this_version))}"
+        # "Current" only where there is something to be current against:
+        # what this tool knows is the versions it holds, so on a document
+        # with only one the claim would be about nothing (see
+        # dashboard._superseded).
+        tag = ""
+        if version_urls and len(version_urls) > 1:
+            tag = (
+                '<span class="asat-tag superseded">Superseded</span>' if superseded
+                else '<span class="asat-tag">Current</span>'
+            )
+        bits.append(
+            f'<div class="asat"><span class="asat-label">Text as at</span> '
+            f"<strong>{stated}</strong>{tag}</div>"
+        )
+    bits.append(_version_choices_html(version_urls, version_dates, this_version))
+    # The controls are written out by hand rather than by reader.js so that
+    # they are in the HTML a reader without JavaScript gets -- disabled
+    # there, but never a row of buttons that silently do nothing.
+    bits.append(
+        '<div class="readerctl" hidden>'
+        '<span class="ctl-label">Size</span>'
+        '<button type="button" class="ctl-btn" id="reader-smaller" title="Smaller text">A&minus;</button>'
+        '<button type="button" class="ctl-btn" id="reader-bigger" title="Larger text">A+</button>'
+        '<button type="button" class="ctl-btn" id="reader-notes" aria-pressed="true">Notes on</button>'
+        "</div>"
+    )
+    return f'<div class="readerbar">{"".join(bits)}</div>'
+
+
+def _section_nav_html(sections: list, match_index: int, base_url: str,
+                      filenames_by_eid: dict[str, str], index_link_text: str) -> str:
+    """The provisions either side of this one, named. "Next" alone makes a
+    reader click to find out where they are going; "15 Review of a limit"
+    lets them decide not to."""
+
+    def link(offset: int, arrow_before: str, arrow_after: str, css: str) -> str:
+        index = match_index + offset
+        if not 0 <= index < len(sections):
+            return ""
+        tree_node = sections[index][0]
+        label = index_label(tree_node["node"])
+        href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
+        return f'<a class="{css}" href="{href}">{arrow_before}{_esc(label)}{arrow_after}</a>'
+
+    return (
+        '<nav class="section-nav" aria-label="Nearby provisions">'
+        f'{link(-1, "&larr; ", "", "nav-prev")}'
+        f'<a class="nav-up" href="{base_url}/">{_esc(index_link_text)}</a>'
+        f'{link(1, "", " &rarr;", "nav-next")}'
+        "</nav>"
+    )
+
+
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
     timeline: list[dict] | None = None, version_urls: dict | None = None,
-    superseded: dict | None = None,
+    superseded: dict | None = None, version_dates: dict | None = None,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -678,7 +882,12 @@ def render_section(
     mapping a version number to that version's page for this same
     provision. superseded, if given, is {"version", "current",
     "current_url", "as_at_printed"} for the banner saying this reprint
-    is no longer the law."""
+    is no longer the law. version_dates, if given, is {version -> the
+    date that version states it incorporates amendments to}, which is
+    what the "Compare with another version" choices are labelled with.
+
+    parsed["version"], if present, is this reprint's own front matter --
+    what the "Text as at" line states."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -694,7 +903,17 @@ def render_section(
     title = page_title(node)
     verification = _collect_verification([tree_node])
 
-    out = []
+    # The page's own chrome, outside the text column: the reading controls
+    # above, the outline of the rest of the document beside. Both are
+    # built from what this page already knows, so neither needs the caller
+    # to pass anything new.
+    out = [
+        _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
+        '<div class="reader-cols">',
+        _outline_html(ctx, act_title, breadcrumb, target_filename, base_url,
+                      bool(parsed.get("endnotes"))),
+        '<div class="reader-main">',
+    ]
     crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
     crumb_bits.extend(_esc(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading"))) for b in breadcrumb)
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
@@ -780,15 +999,9 @@ def render_section(
         out.append(f'<div class="prov-notes">{notes}</div>')
     out.append("</div>")
 
-    nav = []
-    if match_index > 0:
-        prev_filename = filenames_by_eid[sections[match_index - 1][0]["eid"]]
-        nav.append(f'<a href="{base_url}/section/{_strip_md(prev_filename)}">&laquo; Previous</a>')
-    nav.append(f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>')
-    if match_index + 1 < len(sections):
-        next_filename = filenames_by_eid[sections[match_index + 1][0]["eid"]]
-        nav.append(f'<a href="{base_url}/section/{_strip_md(next_filename)}">Next &raquo;</a>')
-    out.append(f'<div class="section-nav">{" | ".join(nav)}</div>')
+    out.append(_section_nav_html(sections, match_index, base_url, filenames_by_eid, ctx["index_link_text"]))
+    out.append("</div>")   # .reader-main
+    out.append("</div>")   # .reader-cols
 
     return "\n".join(out)
 

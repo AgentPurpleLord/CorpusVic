@@ -48,12 +48,19 @@ a:hover { text-decoration: underline; }
      doesn't eat into its measure. Space between provisions (11px, ~8pt)
      rather than a first-line indent -- never both. The negative
      text-indent isn't that: it hangs the provision number out in the
-     margin, which is how the Act itself prints. */
-  font-size: 19px;
+     margin, which is how the Act itself prints.
+
+     The size is a variable because a section page lets the reader change
+     it -- see reader.css, which defines the steps. 19px is the default
+     wherever nothing sets it. */
+  font-size: var(--prov-size, 19px);
   line-height: 1.42;
   max-width: 34em;
   margin: 0 0 11px;
-  padding-left: calc(var(--depth, 0) * 26px + 2.4em);
+  /* Both in em, so the reading-size control moves the indent and the
+     measure with the text: a reader who asks for larger type wants
+     larger type, not the same line broken into fewer words. */
+  padding-left: calc(var(--depth, 0) * 1.37em + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
 }
 /* No number to hang, so no hanging indent -- the text just starts
