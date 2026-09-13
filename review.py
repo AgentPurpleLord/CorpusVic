@@ -100,10 +100,11 @@ from pathlib import Path
 
 import fitz
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import db
+from ai_pipeline import db, html_view
 from ai_pipeline.ai_assist import build_suggestion
 from ai_pipeline.examples_store import add_correction, stats
 from ai_pipeline.llm_backend import OllamaUnavailable
@@ -942,6 +943,15 @@ def _unit_payload(unit_no: int) -> dict:
 
 app = FastAPI(title="Legislation review")
 
+# static/site/ is the published site's template -- the page shell, its
+# stylesheets, its browser-side scripts and Junicode (see
+# ai_pipeline/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
+# every page's asset URLs are built from, so a browse page served here
+# loads exactly the files export_static_site.py publishes. StaticFiles
+# resolves the path itself and refuses to escape the directory, which is
+# what the hand-rolled /fonts route this replaces had to check for.
+app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")
+
 
 class EditRequest(BaseModel):
     type: str
@@ -1017,26 +1027,6 @@ class NodeTypeDeleteRequest(BaseModel):
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "review.html")
-
-
-# The one filename pattern static/fonts/ holds. Matched rather than
-# trusted: the name arrives in a URL, and joining an unchecked one onto a
-# directory is how a path-traversal read happens.
-_FONT_FILE_RE = re.compile(r"^[A-Za-z0-9-]+\.woff2$")
-
-
-@app.get("/fonts/{name}")
-def font_file(name: str):
-    """Junicode, the reading face for legislative text (see
-    static/fonts/README.md). Served here as well as by dashboard.py so
-    review.py works both standalone and behind the dashboard's proxy."""
-    if not _FONT_FILE_RE.match(name):
-        raise HTTPException(404, "No such font")
-    path = STATIC_DIR / "fonts" / name
-    if not path.is_file():
-        raise HTTPException(404, "No such font")
-    return FileResponse(path, media_type="font/woff2")
-
 
 @app.get("/api/meta")
 def get_meta():

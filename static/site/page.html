@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  The shell every published page is built into: the site's one template.
+
+  ai_pipeline/html_view.py's page_shell() reads this file and substitutes
+  the six double-braced placeholders below; everything else here is
+  ordinary HTML you can edit directly, and the stylesheets and scripts
+  beside it are ordinary files the browser loads (so DevTools names them,
+  and a reload picks up your change without restarting the server).
+
+  The placeholders, named without their braces so that this note does not
+  get substituted along with them:
+
+    TITLE       the page's title, already escaped
+    ASSETS      where this directory is served from -- "/assets" on the
+                dashboard, "/<repo>/assets" on a GitHub Pages project
+                site. Every asset URL must go through it.
+    BODY_ATTRS  data-base-url, which the reader and preview scripts need
+                to tell a link into this document from any other, plus
+                data-preview (where the hover cards' content comes from)
+                and, on a gated build, data-site-salt
+    MAIN_CLASS  "page" for an ordinary page, "page page-reader" for a
+                section, which reader.css lays out differently
+    PREVIEWBAR  the dashboard's "this is an internal preview" strip,
+                empty on the published site
+    BODY        the page itself
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ASSETS}}/tokens.css">
+<link rel="stylesheet" href="{{ASSETS}}/page.css">
+<link rel="stylesheet" href="{{ASSETS}}/reader.css">
+<!-- Inline, and in the head, on purpose: every one of these is a stored
+     preference about how the page looks, and anything deferred to a file
+     or to the end of the body paints before it runs -- a dark-mode reader
+     would get a white page first, and a reader who has asked for large
+     text would watch it resize. reader.js owns the two reading
+     preferences once the page is up; this only puts them on before the
+     first paint. -->
+<script>
+try {
+  var d = document.documentElement.dataset;
+  if (localStorage.getItem("reviewTheme") === "dark") d.theme = "dark";
+  var size = localStorage.getItem("readerProvSize");
+  if (size !== null) d.provSize = size;
+  if (localStorage.getItem("readerNotes") === "off") d.notes = "off";
+} catch (e) {}
+</script>
+</head>
+<body{{BODY_ATTRS}}>
+{{PREVIEWBAR}}
+<button class="theme-toggle" id="theme-toggle-btn" type="button">&#127769;</button>
+<div class="{{MAIN_CLASS}}">
+{{BODY}}
+</div>
+<script src="{{ASSETS}}/theme.js"></script>
+<script src="{{ASSETS}}/copy.js"></script>
+<script src="{{ASSETS}}/reader.js"></script>
+<script src="{{ASSETS}}/preview.js"></script>
+</body>
+</html>

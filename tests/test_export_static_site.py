@@ -313,3 +313,137 @@ def test_the_gate_page_says_nothing_about_the_page_it_holds():
 def test_the_gate_page_asks_crawlers_not_to_index_it():
     wrapped = SiteGate("a long testing passphrase", iterations=_ITERATIONS).wrap(_PAGE)
     assert '<meta name="robots" content="noindex, nofollow">' in wrapped
+
+
+def test_the_published_assets_are_the_template_directory(tmp_path):
+    """Every page points its stylesheets, scripts and fonts at assets/, so
+    a build that didn't copy them would publish text with no styling at
+    all -- and page.html is the one file Python renders rather than the
+    browser fetching, so it has no business being served."""
+    from export_static_site import _copy_template
+
+    _copy_template(tmp_path)
+    published = {p.name for p in (tmp_path / "assets").rglob("*")}
+
+    assert {"tokens.css", "page.css", "reader.css", "theme.js", "copy.js",
+            "reader.js", "preview.js"} <= published
+    assert "Junicode-Roman.woff2" in published
+    assert "OFL.txt" in published, "the font's licence has to travel with it"
+    assert "page.html" not in published
+
+
+# ---------------------------------------------------------------------------
+# Hover previews
+# ---------------------------------------------------------------------------
+def _targets(html: str, base_path: str = "") -> set:
+    from export_static_site import _link_targets
+
+    return _link_targets(html, base_path)
+
+
+def test_a_link_into_a_provision_is_a_preview_target():
+    html = '<a href="/browse/crimes-act/section/s3#def-accused">accused</a>'
+
+    assert _targets(html) == {("crimes-act", "s3", "def-accused")}
+
+
+def test_a_bare_section_link_and_an_index_anchor_are_targets_too():
+    html = ('<a href="/browse/a/section/s5">section 5</a>'
+            '<a href="/browse/a/#part-2">Part 2</a>')
+
+    assert _targets(html) == {("a", "s5", ""), ("a", "", "part-2")}
+
+
+def test_links_outside_the_site_are_not_preview_targets():
+    html = ('<a href="https://www.legislation.vic.gov.au">official</a>'
+            '<a href="/legislation/6231">Crimes Act 1958</a>'
+            '<a href="/browse/a/endnotes">Endnotes</a>')
+
+    assert _targets(html) == set()
+
+
+def test_targets_are_read_against_the_sites_own_prefix():
+    """On a GitHub Pages project site every link carries /<repo>/, and a
+    collector that ignored that would treat the repo name as the slug."""
+    html = '<a href="/vic-legislation-parser/browse/a/section/s5#s5-1">s 5(1)</a>'
+
+    assert _targets(html, "/vic-legislation-parser") == {("a", "s5", "s5-1")}
+    assert _targets(html, "") == set()
+
+
+def _preview_site(tmp_path, targets, published, gate=None):
+    from export_static_site import _write_previews
+
+    written = _write_previews(tmp_path, "", targets, published, gate)
+    return written, tmp_path
+
+
+def test_a_preview_is_not_written_for_an_unpublished_provision(tmp_path, monkeypatch):
+    """A link can point at a provision nobody has approved yet. Its page
+    already says so instead of showing the text; a hover card that showed
+    it anyway would be a hole straight through that."""
+    import export_static_site as ess
+
+    calls = []
+    monkeypatch.setattr(ess.html_view, "render_preview",
+                        lambda *a, **k: calls.append(a) or {"title": "x", "html": ""})
+    monkeypatch.setattr(ess.dashboard, "_current_nodes", lambda slug: ([], [], None))
+    monkeypatch.setattr(ess.dashboard, "_act_title", lambda slug: "Test Act")
+
+    written, out = _preview_site(
+        tmp_path,
+        {("a", "s1", ""), ("a", "s2", ""), ("b", "s1", "")},
+        {"a": {"s1"}},   # s2 is not approved; document b is not published at all
+    )
+
+    assert written == 1
+    assert (out / "browse/a/section/s1/preview.json").exists()
+    assert not (out / "browse/a/section/s2").exists()
+    assert not (out / "browse/b").exists()
+
+
+def test_a_gated_build_encrypts_its_previews(tmp_path, monkeypatch):
+    """A preview is the provision's own words. Publishing it in the clear
+    beside an encrypted page would hand over exactly what the gate is
+    there to keep back."""
+    import json
+
+    import export_static_site as ess
+    from ai_pipeline.site_crypto import SiteGate
+
+    monkeypatch.setattr(ess.html_view, "render_preview",
+                        lambda *a, **k: {"title": "Act", "html": "<p>a secret provision</p>"})
+    monkeypatch.setattr(ess.dashboard, "_current_nodes", lambda slug: ([], [], None))
+    monkeypatch.setattr(ess.dashboard, "_act_title", lambda slug: "Test Act")
+
+    gate = SiteGate("a long enough passphrase")
+    _preview_site(tmp_path, {("a", "s1", "")}, {"a": {"s1"}}, gate)
+    payload = json.loads((tmp_path / "browse/a/section/s1/preview.json").read_text(encoding="utf-8"))
+
+    assert set(payload) == {"iv", "ct"}
+    assert "secret" not in (tmp_path / "browse/a/section/s1/preview.json").read_text(encoding="utf-8")
+
+
+def test_a_published_page_says_where_its_previews_come_from(tmp_path):
+    """The script can't tell a static host from a server by looking, and
+    guessing wrong means either a 404 on every hover or no card at all."""
+    from export_static_site import _page
+
+    page = _page("Test Act", "<p>body</p>", "/browse/a", reader=True)
+
+    assert 'data-preview="static"' in page
+
+
+def test_a_published_section_carries_no_review_badge():
+    """On a site that only publishes checked provisions the badge reads
+    "Fully reviewed" on every page, which tells a reader nothing -- the
+    same reason the contents page already drops it."""
+    from ai_pipeline.html_view import render_section
+
+    nodes = [
+        {"type": "part", "number": "1", "heading": "Preliminary", "text": None},
+        {"type": "section", "number": "1", "heading": "Purposes", "text": "This Act—"},
+    ]
+    parsed = {"nodes": nodes, "hierarchy": None}
+    assert "verify-badge" in render_section(parsed, "A", "/browse/a", "s1")
+    assert "verify-badge" not in render_section(parsed, "A", "/browse/a", "s1", show_review_badge=False)

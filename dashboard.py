@@ -66,6 +66,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
@@ -296,6 +297,15 @@ def _shutdown_ai_scan_processes() -> None:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Legislation pipeline dashboard")
+
+# static/site/ is the published site's template -- the page shell, its
+# stylesheets, its browser-side scripts and Junicode (see
+# ai_pipeline/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
+# every page's asset URLs are built from, so a browse page served here
+# loads exactly the files export_static_site.py publishes. StaticFiles
+# resolves the path itself and refuses to escape the directory, which is
+# what the hand-rolled /fonts route this replaces had to check for.
+app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")
 
 # ---------------------------------------------------------------------------
 # Username/password login: sessions are random server-side tokens (the
@@ -592,24 +602,6 @@ def do_logout(request: Request):
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "dashboard.html")
-
-
-# See review.py's own copy: the name comes from a URL, so it's matched
-# against what static/fonts/ actually holds rather than joined blindly.
-_FONT_FILE_RE = re.compile(r"^[A-Za-z0-9-]+\.woff2$")
-
-
-@app.get("/fonts/{name}")
-def font_file(name: str):
-    """Junicode, the reading face the browse pages set legislative text
-    in (see static/fonts/README.md)."""
-    if not _FONT_FILE_RE.match(name):
-        raise HTTPException(404, "No such font")
-    path = STATIC_DIR / "fonts" / name
-    if not path.is_file():
-        raise HTTPException(404, "No such font")
-    return FileResponse(path, media_type="font/woff2")
-
 
 @app.get("/api/acts")
 def list_acts():
@@ -1256,6 +1248,25 @@ def _superseded(slug: str) -> "dict | None":
     }
 
 
+def _version_dates(slug: str) -> dict:
+    """{version number -> the date that version states it incorporates
+    amendments to}, for every parsed version of this slug's work.
+
+    What the "Compare with another version" choices are labelled with: a
+    bare "Version 23" asks a reader to know the numbering, where a date is
+    the thing they actually have in mind."""
+    work, version = split_document_slug(slug)
+    if version is None:
+        return {}
+    dates = {}
+    for other in _work_versions(work):
+        _w, other_version = split_document_slug(other)
+        as_at = _act_version(other).get("as_at_printed")
+        if other_version is not None and as_at:
+            dates[other_version] = as_at
+    return dates
+
+
 def _provision_page_url(slug: str, page_index: dict, entry: dict) -> "str | None":
     """Where to read one provision in one version, or None where that
     version gives it no page of its own.
@@ -1281,17 +1292,20 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
 
     A version whose parse doesn't page that provision (it may not have
     existed yet) simply gets no link -- an entry that says a provision was
-    inserted at version 112 must not offer a link into version 111."""
+    inserted at version 112 must not offer a link into version 111.
+
+    The URLs are worked out whether or not the provision has any timeline
+    entries: a provision whose words never changed has no entries at all,
+    and is exactly the one a reader checking "was this always like this?"
+    wants to be able to open in another version."""
     if not number:
         return [], {}
     work, _version = split_document_slug(slug)
     timeline = _timeline(work)
     key = diffing.provision_identity(node_type, schedule, number)
     entries = timeline["entries"].get(key) or []
-    if not entries:
-        return [], {}
     urls = {}
-    probe = {"type": entries[0]["type"], "schedule": schedule, "number": number}
+    probe = {"type": node_type, "schedule": schedule, "number": number}
     for other in timeline["slugs"]:
         _w, other_version = split_document_slug(other)
         url = _provision_page_url(other, _page_index(other), probe)
@@ -1527,15 +1541,22 @@ def browse_section(slug: str, section_slug: str):
     # for anything that isn't a genuine Section/Clause page avoids
     # borrowing that section's commentary onto the Schedule's page.
     crossrefs = _section_crossrefs(slug, section_number, schedule) if node_type in ("section", "clause") else []
+    amendments = _amendments(slug)
     body = html_view.render_section(
-        {"nodes": nodes, "hierarchy": hierarchy}, title, f"/browse/{slug}", section_slug,
+        # version and endnotes are what the reading bar's "Text as at" line
+        # and the outline's Endnotes link are built from.
+        {"nodes": nodes, "hierarchy": hierarchy, "version": _act_version(slug),
+         "endnotes": amendments["endnotes"]},
+        title, f"/browse/{slug}", section_slug,
         crossrefs=crossrefs,
-        amendment_index=_amendments(slug)["index"],
+        amendment_index=amendments["index"],
         timeline=entries, version_urls=version_urls, superseded=_superseded(slug),
+        version_dates=_version_dates(slug),
     )
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+    return HTMLResponse(html_view.page_shell(
+        title, body, _preview_bar(slug), base_url=f"/browse/{slug}", reader=True))
 
 
 @app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)

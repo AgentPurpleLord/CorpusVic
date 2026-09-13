@@ -103,17 +103,18 @@
     --accepted-text: #5fd37f;
     --flagged-text: #f0b135;
   }
-  /* Junicode, self-hosted and served by review.py's own /fonts route --
+  /* Junicode, self-hosted and served from the published site's own
+     template directory (static/site/, mounted at /assets) --
      relative so the same file works standalone and behind the
      dashboard's proxy, exactly like the api/ fetches below. */
   @font-face {
     font-family: 'Junicode';
-    src: url('fonts/Junicode-Roman.woff2') format('woff2');
+    src: url('/assets/fonts/Junicode-Roman.woff2') format('woff2');
     font-weight: 300 700; font-style: normal; font-display: swap;
   }
   @font-face {
     font-family: 'Junicode';
-    src: url('fonts/Junicode-Italic.woff2') format('woff2');
+    src: url('/assets/fonts/Junicode-Italic.woff2') format('woff2');
     font-weight: 300 700; font-style: italic; font-display: swap;
   }
   * { box-sizing: border-box; }

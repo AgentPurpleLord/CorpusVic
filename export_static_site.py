@@ -46,13 +46,12 @@ contents, marked, with a page saying it hasn't been published yet -- a
 silently absent section would read as a section that doesn't exist. A
 document with nothing approved in it at all isn't published.
 
-Two things the live dashboard offers that this doesn't attempt:
-  - Hover-preview cards (ai_pipeline/html_view.py's PREVIEW_SCRIPT) fetch
-    /api/browse/<slug>/preview, which only exists on a running server.
-    That fetch already fails gracefully on a 404 (see PREVIEW_SCRIPT's own
-    .catch()) -- the card just never appears, every other link still
-    works, so this is a silent feature reduction rather than a broken
-    page.
+Hover-preview cards work here too, without a server: the card behind
+every link the site actually contains is rendered at build time and
+written as a preview.json beside the page it describes (see
+_write_previews), encrypted like everything else on a gated build.
+
+One thing the live dashboard offers that this doesn't attempt:
   - An unresolved citation's standing /legislation/<no> fallback address
     (dashboard.py's legislation_resolver) isn't pre-built here, so that
     one link 404s on the static host instead of explaining that the Act
@@ -61,8 +60,11 @@ Two things the live dashboard offers that this doesn't attempt:
     anyway.
 """
 import argparse
+import base64
 import html
+import json
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -177,20 +179,25 @@ def _partial_notice_html(approved: int, total: int) -> str:
     )
 
 
-def _copy_fonts(out: Path) -> None:
-    """Junicode, plus the licence it has to travel with. Copied to the
-    site root because that's where page_shell points every page's
-    @font-face at, and self-hosted rather than pulled off a CDN so that
-    reading the law here doesn't announce itself to a third party (see
-    static/fonts/README.md)."""
-    src = Path(__file__).parent / "static" / "fonts"
-    dest = out / "fonts"
-    dest.mkdir(parents=True, exist_ok=True)
-    for name in sorted(p.name for p in src.iterdir() if p.suffix == ".woff2" or p.name == "OFL.txt"):
-        shutil.copyfile(src / name, dest / name)
+def _copy_template(out: Path) -> None:
+    """The whole template directory -- the stylesheets, the browser-side
+    scripts and Junicode -- published as "assets/", which is where every
+    page's asset URLs point (see html_view._asset_base).
 
+    Copied wholesale rather than file by file so that adding a stylesheet
+    to static/site/ needs no change here; page.html is left out because
+    Python renders it into each page rather than the browser fetching it.
+    The fonts travel with their licence, and are self-hosted rather than
+    pulled off a CDN so that reading the law here doesn't announce itself
+    to a third party (see static/site/fonts/README.md)."""
+    shutil.copytree(
+        html_view.TEMPLATE_DIR, out / "assets",
+        ignore=shutil.ignore_patterns("page.html", "__pycache__"),
+        dirs_exist_ok=True,
+    )
 
-def _page(title: str, body: str, base_url: "str | None" = None) -> str:
+def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = False,
+          gate: "SiteGate | None" = None) -> str:
     """A finished page: the body, then the site footer. Every published
     page is built through here rather than calling page_shell directly,
     because the footer is the site's legal notice and the failure to
@@ -199,7 +206,13 @@ def _page(title: str, body: str, base_url: "str | None" = None) -> str:
     The live dashboard's own /browse pages don't get this -- they're an
     internal preview behind a login, already labelled as one, not a thing
     the public reads."""
-    return html_view.page_shell(title, body + _FOOTER_HTML, base_url=base_url)
+    return html_view.page_shell(
+        title, body + _FOOTER_HTML, base_url=base_url, reader=reader,
+        # No server here to render a hover card on demand, so the cards
+        # are pre-built (see _write_previews) and the page says so.
+        preview_source="static",
+        site_salt=base64.b64encode(gate.salt).decode("ascii") if gate else None,
+    )
 
 
 def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
@@ -220,13 +233,23 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     (see _unpublished_page_body) rather than its text. Returns the
     summary used for the site's own landing page, or None for a document
     with nothing approved in it at all -- which has nothing to show and
-    isn't published."""
+    isn't published.
+
+    The summary carries "pages" (the page ids this document released) and
+    "links" (everything its pages point at), which between them are what
+    _write_previews needs -- gathered here because a page's HTML is only
+    in hand before it is written and, on a gated build, encrypted."""
+    links: set = set()
     base_url = f"{base_path}/browse/{slug}"
     doc_dir = out_dir / "browse" / slug
     nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
     title = dashboard._act_title(slug)
     amendments = dashboard._amendments(slug)
     page_index = dashboard._page_index(slug)
+    # Read once for the whole document rather than per section page: both
+    # are the same answer on every page of it.
+    version = dashboard._act_version(slug)
+    version_dates = dashboard._version_dates(slug)
 
     # Units grouped over the same node list page_index was built from, so
     # the two agree on what a node index means. (build_effective_nodes_
@@ -244,19 +267,20 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
 
     index_body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
-         "version": dashboard._act_version(slug)},
+         "version": version},
         title, base_url, superseded=dashboard._superseded(slug),
         unpublished_pages=unpublished_pages, show_review_badge=False,
     )
     if unpublished_pages:
         index_body = _partial_notice_html(len(published_pages), len(all_pages)) + index_body
-    _write(doc_dir / "index.html", _page(title, index_body, base_url), gate)
+    links |= _link_targets(index_body, base_path)
+    _write(doc_dir / "index.html", _page(title, index_body, base_url, gate=gate), gate)
 
     for node_index, section_slug in page_index["by_node_index"].items():
         node = nodes[node_index]
         if section_slug not in published_pages:
             _write(doc_dir / "section" / section_slug / "index.html",
-                   _page(title, _unpublished_page_body(node, base_url, title), base_url), gate)
+                   _page(title, _unpublished_page_body(node, base_url, title), base_url, gate=gate), gate)
             continue
         section_number = node.get("number")
         schedule = page_index["schedule_by_node_index"].get(node_index)
@@ -267,28 +291,35 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             if node_type in ("section", "clause") else []
         )
         body = html_view.render_section(
-            {"nodes": nodes, "hierarchy": hierarchy}, title, base_url, section_slug,
+            {"nodes": nodes, "hierarchy": hierarchy, "version": version,
+             "endnotes": amendments["endnotes"]},
+            title, base_url, section_slug,
             crossrefs=crossrefs, amendment_index=amendments["index"],
             timeline=entries, version_urls=version_urls, superseded=dashboard._superseded(slug),
+            version_dates=version_dates, unpublished_pages=unpublished_pages,
+            show_review_badge=False,
         )
         if body is None:
             continue  # not expected -- page_index only ever names real sections
+        links |= _link_targets(body, base_path)
         _write(doc_dir / "section" / section_slug / "index.html",
-               _page(title, body, base_url), gate)
+               _page(title, body, base_url, reader=True, gate=gate), gate)
 
     endnotes_body = html_view.render_endnotes(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
         title, base_url, amendments["summary"],
     )
     if endnotes_body is not None:
+        links |= _link_targets(endnotes_body, base_path)
         _write(doc_dir / "endnotes" / "index.html",
-               _page(f"{title} — Endnotes", endnotes_body, base_url), gate)
+               _page(f"{title} — Endnotes", endnotes_body, base_url, gate=gate), gate)
 
     status = dashboard.act_status(slug)
     return {
         "slug": slug, "title": title, "kind": status["kind"],
         "as_at": status["version_as_at"], "pages": 1 + len(all_pages),
         "published_provisions": len(published_pages), "total_provisions": len(all_pages),
+        "published_pages": published_pages, "links": links,
     }
 
 
@@ -317,6 +348,91 @@ _FOOTER_HTML = (
     "site as the text of legislation does so at their own risk.</p>"
     "</footer>"
 )
+
+
+# ---------------------------------------------------------------------------
+# Hover previews
+# ---------------------------------------------------------------------------
+# On the dashboard a hover card is rendered on demand by an endpoint. A
+# static host has nothing to ask, so the same cards are built here, at
+# build time, and written as small JSON files beside the pages they
+# describe -- one per target page, holding every anchor within it that
+# anything actually links to. That last part is what keeps them small:
+# the links the site contains are a far smaller set than the provisions
+# it has, so an Act with a hundred pages needs about a hundred short
+# files rather than a preview of every provision in it.
+#
+# They go through the gate like everything else. A preview is the
+# provision's own words, so publishing it in the clear beside an
+# encrypted page would hand over exactly what the gate is there to keep
+# back -- see _encrypted_json.
+
+_LINK_RE = re.compile(r'href="([^"]+)"')
+
+
+def _link_targets(html: str, base_path: str) -> set:
+    """The (slug, section id, fragment) each link in this page points at,
+    for the links preview.js will try to preview -- a link into a section
+    page, or an index anchor. Read off the rendered HTML rather than
+    tracked as it is built, because the linkifier produces these deep
+    inside the renderers and the page is the honest record of what a
+    reader can actually hover."""
+    targets = set()
+    prefix = f"{base_path}/browse/"
+    for href in _LINK_RE.findall(html):
+        if not href.startswith(prefix):
+            continue
+        path, _hash, fragment = href.partition("#")
+        parts = path[len(prefix):].strip("/").split("/")
+        if len(parts) == 3 and parts[1] == "section":
+            targets.add((parts[0], parts[2], fragment))
+        elif len(parts) == 1 and parts[0] and fragment:
+            targets.add((parts[0], "", fragment))
+    return targets
+
+
+def _encrypted_json(payload: dict, gate: "SiteGate | None") -> str:
+    """The JSON a page's previews are read from, encrypted with the same
+    key the pages are so that one unlock covers both (preview.js finds it
+    by the salt the page carries)."""
+    text = json.dumps(payload, separators=(",", ":"))
+    return text if gate is None else json.dumps(gate.encrypt(text), separators=(",", ":"))
+
+
+def _write_previews(out: Path, base_path: str, targets: set, published: dict,
+                    gate: "SiteGate | None" = None) -> int:
+    """One preview.json per linked-to page. Returns how many previews were
+    written, for the build log.
+
+    published maps a slug to the page ids that document actually released
+    -- a link into a document that isn't published, or into a provision
+    nobody has approved yet, gets no preview file and so no card, which is
+    the same answer the page behind it would give."""
+    by_page = {}
+    for slug, section, fragment in targets:
+        if slug not in published or (section and section not in published[slug]):
+            continue
+        by_page.setdefault((slug, section), set()).add(fragment)
+
+    written = 0
+    for (slug, section), fragments in sorted(by_page.items()):
+        nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
+        parsed = {"nodes": nodes, "hierarchy": hierarchy}
+        title = dashboard._act_title(slug)
+        previews = {}
+        for fragment in sorted(fragments):
+            card = html_view.render_preview(parsed, title, section or None, fragment or None)
+            if card is not None:
+                previews[fragment] = card
+        if not previews:
+            continue
+        path = out / "browse" / slug
+        if section:
+            path = path / "section" / section
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "preview.json").write_text(_encrypted_json(previews, gate), encoding="utf-8")
+        written += 1
+    return written
 
 
 def _provision_count_html(doc: dict) -> str:
@@ -357,24 +473,35 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
     return _page("Published legislation", body)
 
 
-def build_site(out: Path, base_path: str, password: "str | None" = None) -> list[dict]:
+def build_site(out: Path, base_path: str, password: "str | None" = None) -> tuple:
     """The whole site. With a passphrase, every page is encrypted behind
     the unlock gate and a Disallow-everything robots.txt goes out beside
     them -- a site that isn't ready to be read isn't ready to be indexed
     either, and a crawler that got there first would keep serving a
-    snapshot of it long after the gate went up."""
+    snapshot of it long after the gate went up.
+
+    Returns (the documents published, how many preview files were
+    written)."""
     gate = SiteGate(password) if password else None
-    _copy_fonts(out)
+    _copy_template(out)
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
     slugs = select_candidate_slugs(statuses)
     # _build_doc returns None for a candidate with nothing approved in it.
     published = [doc for doc in (_build_doc(slug, out, base_path, gate) for slug in slugs) if doc]
-    _write(out / "index.html", _landing_page_html(published, base_path), gate)
+    landing = _landing_page_html(published, base_path)
+    _write(out / "index.html", landing, gate)
+    # Across the whole site, not per document: the links most worth
+    # previewing are the ones into another document (a Bill clause, an
+    # Explanatory Memorandum's note), and those can only be resolved once
+    # every document's own pages are known.
+    targets = _link_targets(landing, base_path).union(*(doc["links"] for doc in published)) if published else set()
+    preview_files = _write_previews(
+        out, base_path, targets, {doc["slug"]: doc["published_pages"] for doc in published}, gate)
     if gate:
         # Never encrypted: a crawler has to be able to read the one file
         # that tells it to go away.
         _write(out / "robots.txt", ROBOTS_TXT)
-    return published
+    return published, preview_files
 
 
 def main():
@@ -392,13 +519,14 @@ def main():
     out = Path(args.out)
 
     all_slugs = dashboard.discover_slugs()
-    published = build_site(out, base_path, password)
+    published, preview_files = build_site(out, base_path, password)
     published_slugs = {doc["slug"] for doc in published}
     skipped = [s for s in all_slugs if s not in published_slugs]
 
     print(f"Published {len(published)} document(s) to {out}/ (base path: {base_path or '(none)'}):")
     for doc in published:
         print(f"  {doc['slug']} -- {doc['published_provisions']}/{doc['total_provisions']} provision(s) published")
+    print(f"{preview_files} page(s) carry hover-preview data for the links that reach them.")
     if skipped:
         print(f"Skipped {len(skipped)} document(s) (not parsed, an older version, or nothing approved in it yet):")
         for slug in skipped:

@@ -54,7 +54,8 @@ card shows what's behind it -- the definition and its own paragraphs,
 the Section's opening provisions, the Sections under that Part.
 Checking what a term means is the single most common reason to follow
 a link here, and following it costs you your place, so render_preview
-builds those cards, and PREVIEW_SCRIPT is the browser side of it.
+builds those cards, and static/site/preview.js is the browser side
+of it.
 
 Kept deliberately independent of review.py's own live server process:
 rendering a page here needs no interactive state (no edit, split or
@@ -69,6 +70,7 @@ rather than linked to the wrong place.
 """
 import html
 import re
+from pathlib import Path
 
 from .akn_export import build_hierarchy_tree
 from .amendments import anchor_id, describe, linkify_note
@@ -655,11 +657,231 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
     )
 
 
+# ---------------------------------------------------------------------------
+# The section reading view
+# ---------------------------------------------------------------------------
+# A section page carries three pieces of furniture the contents and
+# Endnotes pages don't: an outline of the rest of the document beside the
+# text, a bar of reading controls above it, and the provisions either side
+# of this one below it. See static/site/reader.css and reader.js for the
+# other half of each.
+
+
+def _outline_entry(tree_node: dict, base_url: str, filenames_by_eid: dict[str, str],
+                   target_filename: str, unpublished_pages: "set[str] | None") -> str:
+    """One section in the outline, marked when it is the page you're on --
+    aria-current, so it reads as "you are here" to a screen reader and not
+    merely as a different colour.
+
+    A section whose provision hasn't been released to readers yet is
+    marked too, the way the contents page marks it (see render_index): a
+    line that looks like every other one, and turns out to be a page
+    saying the text isn't there, is worse than one that says so first. The
+    mark is a dot rather than the contents page's "not yet published",
+    which at this width would set most of the sidebar in two-line
+    entries -- with the words themselves kept for a screen reader, which
+    has no dot to see."""
+    filename = filenames_by_eid[tree_node["eid"]]
+    node = tree_node["node"]
+    label = (
+        _display_title(node["type"], node.get("number"), node.get("heading"))
+        if node["type"] == "schedule" else index_label(node)
+    )
+    page_id = _strip_md(filename)
+    current = ' aria-current="page"' if filename == target_filename else ""
+    held_back = bool(unpublished_pages) and page_id in unpublished_pages
+    mark = '<span class="outline-unpub"> (not yet published)</span>' if held_back else ""
+    css = ' class="unpublished"' if held_back else ""
+    return (
+        f'<li class="outline-leaf"><a href="{base_url}/section/{page_id}"{current}{css}>'
+        f"{_esc(label)}{mark}</a></li>"
+    )
+
+
+def _outline_range(tree_node: dict, provision_word: str) -> str:
+    """"ss 9-13" beside a Part the reader isn't in, so a collapsed line
+    still says which provisions are behind it. Nothing where the numbers
+    don't read as a range (an unnumbered provision, or just one of
+    them)."""
+    numbers = [
+        tn["node"].get("number") for tn in _iter_tree(tree_node)
+        if tn["node"]["type"] in SECTION_LEVEL_TYPES and tn["node"].get("number")
+    ]
+    if len(numbers) < 2:
+        return ""
+    return f'<span class="outline-range">{provision_word} {_esc(numbers[0])}&ndash;{_esc(numbers[-1])}</span>'
+
+
+def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_filename: str,
+                  base_url: str, has_endnotes: bool = False,
+                  unpublished_pages: "set[str] | None" = None) -> str:
+    """The rest of the document, beside the one provision you're reading.
+
+    Collapsed except along the path to this page: the Parts and Divisions
+    you aren't in are one line each, the ones you are in are opened, and
+    the sections listed are the ones beside this one. A whole Act's
+    contents in every sidebar would be a second contents page rather than
+    a way of keeping your place -- the Criminal Procedure Act alone would
+    put over a thousand links on every page of itself.
+
+    A structural line links to its heading on the contents page (the same
+    anchor render_index gives it), because a Part is not a page here.
+
+    It leads with the document's own name, which is otherwise nowhere on a
+    section page -- the heading is the provision's, and "Act index" in the
+    breadcrumb doesn't say which Act."""
+    structural_types = ctx["structural_types"]
+    filenames_by_eid = ctx["filenames_by_eid"]
+    index_slugs = ctx["index_slugs"]
+    # "ss" in an Act, "cll" in a Bill or an Explanatory Memorandum, decided
+    # the same way the contents link's own wording is.
+    provision_word = "cll" if ctx["index_link_text"] == "Contents" else "ss"
+    open_eids = {b["eid"] for b in breadcrumb}
+
+    def children_html(tree_node: dict, expanded: bool) -> str:
+        items = []
+        for child in tree_node["children"]:
+            node = child["node"]
+            t = node["type"]
+            if t in SECTION_LEVEL_TYPES or (t == "schedule" and schedule_is_pageable(child)):
+                # Only the sections beside this one: a collapsed Part's own
+                # sections are what the contents page is for.
+                if expanded:
+                    items.append(_outline_entry(child, base_url, filenames_by_eid,
+                                                target_filename, unpublished_pages))
+                continue
+            if t not in (*structural_types, "heading_group"):
+                continue  # a provision hanging directly off a Part -- not an outline line
+            is_open = child["eid"] in open_eids
+            title = _display_title(t, node.get("number"), node.get("heading"))
+            slug = index_slugs.get(child["eid"])
+            href = f"{base_url}/#{_esc(slug)}" if slug else f"{base_url}/"
+            classes = "outline-struct open" if is_open else "outline-struct"
+            range_html = "" if is_open else _outline_range(child, provision_word)
+            items.append(
+                f'<li class="{classes}"><a href="{href}">{_esc(title)}{range_html}</a>'
+                f"{children_html(child, True) if is_open else ''}</li>"
+            )
+        return f'<ul class="outline-list">{"".join(items)}</ul>' if items else ""
+
+    # A root-level section (a preliminary provision sitting outside every
+    # Part) is always listed: there are only ever a handful, and an Act
+    # with no Parts at all is nothing but root-level sections.
+    body = "".join(
+        children_html({"children": [root], "node": {"type": ""}, "eid": ""}, True)
+        for root in ctx["tree_roots"]
+    )
+    endnotes = (
+        f'<a class="outline-endnotes" href="{base_url}/endnotes">Endnotes</a>' if has_endnotes else ""
+    )
+    return (
+        '<nav class="outline" aria-label="Contents">'
+        f'<a class="outline-doc" href="{base_url}/">{_esc(act_title)}</a>'
+        f'<a class="outline-contents" href="{base_url}/">{_esc(ctx["index_link_text"])}</a>'
+        f"{endnotes}{body}</nav>"
+    )
+
+
+def _version_choices_html(version_urls: "dict | None", version_dates: "dict | None",
+                          this_version: "int | None") -> str:
+    """"Compare with another version" -- every other version of the Act
+    held here that pages this same provision, so the comparison lands on
+    the same words rather than on that version's front page.
+
+    A disclosure rather than a button that goes somewhere: which version
+    you want is a choice, and the dates are what you make it on. Nothing
+    at all where this is the only version that has the provision, which is
+    most documents -- a control offering no choices is worse than none."""
+    others = sorted(
+        (version, url) for version, url in (version_urls or {}).items() if version != this_version
+    )
+    if not others:
+        return ""
+    items = []
+    for version, url in reversed(others):  # newest first: the likeliest comparison
+        when = (version_dates or {}).get(version)
+        dated = f' <span class="version-date">as at {_esc(when)}</span>' if when else ""
+        items.append(f'<li><a href="{_esc(url)}">Version {_esc(str(version))}</a>{dated}</li>')
+    return (
+        '<details class="versions"><summary>Compare with another version</summary>'
+        f'<ul class="version-list">{"".join(items)}</ul></details>'
+    )
+
+
+def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dict | None",
+                    version_dates: "dict | None") -> str:
+    """The bar above the text: which day's law this is, how to compare it
+    with another, and the two reading controls.
+
+    "Text as at" is the date the reprint itself states it incorporates
+    amendments to, read off the PDF's front matter -- not the day the file
+    was parsed, and never offered as the authorised text. A document with
+    no version at all (a Bill, an Explanatory Memorandum) says nothing
+    rather than guessing, and keeps the reading controls."""
+    bits = []
+    as_at = version.get("as_at_printed")
+    this_version = version.get("version")
+    if as_at or this_version is not None:
+        stated = _esc(as_at) if as_at else f"Version {_esc(str(this_version))}"
+        # "Current" only where there is something to be current against:
+        # what this tool knows is the versions it holds, so on a document
+        # with only one the claim would be about nothing (see
+        # dashboard._superseded).
+        tag = ""
+        if version_urls and len(version_urls) > 1:
+            tag = (
+                '<span class="asat-tag superseded">Superseded</span>' if superseded
+                else '<span class="asat-tag">Current</span>'
+            )
+        bits.append(
+            f'<div class="asat"><span class="asat-label">Text as at</span> '
+            f"<strong>{stated}</strong>{tag}</div>"
+        )
+    bits.append(_version_choices_html(version_urls, version_dates, this_version))
+    # The controls are written out by hand rather than by reader.js so that
+    # they are in the HTML a reader without JavaScript gets -- disabled
+    # there, but never a row of buttons that silently do nothing.
+    bits.append(
+        '<div class="readerctl" hidden>'
+        '<span class="ctl-label">Size</span>'
+        '<button type="button" class="ctl-btn" id="reader-smaller" title="Smaller text">A&minus;</button>'
+        '<button type="button" class="ctl-btn" id="reader-bigger" title="Larger text">A+</button>'
+        '<button type="button" class="ctl-btn" id="reader-notes" aria-pressed="true">Notes on</button>'
+        "</div>"
+    )
+    return f'<div class="readerbar">{"".join(bits)}</div>'
+
+
+def _section_nav_html(sections: list, match_index: int, base_url: str,
+                      filenames_by_eid: dict[str, str], index_link_text: str) -> str:
+    """The provisions either side of this one, named. "Next" alone makes a
+    reader click to find out where they are going; "15 Review of a limit"
+    lets them decide not to."""
+
+    def link(offset: int, arrow_before: str, arrow_after: str, css: str) -> str:
+        index = match_index + offset
+        if not 0 <= index < len(sections):
+            return ""
+        tree_node = sections[index][0]
+        label = index_label(tree_node["node"])
+        href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
+        return f'<a class="{css}" href="{href}">{arrow_before}{_esc(label)}{arrow_after}</a>'
+
+    return (
+        '<nav class="section-nav" aria-label="Nearby provisions">'
+        f'{link(-1, "&larr; ", "", "nav-prev")}'
+        f'<a class="nav-up" href="{base_url}/">{_esc(index_link_text)}</a>'
+        f'{link(1, "", " &rarr;", "nav-next")}'
+        "</nav>"
+    )
+
+
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
     timeline: list[dict] | None = None, version_urls: dict | None = None,
-    superseded: dict | None = None,
+    superseded: dict | None = None, version_dates: dict | None = None,
+    unpublished_pages: "set[str] | None" = None, show_review_badge: bool = True,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -676,7 +898,22 @@ def render_section(
     mapping a version number to that version's page for this same
     provision. superseded, if given, is {"version", "current",
     "current_url", "as_at_printed"} for the banner saying this reprint
-    is no longer the law."""
+    is no longer the law. version_dates, if given, is {version -> the
+    date that version states it incorporates amendments to}, which is
+    what the "Compare with another version" choices are labelled with.
+
+    parsed["version"], if present, is this reprint's own front matter --
+    what the "Text as at" line states.
+
+    unpublished_pages is the page ids whose provision hasn't been released
+    to readers yet, marked in the outline the same way render_index marks
+    them in the contents.
+
+    show_review_badge is how much of this provision a human has checked --
+    on for the dashboard, whose job is tracking that, and off on a site
+    that only publishes checked provisions, where the badge would read
+    "Fully reviewed" on every page and so say nothing (see render_index,
+    which turns it off for the same reason)."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -692,11 +929,22 @@ def render_section(
     title = page_title(node)
     verification = _collect_verification([tree_node])
 
-    out = []
+    # The page's own chrome, outside the text column: the reading controls
+    # above, the outline of the rest of the document beside. Both are
+    # built from what this page already knows, so neither needs the caller
+    # to pass anything new.
+    out = [
+        _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
+        '<div class="reader-cols">',
+        _outline_html(ctx, act_title, breadcrumb, target_filename, base_url,
+                      bool(parsed.get("endnotes")), unpublished_pages),
+        '<div class="reader-main">',
+    ]
     crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
     crumb_bits.extend(_esc(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading"))) for b in breadcrumb)
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
-    out.append(_verification_badge(verification))
+    if show_review_badge:
+        out.append(_verification_badge(verification))
     out.append(f"<h1>{_esc(title)}</h1>")
     # Ordered the way a reader needs them: whether this is even the
     # current law first, then how this provision got to its present
@@ -723,7 +971,7 @@ def render_section(
     # Copying a provision into advice, a submission or an email is one of
     # the things people most often come here to do, so it's a button
     # rather than a careful drag-select that picks up the margin notes
-    # and loses the indentation (see COPY_SCRIPT).
+    # and loses the indentation (see static/site/copy.js).
     out.append(
         '<button type="button" class="copy-section" id="copy-section-btn">Copy section</button>'
     )
@@ -778,15 +1026,9 @@ def render_section(
         out.append(f'<div class="prov-notes">{notes}</div>')
     out.append("</div>")
 
-    nav = []
-    if match_index > 0:
-        prev_filename = filenames_by_eid[sections[match_index - 1][0]["eid"]]
-        nav.append(f'<a href="{base_url}/section/{_strip_md(prev_filename)}">&laquo; Previous</a>')
-    nav.append(f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>')
-    if match_index + 1 < len(sections):
-        next_filename = filenames_by_eid[sections[match_index + 1][0]["eid"]]
-        nav.append(f'<a href="{base_url}/section/{_strip_md(next_filename)}">Next &raquo;</a>')
-    out.append(f'<div class="section-nav">{" | ".join(nav)}</div>')
+    out.append(_section_nav_html(sections, match_index, base_url, filenames_by_eid, ctx["index_link_text"]))
+    out.append("</div>")   # .reader-main
+    out.append("</div>")   # .reader-cols
 
     return "\n".join(out)
 
@@ -1088,703 +1330,98 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
     }
 
 
-# Inter, used everywhere in the GUI in place of the previous Georgia
-# and system-sans mix -- a typeface drawn for screens, not print, at
-# the small sizes a margin note or a badge is set in. Loaded once per
-# page from Google Fonts (static/dashboard.html and static/review.html
-# load it the same way); the fallback stack still applies if that
-# request fails.
-_FONT_LINKS = (
-    '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
-    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">'
-)
+# ---------------------------------------------------------------------------
+# The page template
+# ---------------------------------------------------------------------------
+# The shell, the stylesheets and the browser-side scripts live in
+# static/site/ as ordinary .html/.css/.js files rather than as string
+# constants here. That is the point: they are the site's template, edited
+# far more often than this module's rendering logic is, and a stylesheet
+# is much easier to work on when an editor can highlight it, DevTools can
+# name it, and the browser can cache it.
+#
+# Python only ever reads page.html (see page_shell). The CSS and JS are
+# linked, not inlined, so they never pass through here at all -- which
+# also means a reload picks up an edit to them without restarting the
+# server. TEMPLATE_DIR is served as "/assets": by dashboard.py and
+# review.py for the live browse pages, and copied into the build by
+# export_static_site.py for the published site.
+TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "static" / "site"
 
-PAGE_CSS = """
-/* The palette (and the data-theme dark override below) deliberately
-   uses the same set of variable names static/review.html uses, driven
-   by the same localStorage["reviewTheme"] key -- toggling the theme in
-   the review GUI and then clicking through to a browse page keeps the
-   theme, because both surfaces read the one preference.
-
-   Palette: "Modernist" -- flat, architectural, a near-mono red accent on
-   a warm off-white ground, zero corner radius, strong dividers (see the
-   imported Claude Design system this was adapted from, and
-   static/review.html's own copy of this note). The dark values are a
-   separate OKLCH ramp on the same hue/chroma family (accent hue ~31.5°,
-   neutral hue ~17.3°), not the light ones inverted -- the accent moves to
-   a lighter step for legibility on a dark ground. --reading is the one
-   token that isn't theme-toggled: the actual Act/Bill text a reader is
-   reading (.prov, .endnote-quote) is set in it; everything else here
-   (headings, notes, chips, nav) stays in --sans. */
-:root {
-  color-scheme: light;
-  --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
-  --border: color-mix(in srgb, #201e1d 40%, transparent); --accent: #ec3013;
-  --done: #16a34a; --pending: #7d7979; --flagged: #d97706;
-  --verify-full-bg: #dcfce7; --verify-partial-bg: #fef3c7; --verify-none-bg: color-mix(in srgb, #201e1d 10%, transparent);
-  --bar-bg: #201e1d; --bar-fg: #eae9e9; --bar-link: #ff9783;
-  --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
-  --warn-bg: #fef3c7; --warn-border: #d97706;
-  --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --reading: 'Junicode', Georgia, serif;
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #969191;
-  --border: #413b3b; --accent: #ff7f67;
-  --done: #5fd37f; --pending: #989090; --flagged: #f0b135;
-  --verify-full-bg: #092c13; --verify-partial-bg: #3b2400; --verify-none-bg: color-mix(in srgb, #eeeaea 12%, transparent);
-  --bar-bg: #0a0808; --bar-fg: #eeeaea; --bar-link: #ffa08b;
-  --ins-bg: #092c13; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
-  --warn-bg: #3b2400; --warn-border: #f0b135;
-}
-/* Junicode, self-hosted: it isn't on any font CDN, and a public register
-   of the law shouldn't hand every reader's IP to a third party to render
-   its own text. One file per style covers 300-700 because the weight
-   axis is left variable -- see static/fonts/README.md. __FONT_BASE__ is
-   substituted per page by page_shell, since the site can be served from
-   a domain root or from under a repository path. */
-@font-face {
-  font-family: 'Junicode';
-  src: url('__FONT_BASE__/Junicode-Roman.woff2') format('woff2');
-  font-weight: 300 700; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Junicode';
-  src: url('__FONT_BASE__/Junicode-Italic.woff2') format('woff2');
-  font-weight: 300 700; font-style: italic; font-display: swap;
-}
-
-* { box-sizing: border-box; }
-/* Typography follows Butterick's summary of key rules: body text 15-25px,
-   line spacing 120-145% of it, and a measure of 45-90 characters (set on
-   .prov below, where the actual reading happens). Kerning and the normal
-   ligatures are asked for explicitly rather than left to the browser. */
-body {
-  margin: 0; background: var(--bg); color: var(--fg);
-  font-family: var(--sans); font-size: 17px; line-height: 1.45;
-  font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
-}
-.previewbar {
-  background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
-  padding: 6px 20px; display: flex; gap: 14px; align-items: center;
-}
-.previewbar a { color: var(--bar-link); }
-.page { max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
-h1 { font-size: 22px; margin: 0 0 10px; font-family: var(--sans); }
-h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 2px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
-h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: var(--fg); }
-h4, h5, h6 { font-size: 14px; margin: 16px 0 4px; font-weight: 600; font-family: var(--sans); }
-p { margin: 0 0 13px; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-.breadcrumb { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
-.verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 2px 9px; border-radius: 0; margin-bottom: 18px; }
-.verify-full { background: var(--verify-full-bg); color: var(--done); }
-.verify-partial { background: var(--verify-partial-bg); color: var(--flagged); }
-.verify-none { background: var(--verify-none-bg); color: var(--pending); }
-.section-list { list-style: none; padding-left: 0; margin: 0 0 10px; }
-.section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
-.section-nav { margin-top: 32px; padding-top: 14px; border-top: 2px solid var(--border); font-family: var(--sans); font-size: 13px; }
-
-/* The Section body, laid out the way the Act itself prints: one two-
-   column grid whose rows alternate provision and margin note, so a
-   note stays level with the provision it belongs to (that's why
-   render_section emits an empty .prov-notes cell for every provision,
-   not just the annotated ones). Indentation carries the structure --
-   --depth is the provision's nesting distance below the Section --
-   with the number hanging in the margin to its left, so a subsection
-   reads as a subsection without needing its own heading. */
-.provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
-.prov {
-  font-family: var(--reading);
-  /* 19px/1.42 with the measure capped just under 70 characters: the
-     three numbers Butterick's rules turn on, and the ones that decide
-     whether a long provision is readable. The cap is per provision
-     rather than on the column, so a nested paragraph's own indent
-     doesn't eat into its measure. Space between provisions (11px, ~8pt)
-     rather than a first-line indent -- never both. The negative
-     text-indent isn't that: it hangs the provision number out in the
-     margin, which is how the Act itself prints. */
-  font-size: 19px;
-  line-height: 1.42;
-  max-width: 34em;
-  margin: 0 0 11px;
-  padding-left: calc(var(--depth, 0) * 26px + 2.4em);
-  text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
-}
-/* No number to hang, so no hanging indent -- the text just starts
-   where a numbered sibling's text does, instead of its first line
-   poking out into the empty number column. */
-.prov-nolabel { text-indent: 0; }
-/* Except a list item, which has no number because its source prints a
-   bullet instead of one (an Explanatory Memorandum's lists are set
-   that way -- see em_parser.py). It gets its marker back, hanging in
-   the same column a lettered sibling's "(a)" would. */
-.prov-paragraph.prov-nolabel,
-.prov-subparagraph.prov-nolabel,
-.prov-sub_subparagraph.prov-nolabel { text-indent: -2.4em; }
-.prov-paragraph.prov-nolabel::before,
-.prov-subparagraph.prov-nolabel::before,
-.prov-sub_subparagraph.prov-nolabel::before {
-  content: "•";
-  display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
-}
-.prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
-/* Italic alone, never italic *and* bold: two emphases at once is one
-   more than the text needs, and a defined term is already announced by
-   being defined. */
-.prov-term { font-style: italic; }
-.prov-heading {
-  font-family: var(--sans); font-weight: 600; font-size: 14px;
-  margin: 20px 0 8px; text-indent: 0;
-  padding-left: calc(var(--depth, 0) * 26px);
-}
-.prov-notes { font-family: var(--sans); font-size: 11.5px; color: var(--muted); line-height: 1.45; }
-.hist-note { display: block; margin-bottom: 5px; }
-/* A note the parser placed by proximity rather than by an explicit
-   citation -- flagged so a reader can tell a guess from a certainty. */
-.hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
-
-/* Endnotes page: the Table of Amendments as a table. */
-.index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
-/* Which version this pipeline's own parse of the Act is, stated
-   plainly under its title -- the first thing a reader needs to know,
-   and never claimed as "the Authorised Version" itself. */
-.act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
-.endnote-text { margin-bottom: 18px; }
-.endnote-text p { margin: 0 0 11px; }
-/* Only an Act parsed before the endnote block builder existed falls
-   back to this: its text still carries the source PDF's own wrap
-   points, so honouring them beats running every line together. */
-.endnote-raw { white-space: pre-line; }
-.endnote-heading { font-family: var(--sans); font-weight: 600; font-size: 13.5px; margin: 18px 0 7px; }
-.endnote-bullets { margin: 0 0 11px; padding-left: 20px; }
-.endnote-bullets li { margin-bottom: 9px; }
-/* A provision the endnotes reproduce verbatim -- the Act's own words, not
-   the endnote's commentary about them. */
-.endnote-quote {
-  /* The Act's own words again, so the same reading settings as .prov. */
-  font-family: var(--reading); font-size: 19px; line-height: 1.42; max-width: 34em;
-  margin: 0 0 11px; padding: 2px 0 2px 14px;
-  border-left: 3px solid var(--border); color: var(--fg);
-}
-/* The first line of a reproduced provision is its own heading ("64 How
-   appeal is commenced"), the way the printed page sets it. */
-.endnote-quote p:first-child { font-weight: 600; }
-.endnote-quote p:last-child { margin-bottom: 0; }
-.endnote-aside { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
-.amend { border-top: 1px solid var(--border); padding: 12px 0 4px; }
-.amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
-.amend-cite {
-  display: inline-block; font-weight: 500; font-size: 11.5px; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 0; padding: 1px 8px; margin-right: 8px;
-}
-.amend-fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 14px; margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px; }
-.amend-fields dt { color: var(--muted); }
-.amend-fields dd { margin: 0; }
-.amend-provisions { font-family: var(--sans); font-size: 12.5px; }
-.amend-provisions summary { cursor: pointer; color: var(--accent); }
-.amend-prov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 0; padding: 1px 6px; color: var(--fg); }
-a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-.amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
-/* The citation inside a margin note, linked to that Act's own entry
-   in the Endnotes. Inline, so the note still reads as the one line
-   the source prints; the Act's full name and dates are in the link's
-   title. */
-.hist-act { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
-.hist-act:hover { text-decoration: none; border-bottom-style: solid; }
-/* A citation detected but not resolved to anything more specific --
-   see html_view._linked_citation_html. Muted rather than accent-
-   coloured, so it doesn't read as confidently as a citation this
-   pipeline actually knows the name of. */
-.hist-act.unresolved { color: var(--muted); border-bottom-style: dashed; }
-.hist-act.unresolved:hover { color: var(--accent); }
-
-/* "Explained in" chips under a Section's title: the Bill clause it
-   was enacted from, and the Explanatory Memorandum's note on it.
-   Ordinary links, so the hover preview above reads them like any
-   other -- which is the whole point, since the question ("what does
-   the EM say about this?") is one a reader wants answered without
-   leaving the section. */
-.crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
-.crossrefs-label { font-size: 11.5px; color: var(--muted); }
-.crossref {
-  font-size: 11.5px; padding: 2px 9px; border-radius: 0;
-  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-}
-.crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-.crossref-em { border-style: dashed; }
-
-/* A provision's timeline -- see render_timeline. Collapsed by default:
-   the summary answers "has this changed, and when last?" without
-   opening it, which is the question most readers actually have, and
-   the words that moved are one click away for the ones who want
-   them. */
-.timeline { margin: 0 0 20px; font-family: var(--sans); }
-.timeline-summary {
-  cursor: pointer; font-size: 12.5px; padding: 6px 10px;
-  border: 1px solid var(--border); border-left: 3px solid var(--flagged);
-  border-radius: 0; background: var(--panel); color: var(--fg);
-}
-.timeline-summary:hover { border-color: var(--accent); }
-.timeline[open] .timeline-summary { border-radius: 0; }
-.tl-count { color: var(--muted); }
-.tl-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-top: none; }
-.tl-entry { padding: 10px 12px; border-top: 1px solid var(--border); }
-.tl-entry:first-child { border-top: none; }
-.tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 5px; }
-.tl-version { font-size: 12.5px; font-weight: 600; }
-.tl-verb {
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 1px 7px; border-radius: 0; background: var(--verify-none-bg); color: var(--muted);
-}
-.tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
-.tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
-.tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
-.tl-note { display: block; }
-.tl-diff {
-  font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
-  max-height: 20em; overflow-y: auto;
-}
-.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 0; }
-.d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 0; }
-
-/* The notice on a reprint that's no longer the law. Deliberately loud
-   and at the top of the page: a reader on a superseded version is
-   reading the wrong law, and that's worth interrupting them for. */
-.supersede {
-  font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
-  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 3px;
-  border-radius: 0; padding: 8px 12px; margin: 0 0 16px;
-}
-.supersede-link { white-space: nowrap; }
-
-/* The published site's standing caveat -- this is a machine's reading of
-   the law, not the law. Same tokens and shape as .supersede above: both
-   say "before you trust this text, know something about it", so they
-   shouldn't compete for a reader's attention by looking different. Sits
-   first in the page body, before the heading, so it is read rather than
-   scrolled past. */
-.disclaimer {
-  font-family: var(--sans); font-size: 13.5px; line-height: 1.55;
-  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 4px;
-  padding: 12px 16px; margin: 0 0 26px;
-}
-.site-footer {
-  font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted);
-  border-top: 2px solid var(--border); margin-top: 44px; padding-top: 16px;
-}
-.site-footer p { margin: 0 0 10px; }
-.site-footer p:last-child { margin-bottom: 0; }
-
-/* Sits above the provisions, out of the reading column: useful, not
-   competing with the text it copies. */
-.copy-section {
-  font-family: var(--sans); font-size: 12.5px;
-  color: var(--fg); background: var(--panel);
-  border: 1px solid var(--border); border-radius: 0;
-  padding: 4px 10px; margin: 0 0 14px; cursor: pointer;
-}
-.copy-section:hover { border-color: var(--accent); color: var(--accent); }
-
-/* A provision listed in the contents but not released to readers yet --
-   see render_index's own unpublished_pages note. Quiet: it marks an
-   absence, and shouldn't shout over the provisions that are there. */
-.unpublished-tag {
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--muted); border: 1px solid var(--border); padding: 0 5px; margin-left: 6px;
-  white-space: nowrap;
-}
+_template_cache: dict[str, tuple[float, str]] = {}
 
 
-/* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
-   coordinates (not fixed) so it scrolls with the link it belongs to. */
-.linkpeek {
-  position: absolute; z-index: 40; display: none;
-  width: min(420px, 90vw); max-height: 340px; overflow-y: auto;
-  background: var(--panel); color: var(--fg);
-  border: 1px solid var(--border); border-radius: 0;
-  padding: 12px 14px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
-  font-size: 13.5px; line-height: 1.55;
-}
-.linkpeek.open { display: block; }
-.linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
-.linkpeek .peek-sub { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
-.linkpeek .prov { margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + 2.2em); text-indent: -2.2em; }
-.linkpeek .prov-nolabel { text-indent: 0; }
-.linkpeek .prov:last-child { margin-bottom: 0; }
-.linkpeek .prov-num { min-width: 1.7em; padding-right: 0.5em; }
-.linkpeek .peek-more {
-  position: sticky; bottom: -12px;   /* cancels the card's own bottom padding */
-  background: var(--panel);
-  font-family: var(--sans); font-size: 11.5px; color: var(--muted);
-  margin-top: 9px; padding: 7px 0 12px; border-top: 1px solid var(--border);
-}
-.linkpeek .peek-loading { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+def template_text(name: str) -> str:
+    """One file from static/site/, re-read whenever it changes on disk.
 
-.theme-toggle {
-  position: fixed; top: 10px; right: 14px; z-index: 30;
-  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-  border-radius: 0; padding: 4px 9px; cursor: pointer; font-size: 13px;
-  font-family: var(--sans);
-}
+    The mtime check costs one stat per page render and buys editing the
+    template while a server is running, which is worth more than the
+    stat -- and in a static build every page is rendered in one process
+    anyway, so the read happens once."""
+    path = TEMPLATE_DIR / name
+    mtime = path.stat().st_mtime
+    cached = _template_cache.get(name)
+    if cached is None or cached[0] != mtime:
+        _template_cache[name] = (mtime, path.read_text(encoding="utf-8"))
+    return _template_cache[name][1]
 
-/* Below the width the two columns need, the margin notes fold in
-   underneath their provision instead of being squeezed into an
-   unreadable strip. */
-@media (max-width: 720px) {
-  .provisions { display: block; }
-  .prov-notes { padding-left: 12px; margin: -4px 0 12px; }
-}
-"""
 
-# Applied in <head>, before the first paint, so a dark-mode reader
-# doesn't get a white flash on every page load; the button wiring
-# below runs after the DOM exists. Both halves read and write the same
-# key static/review.html does.
-THEME_HEAD_SCRIPT = """
-try {
-  if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark";
-} catch (e) {}
-"""
+_TEMPLATE_COMMENT_RE = re.compile(r"<!--.*?-->\n?", re.S)
 
-COPY_SCRIPT = r"""
-(function () {
-  var btn = document.getElementById("copy-section-btn");
-  if (!btn) return;
 
-  // Half an inch, which is what Word and Google Docs both treat as one
-  // tab stop -- so "(a) is one tab in" comes out as a real paragraph
-  // indent in either, not as a run of spaces that reflows on edit.
-  var INDENT_PT = 36;
-  var LABEL = ".prov-num, .prov-term";
+def _asset_base(base_url: str) -> str:
+    """Where static/site/ is served from for a page at base_url -- the
+    site prefix plus "/assets", so it is "/assets" on a domain root and
+    "/<repo>/assets" on a GitHub Pages project site. Font URLs inside
+    tokens.css are relative to the stylesheet and so need no prefix of
+    their own."""
+    return f"{_site_prefix(base_url)}/assets"
 
-  // One entry per provision, in reading order: how deep it sits, its
-  // own number (or defined term), and its text with the source PDF's
-  // line wraps collapsed back into running prose. Margin notes are left
-  // out -- they're the amendment history printed beside the provision,
-  // not part of its words.
-  function provisions() {
-    var out = [];
-    document.querySelectorAll(".provisions > .prov").forEach(function (el) {
-      var clone = el.cloneNode(true);
-      var labelEl = clone.querySelector(LABEL);
-      var label = "";
-      var isTerm = false;
-      if (labelEl) {
-        label = labelEl.textContent.trim();
-        isTerm = labelEl.classList.contains("prov-term");
-        labelEl.remove();
-      }
-      var text = clone.textContent.replace(/\s+/g, " ").trim();
-      if (!label && !text) return;
-      var depth = parseInt(el.style.getPropertyValue("--depth"), 10) || 0;
-      out.push({ depth: depth, label: label, text: text, term: isTerm });
-    });
-    return out;
-  }
 
-  // A defined term runs straight on into its own text, so it takes a
-  // space -- except where that text opens with punctuation ("appear, in
-  // relation to a party, ..."), which sits tight against it. Same rule
-  // render_section applies when it builds the page, kept in step so the
-  // copy reads exactly as the screen does.
-  var TIGHT = [",", ".", ";", ":", ")", "—", "-"];
+def page_shell(title: str, body_html: str, previewbar_html: str = "",
+               base_url: str | None = None, reader: bool = False,
+               preview_source: str = "api", site_salt: str | None = None) -> str:
+    """One page, built into static/site/page.html -- see that file for
+    what each placeholder is.
 
-  function gap(text) {
-    return !text || TIGHT.indexOf(text.charAt(0)) !== -1 ? "" : " ";
-  }
+    base_url is this document's own root (e.g. "/browse/crimes-act").
+    Given, the page also gets link hover previews and the reading
+    controls, both of which need it to tell a link into this document
+    apart from any other href on the page. It is also what the asset and
+    link prefixes derive from, so a page built for a GitHub Pages project
+    site keeps its links inside that site.
 
-  function joined(p) {
-    if (!p.label) return p.text;
-    if (!p.text) return p.label;
-    return p.label + gap(p.text) + p.text;
-  }
+    reader lays the page out as a section: an outline column beside the
+    text, rather than one centred column (see static/site/reader.css).
 
-  function asText(heading, rows) {
-    var lines = heading ? [heading, ""] : [];
-    rows.forEach(function (p) {
-      lines.push(new Array(p.depth + 1).join("\t") + joined(p));
-    });
-    return lines.join("\n");
-  }
-
-  function esc(s) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
-
-  // Word and Docs both read text/html in preference to text/plain, and
-  // both turn margin-left into a real indent -- which is the whole
-  // reason this writes two flavours instead of one.
-  function asHtml(heading, rows) {
-    var parts = ['<meta charset="utf-8">'];
-    if (heading) {
-      parts.push('<p style="margin:0 0 8pt 0;font-weight:bold">' + esc(heading) + "</p>");
+    preview_source is where the hover cards get their content: "api" for
+    a server that can render one on demand (the dashboard), or "static"
+    for pre-built preview.json files beside each page (the published
+    site, which has no server to ask). site_salt, on a gated build, is
+    how preview.js finds the key the unlock page derived -- the preview
+    data is encrypted with it like everything else."""
+    body_attrs = ""
+    if base_url:
+        body_attrs = f' data-base-url="{_esc(base_url)}" data-preview="{_esc(preview_source)}"'
+        if site_salt:
+            body_attrs += f' data-site-salt="{_esc(site_salt)}"'
+    replacements = {
+        "{{TITLE}}": _esc(title),
+        "{{ASSETS}}": _esc(_asset_base(base_url or "")),
+        "{{BODY_ATTRS}}": body_attrs,
+        "{{MAIN_CLASS}}": "page page-reader" if reader else "page",
+        "{{PREVIEWBAR}}": previewbar_html,
+        # Last, so a stray "{{...}}" inside the page's own text -- a
+        # provision quoting a template, say -- is never substituted.
+        "{{BODY}}": body_html,
     }
-    rows.forEach(function (p) {
-      var indent = p.depth * INDENT_PT;
-      var body = p.term && p.label
-        ? "<i>" + esc(p.label) + "</i>" + gap(p.text) + esc(p.text)
-        : esc(joined(p));
-      parts.push(
-        '<p style="margin:0 0 6pt 0;margin-left:' + indent + 'pt">' + body + "</p>"
-      );
-    });
-    return parts.join("");
-  }
-
-  function flash(message) {
-    btn.textContent = message;
-    setTimeout(function () { btn.textContent = "Copy section"; }, 1800);
-  }
-
-  // The modern path needs a secure context; the fallback is what runs on
-  // plain http (a local preview, say) and in older browsers, and can
-  // only carry the rich flavour -- so the selection is made over real
-  // nodes and copied, which keeps the indents.
-  function legacyCopy(html, text) {
-    var holder = document.createElement("div");
-    holder.setAttribute("style", "position:fixed;left:-9999px;top:0;white-space:pre-wrap");
-    holder.innerHTML = html;
-    document.body.appendChild(holder);
-    var range = document.createRange();
-    range.selectNodeContents(holder);
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    var ok = false;
-    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
-    sel.removeAllRanges();
-    holder.remove();
-    if (!ok) { window.prompt("Copy the text below", text); }
-    return ok;
-  }
-
-  btn.addEventListener("click", function () {
-    var rows = provisions();
-    if (!rows.length) { flash("Nothing to copy"); return; }
-    var h1 = document.querySelector(".page h1");
-    var heading = h1 ? h1.textContent.replace(/\s+/g, " ").trim() : "";
-    var html = asHtml(heading, rows);
-    var text = asText(heading, rows);
-
-    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
-      navigator.clipboard
-        .write([new ClipboardItem({
-          "text/html": new Blob([html], { type: "text/html" }),
-          "text/plain": new Blob([text], { type: "text/plain" }),
-        })])
-        .then(function () { flash("Copied"); })
-        .catch(function () { flash(legacyCopy(html, text) ? "Copied" : "Copy failed"); });
-      return;
-    }
-    flash(legacyCopy(html, text) ? "Copied" : "Copy failed");
-  });
-})();
-"""
-
-THEME_BODY_SCRIPT = """
-(function () {
-  var btn = document.getElementById("theme-toggle-btn");
-  function paint() {
-    var dark = document.documentElement.dataset.theme === "dark";
-    btn.innerHTML = dark ? "&#9728;&#65039;" : "&#127769;";
-    btn.title = dark ? "Switch to light mode" : "Switch to dark mode";
-  }
-  paint();
-  btn.onclick = function () {
-    var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    if (next === "dark") document.documentElement.dataset.theme = "dark";
-    else delete document.documentElement.dataset.theme;
-    try { localStorage.setItem("reviewTheme", next); } catch (e) {}
-    paint();
-  };
-})();
-"""
-
-
-# Hover previews. Every link on a browse page points either at a
-# Section page (optionally with a provision's anchor) or at an index
-# anchor, so the href alone says what to preview -- no data needs to be
-# embedded in the page. Deliberately hover-with-a-delay rather than
-# click: the point is checking what a defined term means without
-# losing your place, and a card that appeared instantly would flash
-# open every time the pointer crossed a link mid-sentence. It also
-# opens on keyboard focus, where there's no accidental-hover problem
-# to guard against, so a card is reachable without a pointer.
-PREVIEW_SCRIPT = r"""
-(function () {
-  var BASE = document.body.dataset.baseUrl;
-  if (!BASE) return;
-  // Everything above this document's own slug, e.g. "/browse".
-  // Previews work for any document under it, not just this one -- a
-  // Section's "Explained in" chips point at the Bill and its
-  // Explanatory Memorandum, and those are exactly the links most worth
-  // previewing.
-  var ROOT = BASE.slice(0, BASE.lastIndexOf("/"));
-  var OPEN_DELAY = 500;   // long enough that skimming past a link doesn't trigger one
-  var CLOSE_DELAY = 220;  // long enough to move the pointer from the link into the card
-  var card = document.createElement("div");
-  card.className = "linkpeek";
-  document.body.appendChild(card);
-
-  var cache = {};
-  var openTimer = null, closeTimer = null, activeLink = null, requestSeq = 0;
-
-  // Which link target this is, as the preview endpoint's two
-  // parameters. Anything that isn't a link into this Act (the preview
-  // bar's own links, an external href) returns null and is left
-  // alone.
-  function targetOf(a) {
-    var url;
-    try { url = new URL(a.getAttribute("href"), location.href); } catch (e) { return null; }
-    if (url.origin !== location.origin) return null;
-    var fragment = decodeURIComponent(url.hash.replace(/^#/, ""));
-    if (url.pathname.slice(0, ROOT.length + 1) !== ROOT + "/") return null;
-    var parts = url.pathname.slice(ROOT.length + 1).replace(/\/$/, "").split("/");
-    if (parts.length === 3 && parts[1] === "section") {
-      return { base: ROOT + "/" + parts[0], section: parts[2], fragment: fragment };
-    }
-    if (parts.length === 1 && parts[0] && fragment) {
-      return { base: ROOT + "/" + parts[0], section: "", fragment: fragment };
-    }
-    return null;
-  }
-
-  function render(data, crossDocument) {
-    card.classList.add("open");  // must be laid out before the overflow check below can measure it
-    var more = data.truncated
-      ? '<div class="peek-more">Continues &mdash; open the link to read the rest.</div>' : "";
-    // A link into another document (a Bill clause, an EM note) is
-    // named by that document as well as by the provision -- without
-    // it a card reading "Clause 5" gives no clue which of the three it
-    // came from.
-    var subBits = [];
-    if (crossDocument && data.document) subBits.push(data.document);
-    if (data.subtitle) subBits.push(data.subtitle);
-    var sub = subBits.length ? '<div class="peek-sub">' + escapeText(subBits.join(" \u00b7 ")) + "</div>" : "";
-    card.innerHTML = '<div class="peek-title">' + escapeText(data.title) + "</div>" + sub + data.html + more;
-    // A card can also overflow without the server having truncated
-    // anything -- short provisions that simply wrap past its height.
-    // Say so there too, so a clipped last line always reads as
-    // "there's more", never as a rendering glitch.
-    if (!more && card.scrollHeight > card.clientHeight) {
-      card.insertAdjacentHTML("beforeend", '<div class="peek-more">Continues &mdash; scroll, or open the link.</div>');
-    }
-  }
-
-  function escapeText(s) {
-    var d = document.createElement("div");
-    d.textContent = s == null ? "" : s;
-    return d.innerHTML;
-  }
-
-  // Anchored to the link in page coordinates so the card scrolls with
-  // it, flipped above when there isn't room below, and nudged back
-  // inside the viewport horizontally.
-  function place(a) {
-    var r = a.getBoundingClientRect();
-    card.style.left = "0px";
-    card.style.top = "0px";
-    card.classList.add("open");
-    var w = card.offsetWidth, h = card.offsetHeight;
-    var left = Math.min(Math.max(r.left, 8), Math.max(window.innerWidth - w - 8, 8));
-    var below = r.bottom + 8;
-    var top = (below + h > window.innerHeight && r.top - h - 8 > 0) ? r.top - h - 8 : below;
-    card.style.left = (left + window.scrollX) + "px";
-    card.style.top = (top + window.scrollY) + "px";
-  }
-
-  function show(a) {
-    var target = targetOf(a);
-    if (!target) return;
-    var href = a.getAttribute("href");
-    activeLink = a;
-    var seq = ++requestSeq;
-    if (cache[href]) { render(cache[href], target.base !== BASE); place(a); return; }
-    card.innerHTML = '<div class="peek-loading">Loading&hellip;</div>';
-    place(a);
-    var query = "section=" + encodeURIComponent(target.section) + "&fragment=" + encodeURIComponent(target.fragment);
-    fetch("/api" + target.base + "/preview?" + query)
-      .then(function (res) { return res.ok ? res.json() : null; })
-      .then(function (data) {
-        if (seq !== requestSeq || activeLink !== a) return;  // pointer moved on before this landed
-        if (!data) { hide(); return; }
-        cache[href] = data;
-        render(data, target.base !== BASE);
-        place(a);
-      })
-      .catch(function () { if (seq === requestSeq) hide(); });
-  }
-
-  function hide() {
-    card.classList.remove("open");
-    activeLink = null;
-    requestSeq++;
-  }
-
-  function scheduleShow(a) {
-    clearTimeout(closeTimer);
-    clearTimeout(openTimer);
-    if (activeLink === a) return;
-    openTimer = setTimeout(function () { show(a); }, OPEN_DELAY);
-  }
-
-  function scheduleHide() {
-    clearTimeout(openTimer);
-    clearTimeout(closeTimer);
-    closeTimer = setTimeout(hide, CLOSE_DELAY);
-  }
-
-  document.addEventListener("mouseover", function (e) {
-    var a = e.target.closest ? e.target.closest("a[href]") : null;
-    if (a && a.closest(".page")) scheduleShow(a);
-    else if (!e.target.closest || !e.target.closest(".linkpeek")) scheduleHide();
-  });
-  document.addEventListener("mouseout", function (e) {
-    if (e.target.closest && (e.target.closest("a[href]") || e.target.closest(".linkpeek"))) scheduleHide();
-  });
-  card.addEventListener("mouseenter", function () { clearTimeout(closeTimer); });
-  card.addEventListener("mouseleave", scheduleHide);
-  document.addEventListener("focusin", function (e) {
-    var a = e.target.closest ? e.target.closest("a[href]") : null;
-    if (a && a.closest(".page")) scheduleShow(a);
-  });
-  document.addEventListener("focusout", scheduleHide);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
-  window.addEventListener("scroll", function () { if (activeLink) place(activeLink); }, { passive: true });
-})();
-"""
-
-
-def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: str | None = None) -> str:
-    """base_url is this Act's own root (e.g. "/browse/crimes-act"). If
-    given, the page also gets link hover previews -- the script needs
-    it to tell a link into this Act apart from any other href on the
-    page. If omitted, the page renders exactly as before, without
-    them.
-
-    It also decides where the page loads Junicode from: the fonts sit at
-    the site root (served by dashboard.py and review.py, copied into the
-    build by export_static_site.py), which is "/fonts" when the site is
-    the whole domain and "/<repo>/fonts" when it's a GitHub Pages
-    project site -- the same prefix every other absolute link derives
-    from."""
-    body_attr = f' data-base-url="{_esc(base_url)}"' if base_url else ""
-    preview_script = f"<script>{PREVIEW_SCRIPT}</script>\n" if base_url else ""
-    page_css = PAGE_CSS.replace("__FONT_BASE__", f"{_site_prefix(base_url or '')}/fonts")
-    return (
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        f"<title>{_esc(title)}</title>\n{_FONT_LINKS}\n<style>{page_css}</style>\n"
-        f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body{body_attr}>\n"
-        f"{previewbar_html}"
-        "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"
-        f"<div class=\"page\">\n{body_html}\n</div>\n"
-        f"<script>{THEME_BODY_SCRIPT}</script>\n<script>{COPY_SCRIPT}</script>\n"
-        f"{preview_script}</body>\n</html>"
-    )
+    # Comments are stripped from the template, and only from the template:
+    # they are notes to whoever edits page.html, and shipping them on
+    # every page of a public register of the law would be neither useful
+    # to a reader nor anything to make an editor think twice about writing.
+    # Done before substitution, so a comment in the page's own body (or in
+    # a provision quoting one) is left exactly as it was.
+    page = _TEMPLATE_COMMENT_RE.sub("", template_text("page.html"))
+    for placeholder, value in replacements.items():
+        page = page.replace(placeholder, value)
+    return page

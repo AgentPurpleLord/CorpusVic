@@ -532,6 +532,13 @@ def test_a_capitalised_leading_the_is_not_part_of_the_link(monkeypatch):
     assert '<a href="/browse/crimes-act/">The Crimes Act 1958</a>' in body
 
 
+def _provisions_of(body: str) -> str:
+    """Just the text column of a section page. The outline beside it names
+    the document and links to its own contents, so a whole-page search for
+    "<Act name></a>" now finds that rather than a link in the prose."""
+    return body.split('<div class="provisions">')[1]
+
+
 def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
     import ai_pipeline.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
@@ -542,8 +549,9 @@ def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
     ]
     body = render_section(_parsed(nodes), "Crimes Act 1958", "/browse/crimes-act", "s1")
 
-    assert "Crimes Act 1958</a>" not in body
-    assert "This Crimes Act 1958 does this." in body
+    provisions = _provisions_of(body)
+    assert "Crimes Act 1958</a>" not in provisions
+    assert "This Crimes Act 1958 does this." in provisions
 
 
 def test_an_acts_own_name_is_excluded_from_the_registry_fallback_too(monkeypatch):
@@ -561,8 +569,9 @@ def test_an_acts_own_name_is_excluded_from_the_registry_fallback_too(monkeypatch
     ]
     body = render_section(_parsed(nodes), "Sentencing Act 1991", "/browse/sentencing-act", "s1")
 
-    assert "Sentencing Act 1991</a>" not in body
-    assert "This Sentencing Act 1991 does this." in body
+    provisions = _provisions_of(body)
+    assert "Sentencing Act 1991</a>" not in provisions
+    assert "This Sentencing Act 1991 does this." in provisions
 
 
 def test_an_act_in_the_general_registry_links_to_the_legislation_resolver(monkeypatch):
@@ -650,16 +659,16 @@ def test_the_copy_script_ships_with_the_page():
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
     assert "copy-section-btn" in page
-    assert "text/html" in page and "text/plain" in page
+    assert '<script src="/assets/copy.js"></script>' in page
 
 
 def test_one_level_of_nesting_is_one_word_tab_stop():
     """36pt is half an inch -- the default tab stop in both Word and
     Google Docs, so a copied paragraph lands where a reader's own tab
     key would have put it."""
-    from ai_pipeline.html_view import COPY_SCRIPT
+    from ai_pipeline.html_view import template_text
 
-    assert "var INDENT_PT = 36;" in COPY_SCRIPT
+    assert "var INDENT_PT = 36;" in template_text("copy.js")
 
 
 def test_a_defined_term_keeps_its_own_punctuation_tight():
@@ -667,7 +676,223 @@ def test_a_defined_term_keeps_its_own_punctuation_tight():
     the copy must not open a gap the page itself doesn't show. Both
     clipboard flavours go through the same rule, which is why there is
     one helper rather than two spellings of it."""
-    from ai_pipeline.html_view import COPY_SCRIPT
+    from ai_pipeline.html_view import template_text
 
-    assert COPY_SCRIPT.count("function gap(") == 1
-    assert COPY_SCRIPT.count("gap(p.text)") == 2
+    copy_js = template_text("copy.js")
+    assert copy_js.count("function gap(") == 1
+    assert copy_js.count("gap(p.text)") == 2
+
+
+# The page template. Since static/site/page.html is a file rather than a
+# string constant, the thing most likely to break is the seam between the
+# two: a placeholder renamed in one and not the other leaves a literal
+# "{{...}}" in a published page, which no amount of CSS review would
+# catch.
+def _shell(**kwargs) -> str:
+    from ai_pipeline.html_view import page_shell
+
+    return page_shell("Test Act", "<p>body</p>", **kwargs)
+
+
+def test_no_placeholder_survives_into_a_rendered_page():
+    for kwargs in ({}, {"base_url": "/browse/a"}, {"base_url": "/browse/a", "reader": True},
+                   {"previewbar_html": '<div class="previewbar">preview</div>'}):
+        page = _shell(**kwargs)
+        assert "{{" not in page and "}}" not in page, (kwargs, page)
+
+
+def test_asset_urls_stay_inside_a_project_site():
+    """On GitHub Pages the site is served under /<repo>/, so an asset URL
+    that assumed the domain root would reach for the real root instead."""
+    page = _shell(base_url="/vic-legislation-parser/browse/a")
+
+    assert '<link rel="stylesheet" href="/vic-legislation-parser/assets/tokens.css">' in page
+    assert '<script src="/vic-legislation-parser/assets/reader.js"></script>' in page
+    # Junicode is reached relative to tokens.css, so no prefix belongs in
+    # the stylesheet itself -- that is what makes one file serve both.
+    from ai_pipeline.html_view import template_text
+
+    assert "url('fonts/Junicode-Roman.woff2')" in template_text("tokens.css")
+
+
+def test_a_section_page_asks_for_the_reader_layout():
+    assert 'class="page page-reader"' in _shell(base_url="/browse/a", reader=True)
+    assert 'class="page"' in _shell(base_url="/browse/a")
+
+
+def test_the_template_is_read_again_after_it_changes(tmp_path, monkeypatch):
+    """Editing a stylesheet or the shell while a server is running has to
+    show up on the next reload -- that is most of the reason the template
+    is a file at all."""
+    import ai_pipeline.html_view as html_view_module
+
+    monkeypatch.setattr(html_view_module, "TEMPLATE_DIR", tmp_path)
+    monkeypatch.setattr(html_view_module, "_template_cache", {})
+    page = tmp_path / "page.html"
+    page.write_text("first {{BODY}}", encoding="utf-8")
+    assert html_view_module.page_shell("T", "x") == "first x"
+    # A rewrite within the same clock tick has to be noticed too, so the
+    # mtime is moved explicitly rather than trusted to differ.
+    page.write_text("second {{BODY}}", encoding="utf-8")
+    import os
+
+    os.utime(page, (0, 0))
+    assert html_view_module.page_shell("T", "x") == "second x"
+
+
+# ---------------------------------------------------------------------------
+# The section reading view
+# ---------------------------------------------------------------------------
+def _three_part_act() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("section", "2", "Commencement", "This Act comes into operation—"),
+        make_node("part", "2", "Offences"),
+        make_node("division", "1", "Assault"),
+        make_node("section", "10", "Common assault", "A person must not—"),
+        make_node("section", "11", "Aggravated assault", "A person must not—"),
+        make_node("division", "2", "Theft"),
+        make_node("section", "20", "Theft", "A person must not—"),
+        make_node("part", "3", "Enforcement"),
+        make_node("section", "30", "Powers", "An officer may—"),
+    ]
+
+
+def _outline_of(section_slug: str, **kwargs) -> str:
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", section_slug, **kwargs)
+    return body.split('<nav class="outline"')[1].split("</nav>")[0]
+
+
+def test_the_outline_opens_only_the_branch_you_are_reading():
+    """A whole Act's contents in every sidebar would be a second contents
+    page: the Criminal Procedure Act alone would put over a thousand links
+    on every page of itself."""
+    outline = _outline_of("s10")
+
+    # The Part and Division this section is in are opened...
+    assert "Part 2 - Offences" in outline and "Division 1 - Assault" in outline
+    # ...so its neighbours are listed, and it is marked as where you are.
+    assert "11 Aggravated assault" in outline
+    assert 'aria-current="page"' in outline
+    assert outline.count('aria-current="page"') == 1
+    # ...but another Part's sections are not.
+    assert "30 Powers" not in outline
+    assert "20 Theft" not in outline
+    # The Parts themselves all stay, or there would be no way out.
+    assert "Part 1 - Preliminary" in outline and "Part 3 - Enforcement" in outline
+
+
+def test_a_collapsed_branch_says_which_provisions_are_behind_it():
+    outline = _outline_of("s10")
+
+    assert "ss 1&ndash;2" in outline    # Part 1, collapsed
+    assert "ss 30" not in outline       # one section is not a range
+
+
+def test_the_outline_names_the_document():
+    """Otherwise a section page never says which Act it is: the heading is
+    the provision's, and "Act index" doesn't say which index."""
+    assert ">Test Act</a>" in _outline_of("s10")
+
+
+def test_the_nearby_provisions_are_named():
+    """"Next" alone makes a reader click to find out where they are
+    going."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
+    nav = body.split('<nav class="section-nav"')[1]
+
+    assert "2 Commencement" in nav      # the previous section, across a Part boundary
+    assert "11 Aggravated assault" in nav
+    assert 'href="/browse/a/section/s2"' in nav and 'href="/browse/a/section/s11"' in nav
+
+
+def test_the_first_provision_has_no_previous():
+    nav = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s1").split(
+        '<nav class="section-nav"')[1]
+
+    assert "nav-prev" not in nav
+    assert "nav-next" in nav
+
+
+def test_the_reading_bar_states_the_date_the_text_is_as_at():
+    parsed = dict(_parsed(_three_part_act()), version={"version": 24, "as_at_printed": "1 March 2024"})
+    body = render_section(parsed, "Test Act", "/browse/a", "s10")
+
+    assert "Text as at" in body
+    assert "<strong>1 March 2024</strong>" in body
+
+
+def test_a_document_with_no_version_states_nothing_rather_than_guessing():
+    """A Bill and an Explanatory Memorandum have no "as at" date at all,
+    and the date a file happened to be parsed is not one."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
+
+    assert "Text as at" not in body
+    assert 'class="readerctl"' in body, "the reading controls are not version-dependent"
+
+
+def test_comparing_versions_offers_the_other_versions_of_this_provision():
+    parsed = dict(_parsed(_three_part_act()), version={"version": 113, "as_at_printed": "1 March 2024"})
+    body = render_section(
+        parsed, "Test Act", "/browse/a", "s10",
+        version_urls={112: "/browse/act-v112/section/s10", 113: "/browse/act-v113/section/s10",
+                      114: "/browse/act-v114/section/s10"},
+        version_dates={112: "1 January 2023", 113: "1 March 2024", 114: "1 July 2025"},
+    )
+    choices = body.split('<details class="versions">')[1].split("</details>")[0]
+
+    # Newest first, and the version you are already reading is not offered.
+    assert choices.index("Version 114") < choices.index("Version 112")
+    assert "Version 113" not in choices
+    # Dated, because a reader has a date in mind rather than a version number.
+    assert "as at 1 July 2025" in choices
+    # The same provision in that version, not that version's front page.
+    assert 'href="/browse/act-v114/section/s10"' in choices
+
+
+def test_a_document_held_in_one_version_offers_no_comparison():
+    """A control with nothing behind it is worse than no control."""
+    parsed = dict(_parsed(_three_part_act()), version={"version": 1, "as_at_printed": "1 March 2024"})
+    body = render_section(parsed, "Test Act", "/browse/a", "s10",
+                          version_urls={1: "/browse/a/section/s10"})
+
+    assert "Compare with another version" not in body
+    # And nothing is claimed to be current when there is nothing to be
+    # current against.
+    assert "asat-tag" not in body
+
+
+def test_the_templates_own_comments_do_not_ship():
+    """page.html's comments are notes to whoever edits it. A public
+    register of the law has no use for them on every page, and an editor
+    should not have to weigh that before writing one."""
+    page = _shell(base_url="/browse/a")
+
+    assert "MAIN_CLASS" not in page
+    assert "<!--" not in page
+
+
+def test_a_comment_in_the_page_itself_is_left_alone():
+    """Only the template's own comments go: the body is the document's
+    text, and a provision that quotes one is still quoting it."""
+    page = _shell(base_url="/browse/a")
+    from ai_pipeline.html_view import page_shell
+
+    assert "<!-- kept -->" in page_shell("T", "<p>a <!-- kept --> note</p>")
+
+
+def test_the_outline_marks_a_provision_that_is_not_published_yet():
+    """Same reason the contents page marks it: a line that looks like
+    every other one, and turns out to be a page saying the text isn't
+    there, is worse than one that says so first."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10",
+                          unpublished_pages={"s11"})
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+
+    assert '<a href="/browse/a/section/s11" class="unpublished">' in outline
+    # The words are there for a screen reader, which has no dot to see.
+    assert "(not yet published)" in outline
+    assert 'href="/browse/a/section/s11"' in outline, "still linked, not hidden"
+    # And a published neighbour is left alone.
+    assert 'section/s10" aria-current="page">' in outline
