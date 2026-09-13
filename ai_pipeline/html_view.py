@@ -406,13 +406,30 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 
 
 def render_index(parsed: dict, act_title: str, base_url: str,
-                 superseded: dict | None = None) -> str:
+                 superseded: dict | None = None, unpublished_pages: "set[str] | None" = None,
+                 show_review_badge: bool = True) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section
     is built from it, so the caller controls the URL scheme entirely.
 
     superseded, if given, is {"version", "current", "current_url",
-    "as_at_printed"} -- see render_superseded_banner."""
+    "as_at_printed"} -- see render_superseded_banner.
+
+    unpublished_pages, if given, is the page ids whose provision hasn't
+    been released to readers yet (see export_static_site.py, which
+    publishes an Act a reviewed provision at a time). They stay in the
+    contents list, still linked, and are marked -- the page they lead to
+    says the same thing. Leaving them out instead would make a
+    part-published Act look complete, which for legislation is the
+    dangerous reading: a missing section must never look like a section
+    that doesn't exist. None (the live dashboard, which shows
+    everything) marks nothing.
+
+    show_review_badge is how much of the Act a human has checked, which
+    is what a reviewer wants to know and the wrong thing to tell a
+    reader: on a site that only publishes checked provisions, "partially
+    reviewed" reads as doubt about the text actually on screen. Off
+    there; on for the dashboard, whose whole job is tracking it."""
     ctx = _build_context(parsed, act_title)
     tree_roots = ctx["tree_roots"]
     structural_types = ctx["structural_types"]
@@ -420,7 +437,9 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     index_slugs = ctx["index_slugs"]
     verification = _collect_verification(tree_roots)
 
-    out = [f"<h1>{_esc(act_title)}</h1>", _verification_badge(verification)]
+    out = [f"<h1>{_esc(act_title)}</h1>"]
+    if show_review_badge:
+        out.append(_verification_badge(verification))
     if superseded:
         out.append(render_superseded_banner(
             superseded.get("version"), superseded.get("current"),
@@ -468,7 +487,12 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             if not list_open:
                 out.append('<ul class="section-list">')
                 list_open = True
-            out.append(f'<li><a href="{href}">{_esc(label)}</a></li>')
+            page_id = _strip_md(filenames_by_eid[tree_node["eid"]])
+            mark = (
+                ' <span class="unpublished-tag">not yet published</span>'
+                if unpublished_pages and page_id in unpublished_pages else ""
+            )
+            out.append(f'<li><a href="{href}">{_esc(label)}</a>{mark}</li>')
             return
         if t in (*structural_types, "heading_group"):
             close_list()
@@ -1308,6 +1332,15 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .site-footer p { margin: 0 0 10px; }
 .site-footer p:last-child { margin-bottom: 0; }
+
+/* A provision listed in the contents but not released to readers yet --
+   see render_index's own unpublished_pages note. Quiet: it marks an
+   absence, and shouldn't shout over the provisions that are there. */
+.unpublished-tag {
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--border); padding: 0 5px; margin-left: 6px;
+  white-space: nowrap;
+}
 
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page

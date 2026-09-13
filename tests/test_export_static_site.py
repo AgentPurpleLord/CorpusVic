@@ -16,11 +16,14 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ai_pipeline.html_view import _legislation_href, _site_prefix
 from ai_pipeline.site_crypto import SiteGate, derive_key
+from conftest import make_node
 from export_static_site import (
     OFFICIAL_SOURCE_URL,
     _landing_page_html,
     _page,
-    select_published_slugs,
+    approved_page_slugs,
+    approved_units,
+    select_candidate_slugs,
 )
 
 
@@ -28,49 +31,100 @@ def _status(parsed=True, review_status="reviewed"):
     return {"parsed": parsed, "review_status": review_status}
 
 
-def test_select_published_slugs_skips_an_unparsed_document():
+def test_select_candidate_slugs_skips_an_unparsed_document():
     statuses = {"crimes-act": _status(parsed=False)}
-    assert select_published_slugs(statuses) == []
+    assert select_candidate_slugs(statuses) == []
 
 
-def test_select_published_slugs_includes_a_reviewed_unversioned_document():
-    statuses = {"crimes-act": _status(review_status="reviewed")}
-    assert select_published_slugs(statuses) == ["crimes-act"]
-
-
-def test_select_published_slugs_excludes_a_document_not_fully_reviewed():
+def test_select_candidate_slugs_does_not_care_how_far_review_has_got():
+    """A document earns its place provision by provision now (see
+    approved_units), so being part-way through review is no longer a
+    reason to leave the whole thing out."""
     statuses = {
         "crimes-act": _status(review_status="in-progress"),
         "evidence-act": _status(review_status="not-started"),
     }
-    assert select_published_slugs(statuses) == []
+    assert select_candidate_slugs(statuses) == ["crimes-act", "evidence-act"]
 
 
-def test_select_published_slugs_publishes_only_the_newest_version_of_a_work():
+def test_select_candidate_slugs_offers_only_the_newest_version_of_a_work():
     statuses = {
-        "criminal-procedure-act-v110": _status(review_status="reviewed"),
-        "criminal-procedure-act-v114": _status(review_status="reviewed"),
+        "criminal-procedure-act-v110": _status(),
+        "criminal-procedure-act-v114": _status(),
     }
-    assert select_published_slugs(statuses) == ["criminal-procedure-act-v114"]
+    assert select_candidate_slugs(statuses) == ["criminal-procedure-act-v114"]
 
 
-def test_select_published_slugs_excludes_a_work_whose_newest_version_isnt_reviewed():
-    """Even though an older version was fully reviewed, that's not what
-    would be shown -- browsing this work always means its newest version,
-    so nothing is published until *that* one is ready."""
+# ---------------------------------------------------------------------
+# Which provisions are approved enough to publish.
+# ---------------------------------------------------------------------
+
+_STAMP = "2026-01-01T00:00:00+00:00"
+
+
+def _node(**extra):
+    return dict(make_node("subsection", "1", None, "some text"), **extra)
+
+
+def test_a_unit_is_approved_when_every_node_in_it_is_verified():
+    nodes = [_node(verified_at=_STAMP), _node(verified_at=_STAMP)]
+    assert approved_units(nodes, [[0, 1]]) == {0}
+
+
+def test_a_unit_with_an_unverified_node_is_not_approved():
+    nodes = [_node(verified_at=_STAMP), _node()]
+    assert approved_units(nodes, [[0, 1]]) == set()
+
+
+def test_a_flagged_node_keeps_its_unit_unpublished():
+    """Flagging means "not sure, revisit this" -- review.py deliberately
+    leaves such a node unstamped -- so the reviewer's doubt has to keep
+    the provision off the public site."""
+    nodes = [_node(verified_at=_STAMP), _node(needs_followup=True)]
+    assert approved_units(nodes, [[0, 1]]) == set()
+
+
+def test_a_node_both_verified_and_flagged_still_counts_as_flagged():
+    nodes = [_node(verified_at=_STAMP, needs_followup=True)]
+    assert approved_units(nodes, [[0]]) == set()
+
+
+def test_a_merged_away_node_does_not_hold_its_unit_back():
+    """A merged-away position is None, and no longer a provision anyone
+    has to approve separately."""
+    nodes = [_node(verified_at=_STAMP), None]
+    assert approved_units(nodes, [[0, 1]]) == {0}
+
+
+def test_a_unit_that_was_entirely_merged_away_is_not_approved():
+    assert approved_units([None, None], [[0, 1]]) == set()
+
+
+def test_units_are_judged_independently():
+    nodes = [_node(verified_at=_STAMP), _node(), _node(verified_at=_STAMP)]
+    assert approved_units(nodes, [[0], [1], [2]]) == {0, 2}
+
+
+def test_approved_page_slugs_maps_approved_units_back_to_their_pages():
+    nodes = [_node(verified_at=_STAMP), _node(verified_at=_STAMP), _node()]
+    units = [[0, 1], [2]]
+    by_node_index = {0: "s1", 2: "s2"}
+    assert approved_page_slugs(nodes, units, by_node_index) == {"s1"}
+
+
+def test_a_page_whose_node_starts_no_unit_is_not_published():
+    """Conservative on purpose: if the two ever stopped lining up, the
+    failure should be a provision withheld, not unreviewed text shipped."""
+    nodes = [_node(verified_at=_STAMP)]
+    assert approved_page_slugs(nodes, [[0]], {99: "s99"}) == set()
+
+
+def test_select_candidate_slugs_treats_independent_works_independently():
     statuses = {
-        "criminal-procedure-act-v110": _status(review_status="reviewed"),
-        "criminal-procedure-act-v114": _status(review_status="in-progress"),
+        "crimes-act": _status(),
+        "evidence-act": _status(parsed=False),
     }
-    assert select_published_slugs(statuses) == []
-
-
-def test_select_published_slugs_treats_independent_works_independently():
-    statuses = {
-        "crimes-act": _status(review_status="reviewed"),
-        "evidence-act": _status(review_status="not-started"),
-    }
-    assert select_published_slugs(statuses) == ["crimes-act"]
+    assert select_candidate_slugs(statuses) == ["crimes-act"]
 
 
 def test_site_prefix_is_empty_when_base_url_has_no_browse_segment():
@@ -105,7 +159,26 @@ def test_legislation_href_carries_the_site_prefix_from_base_url():
 # dropped one would leave unofficial text looking authoritative.
 # ---------------------------------------------------------------------
 
-_DOC = {"slug": "crimes-act", "title": "Crimes Act 1958", "kind": "act", "as_at": "1 May 2026", "pages": 3}
+def _doc(published=3, total=3):
+    return {
+        "slug": "crimes-act", "title": "Crimes Act 1958", "kind": "act",
+        "as_at": "1 May 2026", "pages": total + 1,
+        "published_provisions": published, "total_provisions": total,
+    }
+
+
+_DOC = _doc()
+
+
+def test_the_landing_page_says_how_much_of_a_part_published_act_is_there():
+    page = _landing_page_html([_doc(published=12, total=112)], "")
+    assert "12 of 112 provisions" in page
+
+
+def test_a_fully_published_act_gets_no_provision_count():
+    """Once the answer is always "all of them", the count is noise."""
+    page = _landing_page_html([_doc(published=112, total=112)], "")
+    assert "provisions" not in page.split('<ul class="section-list">')[1]
 
 
 def test_the_landing_page_disclaims_before_the_heading():
