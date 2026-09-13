@@ -594,6 +594,23 @@ def index():
     return FileResponse(STATIC_DIR / "dashboard.html")
 
 
+# See review.py's own copy: the name comes from a URL, so it's matched
+# against what static/fonts/ actually holds rather than joined blindly.
+_FONT_FILE_RE = re.compile(r"^[A-Za-z0-9-]+\.woff2$")
+
+
+@app.get("/fonts/{name}")
+def font_file(name: str):
+    """Junicode, the reading face the browse pages set legislative text
+    in (see static/fonts/README.md)."""
+    if not _FONT_FILE_RE.match(name):
+        raise HTTPException(404, "No such font")
+    path = STATIC_DIR / "fonts" / name
+    if not path.is_file():
+        raise HTTPException(404, "No such font")
+    return FileResponse(path, media_type="font/woff2")
+
+
 @app.get("/api/acts")
 def list_acts():
     return [act_status(slug) for slug in discover_slugs()]

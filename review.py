@@ -1019,6 +1019,25 @@ def index():
     return FileResponse(STATIC_DIR / "review.html")
 
 
+# The one filename pattern static/fonts/ holds. Matched rather than
+# trusted: the name arrives in a URL, and joining an unchecked one onto a
+# directory is how a path-traversal read happens.
+_FONT_FILE_RE = re.compile(r"^[A-Za-z0-9-]+\.woff2$")
+
+
+@app.get("/fonts/{name}")
+def font_file(name: str):
+    """Junicode, the reading face for legislative text (see
+    static/fonts/README.md). Served here as well as by dashboard.py so
+    review.py works both standalone and behind the dashboard's proxy."""
+    if not _FONT_FILE_RE.match(name):
+        raise HTTPException(404, "No such font")
+    path = STATIC_DIR / "fonts" / name
+    if not path.is_file():
+        raise HTTPException(404, "No such font")
+    return FileResponse(path, media_type="font/woff2")
+
+
 @app.get("/api/meta")
 def get_meta():
     tree_info = compute_unit_tree_info([_nodes[indices[0]]["type"] for indices in _units], _hierarchy)

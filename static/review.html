@@ -29,7 +29,7 @@
     /* Not theme-toggled -- the reading font for the actual Act/Bill text
        being reviewed (.piece-text only) stays the same in both themes;
        everything else here (toolbar, sidebar, labels) stays in Inter. */
-    --font-reading: "Times New Roman", Times, Georgia, serif;
+    --font-reading: 'Junicode', Georgia, serif;
     --bg: #f3f2f2;
     --panel: #eae9e9;
     --fg: #201e1d;
@@ -103,11 +103,26 @@
     --accepted-text: #5fd37f;
     --flagged-text: #f0b135;
   }
+  /* Junicode, self-hosted and served by review.py's own /fonts route --
+     relative so the same file works standalone and behind the
+     dashboard's proxy, exactly like the api/ fetches below. */
+  @font-face {
+    font-family: 'Junicode';
+    src: url('fonts/Junicode-Roman.woff2') format('woff2');
+    font-weight: 300 700; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Junicode';
+    src: url('fonts/Junicode-Italic.woff2') format('woff2');
+    font-weight: 300 700; font-style: italic; font-display: swap;
+  }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0;
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures contextual;
     background: var(--bg);
     color: var(--fg);
     display: flex;
@@ -257,7 +272,7 @@
   }
   .history-note .history-note-text { line-height: 1.4; }
   .history-note .history-note-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
-  .history-confidence { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 0; font-weight: 700; }
+  .history-confidence { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px; border-radius: 0; font-weight: 700; }
   .history-confidence.high { background: var(--piece-accepted-bg); color: var(--accepted-text); }
   .history-confidence.low { background: var(--piece-flagged-bg); color: var(--flagged-text); }
   .history-confidence.manual { background: var(--accent); color: white; }
@@ -294,6 +309,7 @@
   #unit-header h2 { font-size: 18px; margin: 0; }
   #unit-header .status-badge {
     font-size: 11px; padding: 2px 8px; border-radius: 0; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
   .status-badge.pending { background: var(--sidebar-bg); color: var(--pending); }
   .status-badge.done { background: var(--piece-accepted-bg); color: var(--accepted-text); }
@@ -376,7 +392,7 @@
   .ai-suggest-hint code { font-size: 11px; }
   .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .piece-label { font-weight: 700; font-size: 13px; }
-  .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .piece-status-badge { font-size: 10.5px; padding: 1px 8px; border-radius: 0; font-weight: 600; white-space: nowrap; }
   .piece-status-badge.accepted { background: var(--piece-accepted-bg); color: var(--accepted-text); }
   .piece-status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
@@ -387,10 +403,14 @@
   .flag-piece-btn { color: var(--flagged-text) !important; border-color: var(--piece-flagged-border) !important; }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
   .piece-text {
+    /* The same 19px/1.42 over a 34em measure the published pages use
+       (ai_pipeline/html_view.py's .prov): a reviewer should be judging
+       the text as a reader will meet it, not in a denser tool font. */
     font-family: var(--font-reading);
     white-space: pre-wrap;
-    line-height: 1.55;
-    font-size: 14px;
+    line-height: 1.42;
+    font-size: 19px;
+    max-width: 34em;
     cursor: text;
     user-select: text;
   }

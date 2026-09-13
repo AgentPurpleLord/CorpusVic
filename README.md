@@ -81,6 +81,33 @@ one row rather than three unrelated cards, grouped from whatever
 `run_bill_linking.py` has recorded (`data/bill_links/`). Anything not
 part of such a group still shows up, just on its own.
 
+## Typography
+
+Legislative text is set in [Junicode](https://junicode.sourceforge.io/)
+and everything else — navigation, labels, the dashboard, the review tool
+— in Inter. The split is the point: the law reads as a document, the
+tools around it read as an interface.
+
+The reading settings follow [Butterick's summary of key
+rules](https://practicaltypography.com/summary-of-key-rules.html), and
+the three that decide whether a long provision is readable are checked
+rather than assumed — 19px, 142% line spacing, and a measure that lands
+around 65 characters (the rules ask for 15–25px, 120–145%, and 45–90
+characters). Kerning is on, all-caps labels carry the 5–12%
+letterspacing the rules call for, and a defined term is italic rather
+than bold-italic.
+
+Junicode is self-hosted from `static/fonts/` rather than pulled off a
+font CDN: it isn't on one, and a public register of the law shouldn't
+announce every reader to a third party in order to render its own text.
+The files there are subsets — about 70 KB each instead of 1 MB — and
+`static/fonts/README.md` says how they were cut.
+
+One thing deliberately left alone: the punctuation *inside* legislative
+text. Curly quotes, dashes and ellipses in this project's own wording
+are ours to get right, but the Act's words are reproduced as the source
+sets them. "Improving" the typography of a statute would be altering it.
+
 ## Publishing a public site
 
 `export_static_site.py` builds a static, read-only copy of the browse

@@ -1120,7 +1120,7 @@ PAGE_CSS = """
   --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
   --warn-bg: #fef3c7; --warn-border: #d97706;
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --reading: "Times New Roman", Times, Georgia, serif;
+  --reading: 'Junicode', Georgia, serif;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -1132,8 +1132,33 @@ PAGE_CSS = """
   --ins-bg: #092c13; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
   --warn-bg: #3b2400; --warn-border: #f0b135;
 }
+/* Junicode, self-hosted: it isn't on any font CDN, and a public register
+   of the law shouldn't hand every reader's IP to a third party to render
+   its own text. One file per style covers 300-700 because the weight
+   axis is left variable -- see static/fonts/README.md. __FONT_BASE__ is
+   substituted per page by page_shell, since the site can be served from
+   a domain root or from under a repository path. */
+@font-face {
+  font-family: 'Junicode';
+  src: url('__FONT_BASE__/Junicode-Roman.woff2') format('woff2');
+  font-weight: 300 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Junicode';
+  src: url('__FONT_BASE__/Junicode-Italic.woff2') format('woff2');
+  font-weight: 300 700; font-style: italic; font-display: swap;
+}
+
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.65; }
+/* Typography follows Butterick's summary of key rules: body text 15-25px,
+   line spacing 120-145% of it, and a measure of 45-90 characters (set on
+   .prov below, where the actual reading happens). Kerning and the normal
+   ligatures are asked for explicitly rather than left to the browser. */
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--sans); font-size: 17px; line-height: 1.45;
+  font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
+}
 .previewbar {
   background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
   padding: 6px 20px; display: flex; gap: 14px; align-items: center;
@@ -1167,6 +1192,17 @@ a:hover { text-decoration: underline; }
 .provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
 .prov {
   font-family: var(--reading);
+  /* 19px/1.42 with the measure capped just under 70 characters: the
+     three numbers Butterick's rules turn on, and the ones that decide
+     whether a long provision is readable. The cap is per provision
+     rather than on the column, so a nested paragraph's own indent
+     doesn't eat into its measure. Space between provisions (11px, ~8pt)
+     rather than a first-line indent -- never both. The negative
+     text-indent isn't that: it hangs the provision number out in the
+     margin, which is how the Act itself prints. */
+  font-size: 19px;
+  line-height: 1.42;
+  max-width: 34em;
   margin: 0 0 11px;
   padding-left: calc(var(--depth, 0) * 26px + 2.4em);
   text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
@@ -1189,7 +1225,10 @@ a:hover { text-decoration: underline; }
   display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
 }
 .prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
-.prov-term { font-weight: 600; font-style: italic; }
+/* Italic alone, never italic *and* bold: two emphases at once is one
+   more than the text needs, and a defined term is already announced by
+   being defined. */
+.prov-term { font-style: italic; }
 .prov-heading {
   font-family: var(--sans); font-weight: 600; font-size: 14px;
   margin: 20px 0 8px; text-indent: 0;
@@ -1219,7 +1258,8 @@ a:hover { text-decoration: underline; }
 /* A provision the endnotes reproduce verbatim -- the Act's own words, not
    the endnote's commentary about them. */
 .endnote-quote {
-  font-family: var(--reading);
+  /* The Act's own words again, so the same reading settings as .prov. */
+  font-family: var(--reading); font-size: 19px; line-height: 1.42; max-width: 34em;
   margin: 0 0 11px; padding: 2px 0 2px 14px;
   border-left: 3px solid var(--border); color: var(--fg);
 }
@@ -1291,7 +1331,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 5px; }
 .tl-version { font-size: 12.5px; font-weight: 600; }
 .tl-verb {
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
   padding: 1px 7px; border-radius: 0; background: var(--verify-none-bg); color: var(--muted);
 }
 .tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
@@ -1574,13 +1614,21 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "", base_url: 
     given, the page also gets link hover previews -- the script needs
     it to tell a link into this Act apart from any other href on the
     page. If omitted, the page renders exactly as before, without
-    them."""
+    them.
+
+    It also decides where the page loads Junicode from: the fonts sit at
+    the site root (served by dashboard.py and review.py, copied into the
+    build by export_static_site.py), which is "/fonts" when the site is
+    the whole domain and "/<repo>/fonts" when it's a GitHub Pages
+    project site -- the same prefix every other absolute link derives
+    from."""
     body_attr = f' data-base-url="{_esc(base_url)}"' if base_url else ""
     preview_script = f"<script>{PREVIEW_SCRIPT}</script>\n" if base_url else ""
+    page_css = PAGE_CSS.replace("__FONT_BASE__", f"{_site_prefix(base_url or '')}/fonts")
     return (
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        f"<title>{_esc(title)}</title>\n{_FONT_LINKS}\n<style>{PAGE_CSS}</style>\n"
+        f"<title>{_esc(title)}</title>\n{_FONT_LINKS}\n<style>{page_css}</style>\n"
         f"<script>{THEME_HEAD_SCRIPT}</script>\n</head>\n<body{body_attr}>\n"
         f"{previewbar_html}"
         "<button class=\"theme-toggle\" id=\"theme-toggle-btn\" type=\"button\">&#127769;</button>\n"
