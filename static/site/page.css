@@ -39,87 +39,74 @@ a:hover { text-decoration: underline; }
    with the number hanging in the margin to its left, so a subsection
    reads as a subsection without needing its own heading. */
 .provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
-.prov {
-  font-family: var(--reading);
-  /* 19px/1.42 with the measure capped just under 70 characters: the
-     three numbers Butterick's rules turn on, and the ones that decide
-     whether a long provision is readable. The cap is per provision
-     rather than on the column, so a nested paragraph's own indent
-     doesn't eat into its measure. Space between provisions (11px, ~8pt)
-     rather than a first-line indent -- never both. The negative
-     text-indent isn't that: it hangs the provision number out in the
-     margin, which is how the Act itself prints.
+/* One provision, as a two-column grid: the number in the first column,
+   the words in the second. Nothing here uses a negative offset, and that
+   is the whole point -- the div is the absolute confine of everything in
+   the provision, its number included.
 
-     The size is a variable because a section page lets the reader change
-     it -- see reader.css, which defines the steps. 19px is the default
-     wherever nothing sets it. */
+   What this replaced hung the number in the margin with a negative
+   text-indent, which put it outside the div by construction. On a section
+   page that meant the numbers were drawn over the outline beside them,
+   and further over the larger the reading size. A grid column cannot
+   leak.
+
+   --label is the number's column, used for the track and for nothing
+   else to have to agree with. Depth is a margin on the whole provision
+   rather than padding inside it, so the number moves with the text it
+   belongs to. The measure is the *text* column's, so neither the number
+   nor the nesting is eaten out of the 45-90 characters Butterick's rules
+   ask for; the space between provisions (11px, ~8pt) does the work a
+   first-line indent would, and never both. */
+.prov {
+  --label: 2.4em;
+  display: grid;
+  grid-template-columns: var(--label) minmax(0, 1fr);
+  align-items: baseline;
+  font-family: var(--reading);
   font-size: var(--prov-size, 19px);
   line-height: 1.42;
-  max-width: 34em;
-  margin: 0 0 11px;
+  margin: 0 0 11px calc(var(--depth, 0) * 1.37em);
+  max-width: calc(34em + var(--label));
+}
+/* Always the second column, so a provision with no number of its own
+   still lines its text up with a numbered sibling's rather than starting
+   under the numbers. */
+.prov-text {
+  grid-column: 2;
   /* Justified, which is how the Act itself prints, with hyphenation on --
      justifying without it opens rivers of white space, and a provision's
      measure is narrow enough that a long word would otherwise leave a
      line half empty. */
   text-align: justify;
   hyphens: auto;
-  /* The number's own column. One value, used three times over: it is the
-     padding the text sits behind, the negative indent that pulls the
-     first line back out so the number hangs in that padding, and the
-     width of the number's box. They have to agree exactly, or wrapped
-     lines land somewhere other than under the first line's text -- so
-     they are one variable rather than three numbers to keep in step.
-     Both in em, so the reading-size control moves the indent and the
-     measure with the text: a reader who asks for larger type wants
-     larger type, not the same line broken into fewer words. */
-  --label: 2.4em;
-  padding-left: calc(var(--depth, 0) * 1.37em + var(--label));
-  text-indent: calc(-1 * var(--label));
 }
-/* No number to hang, so no hanging indent -- the text just starts
-   where a numbered sibling's text does, instead of its first line
-   poking out into the empty number column. */
-.prov-nolabel { text-indent: 0; }
-/* Except a list item, which has no number because its source prints a
-   bullet instead of one (an Explanatory Memorandum's lists are set
-   that way -- see em_parser.py). It gets its marker back, hanging in
-   the same column a lettered sibling's "(a)" would. */
-.prov-paragraph.prov-nolabel,
-.prov-subparagraph.prov-nolabel,
-.prov-sub_subparagraph.prov-nolabel { text-indent: calc(-1 * var(--label)); }
+.prov-num { padding-right: 0.5em; }
+/* A list item whose source prints a bullet instead of a number (an
+   Explanatory Memorandum's lists are set that way -- see em_parser.py).
+   The marker is a grid item of its own, so it lands in the number's
+   column like any other label. */
 .prov-paragraph.prov-nolabel::before,
 .prov-subparagraph.prov-nolabel::before,
 .prov-sub_subparagraph.prov-nolabel::before {
   content: "•";
+  grid-column: 1;
+  padding-right: 0.5em;
   color: var(--muted);
 }
-/* The number, in the column the hanging indent opened for it. Two things
-   here are easy to get wrong and were:
-
-   text-indent is inherited, and an inline-block starts a line of its own
-   -- so without resetting it the number is painted a whole --label to the
-   left of its own box, hanging outside the text column entirely and, on a
-   section page, sliding under the outline beside it.
-
-   box-sizing is border-box for everything on this page, so a min-width
-   has to be the box's *whole* width, padding included -- a 1.9em box with
-   0.5em of padding is 1.9em wide, not 2.4em, and the half-em it is short
-   by is exactly how far wrapped lines end up out of line with the first. */
-.prov-num,
-.prov-paragraph.prov-nolabel::before,
-.prov-subparagraph.prov-nolabel::before,
-.prov-sub_subparagraph.prov-nolabel::before {
-  display: inline-block; min-width: var(--label); padding-right: 0.5em; text-indent: 0;
-}
-/* Italic alone, never italic *and* bold: two emphases at once is one
-   more than the text needs, and a defined term is already announced by
-   being defined. */
+/* A defined term isn't a number in a margin -- it is the first words of
+   its own sentence, set in italics where the drafting convention
+   introduces it -- so it sits inside the text column with the rest of the
+   definition, lining up with the section's lead-in above it rather than
+   starting half an inch to its left. Italic alone, never italic *and*
+   bold: two emphases at once is one more than the text needs, and a
+   defined term is already announced by being defined. */
 .prov-term { font-style: italic; }
 .prov-heading {
+  display: block;
   font-family: var(--sans); font-weight: 600; font-size: 14px;
-  margin: 20px 0 8px; text-indent: 0;
-  padding-left: calc(var(--depth, 0) * 26px);
+  margin: 20px 0 8px calc(var(--depth, 0) * 26px);
 }
+.prov-heading .prov-num { padding-right: 0; }
 .prov-notes { font-family: var(--sans); font-size: 11.5px; color: var(--muted); line-height: 1.45; }
 .hist-note { display: block; margin-bottom: 5px; }
 /* A note the parser placed by proximity rather than by an explicit
@@ -293,10 +280,12 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .linkpeek.open { display: block; }
 .linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
 .linkpeek .peek-sub { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
-.linkpeek .prov { --label: 2.2em; margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + var(--label)); text-align: left; }
-.linkpeek .prov-nolabel { text-indent: 0; }
+.linkpeek .prov { --label: 2.2em; margin: 0 0 7px calc(var(--depth, 0) * 16px); max-width: none; }
+/* Ragged right in a card this narrow: justifying a 40-character measure
+   is where rivers open up whatever the hyphenation. */
+.linkpeek .prov-text { text-align: left; }
 .linkpeek .prov:last-child { margin-bottom: 0; }
-.linkpeek .prov-num { min-width: var(--label); }
+
 .linkpeek .peek-more {
   position: sticky; bottom: -12px;   /* cancels the card's own bottom padding */
   background: var(--panel);
@@ -335,4 +324,12 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 @media (max-width: 720px) {
   .provisions { display: block; }
   .prov-notes { padding-left: 12px; margin: -4px 0 12px; }
+}
+
+/* Justification needs a measure to work with. On a phone the column is
+   nearer 35 characters than the 45 Butterick's rules put at the bottom of
+   the range, and justifying at that width opens gaps wide enough to read
+   as a fault in the text. Ragged right instead. */
+@media (max-width: 560px) {
+  .prov-text { text-align: left; }
 }

@@ -332,6 +332,66 @@ def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
     return _esc(run["text"])
 
 
+# The punctuation a defined term's own text can open with, which then
+# sits tight against the term instead of taking a space after it
+# ("appear, in relation to a party, ..."). static/site/copy.js keeps the
+# same list, so what is copied reads exactly as what is on screen.
+_TIGHT_AFTER_TERM = (",", ".", ";", ":", ")", "\u2014", "-")
+
+
+def _provision_html(node_type: str, header_text: "str | None", text_html: "str | None",
+                    depth: int, id_attr: str = "", extra_class: str = "") -> str:
+    """One provision, in the markup every renderer here emits for one:
+
+        <div class="prov prov-subsection" style="--depth:1">
+          <span class="prov-num">(2)</span><span class="prov-text">...</span>
+        </div>
+
+    Two elements, two grid columns (see static/site/page.css), and no
+    negative offsets anywhere. That last part is the whole design: the
+    number used to be hung in the margin by a negative text-indent, which
+    put it *outside* the div by construction -- so on a section page it
+    was drawn over the outline beside it, further over the larger the
+    reading size. A grid column cannot leak, so the div is now the
+    absolute confine of everything in the provision, number included.
+
+    The number and the text are separate elements because a grid needs
+    them to be: contiguous text and each inline link in it would
+    otherwise become a grid item of its own, and the prose would come
+    apart into columns.
+
+    A defined term is the exception that proves it. It is not a number in
+    a margin -- it is the first words of its own sentence, set in italics
+    where the drafting convention introduces it -- so it goes inside the
+    text, and the provision spans both columns."""
+    classes = ["prov", f"prov-{_esc(node_type)}"]
+    if extra_class:
+        classes.append(extra_class)
+    is_definition = node_type == "definition"
+    if text_html is None:
+        classes.append("prov-heading")  # a heading-only provision (a Subdivision caption, say)
+    elif header_text is None:
+        # Body text with no number of its own -- a section's lead-in, a
+        # note, a paragraph the parser couldn't number.
+        classes.append("prov-nolabel")
+
+    bits = []
+    if header_text is not None and not is_definition:
+        bits.append(f'<span class="prov-num">{_esc(header_text)}</span>')
+    if text_html is not None:
+        term = ""
+        if header_text is not None and is_definition:
+            gap = "" if text_html.lstrip().startswith(_TIGHT_AFTER_TERM) else " "
+            term = f'<span class="prov-term">{_esc(header_text)}</span>{gap}'
+        bits.append(f'<span class="prov-text">{term}{text_html}</span>')
+    elif header_text is not None and is_definition:
+        bits.append(f'<span class="prov-text"><span class="prov-term">{_esc(header_text)}</span></span>')
+    return (
+        f'<div class="{" ".join(classes)}"{id_attr} style="--depth:{depth}">'
+        f'{"".join(bits)}</div>'
+    )
+
+
 def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | None = None) -> str:
     """This one provision's own amendment-history notes, for the right-
     hand margin column beside it -- the same place the source PDF
@@ -960,41 +1020,11 @@ def render_section(
         slug = slugs.get(key)
         id_attr = f' id="{_esc(slug)}"' if slug else ""
 
-        classes = ["prov", f"prov-{_esc(unit_node['type'])}"]
-        if unit["text"] is None:
-            classes.append("prov-heading")  # a heading-only provision (a Subdivision caption, say)
-        elif unit["header_text"] is None:
-            # Body text with no number of its own -- a section's lead-
-            # in, a note, a paragraph the parser couldn't number.
-            # Nothing to hang in the margin, so it just sits in the
-            # text column.
-            classes.append("prov-nolabel")
-
-        bits = []
-        if unit["header_text"] is not None:
-            # A defined term is set in bold italics where it's
-            # introduced (the drafting convention -- see
-            # rule_parser.py's _try_definition_start); every other
-            # label is just the provision's own number, hanging left
-            # of its text.
-            label_class = "prov-term" if unit_node["type"] == "definition" else "prov-num"
-            bits.append(f'<span class="{label_class}">{_esc(unit["header_text"])}</span>')
-        if unit["text"] is not None:
-            # A number's gutter is CSS (.prov-num's own width), but a
-            # defined term runs straight on into its text, so it needs
-            # a real space -- except where that text opens with
-            # punctuation ("appear, in relation to a party, ..."),
-            # which must sit tight against it.
-            if bits and unit_node["type"] == "definition" and not unit["text"].lstrip().startswith((",", ".", ";", ":", ")", "\u2014", "-")):
-                bits.append(" ")
-            bits.append(linkify(_esc(unit["text"]), target_filename, slug))
-
-        # bits are joined with no separator on purpose: the gutter
-        # between a provision's number and its text is the label
-        # span's own width and padding (see .prov-num), so an extra
-        # space here would push the first line out of alignment with
-        # the wrapped ones below it.
-        out.append(f'<div class="{" ".join(classes)}"{id_attr} style="--depth:{unit["depth"]}">{"".join(bits)}</div>')
+        out.append(_provision_html(
+            unit_node["type"], unit["header_text"],
+            None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
+            unit["depth"], id_attr,
+        ))
         # One margin cell per provision, empty or not: the two columns
         # are auto-placed rows of the same grid, so a note only stays
         # level with the provision it belongs to if every provision
@@ -1179,21 +1209,11 @@ def _preview_prov_html(unit: dict, base_depth: int) -> str:
     previews of previews, and its ids would collide with the real
     page's own."""
     node = unit["tree_node"]["node"]
-    classes = ["prov", f"prov-{_esc(node['type'])}"]
-    if unit["text"] is None:
-        classes.append("prov-heading")
-    elif unit["header_text"] is None:
-        classes.append("prov-nolabel")
-    bits = []
-    if unit["header_text"] is not None:
-        label_class = "prov-term" if node["type"] == "definition" else "prov-num"
-        bits.append(f'<span class="{label_class}">{_esc(unit["header_text"])}</span>')
-    if unit["text"] is not None:
-        if node["type"] == "definition" and bits and not unit["text"].lstrip().startswith((",", ".", ";", ":", ")", "\u2014", "-")):
-            bits.append(" ")
-        bits.append(_esc(unit["text"]))
-    depth = max(unit["depth"] - base_depth, 0)
-    return f'<div class="{" ".join(classes)}" style="--depth:{depth}">{"".join(bits)}</div>'
+    return _provision_html(
+        node["type"], unit["header_text"],
+        None if unit["text"] is None else _esc(unit["text"]),
+        max(unit["depth"] - base_depth, 0),
+    )
 
 
 def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fragment: "str | None") -> "dict | None":
@@ -1294,8 +1314,7 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
     ]
     truncated = len(listed) > _PREVIEW_MAX_UNITS
     rows = "".join(
-        f'<div class="prov" style="--depth:0">'
-        f'<span class="prov-num">{_esc(sec["number"])}</span>{_esc(sec.get("heading") or "")}</div>'
+        _provision_html("section", sec["number"], _esc(sec.get("heading") or ""), 0)
         for sec in listed[:_PREVIEW_MAX_UNITS]
     )
     return {
