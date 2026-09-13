@@ -3,9 +3,22 @@
 <head>
 <meta charset="utf-8">
 <title>Legislation review</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Inter, self-hosted alongside Junicode in the page template's own font
+     directory (static/site/fonts/, mounted at /assets) rather than pulled
+     off a CDN -- one rule for both faces, and one fewer thing that has to
+     be reachable for this to render. -->
+<style>
+  @font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter.woff2') format('woff2');
+    font-weight: 400 700; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter-Italic.woff2') format('woff2');
+    font-weight: 400 700; font-style: italic; font-display: swap;
+  }
+</style>
 <script>
   // Applied before first paint so a dark-mode reviewer never sees a
   // white flash on load; applyTheme() below re-runs it once the

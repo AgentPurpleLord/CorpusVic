@@ -36,6 +36,23 @@
   --ins-bg: #092c13; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
   --warn-bg: #3b2400; --warn-border: #f0b135;
 }
+/* Inter, self-hosted for the same reason Junicode is. It used to come from
+   Google Fonts, which meant every reader of this site announced themselves
+   to a third party to have its chrome drawn -- while the face the law
+   itself is set in was served from here precisely so that they wouldn't.
+   One rule for both is the only consistent answer. Weight is left variable
+   across 400-700, which is every weight this site uses, so one file per
+   style covers them all. */
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/Inter.woff2') format('woff2');
+  font-weight: 400 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/Inter-Italic.woff2') format('woff2');
+  font-weight: 400 700; font-style: italic; font-display: swap;
+}
 /* Junicode, self-hosted: it isn't on any font CDN, and a public register
    of the law shouldn't hand every reader's IP to a third party to render
    its own text. One file per style covers 300-700 because the weight

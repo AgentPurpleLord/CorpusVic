@@ -15,6 +15,8 @@
     ASSETS      where this directory is served from -- "/assets" on the
                 dashboard, "/<repo>/assets" on a GitHub Pages project
                 site. Every asset URL must go through it.
+    HOME        the site's own root, which the header's Home link needs
+                for the same reason
     BODY_ATTRS  data-base-url, which the reader and preview scripts need
                 to tell a link into this document from any other, plus
                 data-preview (where the hover cards' content comes from)
@@ -30,9 +32,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ASSETS}}/tokens.css">
 <link rel="stylesheet" href="{{ASSETS}}/page.css">
 <link rel="stylesheet" href="{{ASSETS}}/reader.css">
@@ -55,7 +54,10 @@ try {
 </head>
 <body{{BODY_ATTRS}}>
 {{PREVIEWBAR}}
-<button class="theme-toggle" id="theme-toggle-btn" type="button">&#127769;</button>
+<header class="siteheader">
+  <a class="home" href="{{HOME}}">Corpus</a>
+  <button class="theme-toggle" id="theme-toggle-btn" type="button">&#127769;</button>
+</header>
 <div class="{{MAIN_CLASS}}">
 {{BODY}}
 </div>

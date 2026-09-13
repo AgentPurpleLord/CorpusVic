@@ -764,30 +764,33 @@ def _outline_of(section_slug: str, **kwargs) -> str:
     return body.split('<nav class="outline"')[1].split("</nav>")[0]
 
 
-def test_the_outline_opens_only_the_branch_you_are_reading():
-    """A whole Act's contents in every sidebar would be a second contents
-    page: the Criminal Procedure Act alone would put over a thousand links
-    on every page of itself."""
+def test_the_outline_is_only_the_branch_you_are_reading():
+    """The immediate neighbourhood, not the Act: a whole contents list in
+    every sidebar would be a second contents page (the Criminal Procedure
+    Act alone would put over a thousand links on every page of itself)."""
     outline = _outline_of("s10")
 
-    # The Part and Division this section is in are opened...
+    # The Part and Division this section is in...
     assert "Part 2 - Offences" in outline and "Division 1 - Assault" in outline
-    # ...so its neighbours are listed, and it is marked as where you are.
+    # ...and the sections beside it, with this one marked.
     assert "11 Aggravated assault" in outline
-    assert 'aria-current="page"' in outline
     assert outline.count('aria-current="page"') == 1
-    # ...but another Part's sections are not.
-    assert "30 Powers" not in outline
+    # Nothing else: not another Division's sections, not another Part's,
+    # and not the other Parts themselves.
     assert "20 Theft" not in outline
-    # The Parts themselves all stay, or there would be no way out.
-    assert "Part 1 - Preliminary" in outline and "Part 3 - Enforcement" in outline
+    assert "30 Powers" not in outline
+    assert "Part 1 - Preliminary" not in outline
+    assert "Part 3 - Enforcement" not in outline
+    assert "Division 2 - Theft" not in outline
 
 
-def test_a_collapsed_branch_says_which_provisions_are_behind_it():
+def test_the_outline_still_offers_the_way_back_out():
+    """Going further than the immediate context is what these are for, so
+    they have to be there whatever the outline is showing."""
     outline = _outline_of("s10")
 
-    assert "ss 1&ndash;2" in outline    # Part 1, collapsed
-    assert "ss 30" not in outline       # one section is not a range
+    assert 'class="outline-doc" href="/browse/a/"' in outline
+    assert 'class="outline-contents" href="/browse/a/">Act index' in outline
 
 
 def test_the_outline_names_the_document():
