@@ -1,0 +1,284 @@
+* { box-sizing: border-box; }
+/* Typography follows Butterick's summary of key rules: body text 15-25px,
+   line spacing 120-145% of it, and a measure of 45-90 characters (set on
+   .prov below, where the actual reading happens). Kerning and the normal
+   ligatures are asked for explicitly rather than left to the browser. */
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--sans); font-size: 17px; line-height: 1.45;
+  font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
+}
+.previewbar {
+  background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
+  padding: 6px 20px; display: flex; gap: 14px; align-items: center;
+}
+.previewbar a { color: var(--bar-link); }
+.page { max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
+h1 { font-size: 22px; margin: 0 0 10px; font-family: var(--sans); }
+h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 2px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
+h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: var(--fg); }
+h4, h5, h6 { font-size: 14px; margin: 16px 0 4px; font-weight: 600; font-family: var(--sans); }
+p { margin: 0 0 13px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.breadcrumb { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 2px 9px; border-radius: 0; margin-bottom: 18px; }
+.verify-full { background: var(--verify-full-bg); color: var(--done); }
+.verify-partial { background: var(--verify-partial-bg); color: var(--flagged); }
+.verify-none { background: var(--verify-none-bg); color: var(--pending); }
+.section-list { list-style: none; padding-left: 0; margin: 0 0 10px; }
+.section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
+.section-nav { margin-top: 32px; padding-top: 14px; border-top: 2px solid var(--border); font-family: var(--sans); font-size: 13px; }
+
+/* The Section body, laid out the way the Act itself prints: one two-
+   column grid whose rows alternate provision and margin note, so a
+   note stays level with the provision it belongs to (that's why
+   render_section emits an empty .prov-notes cell for every provision,
+   not just the annotated ones). Indentation carries the structure --
+   --depth is the provision's nesting distance below the Section --
+   with the number hanging in the margin to its left, so a subsection
+   reads as a subsection without needing its own heading. */
+.provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
+.prov {
+  font-family: var(--reading);
+  /* 19px/1.42 with the measure capped just under 70 characters: the
+     three numbers Butterick's rules turn on, and the ones that decide
+     whether a long provision is readable. The cap is per provision
+     rather than on the column, so a nested paragraph's own indent
+     doesn't eat into its measure. Space between provisions (11px, ~8pt)
+     rather than a first-line indent -- never both. The negative
+     text-indent isn't that: it hangs the provision number out in the
+     margin, which is how the Act itself prints. */
+  font-size: 19px;
+  line-height: 1.42;
+  max-width: 34em;
+  margin: 0 0 11px;
+  padding-left: calc(var(--depth, 0) * 26px + 2.4em);
+  text-indent: -2.4em;   /* pulls the first line back out so the number hangs */
+}
+/* No number to hang, so no hanging indent -- the text just starts
+   where a numbered sibling's text does, instead of its first line
+   poking out into the empty number column. */
+.prov-nolabel { text-indent: 0; }
+/* Except a list item, which has no number because its source prints a
+   bullet instead of one (an Explanatory Memorandum's lists are set
+   that way -- see em_parser.py). It gets its marker back, hanging in
+   the same column a lettered sibling's "(a)" would. */
+.prov-paragraph.prov-nolabel,
+.prov-subparagraph.prov-nolabel,
+.prov-sub_subparagraph.prov-nolabel { text-indent: -2.4em; }
+.prov-paragraph.prov-nolabel::before,
+.prov-subparagraph.prov-nolabel::before,
+.prov-sub_subparagraph.prov-nolabel::before {
+  content: "•";
+  display: inline-block; min-width: 1.9em; padding-right: 0.5em; color: var(--muted);
+}
+.prov-num { display: inline-block; min-width: 1.9em; padding-right: 0.5em; }
+/* Italic alone, never italic *and* bold: two emphases at once is one
+   more than the text needs, and a defined term is already announced by
+   being defined. */
+.prov-term { font-style: italic; }
+.prov-heading {
+  font-family: var(--sans); font-weight: 600; font-size: 14px;
+  margin: 20px 0 8px; text-indent: 0;
+  padding-left: calc(var(--depth, 0) * 26px);
+}
+.prov-notes { font-family: var(--sans); font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.hist-note { display: block; margin-bottom: 5px; }
+/* A note the parser placed by proximity rather than by an explicit
+   citation -- flagged so a reader can tell a guess from a certainty. */
+.hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
+
+/* Endnotes page: the Table of Amendments as a table. */
+.index-nav { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -8px 0 18px; }
+/* Which version this pipeline's own parse of the Act is, stated
+   plainly under its title -- the first thing a reader needs to know,
+   and never claimed as "the Authorised Version" itself. */
+.act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
+.endnote-text { margin-bottom: 18px; }
+.endnote-text p { margin: 0 0 11px; }
+/* Only an Act parsed before the endnote block builder existed falls
+   back to this: its text still carries the source PDF's own wrap
+   points, so honouring them beats running every line together. */
+.endnote-raw { white-space: pre-line; }
+.endnote-heading { font-family: var(--sans); font-weight: 600; font-size: 13.5px; margin: 18px 0 7px; }
+.endnote-bullets { margin: 0 0 11px; padding-left: 20px; }
+.endnote-bullets li { margin-bottom: 9px; }
+/* A provision the endnotes reproduce verbatim -- the Act's own words, not
+   the endnote's commentary about them. */
+.endnote-quote {
+  /* The Act's own words again, so the same reading settings as .prov. */
+  font-family: var(--reading); font-size: 19px; line-height: 1.42; max-width: 34em;
+  margin: 0 0 11px; padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--border); color: var(--fg);
+}
+/* The first line of a reproduced provision is its own heading ("64 How
+   appeal is commenced"), the way the printed page sets it. */
+.endnote-quote p:first-child { font-weight: 600; }
+.endnote-quote p:last-child { margin-bottom: 0; }
+.endnote-aside { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
+.amend { border-top: 1px solid var(--border); padding: 12px 0 4px; }
+.amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.amend-cite {
+  display: inline-block; font-weight: 500; font-size: 11.5px; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 0; padding: 1px 8px; margin-right: 8px;
+}
+.amend-fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 14px; margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px; }
+.amend-fields dt { color: var(--muted); }
+.amend-fields dd { margin: 0; }
+.amend-provisions { font-family: var(--sans); font-size: 12.5px; }
+.amend-provisions summary { cursor: pointer; color: var(--accent); }
+.amend-prov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 0; padding: 1px 6px; color: var(--fg); }
+a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
+/* The citation inside a margin note, linked to that Act's own entry
+   in the Endnotes. Inline, so the note still reads as the one line
+   the source prints; the Act's full name and dates are in the link's
+   title. */
+.hist-act { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
+.hist-act:hover { text-decoration: none; border-bottom-style: solid; }
+/* A citation detected but not resolved to anything more specific --
+   see html_view._linked_citation_html. Muted rather than accent-
+   coloured, so it doesn't read as confidently as a citation this
+   pipeline actually knows the name of. */
+.hist-act.unresolved { color: var(--muted); border-bottom-style: dashed; }
+.hist-act.unresolved:hover { color: var(--accent); }
+
+/* "Explained in" chips under a Section's title: the Bill clause it
+   was enacted from, and the Explanatory Memorandum's note on it.
+   Ordinary links, so the hover preview above reads them like any
+   other -- which is the whole point, since the question ("what does
+   the EM say about this?") is one a reader wants answered without
+   leaving the section. */
+.crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
+.crossrefs-label { font-size: 11.5px; color: var(--muted); }
+.crossref {
+  font-size: 11.5px; padding: 2px 9px; border-radius: 0;
+  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+}
+.crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.crossref-em { border-style: dashed; }
+
+/* A provision's timeline -- see render_timeline. Collapsed by default:
+   the summary answers "has this changed, and when last?" without
+   opening it, which is the question most readers actually have, and
+   the words that moved are one click away for the ones who want
+   them. */
+.timeline { margin: 0 0 20px; font-family: var(--sans); }
+.timeline-summary {
+  cursor: pointer; font-size: 12.5px; padding: 6px 10px;
+  border: 1px solid var(--border); border-left: 3px solid var(--flagged);
+  border-radius: 0; background: var(--panel); color: var(--fg);
+}
+.timeline-summary:hover { border-color: var(--accent); }
+.timeline[open] .timeline-summary { border-radius: 0; }
+.tl-count { color: var(--muted); }
+.tl-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-top: none; }
+.tl-entry { padding: 10px 12px; border-top: 1px solid var(--border); }
+.tl-entry:first-child { border-top: none; }
+.tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 5px; }
+.tl-version { font-size: 12.5px; font-weight: 600; }
+.tl-verb {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 1px 7px; border-radius: 0; background: var(--verify-none-bg); color: var(--muted);
+}
+.tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
+.tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
+.tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+.tl-note { display: block; }
+.tl-diff {
+  font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
+  max-height: 20em; overflow-y: auto;
+}
+.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 0; }
+.d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 0; }
+
+/* The notice on a reprint that's no longer the law. Deliberately loud
+   and at the top of the page: a reader on a superseded version is
+   reading the wrong law, and that's worth interrupting them for. */
+.supersede {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 3px;
+  border-radius: 0; padding: 8px 12px; margin: 0 0 16px;
+}
+.supersede-link { white-space: nowrap; }
+
+/* The published site's standing caveat -- this is a machine's reading of
+   the law, not the law. Same tokens and shape as .supersede above: both
+   say "before you trust this text, know something about it", so they
+   shouldn't compete for a reader's attention by looking different. Sits
+   first in the page body, before the heading, so it is read rather than
+   scrolled past. */
+.disclaimer {
+  font-family: var(--sans); font-size: 13.5px; line-height: 1.55;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 4px;
+  padding: 12px 16px; margin: 0 0 26px;
+}
+.site-footer {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted);
+  border-top: 2px solid var(--border); margin-top: 44px; padding-top: 16px;
+}
+.site-footer p { margin: 0 0 10px; }
+.site-footer p:last-child { margin-bottom: 0; }
+
+/* Sits above the provisions, out of the reading column: useful, not
+   competing with the text it copies. */
+.copy-section {
+  font-family: var(--sans); font-size: 12.5px;
+  color: var(--fg); background: var(--panel);
+  border: 1px solid var(--border); border-radius: 0;
+  padding: 4px 10px; margin: 0 0 14px; cursor: pointer;
+}
+.copy-section:hover { border-color: var(--accent); color: var(--accent); }
+
+/* A provision listed in the contents but not released to readers yet --
+   see render_index's own unpublished_pages note. Quiet: it marks an
+   absence, and shouldn't shout over the provisions that are there. */
+.unpublished-tag {
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--border); padding: 0 5px; margin-left: 6px;
+  white-space: nowrap;
+}
+
+
+/* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
+   coordinates (not fixed) so it scrolls with the link it belongs to. */
+.linkpeek {
+  position: absolute; z-index: 40; display: none;
+  width: min(420px, 90vw); max-height: 340px; overflow-y: auto;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 0;
+  padding: 12px 14px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+  font-size: 13.5px; line-height: 1.55;
+}
+.linkpeek.open { display: block; }
+.linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.linkpeek .peek-sub { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
+.linkpeek .prov { margin-bottom: 7px; padding-left: calc(var(--depth, 0) * 16px + 2.2em); text-indent: -2.2em; }
+.linkpeek .prov-nolabel { text-indent: 0; }
+.linkpeek .prov:last-child { margin-bottom: 0; }
+.linkpeek .prov-num { min-width: 1.7em; padding-right: 0.5em; }
+.linkpeek .peek-more {
+  position: sticky; bottom: -12px;   /* cancels the card's own bottom padding */
+  background: var(--panel);
+  font-family: var(--sans); font-size: 11.5px; color: var(--muted);
+  margin-top: 9px; padding: 7px 0 12px; border-top: 1px solid var(--border);
+}
+.linkpeek .peek-loading { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+
+.theme-toggle {
+  position: fixed; top: 10px; right: 14px; z-index: 30;
+  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+  border-radius: 0; padding: 4px 9px; cursor: pointer; font-size: 13px;
+  font-family: var(--sans);
+}
+
+/* Below the width the two columns need, the margin notes fold in
+   underneath their provision instead of being squeezed into an
+   unreadable strip. */
+@media (max-width: 720px) {
+  .provisions { display: block; }
+  .prov-notes { padding-left: 12px; margin: -4px 0 12px; }
+}

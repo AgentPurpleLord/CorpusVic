@@ -650,16 +650,16 @@ def test_the_copy_script_ships_with_the_page():
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
     assert "copy-section-btn" in page
-    assert "text/html" in page and "text/plain" in page
+    assert '<script src="/assets/copy.js"></script>' in page
 
 
 def test_one_level_of_nesting_is_one_word_tab_stop():
     """36pt is half an inch -- the default tab stop in both Word and
     Google Docs, so a copied paragraph lands where a reader's own tab
     key would have put it."""
-    from ai_pipeline.html_view import COPY_SCRIPT
+    from ai_pipeline.html_view import template_text
 
-    assert "var INDENT_PT = 36;" in COPY_SCRIPT
+    assert "var INDENT_PT = 36;" in template_text("copy.js")
 
 
 def test_a_defined_term_keeps_its_own_punctuation_tight():
@@ -667,7 +667,65 @@ def test_a_defined_term_keeps_its_own_punctuation_tight():
     the copy must not open a gap the page itself doesn't show. Both
     clipboard flavours go through the same rule, which is why there is
     one helper rather than two spellings of it."""
-    from ai_pipeline.html_view import COPY_SCRIPT
+    from ai_pipeline.html_view import template_text
 
-    assert COPY_SCRIPT.count("function gap(") == 1
-    assert COPY_SCRIPT.count("gap(p.text)") == 2
+    copy_js = template_text("copy.js")
+    assert copy_js.count("function gap(") == 1
+    assert copy_js.count("gap(p.text)") == 2
+
+
+# The page template. Since static/site/page.html is a file rather than a
+# string constant, the thing most likely to break is the seam between the
+# two: a placeholder renamed in one and not the other leaves a literal
+# "{{...}}" in a published page, which no amount of CSS review would
+# catch.
+def _shell(**kwargs) -> str:
+    from ai_pipeline.html_view import page_shell
+
+    return page_shell("Test Act", "<p>body</p>", **kwargs)
+
+
+def test_no_placeholder_survives_into_a_rendered_page():
+    for kwargs in ({}, {"base_url": "/browse/a"}, {"base_url": "/browse/a", "reader": True},
+                   {"previewbar_html": '<div class="previewbar">preview</div>'}):
+        page = _shell(**kwargs)
+        assert "{{" not in page and "}}" not in page, (kwargs, page)
+
+
+def test_asset_urls_stay_inside_a_project_site():
+    """On GitHub Pages the site is served under /<repo>/, so an asset URL
+    that assumed the domain root would reach for the real root instead."""
+    page = _shell(base_url="/vic-legislation-parser/browse/a")
+
+    assert '<link rel="stylesheet" href="/vic-legislation-parser/assets/tokens.css">' in page
+    assert '<script src="/vic-legislation-parser/assets/reader.js"></script>' in page
+    # Junicode is reached relative to tokens.css, so no prefix belongs in
+    # the stylesheet itself -- that is what makes one file serve both.
+    from ai_pipeline.html_view import template_text
+
+    assert "url('fonts/Junicode-Roman.woff2')" in template_text("tokens.css")
+
+
+def test_a_section_page_asks_for_the_reader_layout():
+    assert 'class="page page-reader"' in _shell(base_url="/browse/a", reader=True)
+    assert 'class="page"' in _shell(base_url="/browse/a")
+
+
+def test_the_template_is_read_again_after_it_changes(tmp_path, monkeypatch):
+    """Editing a stylesheet or the shell while a server is running has to
+    show up on the next reload -- that is most of the reason the template
+    is a file at all."""
+    import ai_pipeline.html_view as html_view_module
+
+    monkeypatch.setattr(html_view_module, "TEMPLATE_DIR", tmp_path)
+    monkeypatch.setattr(html_view_module, "_template_cache", {})
+    page = tmp_path / "page.html"
+    page.write_text("first {{BODY}}", encoding="utf-8")
+    assert html_view_module.page_shell("T", "x") == "first x"
+    # A rewrite within the same clock tick has to be noticed too, so the
+    # mtime is moved explicitly rather than trusted to differ.
+    page.write_text("second {{BODY}}", encoding="utf-8")
+    import os
+
+    os.utime(page, (0, 0))
+    assert html_view_module.page_shell("T", "x") == "second x"

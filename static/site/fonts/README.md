@@ -1,6 +1,8 @@
 # Junicode
 
-The reading typeface for legislative text on this site. Junicode is by
+The reading typeface for legislative text on this site. Part of the
+page template in `static/site/`, served as `/assets/fonts/` and asked for
+by `tokens.css` beside it. Junicode is by
 Peter S. Baker, licensed under the SIL Open Font License 1.1 (`OFL.txt`),
 from <https://junicode.sourceforge.io/> / <https://github.com/psb1558/Junicode-font>.
 

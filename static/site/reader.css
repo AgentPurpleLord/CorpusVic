@@ -1,0 +1,5 @@
+/* The section reading view: an outline column beside the text, the
+   reading controls above it, and the next/previous provisions below.
+   Everything here is scoped to .page-reader, which page_shell only puts
+   on a section page -- the contents and Endnotes pages stay the single
+   centred column page.css lays out. */

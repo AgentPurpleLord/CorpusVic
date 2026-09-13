@@ -313,3 +313,20 @@ def test_the_gate_page_says_nothing_about_the_page_it_holds():
 def test_the_gate_page_asks_crawlers_not_to_index_it():
     wrapped = SiteGate("a long testing passphrase", iterations=_ITERATIONS).wrap(_PAGE)
     assert '<meta name="robots" content="noindex, nofollow">' in wrapped
+
+
+def test_the_published_assets_are_the_template_directory(tmp_path):
+    """Every page points its stylesheets, scripts and fonts at assets/, so
+    a build that didn't copy them would publish text with no styling at
+    all -- and page.html is the one file Python renders rather than the
+    browser fetching, so it has no business being served."""
+    from export_static_site import _copy_template
+
+    _copy_template(tmp_path)
+    published = {p.name for p in (tmp_path / "assets").rglob("*")}
+
+    assert {"tokens.css", "page.css", "reader.css", "theme.js", "copy.js",
+            "reader.js", "preview.js"} <= published
+    assert "Junicode-Roman.woff2" in published
+    assert "OFL.txt" in published, "the font's licence has to travel with it"
+    assert "page.html" not in published

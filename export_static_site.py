@@ -47,9 +47,9 @@ silently absent section would read as a section that doesn't exist. A
 document with nothing approved in it at all isn't published.
 
 Two things the live dashboard offers that this doesn't attempt:
-  - Hover-preview cards (ai_pipeline/html_view.py's PREVIEW_SCRIPT) fetch
+  - Hover-preview cards (static/site/preview.js) fetch
     /api/browse/<slug>/preview, which only exists on a running server.
-    That fetch already fails gracefully on a 404 (see PREVIEW_SCRIPT's own
+    That fetch already fails gracefully on a 404 (see preview.js's own
     .catch()) -- the card just never appears, every other link still
     works, so this is a silent feature reduction rather than a broken
     page.
@@ -177,18 +177,22 @@ def _partial_notice_html(approved: int, total: int) -> str:
     )
 
 
-def _copy_fonts(out: Path) -> None:
-    """Junicode, plus the licence it has to travel with. Copied to the
-    site root because that's where page_shell points every page's
-    @font-face at, and self-hosted rather than pulled off a CDN so that
-    reading the law here doesn't announce itself to a third party (see
-    static/fonts/README.md)."""
-    src = Path(__file__).parent / "static" / "fonts"
-    dest = out / "fonts"
-    dest.mkdir(parents=True, exist_ok=True)
-    for name in sorted(p.name for p in src.iterdir() if p.suffix == ".woff2" or p.name == "OFL.txt"):
-        shutil.copyfile(src / name, dest / name)
+def _copy_template(out: Path) -> None:
+    """The whole template directory -- the stylesheets, the browser-side
+    scripts and Junicode -- published as "assets/", which is where every
+    page's asset URLs point (see html_view._asset_base).
 
+    Copied wholesale rather than file by file so that adding a stylesheet
+    to static/site/ needs no change here; page.html is left out because
+    Python renders it into each page rather than the browser fetching it.
+    The fonts travel with their licence, and are self-hosted rather than
+    pulled off a CDN so that reading the law here doesn't announce itself
+    to a third party (see static/site/fonts/README.md)."""
+    shutil.copytree(
+        html_view.TEMPLATE_DIR, out / "assets",
+        ignore=shutil.ignore_patterns("page.html", "__pycache__"),
+        dirs_exist_ok=True,
+    )
 
 def _page(title: str, body: str, base_url: "str | None" = None) -> str:
     """A finished page: the body, then the site footer. Every published
@@ -364,7 +368,7 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> list
     either, and a crawler that got there first would keep serving a
     snapshot of it long after the gate went up."""
     gate = SiteGate(password) if password else None
-    _copy_fonts(out)
+    _copy_template(out)
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
     slugs = select_candidate_slugs(statuses)
     # _build_doc returns None for a candidate with nothing approved in it.

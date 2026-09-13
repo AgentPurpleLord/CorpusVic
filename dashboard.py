@@ -66,6 +66,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
@@ -296,6 +297,15 @@ def _shutdown_ai_scan_processes() -> None:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Legislation pipeline dashboard")
+
+# static/site/ is the published site's template -- the page shell, its
+# stylesheets, its browser-side scripts and Junicode (see
+# ai_pipeline/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
+# every page's asset URLs are built from, so a browse page served here
+# loads exactly the files export_static_site.py publishes. StaticFiles
+# resolves the path itself and refuses to escape the directory, which is
+# what the hand-rolled /fonts route this replaces had to check for.
+app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")
 
 # ---------------------------------------------------------------------------
 # Username/password login: sessions are random server-side tokens (the
@@ -592,24 +602,6 @@ def do_logout(request: Request):
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "dashboard.html")
-
-
-# See review.py's own copy: the name comes from a URL, so it's matched
-# against what static/fonts/ actually holds rather than joined blindly.
-_FONT_FILE_RE = re.compile(r"^[A-Za-z0-9-]+\.woff2$")
-
-
-@app.get("/fonts/{name}")
-def font_file(name: str):
-    """Junicode, the reading face the browse pages set legislative text
-    in (see static/fonts/README.md)."""
-    if not _FONT_FILE_RE.match(name):
-        raise HTTPException(404, "No such font")
-    path = STATIC_DIR / "fonts" / name
-    if not path.is_file():
-        raise HTTPException(404, "No such font")
-    return FileResponse(path, media_type="font/woff2")
-
 
 @app.get("/api/acts")
 def list_acts():
