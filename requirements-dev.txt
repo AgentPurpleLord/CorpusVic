@@ -6,5 +6,9 @@
 # FastAPI/httpx at module level. Without this the whole suite fails at
 # collection, which is exactly what CI had been doing.
 -r requirements-gui.txt
+# tests/test_export_static_site.py exercises the published site's
+# passphrase gate, which needs the cryptography this pulls in (and
+# requirements-gui.txt above, transitively, for the rest of the exporter).
+-r requirements-site.txt
 pytest
 xmlschema

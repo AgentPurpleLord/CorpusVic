@@ -1,0 +1,59 @@
+name: Publish site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/ai_parsed/**"
+      - "data/legislation.db"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-site.txt
+
+      # SITE_PASSWORD gates the whole site behind an unlock page while
+      # it's being tested: set it as a repository secret to turn the gate
+      # on, delete the secret to publish openly. Unset here means an empty
+      # string, which export_static_site.py reads as "no gate".
+      - name: Build the static site (only fully-reviewed documents)
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: python export_static_site.py --out _site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
