@@ -390,17 +390,58 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 _INDENT_TOLERANCE = 3.0
 
 
+# Two printed lines belong in the same box when they follow each other
+# down the page. More clear space than this between them and they are two
+# runs of the same provision rather than one -- which is what a provision
+# whose own text resumes below something that interrupted it looks like.
+_RECT_LINE_GAP = 1.8
+
+
+def add_rect(node: dict, line: BodyLine) -> None:
+    """Records where on the page this line printed, as part of the box
+    around the node it belongs to.
+
+    A node is built from printed lines that each know exactly where they
+    are, and until now all of that was thrown away the moment their text
+    was joined -- a node remembered which *pages* it spanned and nothing
+    more. There was nothing to draw, so the parse could only ever be
+    reviewed as text beside a picture of the page, never on it.
+
+    One rect per contiguous run per page, rather than one per line: what
+    a reader wants to see is a box around the provision, and a provision
+    is almost always one run. Where it is not -- its lines separated by
+    something that interrupted it -- it gets a box for each run, which is
+    also the shape a reviewer needs to mark up a continuation that
+    resumes in more than one place."""
+    rects = node.setdefault("rects", [])
+    if rects:
+        last = rects[-1]
+        if last["page"] == line.page_no and line.y0 - last["y1"] <= (line.y1 - line.y0) * _RECT_LINE_GAP:
+            last["x0"] = round(min(last["x0"], line.x0), 1)
+            last["x1"] = round(max(last["x1"], line.x1), 1)
+            last["y1"] = round(max(last["y1"], line.y1), 1)
+            return
+    rects.append({
+        "page": line.page_no,
+        "x0": round(line.x0, 1), "y0": round(line.y0, 1),
+        "x1": round(line.x1, 1), "y1": round(line.y1, 1),
+    })
+
+
 def _append_text(node: dict, text: str, line: BodyLine, char_end: int) -> None:
     """Adds one more printed line to a node's text -- see
     extract.join_printed_line for what happens to the break itself."""
     node["text"] = join_printed_line(node["text"], text)
     node["page_end"] = line.page_no
     node["char_end"] = char_end
+    add_rect(node, line)
 
 
-def _append_heading(node: dict, text: str, char_end: int) -> None:
+def _append_heading(node: dict, text: str, char_end: int, line: "BodyLine | None" = None) -> None:
     node["heading"] = (node["heading"] + " " + text) if node["heading"] else text
     node["char_end"] = char_end
+    if line is not None:
+        add_rect(node, line)
 
 
 # A Schedule's heading is sometimes immediately followed by a standalone
@@ -548,9 +589,9 @@ class _LineParser:
         finished until something else opens or the Schedule closes."""
         if self._pending_hangs_off is None:
             return
-        node, text, char_end = self._pending_hangs_off
+        node, text, char_end, line = self._pending_hangs_off
         self._pending_hangs_off = None
-        _append_heading(node, text, char_end)
+        _append_heading(node, text, char_end, line)
 
     def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine,
                    char_start: int, rank: "int | None" = None) -> dict:
@@ -575,6 +616,7 @@ class _LineParser:
             "page_start": line.page_no, "page_end": line.page_no,
             "char_start": char_start, "char_end": char_start, "source": "rules",
         }
+        add_rect(node, line)
         if rank != self.rank[level]:
             # This node sits somewhere its type alone doesn't say -- a
             # definition introduced inside a subsection rather than
@@ -611,12 +653,15 @@ class _LineParser:
         run = self.asterisk_run
         if len(run) >= 3:
             first, last = run[0], run[-1]
-            self.nodes.append({
+            marker = {
                 "type": "repealed", "number": None, "heading": None,
                 "text": ("* " * len(run)).strip(),
                 "page_start": first.page_no, "page_end": last.page_no,
                 "char_start": self.asterisk_start, "char_end": char_end, "source": "rules",
-            })
+            }
+            for l in run:
+                add_rect(marker, l)
+            self.nodes.append(marker)
         else:
             # Too short a run to be the repealed-text marker -- don't
             # lose it, fold it into whatever's currently open instead.
@@ -790,12 +835,15 @@ class _LineParser:
         end = char_start
         for line in block:
             end += len(line.text.strip()) + 1
-        self.nodes.append({
+        node = {
             "type": "table", "number": None, "heading": table.heading,
             "text": table.text,
             "page_start": block[0].page_no, "page_end": block[-1].page_no,
             "char_start": char_start, "char_end": end - 1, "source": "rules",
-        })
+        }
+        for line in block:
+            add_rect(node, line)
+        self.nodes.append(node)
 
     def _open_penalty(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
         """Starts a penalty node at a "Penalty: ..." line.
@@ -821,6 +869,7 @@ class _LineParser:
             "page_start": line.page_no, "page_end": line.page_no,
             "char_start": char_start, "char_end": char_end, "source": "rules",
         }
+        add_rect(self.current_marked_block, line)
         self.nodes.append(self.current_marked_block)
 
     def _handle_marked_block(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
@@ -860,6 +909,7 @@ class _LineParser:
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
+            add_rect(self.current_marked_block, line)
             self.nodes.append(self.current_marked_block)
             return True
         if self.current_marked_block is not None and not self._ends_marked_block(line, text):
@@ -879,6 +929,7 @@ class _LineParser:
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
             }
+            add_rect(self.current_marked_block, line)
             self.nodes.append(self.current_marked_block)
             return True
         self._close_marked_block()
@@ -1007,12 +1058,12 @@ class _LineParser:
         if not _SCHEDULE_HANGS_OFF_RE.match(text):
             return False
         if top["heading"]:
-            _append_heading(top, f"({text})", char_end)
+            _append_heading(top, f"({text})", char_end, line)
         else:
             # The bare "SCHEDULE 1" form, whose title is still to come
             # on the next bold line -- hold this so it lands after the
             # title rather than becoming the start of the heading.
-            self._pending_hangs_off = (top, f"({text})", char_end)
+            self._pending_hangs_off = (top, f"({text})", char_end, line)
             top["char_end"] = char_end
         return True
 
@@ -1079,7 +1130,7 @@ class _LineParser:
             # stack-level "no body text yet" flag of its own the way
             # _prev_line_was_heading checks for those, so this checks
             # it directly.
-            _append_heading(top, term, char_end)
+            _append_heading(top, term, char_end, line)
             if remainder:
                 _append_text(top, remainder, line, char_end)
             return True
@@ -1164,7 +1215,7 @@ class _LineParser:
             # Heading text that wrapped onto another bold line, e.g.
             # "3A Unintentional killing in the course or furtherance\nof
             # a crime of violence" -- extend the heading, not the body.
-            _append_heading(top, text, char_end)
+            _append_heading(top, text, char_end, line)
         elif round(line.size, 1) > self.body_size or (
             round(line.size, 1) == self.body_size
             and _looks_like_group_heading(text, self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels), next_text)
@@ -1180,11 +1231,13 @@ class _LineParser:
             # exporters) works out node *types* from this flat list on
             # its own, separately from this function's stack -- so
             # that's where attachment gets corrected, not here.
-            self.nodes.append({
+            group = {
                 "type": "heading_group", "number": None, "heading": text, "text": text,
                 "page_start": line.page_no, "page_end": line.page_no,
                 "char_start": char_start, "char_end": char_end, "source": "rules",
-            })
+            }
+            add_rect(group, line)
+            self.nodes.append(group)
             self.prev_was_heading_group = True
         else:
             # Bold at body size with no structural pattern matching --

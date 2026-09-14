@@ -237,6 +237,32 @@ CREATE TABLE IF NOT EXISTS structure_edits (
     PRIMARY KEY (act, node_index)
 );
 CREATE INDEX IF NOT EXISTS idx_structure_edits_act ON structure_edits(act);
+
+-- Where a provision sits on the page, when a reviewer has said so
+-- themselves. The parser records its own boxes on every node it builds
+-- (rule_parser.add_rect), which is what the PDF view draws by default;
+-- this holds only the ones a person has drawn, moved or resized, and
+-- those win.
+--
+-- Its own table rather than a column on `verified`, because the two
+-- answer different questions and are decided at different times: a
+-- verified row is "this provision has been reviewed and says this", and
+-- it is written as a fixed set of columns that would silently drop
+-- anything else. A box can be adjusted long before a piece is accepted,
+-- and adjusting one is not a decision about its text.
+CREATE TABLE IF NOT EXISTS node_rects (
+    act TEXT NOT NULL,
+    node_index INTEGER NOT NULL,
+    -- [{"page": n, "x0": .., "y0": .., "x1": .., "y1": ..}, ...], in PDF
+    -- points from the top-left of the page. An empty list means the
+    -- reviewer said this provision has no box at all, which is not the
+    -- same as never having said anything -- so the row exists either way
+    -- and is deleted only to hand the provision back to the parser.
+    rects_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_index)
+);
+CREATE INDEX IF NOT EXISTS idx_node_rects_act ON node_rects(act);
 """
 
 _connections: dict[str, sqlite3.Connection] = {}
@@ -420,7 +446,7 @@ _DERIVED_TABLES = ("parse_state",)
 # stops a document being reviewed again from scratch.
 _POSITION_KEYED_TABLES = (
     "verified", "links", "blind_reviews", "orphaned_reviews", "ai_suggestions", "ai_scan_findings",
-    "structure_edits",
+    "structure_edits", "node_rects",
 )
 
 
@@ -802,6 +828,36 @@ def save_structure_edits(act: str, edits: dict[int, dict], base_dir: "str | Path
                 )
                 for index, edit in sorted(edits.items())
             ],
+        )
+
+
+# ---------------------------------------------------------------------
+# Where a provision sits on the page, as a reviewer has drawn it
+# ---------------------------------------------------------------------
+def load_node_rects(act: str, base_dir: "str | Path | None" = None) -> dict[int, list[dict]]:
+    """{node_index: [rect, ...]} for every node a reviewer has drawn a
+    box on. Nodes absent from this keep the parser's own."""
+    rows = _connect(base_dir).execute(
+        "SELECT node_index, rects_json FROM node_rects WHERE act = ? ORDER BY node_index", (act,)
+    ).fetchall()
+    return {row["node_index"]: json.loads(row["rects_json"]) for row in rows}
+
+
+def save_node_rects(act: str, node_index: int, rects: "list[dict] | None",
+                    base_dir: "str | Path | None" = None) -> None:
+    """Records the boxes a reviewer drew on one node. `None` deletes the
+    row, handing that node back to whatever the parser said -- which is
+    a different thing from an empty list, which says "no box here"."""
+    conn = _connect(base_dir)
+    with conn:
+        if rects is None:
+            conn.execute("DELETE FROM node_rects WHERE act = ? AND node_index = ?", (act, node_index))
+            return
+        conn.execute(
+            "INSERT INTO node_rects (act, node_index, rects_json, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(act, node_index) DO UPDATE SET rects_json = excluded.rects_json, "
+            "updated_at = excluded.updated_at",
+            (act, node_index, json.dumps(rects), _now_iso()),
         )
 
 

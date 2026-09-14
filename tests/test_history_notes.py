@@ -1,5 +1,5 @@
 """Tests for ai_pipeline/history_notes.py's margin-note parsing."""
-from ai_pipeline.history_notes import merge_continuations, parse_note
+from ai_pipeline.history_notes import collect_page_notes, merge_continuations, merge_note_blocks, parse_note
 
 
 def test_parse_note_simple_section():
@@ -139,3 +139,79 @@ def test_a_provenance_note_starts_its_own_note():
         "No. 6103 s. 405.",
         "S. 405(1) amended by No. 25/2023 s. 7.",
     ]
+
+
+# ---------------------------------------------------------------------
+# Where a note is printed
+#
+# The Act links a note to the provision it amends by setting it in the
+# margin beside it, and that placement is the only thing that says which
+# provision a note belongs to when its own text doesn't name one.
+# ---------------------------------------------------------------------
+
+def _rect(y0, y1, page=1):
+    return {"page": page, "x0": 79.0, "y0": y0, "x1": 150.0, "y1": y1}
+
+
+def test_a_note_carries_where_it_is_printed():
+    blocks = [("S. 3 amended by No. 52/2014 s. 11.", _rect(100, 130))]
+    assert merge_note_blocks(blocks) == [("S. 3 amended by No. 52/2014 s. 11.", _rect(100, 130))]
+
+
+def test_a_note_running_on_takes_in_the_margin_it_runs_over():
+    """One note printed down one stretch of margin, whatever the
+    extractor broke it into."""
+    blocks = [
+        ("S. 3 amended by Nos 6731 s. 2(1), 6958", _rect(100, 130)),
+        ("9576 s. 11(1), 10026 s. 2(a)(b).", _rect(130, 152)),
+    ]
+    merged = merge_note_blocks(blocks)
+
+    assert len(merged) == 1
+    assert merged[0][0] == "S. 3 amended by Nos 6731 s. 2(1), 6958 9576 s. 11(1), 10026 s. 2(a)(b)."
+    assert merged[0][1] == _rect(100, 152)
+
+
+def test_notes_on_different_pages_are_not_unioned():
+    """A union across a page break would describe a rectangle on
+    neither of them."""
+    blocks = [
+        ("S. 3 amended by Nos 6731 s. 2(1), 6958", _rect(700, 730, page=1)),
+        ("9576 s. 11(1), 10026 s. 2(a)(b).", _rect(100, 122, page=2)),
+    ]
+    merged = merge_note_blocks(blocks)
+
+    assert merged[0][1]["page"] == 1 and merged[0][1]["y1"] == 730
+
+
+def test_merge_continuations_still_answers_in_plain_text():
+    assert merge_continuations([
+        "S. 3 amended by Nos 6731 s. 2(1), 6958", "9576 s. 11(1), 10026 s. 2(a)(b).",
+    ]) == ["S. 3 amended by Nos 6731 s. 2(1), 6958 9576 s. 11(1), 10026 s. 2(a)(b)."]
+
+
+def test_collect_page_notes_hands_back_the_rect():
+    from conftest import page as make_page
+
+    pg = make_page([])
+    pg.margin_notes = ["S. 3 amended by No. 52/2014 s. 11."]
+    pg.margin_note_rects = [_rect(100, 130)]
+
+    notes = collect_page_notes([pg])
+
+    assert notes[0]["rect"] == _rect(100, 130)
+    assert notes[0]["page"] == 1
+
+
+def test_a_parse_from_before_any_of_this_still_works():
+    """A PageText with no margin_note_rects at all -- which is every one
+    stored before the geometry was kept."""
+    from conftest import page as make_page
+
+    pg = make_page([])
+    pg.margin_notes = ["S. 3 amended by No. 52/2014 s. 11."]
+
+    notes = collect_page_notes([pg])
+
+    assert "rect" not in notes[0]
+    assert notes[0]["section"] == "3"
