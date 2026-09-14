@@ -3,10 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Legislation review</title>
-<!-- Inter, self-hosted alongside Junicode in the page template's own font
-     directory (static/site/fonts/, mounted at /assets) rather than pulled
-     off a CDN -- one rule for both faces, and one fewer thing that has to
-     be reachable for this to render. -->
+<!-- Inter and Junicode are self-hosted. -->
 <style>
   @font-face {
     font-family: 'Inter';
@@ -26,22 +23,8 @@
   try { if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
 </script>
 <style>
-  /* Palette: "Modernist" -- flat, architectural, a near-mono red accent on
-     a warm off-white ground, zero corner radius, strong dividers (see the
-     imported Claude Design system this was adapted from, and
-     static/dashboard.html's own copy of this same note). The dark values
-     are a separate OKLCH ramp on the same hue/chroma family (accent hue
-     ~31.5°, neutral hue ~17.3°) rather than the light ones inverted --
-     e.g. the accent moves to a lighter step for legibility on a dark
-     ground. Status colors (sidebar-active, selected-bg) that used to be a
-     blue tint now use an accent tint instead, since accent itself is red
-     here -- the same choice the design system's own reader view makes for
-     its active Division/Part link. */
   :root {
     color-scheme: light;
-    /* Not theme-toggled -- the reading font for the actual Act/Bill text
-       being reviewed (.piece-text only) stays the same in both themes;
-       everything else here (toolbar, sidebar, labels) stays in Inter. */
     --font-reading: 'Junicode', Georgia, serif;
     --bg: #f3f2f2;
     --panel: #eae9e9;
@@ -73,17 +56,6 @@
     --accepted-text: #166534;
     --flagged-text: #92400e;
   }
-  /* Dark mode: a manual toggle (#theme-toggle-btn, persisted in
-     localStorage) rather than only prefers-color-scheme -- a reviewer
-     working long sessions wants this under their own control, not tied
-     to whatever their OS happens to be set to. Every colour a large
-     surface uses (backgrounds, borders, panels) is a variable specifically
-     so this one block can restyle the whole page; small saturated accent
-     colours (defined-term/citation highlight marks, the type-accent left
-     borders, status-badge pills) are deliberately left as-is in both
-     themes -- they're already vivid enough to stay legible against a
-     dark background, the same way a syntax-highlighted code block or a
-     colored GitHub label doesn't re-theme itself either. */
   :root[data-theme="dark"] {
     color-scheme: dark;
     --bg: #120e0e;
@@ -116,10 +88,6 @@
     --accepted-text: #5fd37f;
     --flagged-text: #f0b135;
   }
-  /* Junicode, self-hosted and served from the published site's own
-     template directory (static/site/, mounted at /assets) --
-     relative so the same file works standalone and behind the
-     dashboard's proxy, exactly like the api/ fetches below. */
   @font-face {
     font-family: 'Junicode';
     src: url('/assets/fonts/Junicode-Roman.woff2') format('woff2');

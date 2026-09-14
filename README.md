@@ -11,9 +11,9 @@ Corpus does claim copyright to all value-added content that is added to those do
 The State of Victoria owns all copyright to the official, authorised versions of legislation. 
 
 
-# Corpus
+# Corpus of Victoria
 
-Corpus is a legislation parsing tool (focused on Victoria, Australia). The code parses PDFs into a database which can then be transposed into a variety of formats.
+Corpus is a legislative parsing tool. Legislation is Victoria, Australia is released in PDF format. Corpus extracts the text from the PDF and places it into a database. An administrator can then review the extracted text to ensure its accuracy. 
 
 Almost none of it uses a model. The parser works from the page's own
 geometry and typography -- where a line sits, whether it is bold, how far
