@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from ai_pipeline.html_view import _legislation_href, _site_prefix
 from ai_pipeline.site_crypto import SiteGate, derive_key
 from conftest import make_node
+import export_static_site
 from export_static_site import (
     OFFICIAL_SOURCE_URL,
     _landing_page_html,
@@ -541,3 +542,50 @@ def test_a_bill_no_published_act_claims_is_still_listed():
         ess.dashboard.related_documents = original
 
     assert "/browse/orphan-bill/" in page
+
+
+# ---------------------------------------------------------------------
+# Where the site is published
+# ---------------------------------------------------------------------
+
+def test_a_custom_domain_means_no_path_prefix(tmp_path, monkeypatch):
+    """A custom domain is mapped at its own root. With the "/repo"
+    prefix a project site needs, every link on the site resolved to
+    https://www.corpusvic.au/vic-legislation-parser/browse/..., which is
+    nowhere."""
+    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    (tmp_path / "CNAME").write_text("www.corpusvic.au\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/vic-legislation-parser")
+
+    assert export_static_site.custom_domain() == "www.corpusvic.au"
+    assert export_static_site._default_base_path() == ""
+
+
+def test_without_a_custom_domain_a_project_site_keeps_its_prefix(tmp_path, monkeypatch):
+    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/vic-legislation-parser")
+
+    assert export_static_site.custom_domain() is None
+    assert export_static_site._default_base_path() == "/vic-legislation-parser"
+
+
+def test_a_local_preview_has_no_prefix_either(tmp_path, monkeypatch):
+    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+
+    assert export_static_site._default_base_path() == ""
+
+
+def test_an_empty_cname_is_not_a_domain(tmp_path, monkeypatch):
+    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    (tmp_path / "CNAME").write_text("\n", encoding="utf-8")
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+
+    assert export_static_site.custom_domain() is None
+
+
+def test_the_repository_names_the_domain_the_site_is_published_at():
+    """The real CNAME, checked as itself: it is what tells GitHub Pages
+    to keep serving www.corpusvic.au, and what keeps every link on the
+    site unprefixed."""
+    assert export_static_site.custom_domain() == "www.corpusvic.au"

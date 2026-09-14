@@ -8,7 +8,7 @@ the whole publishing step -- no separate export command to remember.
 
 Usage:
     python export_static_site.py --out _site
-    python export_static_site.py --out _site --base-path /vic-legislation-parser
+    python export_static_site.py --out _site --base-path /some-prefix
     SITE_PASSWORD='a long passphrase' python export_static_site.py --out _site
 
 A passphrase (via $SITE_PASSWORD, or --password for a local build) puts
@@ -18,15 +18,22 @@ with a decorative gate over it -- see ai_pipeline/site_crypto.py for what
 that does and doesn't protect. Without one the site is open to anyone
 with the URL, which is the right default once it's meant to be public.
 
---base-path is the path prefix the site will actually be served under.
-GitHub Pages serves a repo's default Pages site at
-https://<owner>.github.io/<repo>/, so every absolute link the generated
-pages carry (nav, cross-references, the landing page) needs that "/repo"
-prefix or it would point at the wrong place once deployed -- the workflow
-passes it explicitly (derived from $GITHUB_REPOSITORY), computed here too
-if that variable happens to be set. Left empty for a local preview served
-from a directory root (`python -m http.server --directory _site`), or for
-a custom domain mapped straight at the repo root.
+--base-path is the path prefix the site will actually be served under,
+and it is worked out from the repository rather than passed in.
+
+A CNAME file in the repository root means a custom domain, and a custom
+domain is mapped at its own root, so the prefix is nothing:
+www.corpusvic.au/browse/... Without one, GitHub Pages serves a repo's
+site at https://<owner>.github.io/<repo>/, and every absolute link the
+generated pages carry (nav, cross-references, the landing page) needs
+that "/repo" prefix or it points at the wrong place once deployed. A
+local preview served from a directory root (`python -m http.server
+--directory _site`) gets nothing, since $GITHUB_REPOSITORY is not set.
+
+The CNAME file is also copied into the built site, because a Pages
+deployment serves exactly what the build uploaded -- one left behind in
+the source tree is a custom domain that stops being configured the first
+time this runs.
 
 Reuses dashboard.py's own private, file-backed helpers (_current_nodes,
 _amendments, _act_title, _act_version, _superseded, _provision_timeline,
@@ -202,11 +209,38 @@ def publishes_anything(slug: str) -> bool:
     return bool(approved_page_slugs(nodes, group_into_units(nodes), page_index["by_node_index"]))
 
 
+CNAME_FILE = Path(__file__).parent / "CNAME"
+
+
+def custom_domain() -> "str | None":
+    """The domain this site is published at, from the repository's CNAME
+    file, or None if it is published at a github.io address.
+
+    CNAME is GitHub Pages' own way of recording a custom domain -- it is
+    the file the Settings page writes when you set one -- so it is read
+    here rather than duplicated into a second setting that could disagree
+    with it."""
+    if not CNAME_FILE.exists():
+        return None
+    return CNAME_FILE.read_text(encoding="utf-8").strip() or None
+
+
 def _default_base_path() -> str:
-    """"/repo-name" when $GITHUB_REPOSITORY (owner/repo, set by every
-    GitHub Actions job) is present, matching a project site's default
-    URL; "" otherwise, for a local preview or a custom-domain deployment
-    mapped at the root."""
+    """The path prefix the site will be served under.
+
+    Nothing, when there is a custom domain: it is mapped at that domain's
+    own root, so a link needs no prefix at all. This is what the CNAME
+    file decides, and getting it wrong is not subtle -- with a "/repo"
+    prefix against a custom domain, every link on the site resolved to
+    https://www.corpusvic.au/vic-legislation-parser/browse/..., which is
+    nowhere.
+
+    Otherwise "/repo-name" when $GITHUB_REPOSITORY (owner/repo, set by
+    every GitHub Actions job) is present, matching the default URL of a
+    project site at https://<owner>.github.io/<repo>/; and "" outside
+    Actions, for a local preview served from a directory root."""
+    if custom_domain():
+        return ""
     repo = os.environ.get("GITHUB_REPOSITORY")
     return f"/{repo.split('/')[-1]}" if repo else ""
 
@@ -637,13 +671,20 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> tupl
         # Never encrypted: a crawler has to be able to read the one file
         # that tells it to go away.
         _write(out / "robots.txt", ROBOTS_TXT)
+    domain = custom_domain()
+    if domain:
+        # Published with the site, not just kept in the repository. A
+        # Pages deployment serves exactly what the build uploaded, so a
+        # CNAME that stays behind in the source tree is a custom domain
+        # that stops being configured the first time this runs.
+        (out / "CNAME").write_text(domain + "\n", encoding="utf-8")
     return published, preview_files
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default="_site", help="output directory (default: _site)")
-    ap.add_argument("--base-path", default=None, help="URL path prefix the site will be served under (default: derived from $GITHUB_REPOSITORY, else empty)")
+    ap.add_argument("--base-path", default=None, help="URL path prefix the site will be served under (default: empty when a CNAME sets a custom domain, else derived from $GITHUB_REPOSITORY, else empty)")
     ap.add_argument("--password", default=None, help="passphrase to encrypt every page behind (default: $SITE_PASSWORD; unset means an open, ungated site)")
     args = ap.parse_args()
 

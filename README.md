@@ -14,3 +14,19 @@ The State of Victoria owns all copyright to the official, authorised versions of
 # Corpus
 
 Corpus is a legislation parsing tool (focused on Victoria, Australia). The code parses PDFs into a database which can then be transposed into a variety of formats. 
+
+The reviewed material is published at **[www.corpusvic.au](https://www.corpusvic.au)**.
+
+That address lives in one place: the `CNAME` file in this repository's
+root. GitHub Pages reads it to keep serving the domain, and
+`export_static_site.py` reads it to decide that links need no path
+prefix -- a custom domain is mapped at its own root, so a page links to
+`/browse/<act>/` rather than `/<repo>/browse/<act>/`. Remove the file and
+the site goes back to being a project site at
+`https://<owner>.github.io/<repo>/`, with every link prefixed to match.
+It is copied into each build, because a Pages deployment serves exactly
+what the build uploaded.
+
+Publishing is a push: `.github/workflows/pages.yml` rebuilds the site
+whenever the parsed data or the review database changes on `main`. Only
+fully-reviewed documents are included.
