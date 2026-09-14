@@ -231,3 +231,45 @@ def test_a_table_exports_as_a_real_table():
     assert [e.tag.rsplit("}", 1)[-1] for e in root.iter() if e.tag.endswith("}tr")] == ["tr", "tr"]
     cells = [e.text for e in root.iter() if e.tag.endswith("}p")]
     assert "Column 1" in cells and "a defence" in cells
+
+
+def test_a_continuation_becomes_its_provisions_wrap_up():
+    """A continuation is not a thing of its own: it is the rest of the
+    provision's sentence, resumed after the list it broke into. AKN says
+    so with <wrapUp> -- the counterpart of the <intro> the provision
+    opened with. As a sibling <hcontainer name="continuation"> it read as
+    a separate provision that happened to sit beside the paragraphs.
+    Criminal Procedure Act s 11(1) is the shape."""
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "11", "Place of hearing", ""),
+        make_node("subsection", "1", None, "is to be heard at the venue nearest to-"),
+        make_node("paragraph", "a", None, "the place where the offence was committed; or"),
+        make_node("paragraph", "b", None, "the place of residence of the accused-"),
+        dict(make_node("continuation", None, None, "except where otherwise provided."), depth_rank=7),
+    ]
+    tree = export_to_akn({"nodes": nodes, "act": "test-act"})
+    assert_valid_akn(tree)
+
+    root = tree.getroot()
+    subsection = next(e for e in root.iter() if e.tag.endswith("}subsection"))
+    assert [c.tag.rsplit("}", 1)[-1] for c in subsection] == [
+        "num", "intro", "paragraph", "paragraph", "wrapUp",
+    ]
+    assert subsection[-1][0].text == "except where otherwise provided."
+    assert 'name="continuation"' not in ET.tostring(root, encoding="unicode")
+
+
+def test_a_provision_holding_nothing_but_a_continuation_keeps_it():
+    """<wrapUp> is only legal after at least one nested hierarchy
+    element. The parser cannot produce this, but a reviewer's merges and
+    deletions can, and losing the text would be worse than an odd
+    element."""
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "11", "Place of hearing", "lead-in-"),
+        make_node("continuation", None, None, "the tail that is all that is left."),
+    ]
+    tree = export_to_akn({"nodes": nodes, "act": "test-act"})
+    assert_valid_akn(tree)
+    assert "the tail that is all that is left." in ET.tostring(tree.getroot(), encoding="unicode")

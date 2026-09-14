@@ -573,6 +573,14 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     mis-parsed repeated number, or two same-named terms redefined in
     separate Definitions sections that both landed in one review unit).
 
+    A Continuation is named after whatever it continues -- "(1)
+    continuation", from its own path. It carries no number because it
+    isn't a provision in its own right: it is the rest of subsection
+    (1)'s sentence, resumed after that subsection's list has finished
+    (see rule_parser's _consume_as_continuation, and s 11(1) of the
+    Criminal Procedure Act for the shape). A running counter made it read
+    as a separate provision that happened to land there.
+
     A Subsection/Paragraph/Subparagraph nested under a Definition (a
     Definitions section's own "term means— (a) ...; (b) ...;" lists) has
     no subsection number to anchor its own chain to -- path["definition"]
@@ -595,6 +603,20 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
             labels.append(chain)
         elif node["type"] == "definition" and node.get("heading"):
             labels.append(node["heading"])
+        elif node["type"] == "continuation":
+            # Named after the provision it continues, because it is not a
+            # thing of its own -- "(1) continuation" is the rest of
+            # subsection (1)'s sentence, resumed after (a) and (b)
+            # (Criminal Procedure Act s 11(1) is the shape). Labelled
+            # "[continuation 1]", it read as a separate provision that
+            # happened to land there, which is exactly what it isn't.
+            path = node.get("path") or {}
+            chain = "".join(
+                f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") if path.get(level)
+            )
+            if path.get("definition"):
+                chain = f"{path['definition']} {chain}".strip()
+            labels.append(f"{chain} continuation" if chain else "SECTION continuation")
         else:
             counters[node["type"]] = counters.get(node["type"], 0) + 1
             labels.append(f"[{node['type']} {counters[node['type']]}]")
@@ -867,7 +889,16 @@ def _recompute_unit_paths(unit_no: int) -> None:
     for i in indices[1:]:
         node = _current_node(i)
         t = node.get("type")
-        if t in rank:
+        if t == "continuation":
+            # Inherits the context it resumes rather than starting one --
+            # the same rule tree.annotate_paths applies, replayed here so
+            # a renest gives the same answer a re-parse would.
+            effective = node.get("depth_rank")
+            if effective is None:
+                effective = rank[t]
+            for deeper in _hierarchy[effective:]:
+                current[deeper] = None
+        elif t in rank:
             if t == "definition":
                 current["definition"] = node.get("heading")
             else:
