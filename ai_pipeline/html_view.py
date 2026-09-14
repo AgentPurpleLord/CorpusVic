@@ -1,9 +1,9 @@
 """
-Renders a parsed Act as a live, read-only, AustLII-style HTML browsing
+Renders a parsed Act as a live, read-only, HTML browsing
 view -- an index page (Part/Division/Subdivision headings, each Section
 listed as a link, in document order) plus one page per Section, with
 defined terms and Part/Division/"section N" cross-references
-hyperlinked between them, the same way a real AustLII page reads.
+hyperlinked between them, the same way a real page reads.
 
 This reuses markdown_export.py's document model wholesale -- the tree
 walk, filename and slug assignment, and definition/cross-reference
