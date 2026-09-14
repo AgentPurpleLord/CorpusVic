@@ -330,6 +330,11 @@ def describe_remap(report: dict) -> str:
         bits.append(f"{report['orphaned']} no longer in the parse (kept, marked orphaned)")
     if "units_marked" in report:
         bits.append(f"resume point now unit {report['units_marked']}")
+    if report.get("structure_edits_dropped"):
+        bits.append(
+            f"{report['structure_edits_dropped']} structural edit(s) discarded -- they name node "
+            "positions this parse has replaced (any inserted text was kept as an orphaned review)"
+        )
     return "; ".join(bits)
 
 
@@ -352,22 +357,62 @@ def apply_remap(
     Orphaned rows move out of `verified` and into `orphaned_reviews`:
     the verified table is keyed by node position, and an orphan doesn't
     have one any more, so this is the only way to keep them at all.
+
+    Structural edits (ai_pipeline/structure.py) do not survive a
+    re-parse, and are discarded here -- see _discard_structure_edits.
     """
     from . import db
 
     fingerprint = parse_fingerprint(new_nodes)
+    unchanged = db.load_parse_fingerprint(act, base_dir) == fingerprint
+    dropped = 0 if unchanged else _discard_structure_edits(act, base_dir)
     rows = db.load_verified(act, base_dir)
+    if unchanged:
+        return None
     if not rows:
         db.save_parse_fingerprint(act, fingerprint, base_dir)
-        return None
-    if db.load_parse_fingerprint(act, base_dir) == fingerprint:
-        return None
+        return {"matched": 0, "moved": 0, "text_changed": 0, "orphaned": 0,
+                "structure_edits_dropped": dropped} if dropped else None
 
     remapped, report = remap_verified(rows, new_nodes, units)
     db.add_orphaned_reviews(act, [r for r in remapped if r.get("_orphaned")], base_dir)
     db.save_verified(act, [r for r in remapped if not r.get("_orphaned")], base_dir)
     db.save_parse_fingerprint(act, fingerprint, base_dir)
+    if dropped:
+        report["structure_edits_dropped"] = dropped
     return report
+
+
+def _discard_structure_edits(act: str, base_dir: "str | Path | None" = None) -> int:
+    """Drops this document's structural edits, keeping the text of
+    anything a reviewer had typed in. Returns how many were dropped.
+
+    A structural edit says "insert after node 412", "delete node 87",
+    "put node 5 after node 260" -- all of them positions into the parse
+    that has just been replaced. A verified row can be re-anchored
+    because it carries its provision's own type, number, heading and
+    opening words, so it can be recognised wherever it ended up; an edit
+    carries no such thing about the node it *points at*, and applying
+    "delete node 87" to whatever node 87 now happens to be would delete a
+    provision nobody asked to lose. Redoing a handful of moves is a small
+    cost; a deletion landing on the wrong section, silently, is not.
+
+    What can't be redone from the PDF is the text of an inserted piece --
+    a person typed it, precisely because the parse didn't have it -- so
+    those go to orphaned_reviews, the same place a reviewed row goes when
+    its provision is gone from the new parse. Nothing a human wrote is
+    deleted here.
+    """
+    from . import db
+
+    edits = db.load_structure_edits(act, base_dir)
+    if not edits:
+        return 0
+    inserted = [edit["node"] for _index, edit in sorted(edits.items()) if edit.get("node")]
+    if inserted:
+        db.add_orphaned_reviews(act, inserted, base_dir)
+    db.save_structure_edits(act, {}, base_dir)
+    return len(edits)
 
 
 def apply_carry_forward(

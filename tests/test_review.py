@@ -11,10 +11,12 @@ import pytest
 
 from ai_pipeline import db
 from ai_pipeline.reparse import parse_fingerprint
+from ai_pipeline import structure
 from review import (
     _is_elevated_risk,
     _now_iso,
     _resume_point,
+    _was_inserted,
     build_current_nodes,
     build_effective_nodes_indexed,
     can_renest_under,
@@ -22,6 +24,7 @@ from review import (
     compute_unit_labels,
     compute_unit_tree_info,
     group_into_units,
+    order_and_units,
     reflow_with_map,
     save_verified,
     validate_custom_type_name,
@@ -562,3 +565,135 @@ def test_a_piece_reports_which_fields_no_longer_match_the_parse(monkeypatch):
     # An absent field and an empty one are the same thing here, so a
     # heading that was never set doesn't read as a change.
     assert review._differs_from_parse(0, {**parsed, "heading": ""}) == []
+
+
+# ---------------------------------------------------------------------------
+# Structural edits (ai_pipeline/structure.py) applied on the read path
+# ---------------------------------------------------------------------------
+
+def _write_structure(act: str, edits: dict) -> None:
+    db.save_structure_edits(act, edits)
+
+
+def test_order_and_units_answers_in_node_indices_not_list_positions():
+    """group_into_units works in positions into the list it is handed,
+    which stop being indices the moment anything is inserted or moved.
+    The whole job here is translating them back."""
+    parse = [make_node("section", "1"), make_node("subsection", "1"), make_node("section", "2")]
+    inserted = make_node("subsection", "2", text="a subsection the parser missed")
+    edits = {3: {"after": 1, "deleted": False, "node": inserted}}
+    at = lambda i: parse[i] if i < len(parse) else edits[i]["node"]
+
+    order, units = order_and_units(len(parse), edits, at)
+
+    assert order == [0, 1, 3, 2]
+    assert units == [[0, 1, 3], [2]]
+
+
+def test_a_deleted_node_disappears_from_the_browse_view(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Running header")]
+    _write_parsed("crimes-act", nodes)
+    _write_structure("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n["heading"] for n in current] == ["Murder"]
+
+
+def test_an_inserted_node_shows_up_where_it_was_put(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    _write_parsed("crimes-act", nodes)
+    typed_in = make_node("section", "1A", "Attempted murder")
+    _write_structure("crimes-act", {2: {"after": 0, "deleted": False, "node": typed_in}})
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n["heading"] for n in current] == ["Murder", "Attempted murder", "Manslaughter"]
+
+
+def test_a_moved_node_reads_in_its_new_place(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [
+        make_node("section", "1", "Murder"),
+        make_node("note", None, None, "a note that belongs under s 2"),
+        make_node("section", "2", "Manslaughter"),
+    ]
+    _write_parsed("crimes-act", nodes)
+    _write_structure("crimes-act", {1: {"after": 2, "deleted": False, "node": None}})
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n.get("heading") or n["text"] for n in current] == [
+        "Murder", "Manslaughter", "a note that belongs under s 2",
+    ]
+
+
+def test_structural_edits_are_ignored_when_the_parse_has_moved_under_them(tmp_path, monkeypatch):
+    """The same guard verified rows get. "Delete node 1" against a parse
+    node 1 no longer means is not a deletion a reviewer ever asked for."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    _write_parsed("crimes-act", nodes, record_fingerprint=False)
+    _write_structure("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n["heading"] for n in current] == ["Murder", "Manslaughter"]
+
+
+def test_an_inserted_node_is_not_inferred_to_have_been_merged_away(tmp_path, monkeypatch):
+    """A piece typed into an already-reviewed Section has no verified row
+    because nobody has reviewed it yet -- which is exactly the shape the
+    merged-away inference looks for. Mistaking one for the other would
+    make it vanish the next time the server started."""
+    monkeypatch.chdir(tmp_path)
+    section = make_node("section", "1", "Murder")
+    _write_parsed("crimes-act", [section])
+    _write_verified("crimes-act", [
+        dict(section, verified_at="2024-01-01T00:00:00+00:00", _source_node_index=0, _unit_end_index=0),
+    ])
+    typed_in = make_node("subsection", "1", None, "a subsection the extractor dropped")
+    _write_structure("crimes-act", {1: {"after": 0, "deleted": False, "node": typed_in}})
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n.get("text") for n in current] == ["", "a subsection the extractor dropped"]
+
+
+def test_was_inserted_tells_a_typed_in_node_from_a_parsed_one():
+    edits = {5: {"node": {"type": "note"}}, 2: {"deleted": True, "node": None}}
+    assert _was_inserted(edits, 5)
+    assert not _was_inserted(edits, 2)
+    assert not _was_inserted(edits, 0)
+
+
+def test_effective_nodes_are_long_enough_to_index_an_inserted_node(tmp_path, monkeypatch):
+    """run_ai_review.py keys its findings by node_index straight into
+    this list, so an inserted node has to have a slot at its own index --
+    which is above the parse, by construction."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder")]
+    _write_parsed("crimes-act", nodes)
+    _write_structure("crimes-act", {
+        1: {"after": 0, "deleted": False, "node": make_node("subsection", "1", None, "added")},
+    })
+
+    effective, units, _fingerprint = build_effective_nodes_indexed("crimes-act")
+
+    assert len(effective) == 2
+    assert effective[1]["text"] == "added"
+    assert units == [[0, 1]]
+
+
+def test_a_deleted_position_holds_none_in_the_indexed_view(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("note", None, None, "a page footer")]
+    _write_parsed("crimes-act", nodes)
+    _write_structure("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+
+    effective, _units, _fingerprint = build_effective_nodes_indexed("crimes-act")
+
+    assert effective[0]["heading"] == "Murder"
+    assert effective[1] is None
