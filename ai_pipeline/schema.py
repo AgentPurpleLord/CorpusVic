@@ -1,7 +1,8 @@
 """The structural node types a parsed document may use."""
 
 # The structural container types the parser emits, plus the non-hierarchy
-# node types (heading_group / definition / note / repealed / example).
+# node types (heading_group / definition / note / penalty / repealed /
+# example).
 # "chapter" and "schedule" are the optional top levels some Acts use above
 # Part, and use respectively (see hierarchy.py). An Act that defines
 # further levels in its profile adds them on top of this list when it's
@@ -30,6 +31,13 @@ NODE_TYPES = [
     "continuation",
     "note",
     "example",
+    # The penalty for an offence, which Victorian drafting sets on its
+    # own line under the provision creating it ("Penalty: Level 3
+    # imprisonment (20 years maximum)."). Its own type because it is its
+    # own thing: what the provision forbids and what happens to you if
+    # you do it are separate facts about an offence, and running them
+    # together as one block of text makes the second unfindable.
+    "penalty",
     "repealed",
     # No longer emitted -- an EM's entries are typed "clause" now (see
     # em_parser.py's own docstring). Kept so an EM parsed before that
@@ -57,10 +65,12 @@ _SUBLEVELS = ["subsection", "paragraph", "subparagraph", "sub_subparagraph"]
 TYPES_BY_DOCUMENT = {
     # A consolidated Act: sections, and the "* * * *" markers standing in
     # for provisions since repealed.
-    "act": [*_STRUCTURE, "section", *_SUBLEVELS, "definition", "continuation", "note", "example", "repealed"],
+    "act": [*_STRUCTURE, "section", *_SUBLEVELS, "definition", "continuation", "note", "example",
+            "penalty", "repealed"],
     # A Bill numbers its top-level provisions clauses until it is enacted.
     # Nothing in it is repealed yet.
-    "bill": [*_STRUCTURE, "clause", *_SUBLEVELS, "definition", "continuation", "note", "example"],
+    "bill": [*_STRUCTURE, "clause", *_SUBLEVELS, "definition", "continuation", "note", "example",
+             "penalty"],
     # An Explanatory Memorandum is a flat sequence of notes on the Bill's
     # own clauses, under organisational headings, with bulleted lists
     # inside an entry parsed as paragraphs (see em_parser.py).

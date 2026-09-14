@@ -82,7 +82,8 @@ ET.register_namespace("", AKN_NS)
 # export doesn't attempt to model, and nesting one level past AKN's
 # own native subparagraph isn't a documented element either. Both
 # render using the same generic <hcontainer> fallback "note",
-# "definition" and "example" already use (see render_tree_node) rather
+# "definition", "example" and "penalty" already use (see
+# render_tree_node) rather
 # than guessing at an unverified element name -- they still nest
 # correctly through build_hierarchy_tree's logic below regardless,
 # since that's a question of tree *structure*, separate from which XML
@@ -197,6 +198,23 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
                 section_idx = rank["section"]
                 while level_stack and level_stack[-1][0] >= section_idx:
                     level_stack.pop()
+            elif t == "penalty":
+                # A penalty attaches to the provision that creates the
+                # offence, and that is a Section or a Subsection -- never
+                # a lettered list item, and never the wrap-up line that
+                # closes one. It is printed after the whole provision, so
+                # whatever happened to be open when the rules engine
+                # reached it is usually the deepest thing in the list
+                # above it: left alone, s 4's penalty came out as
+                # "sec_4__wrapup_u__pnlty_1" and a subsection's as
+                # "...subsec_1__para_b__pnlty_1", where no consumer
+                # looking for that provision's penalty would find it.
+                subsection_idx = rank.get("subsection", rank["section"])
+                while level_stack and (
+                    level_stack[-1][0] > subsection_idx
+                    or (level_stack[-1][1]["node"] or {}).get("type") == "continuation"
+                ):
+                    level_stack.pop()
             parent_level, parent = level_stack[-1]
             # "definition" reaches here only if `rank` has no
             # "subsection" entry at all for it to line up with (see
@@ -205,7 +223,13 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
             # `if t in rank:` branch above instead, with proper popping
             # and nesting so a defined term's own (a)/(b) list attaches
             # under it.
-            prefix = {"note": "note", "example": "ex", "heading_group": "hd", "definition": "def"}.get(t, "el")
+            prefix = {
+                "note": "note", "example": "ex", "heading_group": "hd", "definition": "def",
+                # AKN has no native element for a penalty, so it renders
+                # through the same <hcontainer name="penalty"> fallback
+                # a note does; the eId still names it for what it is.
+                "penalty": "pnlty",
+            }.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
             parent["children"].append({"node": node, "eid": eid, "children": []})

@@ -27,8 +27,9 @@ profile is explaining *why* this Act's numbering is different.
 
 Any pattern you don't override falls back to DEFAULT_PATTERNS. Every
 pattern (default or overridden) needs at least two capture groups --
-(number, heading/rest) -- except "notes_marker" (a plain yes/no check,
-no groups needed) and "subdivision" (two two-group options, four groups
+(number, heading/rest) -- except the marker patterns "notes_marker",
+"example_marker" and "penalty_marker" (plain yes/no checks, no groups
+needed) and "subdivision" (two two-group options, four groups
 total; see its own comment below). This is checked as soon as the
 profile loads, not later while parsing, so a typo in a profile is
 reported right away, naming the exact key that's wrong, instead of
@@ -74,7 +75,8 @@ _REQUIRED_LEVELS = {"section", "subsection", "paragraph", "subparagraph"}
 _RESERVED_KEYS = {"hierarchy"}
 
 # Every pattern must have exactly two capture groups: (number, heading/rest),
-# except notes_marker/example_marker (pure boundary checks, no groups).
+# except notes_marker/example_marker/penalty_marker (pure boundary checks,
+# no groups).
 DEFAULT_PATTERNS = {
     # A Schedule heading uses the same "Word N—Title" shape as Chapter,
     # Part and Division, but the dash between them has been seen doubled
@@ -123,6 +125,20 @@ DEFAULT_PATTERNS = {
     # (see rule_parser.py's _handle_marked_block) -- same bold, body-
     # sized, standalone-line style, just a different word.
     "example_marker": r"^Examples?$",
+    # The penalty for an offence, which Victorian drafting sets on its
+    # own line under the provision creating it: "Penalty: Level 3
+    # imprisonment (20 years maximum)." It is not part of the offence's
+    # own sentence and shouldn't read as though it were -- see
+    # rule_parser's own penalty handling.
+    #
+    # Anchored and capitalised deliberately. "penalty" appears
+    # constantly in ordinary legislative prose ("...where a penalty is
+    # prescribed by law...", "the penalty must be recovered only
+    # before..."), and every one of those is mid-sentence and lowercase;
+    # every real penalty line starts one. The colon is required for the
+    # same reason -- it is what makes the line a label rather than a
+    # sentence.
+    "penalty_marker": r"^Penalt(?:y|ies)\s*:",
 }
 
 # Every key is matched with case sensitivity except these -- a Chapter,
@@ -145,10 +161,11 @@ class ProfileError(ValueError):
 
 
 # Every key needs (number, heading/rest) -- two groups -- except
-# notes_marker/example_marker, which are just yes/no checks ("does this
-# line say "Notes"/"Example"?"); rule_parser.py only checks whether they
-# matched at all and never reads a group from either.
-_MIN_GROUPS = {"notes_marker": 0, "example_marker": 0}
+# notes_marker/example_marker/penalty_marker, which are just yes/no
+# checks ("does this line say "Notes"/"Example"/"Penalty:"?");
+# rule_parser.py only checks whether they matched at all and never reads
+# a group from any of them.
+_MIN_GROUPS = {"notes_marker": 0, "example_marker": 0, "penalty_marker": 0}
 
 
 def _validate_pattern(source: str, key: str, pattern: str) -> None:

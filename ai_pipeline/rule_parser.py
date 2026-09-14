@@ -28,7 +28,10 @@ of lines. `_LineParser.feed` makes one pass; for each line it tries the
 classifiers below in order (`_try_bold_heading` -> `_try_schedule_hangs_off`
 -> `_try_definition_start` -> `_try_bracket_item` -> `_try_bold_emphasis`),
 and any line none of them claims falls through to
-`_consume_as_continuation`. Each classifier returns True once it's
+`_consume_as_continuation`. Ahead of all of them sit the marker blocks --
+Notes, Examples and Penalties -- which are recognised by their own
+opening words and then run as a small state machine
+(`_handle_marked_block`) until something structural ends them. Each classifier returns True once it's
 handled the line. The bookkeeping for the open-node stack
 (`_open_node`/`_close_top`/...) is shared state on the instance.
 """
@@ -428,6 +431,11 @@ _SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+[\d()\s,]+\.?$")
 _BARE_SCHEDULE_RE = re.compile(r"^Schedule\s+(\d+[A-Za-z]*)$", re.IGNORECASE)
 
 
+# The levels _try_bracket_item recognises by shape alone, with no font
+# information -- the boundaries that open without needing to be bold.
+_BRACKETED_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
+
+
 def _looks_like_boundary(text: str, patterns: dict) -> bool:
     return any(
         compiled.match(text)
@@ -678,6 +686,10 @@ class _LineParser:
                 self.marked_block_type = "example"
                 continue
 
+            if self.patterns["penalty_marker"].match(text):
+                self._open_penalty(line, text, char_start, char_end)
+                continue
+
             if self.marked_block_type and self._handle_marked_block(line, text, char_start, char_end):
                 continue
 
@@ -713,8 +725,8 @@ class _LineParser:
     # -- classifiers -----------------------------------------------------
 
     def _ends_marked_block(self, line: BodyLine, text: str) -> bool:
-        """True if this line can't possibly be more of a Notes/Example
-        block's own text -- either it matches one of the ordinary
+        """True if this line can't possibly be more of a Notes/Example/
+        Penalty block's own text -- either it matches one of the ordinary
         structural patterns (_looks_like_boundary: a new Part, Division,
         etc.), or it's a fresh defined term opening inside a Definitions
         section (see _try_definition_start), which _looks_like_boundary
@@ -722,14 +734,69 @@ class _LineParser:
         alone with no font information -- nothing about a definition's
         shape is something a text pattern alone can catch; only its
         typesetting gives it away."""
-        return _looks_like_boundary(text, self.patterns) or bool(self._in_definitions_section and line.leading_bold_italic)
+        if self.marked_block_type == "penalty" and not line.bold:
+            # A penalty's own wording starts lines with numbers all the
+            # time -- "1200 penalty units maximum) or both;", "600
+            # penalty units." -- and the section pattern is "a number,
+            # then some words", so _looks_like_boundary read half of them
+            # as a new section and cut the penalty off mid-sentence. In
+            # the ordinary flow that pattern only ever opens a section on
+            # a *bold* line (see _try_bold_heading); this holds a penalty
+            # to the same rule, leaving only the boundaries that
+            # genuinely need no bold to be recognised.
+            return (
+                text == "*"
+                or any(self.patterns[key].match(text) for key in _BRACKETED_LEVELS if key in self.patterns)
+                or bool(self._in_definitions_section and line.leading_bold_italic)
+            )
+        return (
+            _looks_like_boundary(text, self.patterns)
+            or bool(self._in_definitions_section and line.leading_bold_italic)
+            # A bold line. These blocks are always set in plain body
+            # text, so a whole line in bold is a heading, and a heading
+            # that matches no structural pattern (a bare topical caption
+            # -- "Offences relating to Horse-drawn Vehicles, Public
+            # Vehicles, Animals, &c.") is invisible to
+            # _looks_like_boundary, which reads text alone. Without
+            # this, a Penalty running to the foot of a group's last
+            # provision swallowed the caption introducing the next one.
+            or line.bold
+        )
+
+    def _open_penalty(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
+        """Starts a penalty node at a "Penalty: ..." line.
+
+        Unlike Notes and Examples, whose marker word sits alone on its
+        own line above the block, a penalty's marker and its content are
+        the same line -- so this opens the node rather than merely
+        arming a state machine. Everything after it rides the same
+        machinery, because a penalty wraps and ends exactly the way
+        those do: further plain lines belong to it ("Penalty: Level 3
+        imprisonment (20 years / maximum).", and the multi-limb
+        "Penalty: If the injury was caused intentionally-- / level 5
+        imprisonment..."), and the next structural line ends it.
+
+        Appended straight to self.nodes rather than pushed on the stack,
+        like a note: it is a fact about the provision above it, not a
+        container, and nothing ever nests inside one.
+        """
+        self._close_marked_block()
+        self.marked_block_type = "penalty"
+        self.current_marked_block = {
+            "type": "penalty", "number": None, "heading": None, "text": text,
+            "page_start": line.page_no, "page_end": line.page_no,
+            "char_start": char_start, "char_end": char_end, "source": "rules",
+        }
+        self.nodes.append(self.current_marked_block)
 
     def _handle_marked_block(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
-        """Inside a "Notes" (or singular "Note") or "Example" block --
-        self.marked_block_type says which; both share this same state
-        machine, since an Example is set up exactly like a singular
-        Note, just under a different marker word (see basic-
-        structure.yaml). Returns True if the line belongs to the open
+        """Inside a "Notes" (or singular "Note"), "Example" or "Penalty"
+        block -- self.marked_block_type says which; all three share this
+        same state machine, since an Example is set up exactly like a
+        singular Note under a different marker word (see basic-
+        structure.yaml), and a Penalty differs only in being opened by
+        its own first line rather than by a marker above it (see
+        _open_penalty). Returns True if the line belongs to the open
         block (the caller skips to the next line); returns False --
         having also closed the block -- when it's ended and the line
         needs normal classification instead."""

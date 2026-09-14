@@ -54,10 +54,12 @@ class DiagnosticsReport:
 # "example" isn't exempted from the empty-body check the way "note" is --
 # unlike a note (which can legitimately be an empty placeholder), an
 # Example callout with nothing under it is always a parsing mistake, not
-# a valid drafting shape.
+# a valid drafting shape. Nor is "penalty", for a stronger reason still:
+# its own opening line *is* its text ("Penalty: Level 3 imprisonment..."),
+# so an empty one cannot have come from a real penalty line at all.
 _LEAF_TYPES = {
     "section", "clause", "subsection", "paragraph", "subparagraph", "sub_subparagraph",
-    "note", "definition", "repealed", "example",
+    "note", "definition", "repealed", "example", "penalty",
 }
 
 

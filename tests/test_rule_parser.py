@@ -1233,3 +1233,130 @@ def test_an_em_dash_at_the_end_of_a_line_does_not_close_up():
     section = find(_parse(lines).nodes, "section", "1")
 
     assert section["text"] == "An offence described as being— in either case, an indictable offence."
+
+
+# ---------------------------------------------------------------------
+# Penalties
+#
+# Victorian drafting sets the penalty for an offence on its own line
+# under the provision creating it. Read as more of that provision's text,
+# what the offence forbids and what happens to you if you do it run
+# together into one block, and the second becomes unfindable.
+# ---------------------------------------------------------------------
+
+def test_a_penalty_becomes_its_own_node():
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("Division 1—Offences against the person", bold=True),
+        line("3 Punishment for murder", bold=True),
+        line("A person who commits murder is guilty of an indictable offence.", x0=HEAD_X0),
+        line("Penalty: Level 2 imprisonment (25 years maximum).", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    penalty = find(nodes, "penalty")
+    assert penalty["text"] == "Penalty: Level 2 imprisonment (25 years maximum)."
+    section = find(nodes, "section", "3")
+    assert "Penalty" not in section["text"]
+
+
+def test_a_penalty_keeps_its_wrapped_lines():
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment for murder", bold=True),
+        line("A person who commits murder is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: Level 2 imprisonment (25 years", x0=HEAD_X0),
+        line("maximum).", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: Level 2 imprisonment (25 years maximum)."
+
+
+def test_a_penalty_line_starting_with_a_number_does_not_end_the_penalty():
+    """The regression this was written for: a penalty's own wording
+    starts lines with numbers constantly ("1200 penalty units maximum)"),
+    and the section pattern is "a number, then some words" -- so half of
+    them were read as a new section and the penalty was cut off
+    mid-sentence. In the ordinary flow that pattern only opens a section
+    on a *bold* line."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: In the case of an individual, a level 5 fine", x0=HEAD_X0),
+        line("1200 penalty units maximum) or both.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"].endswith("1200 penalty units maximum) or both.")
+    assert not [n for n in nodes if n["type"] == "section" and n.get("number") == "1200"]
+
+
+def test_a_penalty_ends_at_the_next_bold_heading():
+    """A bare topical caption matches no structural pattern at all, so
+    only its boldness gives it away -- without that, a penalty at the
+    foot of a group's last provision swallowed the caption introducing
+    the next one."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0),
+        line("Offences relating to Horse-drawn Vehicles, Public Vehicles, Animals, &c.", bold=True),
+        line("4 Another offence", bold=True),
+        line("Text.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: 25 penalty units."
+    assert find(nodes, "section", "4")["heading"] == "Another offence"
+
+
+def test_a_penalty_ends_at_the_next_bracketed_subsection():
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("(1) A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0),
+        line("(2) In this section, this means that.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: 25 penalty units."
+    assert find(nodes, "subsection", "2")["text"] == "In this section, this means that."
+
+
+def test_the_word_penalty_mid_sentence_is_not_a_penalty():
+    """"penalty" is everywhere in ordinary legislative prose. Every real
+    penalty line starts one and is capitalised and followed by a colon;
+    none of the prose uses is."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Recovery", bold=True),
+        line("Where a penalty is prescribed by law, the person shall pay it, and the", x0=HEAD_X0),
+        line("penalty must be recovered only before the Magistrates' Court.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert not [n for n in nodes if n["type"] == "penalty"]
+    assert "penalty must be recovered" in find(nodes, "section", "3")["text"]
+
+
+def test_a_penalty_belongs_to_its_sections_review_unit():
+    """Like a note: it is a fact about the provision above it, not a
+    container and not a boundary, so it is reviewed alongside the
+    offence it attaches to."""
+    from ai_pipeline.hierarchy import group_into_units
+
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+    units = group_into_units(nodes)
+
+    section_unit = next(u for u in units if nodes[u[0]]["type"] == "section")
+    assert [nodes[i]["type"] for i in section_unit] == ["section", "penalty"]
