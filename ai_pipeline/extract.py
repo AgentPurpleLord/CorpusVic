@@ -48,6 +48,47 @@ BOILERPLATE_MIN_FREQUENCY = 0.5
 _WRAP_RE = re.compile(r"\s*\n\s*")
 
 
+# A line that ends in a hyphen was broken at a character the words
+# already contained -- "charge-sheet", "cross-examine", "Broad-based" --
+# so the next line joins straight onto it. Every hyphen-ending line
+# across this project's parsed corpus is such a compound; none is a word
+# a typesetter split for fit, which is why undoing the break would be
+# wrong.
+#
+# An em dash is not in here, though a line ending in one looks similar.
+# In legislative drafting it opens a list ("means—", "if—", "as
+# follows—"), and what follows on the next line is the list, not the rest
+# of the word. Where the two do end up in one node -- text resuming after
+# the list has finished -- closing up gave "described as being—in either
+# case", running the sentence into its own wrap-up.
+_JOINS_TIGHT = ("-",)
+
+# The markers a printed list uses instead of a number. A line that opens
+# with one is a new item, never a continuation of the line above it --
+# joining them produced "as follows—• evidence relevant to ... ; • a
+# summary of ...", a paragraph with bullets stranded inside it.
+BULLETS = ("\u2022", "\u25cf", "\u25aa", "\u00b7")
+
+
+def join_printed_line(existing: str, addition: str) -> str:
+    """One more printed line added to a node's text as running prose.
+
+    The line break itself is not part of the document -- it is where the
+    PDF's column ran out -- so it is not kept. The exceptions are the two
+    places a break carries meaning: a word already hyphenated closes up,
+    and a new list item starts a line of its own.
+    """
+    if not existing:
+        return addition
+    if addition.lstrip().startswith(BULLETS):
+        return existing + "\n" + addition
+    if existing.endswith(BULLETS):
+        # A bullet printed alone on its own line, with the item's words
+        # on the next one.
+        return existing + " " + addition
+    return existing + ("" if existing.endswith(_JOINS_TIGHT) else " ") + addition
+
+
 def reflow(text: str | None) -> str:
     """The stored text as prose: every line-wrap point collapsed to a
     single space."""

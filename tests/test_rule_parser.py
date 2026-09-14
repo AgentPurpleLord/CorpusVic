@@ -344,7 +344,12 @@ def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     trailing independent clause grammatically resumes subsection (1)'s
     own lead-in sentence, not paragraph (b)'s -- and the PDF's own
     hanging indent (the trailing clause outdents back past the
-    Paragraph's own wrap indent) is what tells them apart."""
+    Paragraph's own wrap indent) is what tells them apart.
+
+    It belongs to the subsection but comes *after* its list, so it is a
+    node of its own nested inside it rather than more of its text: the
+    list items are already in the node list by then, and adding to the
+    subsection would print the wrap-up before the list it follows."""
     lines = [
         line("Part I—Offences", bold=True),
         line("Division 1—Offences against the person", bold=True),
@@ -360,9 +365,14 @@ def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     result = _parse(lines)
     subsection2 = find(result.nodes, "subsection", "2")
     paragraph_b = find(result.nodes, "paragraph", "b")
-    assert "shall be guilty" in subsection2["text"]
+    wrap_up = find(result.nodes, "continuation")
+    assert "shall be guilty" in wrap_up["text"]
     assert "shall be guilty" not in paragraph_b["text"]
+    assert "shall be guilty" not in subsection2["text"]
     assert paragraph_b["text"].rstrip().endswith("suicide—")
+    # Reading order: the lead-in, then the list, then the wrap-up.
+    order = [n["type"] for n in result.nodes]
+    assert order.index("subsection") < order.index("paragraph") < order.index("continuation")
 
 
 def test_chapter_heading_recognised_and_nests_a_part_under_it():
@@ -1165,3 +1175,61 @@ def test_a_topical_heading_is_not_swallowed_by_an_open_definitions_run():
 
     assert any(n["type"] == "heading_group" and n["heading"] == "Fingerprinting" for n in nodes)
     assert "Fingerprinting" not in [n["heading"] for n in nodes if n["type"] == "definition"]
+
+
+# ---------------------------------------------------------------------
+# Printed lists and wrap-up text
+# ---------------------------------------------------------------------
+def test_a_bulleted_line_starts_its_own_item():
+    """Joining these into the prose gave "as follows—• evidence relevant
+    to ... ; • a summary of ..." -- the bullets stranded mid-paragraph,
+    one glued tight to the dash before it and the next taking a space.
+    A break before a bullet is the one kind the text keeps."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Directions", bold=True),
+        line("Counsel must inform the judge of each element in", x0=HEAD_X0),
+        line("issue, including—", x0=WRAP_X0),
+        line("• whether the act was a dangerous act; and", x0=WRAP_X0),
+        line("• whether the act caused death.", x0=WRAP_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"].split("\n") == [
+        "Counsel must inform the judge of each element in issue, including—",
+        "• whether the act was a dangerous act; and",
+        "• whether the act caused death.",
+    ]
+
+
+def test_a_bullet_printed_alone_on_its_line_keeps_its_words():
+    """The Crimes Act sets some of these with the marker on one line and
+    the item on the next."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Directions", bold=True),
+        line("The matters in issue include—", x0=HEAD_X0),
+        line("•", x0=WRAP_X0),
+        line("whether the act was a dangerous act; and", x0=WRAP_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"].split("\n") == [
+        "The matters in issue include—",
+        "• whether the act was a dangerous act; and",
+    ]
+
+
+def test_an_em_dash_at_the_end_of_a_line_does_not_close_up():
+    """Unlike a hyphen, it opens a list rather than breaking a word: "an
+    offence described as being—" followed by its own list, then the rest
+    of the sentence, must not come back as "being—in either case"."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Directions", bold=True),
+        line("An offence described as being—", x0=HEAD_X0),
+        line("in either case, an indictable offence.", x0=HEAD_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"] == "An offence described as being— in either case, an indictable offence."

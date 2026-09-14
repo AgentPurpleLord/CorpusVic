@@ -21,7 +21,14 @@
   // previewing.
   var ROOT = BASE.slice(0, BASE.lastIndexOf("/"));
   var OPEN_DELAY = 500;   // long enough that skimming past a link doesn't trigger one
-  var CLOSE_DELAY = 220;  // long enough to move the pointer from the link into the card
+  // A card closes when the pointer has actually left it, not the instant
+  // it crosses the edge. Legal text is read slowly and pointers wander,
+  // and a card that vanished on a stray pixel had to be re-opened by
+  // going back to the link and waiting out OPEN_DELAY again -- which
+  // made the feature something to be careful around rather than
+  // something to use.
+  var CLOSE_DELAY = 600;  // after the pointer is genuinely away from both
+  var SLACK = 40;         // px of margin around the card that still counts as "on" it
   var card = document.createElement("div");
   card.className = "linkpeek";
   document.body.appendChild(card);
@@ -187,7 +194,34 @@
   function scheduleHide() {
     clearTimeout(openTimer);
     clearTimeout(closeTimer);
-    closeTimer = setTimeout(hide, CLOSE_DELAY);
+    closeTimer = setTimeout(hideUnlessPointerIsNear, CLOSE_DELAY);
+  }
+
+  // Where the pointer is now, so the card can stay open while it is near
+  // the card even if it has technically left it. The gap between a link
+  // and the card below it is a few pixels; without this, crossing it is
+  // enough to lose the card.
+  var pointer = { x: -1, y: -1 };
+  document.addEventListener("mousemove", function (e) {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+  }, { passive: true });
+
+  function pointerIsNearCard() {
+    if (!card.classList.contains("open")) return false;
+    var r = card.getBoundingClientRect();
+    return pointer.x >= r.left - SLACK && pointer.x <= r.right + SLACK
+        && pointer.y >= r.top - SLACK && pointer.y <= r.bottom + SLACK;
+  }
+
+  // Checked when the delay runs out rather than when the pointer left,
+  // so a pointer that wandered out and came back never loses the card.
+  function hideUnlessPointerIsNear() {
+    if (pointerIsNearCard()) {
+      closeTimer = setTimeout(hideUnlessPointerIsNear, CLOSE_DELAY);
+      return;
+    }
+    hide();
   }
 
   document.addEventListener("mouseover", function (e) {

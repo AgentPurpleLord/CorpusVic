@@ -1036,6 +1036,34 @@ def _load_bill_link_docs() -> tuple[list[dict], list[dict]]:
     return bill_docs, em_docs
 
 
+def related_documents(act_slug: str) -> list[dict]:
+    """The Bill this Act was enacted from, and that Bill's Explanatory
+    Memorandum -- as {"slug", "kind"}, in that order.
+
+    Read off data/bill_links/, which already records both relations: a
+    bill->act document names the Act a Bill became, and an EM document
+    names the Bill an EM explains. A Bill and an EM belong to their Act
+    rather than standing beside it, so this is what lets the Act's own
+    contents page offer them instead of the site's front page listing
+    all three as if they were separate publications."""
+    bill_docs, em_docs = _load_bill_link_docs()
+    related = []
+    for doc in bill_docs:
+        if doc.get("act_slug") != act_slug or not doc.get("bill_slug"):
+            continue
+        related.append({"slug": doc["bill_slug"], "kind": "bill"})
+        for em in em_docs:
+            if em.get("bill_slug") == doc["bill_slug"] and em.get("em_slug"):
+                related.append({"slug": em["em_slug"], "kind": "em"})
+    # One entry per document, even where several link files mention it.
+    seen, unique = set(), []
+    for entry in related:
+        if entry["slug"] not in seen:
+            seen.add(entry["slug"])
+            unique.append(entry)
+    return unique
+
+
 def _commentary_index(act_slug: str) -> dict:
     signature = _bill_links_signature()
     cached = _commentary_cache.get(act_slug)
@@ -1221,7 +1249,18 @@ def _timeline(work: str) -> dict:
     cached = _timeline_cache.get(work)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    result = {"slugs": slugs, "entries": {}}
+    result = {"slugs": slugs, "entries": {}, "mixed_parsers": False}
+    # Every version has to have been read by the same parser, or the
+    # parsers' own disagreements arrive here as provisions Parliament
+    # inserted and repealed. A re-parse is done one document at a time,
+    # so a work sits in exactly that state until every version of it has
+    # been through -- and reporting a fabricated amendment on a public
+    # register of the law is worse than reporting no history at all.
+    parsers = {_parse_field(slug, "parser_version") for slug in slugs}
+    if len(parsers) > 1:
+        result["mixed_parsers"] = True
+        _timeline_cache[work] = (signature, result)
+        return result
     if len(slugs) > 1:
         documents = []
         for slug in slugs:
@@ -1320,6 +1359,10 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
         return [], {}
     work, _version = split_document_slug(slug)
     timeline = _timeline(work)
+    if timeline.get("mixed_parsers"):
+        # Nothing can honestly be said about this provision's history
+        # until every version has been read by the same parser.
+        return [], {}
     key = diffing.provision_identity(node_type, schedule, number)
     entries = timeline["entries"].get(key) or []
     urls = {}
@@ -1518,6 +1561,11 @@ def browse_index(slug: str):
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"],
          "version": _act_version(slug)},
         title, f"/browse/{slug}", superseded=_superseded(slug),
+        related=[
+            {"slug": d["slug"], "kind": d["kind"], "title": _act_title(d["slug"]),
+             "href": f"/browse/{d['slug']}/"}
+            for d in related_documents(slug)
+        ],
     )
     return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
 
@@ -1570,6 +1618,7 @@ def browse_section(slug: str, section_slug: str):
         amendment_index=amendments["index"],
         timeline=entries, version_urls=version_urls, superseded=_superseded(slug),
         version_dates=_version_dates(slug),
+        timeline_unavailable=_timeline(split_document_slug(slug)[0]).get("mixed_parsers", False),
     )
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")

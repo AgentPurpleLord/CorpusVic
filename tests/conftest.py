@@ -33,11 +33,16 @@ SUBPARA_WRAP_X0 = 260.8  # Subparagraph-level wrap indent
 
 def line(
     text: str, x0: float = HEAD_X0, bold: bool = False, size: float = BODY_SIZE, page_no: int = 1,
-    leading_bold_italic: str | None = None,
+    leading_bold_italic: str | None = None, y0: float = 0.0, x1: float | None = None,
 ) -> BodyLine:
+    """One printed line. y0 and x1 default to values no test needs to
+    think about; they matter only where a test is about the page's own
+    geometry rather than its words -- where a paragraph ends in an
+    Explanatory Memorandum is carried by the space above a line and by
+    the line above it stopping short (see em_parser._paragraph_starts)."""
     return BodyLine(
-        text=text, x0=x0, x1=x0 + 200.0, y0=0.0, y1=10.0, page_no=page_no, size=size, bold=bold,
-        leading_bold_italic=leading_bold_italic,
+        text=text, x0=x0, x1=x0 + 200.0 if x1 is None else x1, y0=y0, y1=y0 + 10.0,
+        page_no=page_no, size=size, bold=bold, leading_bold_italic=leading_bold_italic,
     )
 
 

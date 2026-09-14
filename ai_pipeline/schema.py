@@ -22,6 +22,12 @@ NODE_TYPES = [
     "subparagraph",
     "sub_subparagraph",
     "definition",
+    # Text that resumes a provision's own sentence after its lettered
+    # list has finished -- "(a) does X; or (b) does Y -- is guilty of an
+    # offence." It belongs after the list, not before it, which is the
+    # whole reason it needs a node of its own (see rule_parser's
+    # _consume_as_continuation).
+    "continuation",
     "note",
     "example",
     "repealed",
@@ -51,10 +57,10 @@ _SUBLEVELS = ["subsection", "paragraph", "subparagraph", "sub_subparagraph"]
 TYPES_BY_DOCUMENT = {
     # A consolidated Act: sections, and the "* * * *" markers standing in
     # for provisions since repealed.
-    "act": [*_STRUCTURE, "section", *_SUBLEVELS, "definition", "note", "example", "repealed"],
+    "act": [*_STRUCTURE, "section", *_SUBLEVELS, "definition", "continuation", "note", "example", "repealed"],
     # A Bill numbers its top-level provisions clauses until it is enacted.
     # Nothing in it is repealed yet.
-    "bill": [*_STRUCTURE, "clause", *_SUBLEVELS, "definition", "note", "example"],
+    "bill": [*_STRUCTURE, "clause", *_SUBLEVELS, "definition", "continuation", "note", "example"],
     # An Explanatory Memorandum is a flat sequence of notes on the Bill's
     # own clauses, under organisational headings, with bulleted lists
     # inside an entry parsed as paragraphs (see em_parser.py).

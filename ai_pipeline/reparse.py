@@ -29,10 +29,12 @@ kept and marked, never dropped -- it's a human's work, and losing it
 silently is exactly what this module exists to prevent.
 """
 import hashlib
+import inspect
 import json
 import re
 from pathlib import Path
 
+from . import em_parser, hierarchy, rule_parser
 from .extract import reflow
 from .hierarchy import schedule_numbers
 
@@ -67,6 +69,27 @@ def node_identity(node: dict, schedule: "str | None" = None) -> tuple:
         _norm(reflow(node.get("text")))[:_IDENTITY_TEXT_CHARS],
     )
     return base if schedule is None else (_norm(schedule), *base)
+
+
+def parser_version() -> str:
+    """A digest of the parsing code itself, recorded into every parse.
+
+    Two versions of one Act can only be compared to find what Parliament
+    amended if both were read by the same parser. Read by different ones,
+    the parsers' own disagreements -- a definition split out of a block of
+    text in one and not the other, a paragraph reclassified, a false split
+    removed -- arrive at the browse view as provisions inserted and
+    repealed between versions, which is a claim about the law that isn't
+    true. Since a re-parse is done one document at a time, a work sits in
+    exactly that state for as long as it takes to get through its
+    versions.
+
+    Derived from the source rather than declared, so it cannot be
+    forgotten: any change to how these modules read a PDF changes it."""
+    digest = hashlib.sha256()
+    for module in (rule_parser, em_parser, hierarchy):
+        digest.update(inspect.getsource(module).encode("utf-8"))
+    return digest.hexdigest()[:16]
 
 
 def parse_fingerprint(nodes: list[dict]) -> str:

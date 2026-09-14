@@ -84,6 +84,12 @@ def make_ranks(order: list[str]) -> dict[str, int]:
         ranks["clause"] = ranks["section"]
     if "subsection" in ranks:
         ranks["definition"] = ranks["subsection"]
+        # A continuation resumes the sentence its provision opened with,
+        # after that provision's own list has finished, so it sits at the
+        # same depth the list items do -- inside the provision, beside
+        # them, and after them. Like a definition it carries no number of
+        # its own, so it can't share the "subsection" type outright.
+        ranks["continuation"] = ranks["subsection"]
     return ranks
 
 

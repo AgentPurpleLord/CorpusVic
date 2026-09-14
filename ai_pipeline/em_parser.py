@@ -57,7 +57,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .extract import BodyLine, PageText
+from .extract import BodyLine, PageText, join_printed_line
 
 _CHAPTER_RE = re.compile(r"^Chapter\s+(\d+[A-Za-z]*)\s*[—–-]\s*(.+)$", re.IGNORECASE)
 _PART_RE = re.compile(r"^Part\s+([\dA-Za-z.]+)\s*[—–-]\s*(.+)$", re.IGNORECASE)
@@ -122,6 +122,55 @@ def _flatten_lines(pages: list[PageText]) -> list[BodyLine]:
     return lines
 
 
+# How far short of the margin a line has to fall to read as the last of
+# its paragraph. A couple of characters' worth: justification leaves a
+# little slack even on a full line.
+_PARAGRAPH_SHORT_LINE = 12.0
+
+
+def _paragraph_starts(lines: list[BodyLine]) -> set[int]:
+    """Which lines begin a new paragraph, by the space above them.
+
+    Two things have to agree, because either alone is wrong often enough
+    to matter.
+
+    Vertically, the typesetter left more room above this line than
+    between the lines within a paragraph. The ordinary pitch is measured
+    from the document itself -- the median step between consecutive lines
+    on a page -- rather than assumed, because the two EMs here are set at
+    different sizes. In the Criminal Procedure Bill's EM that pitch is
+    about 12pt, with a clear second cluster around 18-21pt where the
+    paragraphs break.
+
+    Horizontally, the line above ends short of the margin. The text is
+    justified, so every line of a paragraph but its last is pushed out to
+    the full measure; a short line is the end of something. On its own
+    the vertical test called 91 wrapped lines paragraph breaks in that
+    same EM -- splitting sentences mid-clause -- and every one of them
+    followed a line that ran the full width."""
+    steps = [
+        b.y0 - a.y0
+        for a, b in zip(lines, lines[1:])
+        if a.page_no == b.page_no and b.y0 > a.y0
+    ]
+    if not steps:
+        return set()
+    pitch = sorted(steps)[len(steps) // 2]
+    if pitch <= 0:
+        return set()
+    # The right-hand edge of the text block, read off the lines that
+    # reach it rather than from any page geometry.
+    edges = sorted(line.x1 for line in lines)
+    margin = edges[int(len(edges) * 0.9)]
+    return {
+        i + 1
+        for i, (a, b) in enumerate(zip(lines, lines[1:]))
+        if a.page_no == b.page_no
+        and (b.y0 - a.y0) > pitch * 1.4
+        and a.x1 < margin - _PARAGRAPH_SHORT_LINE
+    }
+
+
 def parse_em(pages: list[PageText]) -> EMParseResult:
     lines = _flatten_lines(pages)
     warnings: list[str] = []
@@ -145,6 +194,10 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
     if start:
         warnings.append(f"skipped {start} front-matter line(s) (title block) before the first entry")
     lines = lines[start:]
+    # After the slice, not before it: the loop below indexes into this
+    # list, and a set built against the unsliced one would mark the line
+    # `start` positions further on.
+    paragraph_starts = _paragraph_starts(lines)
 
     nodes: list[dict] = []
     current: dict | None = None
@@ -201,8 +254,20 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             stack.pop()
         return bool(stack) and line.x0 <= stack[-1][0] + _INDENT_TOLERANCE
 
-    def extend(node: dict, text: str, line, char_end: int) -> None:
-        node["text"] = (node["text"] + "\n" + text) if node["text"] else text
+    def extend(node: dict, text: str, line, char_end: int, new_paragraph: bool = False) -> None:
+        """One more printed line -- see extract.join_printed_line for what
+        happens to the break, and paragraph_starts for the one kind of
+        break an Explanatory Memorandum keeps.
+
+        An EM is prose, not provisions: a clause note runs to several
+        paragraphs, and where one ends is carried only by the space the
+        typesetter left above the next. Joining every line without that
+        left each note as one undifferentiated block; keeping every line
+        break left it looking like verse."""
+        if new_paragraph and node["text"]:
+            node["text"] += "\n" + text
+        else:
+            node["text"] = join_printed_line(node["text"], text)
         node["page_end"] = line.page_no
         node["char_end"] = char_end
 
@@ -288,7 +353,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             awaiting_item_text = False
             sink = None  # the clause's text is closed once a list opens under it
         elif item_stack and _continues_list_item(line, item_stack):
-            extend(item_stack[-1][1], text, line, char_end)
+            extend(item_stack[-1][1], text, line, char_end, idx in paragraph_starts)
         else:
             # Back at the body column: whatever list was open ends
             # here.
@@ -326,7 +391,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
                 if open_schedule:
                     sink["schedule"] = open_schedule
                 nodes.append(sink)
-            extend(sink, text, line, char_end)
+            extend(sink, text, line, char_end, idx in paragraph_starts)
 
     close_current()
     return EMParseResult(nodes=nodes, lines_total=len(lines), lines_consumed=lines_consumed, warnings=warnings)

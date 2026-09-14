@@ -469,7 +469,7 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None, unpublished_pages: "set[str] | None" = None,
-                 show_review_badge: bool = True) -> str:
+                 show_review_badge: bool = True, related: "list[dict] | None" = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section
     is built from it, so the caller controls the URL scheme entirely.
@@ -486,6 +486,13 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     dangerous reading: a missing section must never look like a section
     that doesn't exist. None (the live dashboard, which shows
     everything) marks nothing.
+
+    related, if given, is the Bill this Act was enacted from and that
+    Bill's Explanatory Memorandum, as [{"title", "href", "kind"}]. They
+    belong to the Act rather than standing beside it -- an Explanatory
+    Memorandum is written about a Bill and is meaningless without it --
+    so they are offered here, from the Act's own contents, rather than on
+    the site's front page as if the three were separate publications.
 
     show_review_badge is how much of the Act a human has checked, which
     is what a reviewer wants to know and the wrong thing to tell a
@@ -524,6 +531,15 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
             "&mdash; general information, the Table of Amendments, explanatory details</div>"
         )
+    if related:
+        kinds = {"bill": "the Bill it was enacted from",
+                 "em": "the Explanatory Memorandum written about that Bill"}
+        items = "".join(
+            f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a> '
+            f'<span class="related-kind">&mdash; {kinds.get(doc.get("kind"), "")}</span></li>'
+            for doc in related
+        )
+        out.append(f'<div class="related"><h2>Related documents</h2><ul class="section-list">{items}</ul></div>')
     list_open = False
 
     def close_list():
@@ -666,7 +682,7 @@ def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | No
 
 
 def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
-                    version_urls: "dict | None" = None) -> str:
+                    version_urls: "dict | None" = None, unavailable: bool = False) -> str:
     """A provision's history across the versions of the Act held here,
     or "" where it has none.
 
@@ -676,7 +692,20 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
     collapsed summary says how many changes there are and when the
     last one was, so the control answers the first question without
     being opened.
+
+    unavailable says the versions of this Act were read by different
+    parsers, so they cannot be compared yet (see dashboard._timeline).
+    Said plainly rather than by showing nothing: "no changes" and "not
+    comparable" are different answers, and on a register of the law the
+    difference matters.
     """
+    if unavailable:
+        return (
+            '<div class="timeline-unavailable">How this provision has changed across versions '
+            "can't be shown yet: the versions of this Act held here were read by different "
+            "versions of the parser, and comparing them would report the parsers' own "
+            "disagreements as amendments. Re-parse every version to restore it.</div>"
+        )
     if not entries:
         return ""
     newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
@@ -919,6 +948,7 @@ def render_section(
     timeline: list[dict] | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
     unpublished_pages: "set[str] | None" = None, show_review_badge: bool = True,
+    timeline_unavailable: bool = False,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -992,7 +1022,8 @@ def render_section(
             superseded.get("version"), superseded.get("current"),
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
-    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
+    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls,
+                               unavailable=timeline_unavailable))
     out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads the way the Act itself does: each provision

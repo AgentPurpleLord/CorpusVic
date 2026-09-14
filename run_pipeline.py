@@ -59,7 +59,8 @@ from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.profiles import profile_exists
-from ai_pipeline.reparse import apply_carry_forward, apply_remap, describe_remap, parse_fingerprint
+from ai_pipeline.reparse import (apply_carry_forward, apply_remap, describe_remap,
+                                 parse_fingerprint, parser_version)
 from ai_pipeline.versions import describe as describe_version
 from ai_pipeline.versions import document_slug, read_front_matter, work_directory
 from ai_pipeline.rule_parser import parse_act
@@ -194,6 +195,10 @@ def main():
                 # what they meant" from "this parse has moved underneath
                 # them" -- see ai_pipeline/reparse.py.
                 "fingerprint": parse_fingerprint(nodes),
+                # Which parser read this PDF. Two versions of one Act can
+                # only be compared to find what Parliament amended if the
+                # same parser read both -- see reparse.parser_version.
+                "parser_version": parser_version(),
                 "nodes": nodes, "unattached_notes": unattached_notes,
                 "endnotes": endnotes,
             },

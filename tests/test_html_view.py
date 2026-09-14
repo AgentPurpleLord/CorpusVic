@@ -967,3 +967,30 @@ def test_nothing_in_a_provision_is_positioned_outside_it():
 
     assert "display: grid" in prov_rule
     assert "text-indent" not in css, "a hanging indent can paint outside the box it belongs to"
+
+
+def test_the_timeline_says_when_it_cannot_compare_versions():
+    """"No changes" and "not comparable" are different answers, and on a
+    register of the law the difference matters. Two versions read by
+    different parsers would report the parsers' own disagreements as
+    amendments -- so nothing is reported, and it says so."""
+    from ai_pipeline.html_view import render_timeline
+
+    assert render_timeline([], "/browse/a") == ""
+    unavailable = render_timeline([], "/browse/a", unavailable=True)
+    assert "can't be shown yet" in unavailable
+    assert "Re-parse every version" in unavailable
+
+
+def test_an_act_offers_its_bill_and_em_from_its_own_contents():
+    related = [
+        {"slug": "crimes-bill", "kind": "bill", "title": "Crimes Bill 1957", "href": "/browse/crimes-bill/"},
+        {"slug": "crimes-bill-em", "kind": "em", "title": "Crimes Bill 1957 EM", "href": "/browse/crimes-bill-em/"},
+    ]
+    page = render_index(_parsed(_definitions_act()), "Crimes Act 1958", "/browse/a", related=related)
+
+    assert "Related documents" in page
+    assert 'href="/browse/crimes-bill/"' in page and 'href="/browse/crimes-bill-em/"' in page
+    assert "the Bill it was enacted from" in page
+    # Nothing at all where there is no related document to offer.
+    assert "Related documents" not in render_index(_parsed(_definitions_act()), "A", "/browse/a")

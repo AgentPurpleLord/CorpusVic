@@ -37,7 +37,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .definitions import looks_like_definitions_section
-from .extract import BodyLine, PageText
+from .extract import BodyLine, PageText, join_printed_line
 from .hierarchy import HIERARCHY_ORDER, heading_levels, make_ranks
 from .profiles import load_hierarchy, load_profile
 
@@ -386,28 +386,10 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 _INDENT_TOLERANCE = 3.0
 
 
-# A line that ends in a hyphen or a dash was broken at a character the
-# words already contained -- "charge-sheet", "cross-examine",
-# "Broad-based", "of—" -- so the next line joins straight onto it. Every
-# one of the hyphen-ending lines across this project's parsed corpus is
-# such a compound; none is a word a typesetter split for fit, which is
-# why undoing the break would be wrong here.
-_JOINS_TIGHT = ("-", "\u2014", "\u2013")
-
-
 def _append_text(node: dict, text: str, line: BodyLine, char_end: int) -> None:
-    """Adds one more printed line to a node's text as running prose.
-
-    The line break itself is not part of the legislation -- it is where
-    the PDF's column happened to run out -- so it is not kept. Keeping it
-    meant every consumer had to undo it (and several did, differently, or
-    forgot to), and it made the stored text disagree with the same words
-    quoted anywhere else."""
-    if node["text"]:
-        joiner = "" if node["text"].endswith(_JOINS_TIGHT) else " "
-        node["text"] = node["text"] + joiner + text
-    else:
-        node["text"] = text
+    """Adds one more printed line to a node's text -- see
+    extract.join_printed_line for what happens to the break itself."""
+    node["text"] = join_printed_line(node["text"], text)
     node["page_end"] = line.page_no
     node["char_end"] = char_end
 
@@ -635,7 +617,7 @@ class _LineParser:
                 _append_text(self.stack[-1], l.text.strip(), l, char_end)
         run.clear()
 
-    def _resolve_hanging_list(self, x0: float) -> None:
+    def _resolve_hanging_list(self, x0: float) -> bool:
         """A common legislative construct opens a subsection (or section)
         with lead-in text, breaks into a lettered or roman-numeral
         list, and then closes the list with text that grammatically
@@ -649,13 +631,20 @@ class _LineParser:
         shallower level actually sits at that indent, not continuing
         the list item. This only ever closes subsection, paragraph or
         subparagraph levels -- Part, Division, Subdivision and Section
-        only ever close through an explicit pattern match."""
+        only ever close through an explicit pattern match.
+
+        Returns whether it closed anything, because that is exactly the
+        signal that the line about to be consumed is a wrap-up rather
+        than an ordinary continuation -- see _consume_as_continuation."""
+        closed = False
         while (
             len(self.stack) > 1
             and self.rank[self.stack[-1]["type"]] >= self._hanging_list_floor
             and x0 < self.stack_x0[-1] - _INDENT_TOLERANCE
         ):
             self._close_top()
+            closed = True
+        return closed
 
     # -- main pass --------------------------------------------------------
 
@@ -1129,14 +1118,29 @@ class _LineParser:
     def _consume_as_continuation(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
         """Continuation of whatever is currently open. If nothing is
         open yet (preamble text before the first Part), open a
-        synthetic holder rather than dropping it."""
+        synthetic holder rather than dropping it.
+
+        Where the line outdented past a list to resume the sentence the
+        provision opened with, it becomes a node of its own rather than
+        being added to that provision's text. It has to: the list items
+        are already in the node list, so appending here would print the
+        wrap-up *before* the list it comes after. The Summary Offences
+        Act's section 5 read "Where in a prosecution for obstructing a
+        footpath street or road under—the obstruction alleged is by
+        assemblage of persons ..." with its (a) and (b) stranded
+        afterwards, which is not what the section says."""
         if not self.stack:
             self._open_node(self._preamble_level, None, "Preliminary", line, char_start)
             self.warnings.append(
                 f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node"
             )
-        else:
-            self._resolve_hanging_list(line.x0)
+        elif self._resolve_hanging_list(line.x0) and self.stack[-1]["text"]:
+            top = self.stack[-1]
+            if top["type"] != "continuation":
+                # One level inside the provision being resumed, so it sits
+                # with that provision's list items and after them.
+                self._open_node("continuation", None, None, line, char_start,
+                                rank=self.stack_rank[-1] + 1)
         _append_text(self.stack[-1], text, line, char_end)
 
 

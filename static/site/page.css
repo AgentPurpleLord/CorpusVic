@@ -73,6 +73,11 @@ a:hover { text-decoration: underline; }
    under the numbers. */
 .prov-text {
   grid-column: 2;
+  /* A line break in the stored text now only ever means one: a printed
+     list item, or the end of a paragraph in an Explanatory Memorandum.
+     The PDF's own wrapping is gone (see extract.join_printed_line), so
+     what is left is deliberate and is shown. */
+  white-space: pre-line;
   /* Justified, which is how the Act itself prints, with hyphenation on --
      justifying without it opens rivers of white space, and a provision's
      measure is narrow enough that a long word would otherwise leave a
@@ -118,6 +123,12 @@ a:hover { text-decoration: underline; }
 /* Which version this pipeline's own parse of the Act is, stated
    plainly under its title -- the first thing a reader needs to know,
    and never claimed as "the Authorised Version" itself. */
+/* A Bill and its Explanatory Memorandum, offered from the Act's own
+   contents. They are about this Act rather than publications beside it,
+   which is why they are here and not on the site's front page. */
+.related { margin-top: 26px; }
+.related h2 { margin-bottom: 8px; }
+.related-kind { font-size: 12.5px; color: var(--muted); }
 .act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
 .endnote-text { margin-bottom: 18px; }
 .endnote-text p { margin: 0 0 11px; }
@@ -211,12 +222,28 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
 .tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
 .tl-note { display: block; }
+/* "Not comparable yet" is not "nothing changed" -- see
+   render_timeline. Set as a quiet notice rather than a warning: it is
+   about this tool's own state, not about the law. */
+.timeline-unavailable {
+  font-family: var(--sans); font-size: 12.5px; color: var(--muted);
+  border-left: 2px solid var(--border); padding: 6px 10px; margin: 0 0 14px;
+}
 .tl-diff {
   font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
   max-height: 20em; overflow-y: auto;
 }
+/* Words that arrived, and words that went. A deletion is struck through
+   as well as coloured: colour alone says "this is different" and leaves
+   which direction to inference, and on a page about what an Act used to
+   say that inference is the whole point. The strike is the Act's own
+   convention for it. */
 .d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 0; }
-.d-del { background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 0; }
+.d-del {
+  background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 0;
+  text-decoration: line-through; text-decoration-thickness: 2px;
+  text-decoration-color: color-mix(in srgb, var(--del-fg) 70%, transparent);
+}
 
 /* The notice on a reprint that's no longer the law. Deliberately loud
    and at the top of the page: a reader on a superseded version is
