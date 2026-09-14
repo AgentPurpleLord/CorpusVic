@@ -1,8 +1,10 @@
 * { box-sizing: border-box; }
-/* Typography follows Butterick's summary of key rules: body text 15-25px,
-   line spacing 120-145% of it, and a measure of 45-90 characters (set on
-   .prov below, where the actual reading happens). Kerning and the normal
-   ligatures are asked for explicitly rather than left to the browser. */
+/* Typography follows the following rules:
+  1. body text 15-25px
+  2. line spacing 120%-140%
+  3. 45-90 characters line length
+  4. Kerning explicitly set
+  5. Ligatures explicitly set */
 body {
   margin: 0; background: var(--bg); color: var(--fg);
   font-family: var(--sans); font-size: 17px; line-height: 1.45;
@@ -30,33 +32,16 @@ a:hover { text-decoration: underline; }
 .section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
 .section-nav { margin-top: 32px; padding-top: 14px; border-top: 2px solid var(--border); font-family: var(--sans); font-size: 13px; }
 
-/* The Section body, laid out the way the Act itself prints: one two-
-   column grid whose rows alternate provision and margin note, so a
-   note stays level with the provision it belongs to (that's why
-   render_section emits an empty .prov-notes cell for every provision,
-   not just the annotated ones). Indentation carries the structure --
-   --depth is the provision's nesting distance below the Section --
-   with the number hanging in the margin to its left, so a subsection
-   reads as a subsection without needing its own heading. */
+/* SECTION BODY
+  Two-column grid.
+  Column 1 = provision text
+  Column 2 = margin note text
+  Provisions have identifying numbers (e.g. '(1)' or similar. These are often indented to the left of the text itself.
+  That indentation follows the same structure as the PDF legislation.
+  In order to represent this, a provisoin has a sub-grid (two-columns).
+  The provision sub-grid ensures the layout is done correctly. 
+  */
 .provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
-/* One provision, as a two-column grid: the number in the first column,
-   the words in the second. Nothing here uses a negative offset, and that
-   is the whole point -- the div is the absolute confine of everything in
-   the provision, its number included.
-
-   What this replaced hung the number in the margin with a negative
-   text-indent, which put it outside the div by construction. On a section
-   page that meant the numbers were drawn over the outline beside them,
-   and further over the larger the reading size. A grid column cannot
-   leak.
-
-   --label is the number's column, used for the track and for nothing
-   else to have to agree with. Depth is a margin on the whole provision
-   rather than padding inside it, so the number moves with the text it
-   belongs to. The measure is the *text* column's, so neither the number
-   nor the nesting is eaten out of the 45-90 characters Butterick's rules
-   ask for; the space between provisions (11px, ~8pt) does the work a
-   first-line indent would, and never both. */
 .prov {
   --label: 2.4em;
   display: grid;
@@ -78,10 +63,7 @@ a:hover { text-decoration: underline; }
      The PDF's own wrapping is gone (see extract.join_printed_line), so
      what is left is deliberate and is shown. */
   white-space: pre-line;
-  /* Justified, which is how the Act itself prints, with hyphenation on --
-     justifying without it opens rivers of white space, and a provision's
-     measure is narrow enough that a long word would otherwise leave a
-     line half empty. */
+  /* Text is justified with hyphenation to avoid awkward gaps. */
   text-align: justify;
   hyphens: auto;
 }

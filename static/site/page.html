@@ -1,15 +1,9 @@
 <!doctype html>
 <!--
-  The shell every published page is built into: the site's one template.
+  Template page for all sections / clauses to utilise.
+  html_view.py page_shell() function reads the file, replaces {term} as required.
 
-  ai_pipeline/html_view.py's page_shell() reads this file and substitutes
-  the six double-braced placeholders below; everything else here is
-  ordinary HTML you can edit directly, and the stylesheets and scripts
-  beside it are ordinary files the browser loads (so DevTools names them,
-  and a reload picks up your change without restarting the server).
-
-  The placeholders, named without their braces so that this note does not
-  get substituted along with them:
+  The placeholders, named without their braces so that this note does not get substituted along with them:
 
     TITLE       the page's title, already escaped
     ASSETS      where this directory is served from -- "/assets" on the
@@ -35,13 +29,6 @@
 <link rel="stylesheet" href="{{ASSETS}}/tokens.css">
 <link rel="stylesheet" href="{{ASSETS}}/page.css">
 <link rel="stylesheet" href="{{ASSETS}}/reader.css">
-<!-- Inline, and in the head, on purpose: every one of these is a stored
-     preference about how the page looks, and anything deferred to a file
-     or to the end of the body paints before it runs -- a dark-mode reader
-     would get a white page first, and a reader who has asked for large
-     text would watch it resize. reader.js owns the two reading
-     preferences once the page is up; this only puts them on before the
-     first paint. -->
 <script>
 try {
   var d = document.documentElement.dataset;
