@@ -388,6 +388,75 @@ def extract_pages(pdf_path: str) -> list[PageText]:
     return pages
 
 
+# How much of a printed line a box has to cover before the line counts as
+# being in it. Half: a box drawn by hand round a provision clips the odd
+# descender or overhangs into the margin, and neither should change the
+# answer -- but half a line is never ambiguous about which column it is
+# in, which is what this has to get right on a page that has two.
+_LINE_IN_RECT_OVERLAP = 0.5
+
+
+def lines_in_rects(lines, rects) -> list:
+    """The printed lines a set of boxes covers, in reading order.
+
+    This is what lets a box a reviewer drew decide what a provision
+    *says*, not merely where it is. The parser reads a page once and
+    groups lines into provisions by its own rules; where it gets that
+    wrong, the fix used to be retyping the text. Drawing the box round
+    the right lines and reading them back out is the same correction made
+    the way the page presents it.
+
+    A line is in a box when its middle is between the box's top and
+    bottom and it lies at least halfway inside it horizontally. The
+    vertical test is on the middle rather than the whole line so a box
+    clipping a descender doesn't drop the line; the horizontal one is
+    there because a legislative page has a body column and a margin, and
+    the one thing that must never happen is a box over the body pulling
+    in an amendment note printed beside it.
+
+    Lines and rects are dicts or objects with the same fields either way
+    (a BodyLine, or the dict form pages_to_dicts writes) -- so this works
+    on what is in memory and on what is on disk without either having to
+    convert.
+
+    Order is the page's own: down the page, and left to right across a
+    line, which is what makes two cells of a table row come back in the
+    order they are printed."""
+    def get(item, name):
+        return item[name] if isinstance(item, dict) else getattr(item, name)
+
+    found, seen = [], set()
+    for rect in rects:
+        page, x0, y0, x1, y1 = (get(rect, k) for k in ("page", "x0", "y0", "x1", "y1"))
+        for index, line in enumerate(lines):
+            if index in seen or get(line, "page_no") != page:
+                continue
+            ly0, ly1 = get(line, "y0"), get(line, "y1")
+            if not y0 <= (ly0 + ly1) / 2 <= y1:
+                continue
+            lx0, lx1 = get(line, "x0"), get(line, "x1")
+            width = lx1 - lx0
+            overlap = min(lx1, x1) - max(lx0, x0)
+            if width > 0 and overlap / width < _LINE_IN_RECT_OVERLAP:
+                continue
+            seen.add(index)
+            found.append(line)
+    found.sort(key=lambda l: (get(l, "page_no"), get(l, "y0"), get(l, "x0")))
+    return found
+
+
+def text_in_rects(lines, rects) -> str:
+    """What a set of boxes says, joined the way the parser joins printed
+    lines -- so a provision left alone reads exactly as it did, and one
+    corrected by redrawing its box reads like every other provision."""
+    text = ""
+    for line in lines_in_rects(lines, rects):
+        piece = (line["text"] if isinstance(line, dict) else line.text).strip()
+        if piece:
+            text = join_printed_line(text, piece)
+    return text
+
+
 def pages_to_dicts(pages: list[PageText]) -> list[dict]:
     return [asdict(p) for p in pages]
 

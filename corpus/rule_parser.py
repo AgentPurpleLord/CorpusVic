@@ -811,15 +811,26 @@ class _LineParser:
         return (
             _looks_like_boundary(text, self.patterns)
             or bool(self._in_definitions_section and line.leading_bold_italic)
-            # A bold line. These blocks are always set in plain body
-            # text, so a whole line in bold is a heading, and a heading
-            # that matches no structural pattern (a bare topical caption
-            # -- "Offences relating to Horse-drawn Vehicles, Public
+            # A bold line set at body size or larger, which in these Acts
+            # is what a heading looks like -- and a bare topical caption
+            # ("Offences relating to Horse-drawn Vehicles, Public
             # Vehicles, Animals, &c.") is invisible to
-            # _looks_like_boundary, which reads text alone. Without
-            # this, a Penalty running to the foot of a group's last
-            # provision swallowed the caption introducing the next one.
-            or line.bold
+            # _looks_like_boundary, which reads text alone. Without this,
+            # a Penalty running to the foot of a group's last provision
+            # swallowed the caption introducing the next one.
+            #
+            # The size is what makes it safe. Bold alone is not a
+            # heading: a Note is set two points smaller than body text
+            # and cites Acts by name, which this drafting sets bold --
+            # and where the citation is most of the line, the line's
+            # dominant weight *is* bold. Criminal Procedure Act s 6 note
+            # 1 ends "...section 528 of / the Children, Youth and
+            # Families Act 2005.", whose last line is bold at 10pt
+            # against a 12pt body. Read as a heading it ended the Notes
+            # block, so that line fell through to paragraph (c), note 2
+            # was never recognised as a note at all, and its own "2"
+            # leaked into the text of what was left.
+            or (line.bold and round(line.size, 1) >= self.body_size)
         )
 
     def _open_table(self, table, lines: list[BodyLine], char_start: int) -> None:
@@ -1296,6 +1307,85 @@ class _LineParser:
                 self._open_node("continuation", None, None, line, char_start,
                                 rank=self.stack_rank[-1] + 1)
         _append_text(self.stack[-1], text, line, char_end)
+
+
+def read_box(node: dict, lines: list[BodyLine], patterns: dict) -> dict:
+    """What a reviewer's box says this provision is, given what it
+    already is. Returns the fields to change -- {"text": ...}, or
+    {"number": ..., "heading": ...} for a provision that is only a
+    heading.
+
+    The words in a box are the page's own, and a provision does not store
+    them that way. "(c) if a summons is issued..." is stored with the
+    "(c)" as the node's number and only what follows as its text, so the
+    marker has to come off or a provision corrected twice would end up
+    printing it twice.
+
+    What this deliberately does *not* do is re-decide what the provision
+    is. Running the lines back through the classifier was tried and is
+    the wrong tool: a subparagraph in isolation is indistinguishable from
+    a paragraph, a note without the "Notes" heading above it is just
+    text, and a continuation only exists as the resolution of a list that
+    a box round it does not contain. Those types are identified from
+    their surroundings, which a box excludes by design. The reviewer has
+    already said what the provision is -- they are correcting what it
+    says.
+
+    Three kinds of provision, because the words in a box mean three
+    different things:
+
+      - a table's meaning is in its columns, so its box is read the way
+        the page was read in the first place (see tables.find_table);
+      - a provision that is only a heading -- a Chapter, a Part -- keeps
+        its words in `heading`, split from its number by the same profile
+        pattern that split them at parse time;
+      - everything else keeps them in `text`, with its own marker off the
+        front.
+    """
+    from .tables import find_table   # circular at module scope: tables imports extract, which this does too
+
+    boxed = list(lines)
+    if node.get("type") == "table":
+        table = find_table(boxed, 0)
+        if table is None:
+            raise ValueError(
+                "No table in that box -- a table is recognised from cells sitting side by side, "
+                "so the box has to cover the columns, not one of them."
+            )
+        return {"text": table.text, "heading": table.heading or node.get("heading")}
+
+    printed = ""
+    for line in boxed:
+        stripped = line.text.strip()
+        if stripped:
+            printed = join_printed_line(printed, stripped)
+
+    if not (node.get("text") or "").strip() and node.get("heading"):
+        pattern = patterns.get(node.get("type"))
+        m = pattern.match(printed) if pattern else None
+        if m and m.lastindex and m.lastindex >= 2:
+            return {"number": m.group(1), "heading": m.group(2).strip()}
+        return {"heading": printed}
+
+    return {"text": _without_own_marker(printed, node)}
+
+
+def _without_own_marker(printed: str, node: dict) -> str:
+    """The printed words with this node's own marker taken off the front,
+    whichever way the page prints it: "(c) ", "3 Short title ", or -- for
+    a defined term, whose marker is the term itself -- "accused "."""
+    number, heading = node.get("number"), node.get("heading")
+    candidates = []
+    if number and heading:
+        candidates.append(f"{number} {heading}")
+    if number:
+        candidates += [f"({number})", str(number)]
+    if heading:
+        candidates.append(heading)
+    for marker in candidates:
+        if printed.startswith(marker):
+            return printed[len(marker):].lstrip(" ")
+    return printed
 
 
 def parse_act(

@@ -150,7 +150,10 @@ from corpus import db, html_view, structure
 from corpus.ai.assist import build_suggestion
 from corpus.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
+from corpus.extract import BodyLine, lines_in_rects
 from corpus.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
+from corpus.profiles import load_profile
+from corpus.rule_parser import read_box
 from corpus.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from corpus.link_targets import build_definition_index, resolve_link
 from corpus.schema import NODE_TYPES, types_for_document
@@ -223,6 +226,36 @@ def load_source_pdf_path(act: str) -> str | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("source")
+
+
+def load_parse_profile(act: str) -> "str | None":
+    """The pattern profile this document was parsed with, as recorded in
+    its parse. Reading a box needs the same patterns the parse used --
+    how an Act numbers its Parts is a fact about the Act, and a box read
+    against the wrong profile is read wrongly."""
+    path = Path("data/parsed") / f"{act}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8")).get("profile")
+
+
+def load_printed_lines(act: str, pdf_path: "str | None") -> list:
+    """Every printed line of the source document, with its geometry.
+
+    Prefers what the pipeline already wrote (data/extracted/<act>.json,
+    the exact lines the parse was built from) and falls back to reading
+    the PDF again. The fallback matters for a clone that has the parse
+    but not the extraction -- data/extracted is regenerable, so it isn't
+    committed -- and costs one pass over the PDF, once per session."""
+    path = Path("data/extracted") / f"{act}.json"
+    if path.exists():
+        pages = json.loads(path.read_text(encoding="utf-8"))
+        return [BodyLine(**line) for page in pages for line in page.get("body_lines", [])]
+    if not pdf_path or not Path(pdf_path).exists():
+        return []
+    from corpus.extract import extract_pages
+
+    return [line for page in extract_pages(pdf_path) for line in page.body_lines]
 
 
 def load_document_type(act: str) -> "str | None":
@@ -703,6 +736,10 @@ _structure_edits: dict[int, dict] = {}
 # puts its own on every node it builds (rule_parser.add_rect); these win
 # where a person has said otherwise. See db.node_rects.
 _node_rects: dict[int, list[dict]] = {}
+# Every printed line of the source, with its own place on the page --
+# what a box is read against. Loaded the first time a box is read rather
+# than at startup, because most sessions never ask. See _printed_lines.
+_printed_lines_cache: "list[BodyLine] | None" = None
 _order: list[int] = []
 # False when the stored positions can't be vouched for against this
 # parse, which is when a structural edit could move or delete the wrong
@@ -721,6 +758,7 @@ _definition_index: dict[str, int] = {}
 _findings_by_node: dict[int, list[dict]] = {}
 _unattached_notes: list[dict] = []  # startup snapshot, plus anything detach_history_endpoint has since returned to it (this session only)
 _hierarchy: list[str] = []
+_profile_name: str | None = None
 _relabel_types: list[str] = []
 _startup_resume_unit = 0
 _source_pdf_path: str | None = None
@@ -1572,6 +1610,101 @@ def _page_note_boxes(page_no: int) -> list[dict]:
                 "confidence": None,
             })
     return notes
+
+
+def _printed_lines() -> list:
+    """The source's own lines, loaded once and kept."""
+    global _printed_lines_cache
+    if _printed_lines_cache is None:
+        _printed_lines_cache = load_printed_lines(_act, _source_pdf_path)
+    return _printed_lines_cache
+
+
+def _read_box(node_index: int) -> dict:
+    """Re-reads one piece from the box drawn over it, and returns what
+    changed.
+
+    This is the point of drawing boxes at all. Up to here a box said
+    where a provision is; this makes it say what the provision is, so a
+    provision the parser split in the wrong place is corrected by drawing
+    the box round the right words rather than by retyping them.
+
+    A box with more than one rectangle reads as one provision printed in
+    more than one place -- which is the ordinary shape of a continuation,
+    and of anything that runs over a page."""
+    rects = _rects_for(node_index)
+    if not rects:
+        raise HTTPException(400, "This piece has no box to read. Draw one over it first.")
+    lines = _printed_lines()
+    if not lines:
+        raise HTTPException(
+            503,
+            "The source PDF this was parsed from isn't where the parse says it is, so there are no "
+            "printed lines to read a box against.",
+        )
+    boxed = lines_in_rects(lines, rects)
+    if not boxed:
+        raise HTTPException(400, "There is nothing printed inside that box.")
+    try:
+        return read_box(_current_node(node_index), boxed, load_profile(_profile_name))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/nodes/{node_index}/read-box")
+def read_box_endpoint(node_index: int):
+    """Takes this piece's words from the box drawn over it."""
+    _require_live(node_index)
+    fields = _read_box(node_index)
+    before = _current_node(node_index)
+    if all((fields.get(k) or "") == (before.get(k) or "") for k in fields):
+        return {"node_index": node_index, "changed": False,
+                "message": "Already exactly what the box says."}
+    updated = _mutate_node(node_index, **fields)
+    _recompute_unit_paths(_unit_of_index[node_index])
+    return {
+        "node_index": node_index, "changed": True, "changed_fields": sorted(fields),
+        "type": updated["type"], "number": updated.get("number"),
+        "heading": updated.get("heading"), "text": updated.get("text"),
+    }
+
+
+@app.post("/api/units/{unit_no}/read-boxes")
+def read_unit_boxes_endpoint(unit_no: int):
+    """Takes every piece in this section from its own box.
+
+    The whole section at once, because a section is usually wrong in more
+    than one place at a time: one boundary in the wrong spot moves text
+    off one piece and onto its neighbour, so fixing it means redrawing
+    two boxes and re-reading both.
+
+    It re-reads, and never restructures. A piece with no box is left
+    alone, and no piece is created or removed -- the box says what a
+    provision says, not which provisions there are. Adding or removing
+    one is its own decision, made with Insert and Delete."""
+    if not (0 <= unit_no < len(_units)):
+        raise HTTPException(404, "No such unit")
+    changed, unchanged, skipped, failed = [], 0, 0, []
+    for i in _units[unit_no]:
+        if i in _merged_away:
+            continue
+        if not _rects_for(i):
+            skipped += 1
+            continue
+        try:
+            fields = _read_box(i)
+        except HTTPException as e:
+            failed.append({"node_index": i, "detail": e.detail})
+            continue
+        if all((fields.get(k) or "") == (_current_node(i).get(k) or "") for k in fields):
+            unchanged += 1
+            continue
+        _mutate_node(i, **fields)
+        changed.append(i)
+    if changed:
+        _recompute_unit_paths(unit_no)
+    return {"unit_no": unit_no, "changed": changed, "unchanged": unchanged,
+            "no_box": skipped, "failed": failed}
 
 
 class RectsRequest(BaseModel):
@@ -2520,6 +2653,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     global _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
     global _source_pdf_path, _act_title, _document_type, _positions_trusted
     global _pdf_doc, _structure_edits, _order, _structure_editable, _node_rects
+    global _printed_lines_cache, _profile_name
 
     _act = act
     _unit_of_index.clear()
@@ -2532,6 +2666,8 @@ def _load_state(act: str, restart: bool = False) -> None:
         _pdf_doc.close()
         _pdf_doc = None
 
+    _printed_lines_cache = None
+    _profile_name = load_parse_profile(act)
     _nodes, _unattached_notes, _hierarchy, _parse_fingerprint = load_parsed(act)
     _source_pdf_path = load_source_pdf_path(act)
     _document_type = load_document_type(act)

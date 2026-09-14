@@ -566,6 +566,7 @@
   #menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 6px 8px; border-radius: 0; cursor: pointer; font-size: 13px; }
   #menu button:hover { background: var(--hover-bg); }
   #menu button.remove { color: var(--danger); }
+  #menu .menu-rule { border-top: 1px solid var(--border); margin: 4px 0; }
 
   /* Modal overlay (edit / target-picker / merge) */
   .overlay {
@@ -668,6 +669,7 @@
              from Accept and Flag and neither is the primary action. -->
         <button class="btn" id="clear-unit-btn" title="Drop every decision in this section, so it comes back undecided against the current parse">Clear decisions</button>
         <button class="btn" id="reparse-unit-btn" title="Parse this document again from its PDF, then bring this section back undecided against the new parse">Re-parse section&hellip;</button>
+        <button class="btn" id="read-boxes-btn" title="Take every piece in this section from the box drawn over it on the page">Read from boxes&hellip;</button>
         <span style="margin-left:auto; font-size:11.5px; color:var(--muted);">Drag a piece by its left edge onto another to merge &middot; drag its &#8676; Nest handle onto another to nest under it</span>
       </div>
       <div id="empty-state">Loading&hellip;</div>
@@ -1009,6 +1011,11 @@ function rectAttrs(r) {
   return { x: r.x0, y: r.y0, width: Math.max(r.x1 - r.x0, 0.5), height: Math.max(r.y1 - r.y0, 0.5) };
 }
 
+// How much page a box covers, for deciding what sits on top of what.
+function boxArea(box) {
+  return box.rects.reduce((total, r) => total + (r.x1 - r.x0) * (r.y1 - r.y0), 0);
+}
+
 function renderOverlay() {
   const svg = overlayEl();
   svg.innerHTML = "";
@@ -1023,11 +1030,27 @@ function renderOverlay() {
   if (!pageBoxes) return;
   svg.setAttribute("viewBox", `0 0 ${pageBoxes.width} ${pageBoxes.height}`);
 
-  for (const box of pageBoxes.boxes) {
+  // Painted biggest first, so the smallest box is the one on top and the
+  // one a click lands on. Boxes overlap in two ordinary ways -- a drawn
+  // correction laid over the text another box already claims, and a
+  // provision sitting inside the run its parent covers -- and in both the
+  // box you are reaching for is the smaller one. Document order put it
+  // underneath and made it unreachable.
+  for (const box of [...pageBoxes.boxes].sort((a, b) => boxArea(b) - boxArea(a))) {
     const g = svgEl("g", { "data-status": box.status, "data-node-index": box.node_index },
       `box-group ${box.drawn ? "box-drawn" : "box-parsed"}`
       + (box.node_index === hotNodeIndex ? " box-selected" : ""));
-    for (const r of box.rects) g.appendChild(svgEl("rect", rectAttrs(r), "box-shape"));
+    box.rects.forEach((r, i) => {
+      const shape = svgEl("rect", rectAttrs(r), "box-shape");
+      // The menu opens on the rectangle, not the group: a piece can carry
+      // several boxes, and "delete this box" has to know which one.
+      shape.addEventListener("contextmenu", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        setHotNode(box.node_index, true);
+        showBoxMenu(e.clientX, e.clientY, box, i);
+      });
+      g.appendChild(shape);
+    });
     // The label and the drag handles belong to the box and are built
     // with it, shown by CSS only while it is the one being pointed at.
     // Drawn on every box at once they covered the line above each one,
@@ -1055,11 +1078,6 @@ function renderOverlay() {
       e.stopPropagation();
       if (noteBeingMoved) { attachNoteToNode(box.node_index); return; }
       goToPiece(box.node_index);
-    });
-    g.addEventListener("contextmenu", (e) => {
-      e.preventDefault(); e.stopPropagation();
-      setHotNode(box.node_index, true);
-      showBoxMenu(e.clientX, e.clientY, box);
     });
     if (box.node_index === hotNodeIndex) g.classList.add("box-selected");
     svg.appendChild(g);
@@ -1236,8 +1254,10 @@ function startResize(event, box, rectIndex) {
 // Right-clicking the page
 // ---------------------------------------------------------------------
 
-function showBoxMenu(x, y, box) {
-  menu.innerHTML = `<div class="preview">${escapeHtml(box.label || box.type)} &mdash; ${escapeHtml(box.preview.slice(0, 70))}</div>`;
+function showBoxMenu(x, y, box, rectIndex) {
+  const which = box.rects.length > 1 ? ` — box ${rectIndex + 1} of ${box.rects.length}` : "";
+  menu.innerHTML = `<div class="preview">${escapeHtml(box.label || box.type)}${escapeHtml(which)}<br>`
+    + `${escapeHtml(box.preview.slice(0, 70))}</div>`;
   const add = (label, onClick, cls) => {
     const btn = document.createElement("button");
     btn.textContent = label;
@@ -1245,22 +1265,67 @@ function showBoxMenu(x, y, box) {
     btn.onclick = () => { hideMenu(); onClick(); };
     menu.appendChild(btn);
   };
+  const rule = () => menu.appendChild(
+    Object.assign(document.createElement("div"), { className: "menu-rule" }));
+
   add("Go to this piece", () => goToPiece(box.node_index));
-  if (pageBoxes.editable) {
-    add("Edit…", async () => { await goToPiece(box.node_index); openEditModal(box.node_index); });
-    add("Redraw this box", () => beginDraw(box.node_index, "replace"));
-    add("Add another box", () => beginDraw(box.node_index, "add"));
-    if (box.drawn) add("Back to the parser's box", () => saveRects(box.node_index, null));
-    add("Insert a piece below…", async () => { await goToPiece(box.node_index); openInsertModal(box.node_index); });
-    add("Move after…", async () => {
-      await goToPiece(box.node_index);
-      window._pickerExclude = box.node_index;
-      openPicker("Put this piece directly after which one?", box.node_index,
-        (target) => movePiece(box.node_index, target));
-    });
-    add("Delete this piece", async () => { await goToPiece(box.node_index); deletePiece(box.node_index); }, "remove");
+  if (!pageBoxes.editable) { showMenuAt(x, y); return; }
+
+  // What the box says this piece *is*. The reason for drawing one.
+  add("Read this piece from its box", () => readPieceFromBox(box.node_index));
+  rule();
+  add("Redraw this box", () => beginDraw(box.node_index, "replace"));
+  add("Add another box", () => beginDraw(box.node_index, "add"));
+  // Offered only where there is more than one. Removing the only box
+  // would leave the piece with nowhere on the page to be pointed at, and
+  // "Back to the parser's box" is the way to undo one you drew.
+  if (box.rects.length > 1) {
+    add("Delete this box (keep the piece)", () => deleteOneBox(box, rectIndex));
   }
+  if (box.drawn) add("Back to the parser's box", () => saveRects(box.node_index, null));
+  rule();
+  add("Edit…", async () => { await goToPiece(box.node_index); openEditModal(box.node_index); });
+  add("Insert a piece below…", async () => { await goToPiece(box.node_index); openInsertModal(box.node_index); });
+  add("Move after…", async () => {
+    await goToPiece(box.node_index);
+    window._pickerExclude = box.node_index;
+    openPicker("Put this piece directly after which one?", box.node_index,
+      (target) => movePiece(box.node_index, target));
+  });
+  rule();
+  add("Delete this piece", async () => { await goToPiece(box.node_index); deletePiece(box.node_index); }, "remove");
   showMenuAt(x, y);
+}
+
+// Removes one of a piece's boxes and leaves the piece alone. Its boxes on
+// other pages come along untouched: /boxes answers for one page, and
+// saving only what is on screen would quietly drop the rest.
+async function deleteOneBox(box, rectIndex) {
+  const keep = box.rects.filter((_r, i) => i !== rectIndex);
+  await saveRects(box.node_index, [...(await rectsAcrossPages(box.node_index)), ...keep]);
+}
+
+async function readPieceFromBox(nodeIndex) {
+  try {
+    const res = await api(`api/nodes/${nodeIndex}/read-box`, { method: "POST" });
+    toast(res.changed ? "Read from the box." : res.message);
+    if (res.changed) await afterMutation(currentPageNo);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function readUnitFromBoxes() {
+  if (!confirm("Take every piece in this section from the box drawn over it?\n\n"
+             + "A piece with no box is left alone, and nothing is added or removed — "
+             + "a box says what a provision says, not which provisions there are.")) return;
+  try {
+    const res = await api(`api/units/${currentUnitNo}/read-boxes`, { method: "POST" });
+    const bits = [`${res.changed.length} piece(s) re-read`];
+    if (res.unchanged) bits.push(`${res.unchanged} already matched`);
+    if (res.no_box) bits.push(`${res.no_box} with no box`);
+    if (res.failed.length) bits.push(`${res.failed.length} couldn't be read`);
+    toast(bits.join(", "));
+    await afterMutation(currentPageNo);
+  } catch (e) { toast(e.message, true); }
 }
 
 function showNoteMenu(x, y, note) {
@@ -1355,6 +1420,7 @@ function jumpToPiecePage(pageNo) {
 document.getElementById("pdf-toggle-btn").onclick = cycleViewMode;
 document.getElementById("pdf-prev").onclick = () => currentPageNo > 1 && loadPdfPage(currentPageNo - 1);
 document.getElementById("pdf-next").onclick = () => loadPdfPage((currentPageNo || 0) + 1);
+document.getElementById("read-boxes-btn").onclick = readUnitFromBoxes;
 document.getElementById("pdf-boxes-btn").onclick = () => setBoxesOn(!boxesOn);
 document.getElementById("pdf-boxes-btn").classList.toggle("on", boxesOn);
 attachDrawing();

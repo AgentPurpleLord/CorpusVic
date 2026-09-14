@@ -1440,3 +1440,63 @@ def test_a_repealed_marker_is_boxed_across_its_asterisks():
     rects = find(_parse(lines).nodes, "repealed")["rects"]
 
     assert rects == [{"page": 1, "x0": 200.0, "y0": 142.0, "x1": 326.0, "y1": 152.0}]
+
+
+def test_a_bold_act_name_inside_a_note_does_not_end_the_note():
+    """Criminal Procedure Act s 6. This drafting sets an Act's name bold
+    wherever it is cited, and a Note is set two points smaller than body
+    text -- so where the citation is most of the line, the line's
+    dominant weight is bold, at note size.
+
+    Read as a heading, that line ended the Notes block: it fell through
+    to paragraph (c) and was glued onto the end of it, note 2 was never
+    recognised as a note at all, and its own "2" leaked into the text of
+    whatever was left holding it. All three from one bold line."""
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("6 Commencement", bold=True, y0=130),
+        line("(1) A criminal proceeding is commenced—", x0=HEAD_X0, y0=142),
+        line("(a) by filing a charge-sheet containing a charge", x0=PARA_X0, y0=154),
+        line("in the Magistrates' Court; or", x0=PARA_WRAP_X0, y0=166),
+        line("(b) if the accused is arrested without a warrant", x0=PARA_X0, y0=178),
+        line("and is released on bail, by filing a charge-sheet", x0=PARA_WRAP_X0, y0=190),
+        line("with a bail justice; or", x0=PARA_WRAP_X0, y0=202),
+        line("(c) if a summons is issued under section 14, at", x0=PARA_X0, y0=214),
+        line("the time the charge-sheet is signed.", x0=PARA_WRAP_X0, y0=226),
+        line("Notes", bold=True, size=10.0, y0=246),
+        line("1", size=10.0, y0=258),
+        line("A criminal proceeding against a child is commenced in", x0=PARA_X0, size=10.0, y0=258),
+        line("the same manner in the Children's Court: section 528 of", x0=PARA_X0, size=10.0, y0=270),
+        line("the Children, Youth and Families Act 2005.", x0=PARA_X0, size=10.0, y0=282, bold=True),
+        line("2", size=10.0, y0=294),
+        line("In the case of a criminal proceeding for an alleged", x0=PARA_X0, size=10.0, y0=294),
+        line("offence by a child, a record of reasons must be filed.", x0=PARA_X0, size=10.0, y0=306),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "paragraph", "c")["text"] == (
+        "if a summons is issued under section 14, at the time the charge-sheet is signed."
+    )
+    assert find(nodes, "note", "1")["text"].endswith("the Children, Youth and Families Act 2005.")
+    assert find(nodes, "note", "2")["text"].startswith("In the case of")
+    assert not [n for n in nodes if n["type"] == "continuation"]
+
+
+def test_a_bold_caption_at_body_size_still_ends_a_penalty():
+    """The other half of the same rule, and what it was added for: a
+    bare topical caption matches no structural pattern at all, so only
+    its weight gives it away -- and it is set at body size, which a
+    note's own emphasis never is."""
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("7 Punishment", bold=True, y0=130),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0, y0=142),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0, y0=160),
+        line("Offences relating to Horse-drawn Vehicles, &c.", bold=True, y0=180),
+        line("8 Another offence", bold=True, y0=200),
+        line("Text.", x0=HEAD_X0, y0=212),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: 25 penalty units."
+    assert find(nodes, "section", "8")["heading"] == "Another offence"

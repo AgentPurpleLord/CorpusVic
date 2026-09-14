@@ -36,6 +36,28 @@ whole-document audit run offline. Nothing in there decides anything.
     export_static_site.py the public site (see above)
     export_markdown.py, export_akn.py
 
+## Reviewing against the page
+
+`review.py` shows the PDF with a box drawn over every provision the
+parser found, and those boxes are the controls. Right-click one to go to
+it, to edit or move or delete it, or to redraw it -- and once it is
+drawn where the provision actually is, **Read this piece from its box**
+takes the provision's words from under it. So a provision the parser
+split in the wrong place is corrected by pointing at the right words
+rather than by retyping them.
+
+A provision can carry several boxes, which is how one printed in more
+than one place is marked up -- across a column or a page break, or a
+subsection resumed after its own list. Boxes are read top to bottom
+whatever order they were drawn in, and any one of them can be removed
+without touching the provision.
+
+Reading a box changes what a provision *says*, never what it is or
+whether it exists. A subparagraph read on its own is indistinguishable
+from a paragraph, and a note without the "Notes" heading above it is
+just text: those are decided from the surroundings a box excludes by
+design. Adding and removing provisions stays a separate, deliberate act.
+
 The reviewed material is published at **[www.corpusvic.au](https://www.corpusvic.au)**.
 
 That address lives in one place: the `CNAME` file in this repository's
