@@ -45,7 +45,7 @@ link_annotations.py), whatever its confidence.
 import difflib
 import re
 
-from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, schedule_numbers
+from corpus.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, schedule_numbers
 
 # A Victorian Act's short title is always "Title Words... Act YYYY" (see
 # the OCPC guide's own section 6.2: "Victorian Acts are referred to by
@@ -138,7 +138,7 @@ def match_bill_to_act(bill_nodes: list[dict], act_nodes: list[dict]) -> list[dic
     act_section_number is the matched provision's own number rather
     than just its position: a stored node index goes stale the moment
     a reviewer merges a node away, and anything reading these records
-    back later (see ai_pipeline/commentary.py) needs something that
+    back later (see corpus/commentary.py) needs something that
     still works after that happens. status is "matched" (a counterpart
     exists and reads similarly enough), "flagged" (a counterpart exists
     but the text has drifted enough that a human should look -- a
@@ -243,11 +243,11 @@ def resolve_em_links(
       - None -- nothing in the entry's text identified a target at all
         (a general or overview note, for instance).
 
-    known_acts (slug -> title, e.g. ai_pipeline.link_targets.
+    known_acts (slug -> title, e.g. corpus.link_targets.
     load_known_acts()) resolves a *named* Act to a slug an eventual
     link can point *into* (meaning this pipeline has actually parsed
     that Act). act_registry (title -> metadata, e.g.
-    ai_pipeline.act_registry.load_act_registry()) is the fallback for a
+    corpus.act_registry.load_act_registry()) is the fallback for a
     real Act this pipeline hasn't parsed -- it confirms the citation
     names a genuine Act and its current in-force status, still with no
     slug to link into. A name in neither is kept as act_slug=None, with

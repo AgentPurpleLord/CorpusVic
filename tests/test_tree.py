@@ -2,9 +2,9 @@
 review.py's compute_unit_labels, akn_export.py, and history-note
 attachment (attach_history) all read back to know what a node nests
 under."""
-from ai_pipeline.hierarchy import HIERARCHY_ORDER
-from ai_pipeline.extract import PageText
-from ai_pipeline.tree import annotate_paths, attach_history
+from corpus.hierarchy import HIERARCHY_ORDER
+from corpus.extract import PageText
+from corpus.tree import annotate_paths, attach_history
 
 from conftest import make_node
 

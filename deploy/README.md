@@ -128,7 +128,7 @@ respectively, neither of which this restarts touches.
 
 All the review work a human has actually done -- accepted/flagged
 pieces, link annotations, the correction log -- lives in one file:
-`data/legislation.db` (SQLite), alongside `data/ai_parsed/<act>.json`
+`data/legislation.db` (SQLite), alongside `data/parsed/<act>.json`
 (the raw parse those rows are keyed against). Both are committed to git
 (see the next section) -- that's now the primary way this data travels
 and gets backed up. Between commits, or as extra insurance before
@@ -142,11 +142,11 @@ sqlite3 /opt/vic-legislation-parser/data/legislation.db ".backup /path/to/backup
 
 ## Working from a remote dev environment
 
-`data/legislation.db` and `data/ai_parsed/<act>.json` are committed to
+`data/legislation.db` and `data/parsed/<act>.json` are committed to
 git as a pair (see `.gitignore`'s own comment on why they're kept
 together): review.py's verified rows are keyed by a *positional* index
 into that exact parse, so a clone that had the DB but regenerated
-`ai_parsed` from a different parser version could silently misalign
+`parsed` from a different parser version could silently misalign
 verified content with the wrong provisions. Committing both together
 means a fresh clone -- a temporary cloud dev environment (Codespaces, a
 VS Code remote container, a throwaway VM), say -- can start reviewing

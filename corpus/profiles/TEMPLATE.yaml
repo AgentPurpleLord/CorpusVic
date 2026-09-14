@@ -10,7 +10,7 @@
 #      resolving for this Act (all defaults, until you add overrides here).
 #   2. Find a heading line the default pattern is getting wrong (check
 #      data/diagnostics/<act-slug>.json, or look for it showing up as a
-#      "heading_group" node in data/ai_parsed/<act-slug>.json when it
+#      "heading_group" node in data/parsed/<act-slug>.json when it
 #      should have been a real Part/Division/Section/etc.).
 #   3. Write a regex for it below, then check it immediately with:
 #        python show_profile.py <act-slug> --test "the exact line text"

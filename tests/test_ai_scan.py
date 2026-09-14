@@ -1,8 +1,8 @@
-"""Tests for ai_pipeline/ai_scan.py's batch-formatting and reply-parsing
+"""Tests for corpus/ai/scan.py's batch-formatting and reply-parsing
 logic -- a fake backend stands in for OllamaBackend, same style as
 tests/test_ai_assist.py, so these run with no real model or network
 involved."""
-from ai_pipeline.ai_scan import MAX_UNIT_CHARS, _format_batch, _unit_text, iter_unit_batches, scan_batch, unit_root
+from corpus.ai.scan import MAX_UNIT_CHARS, _format_batch, _unit_text, iter_unit_batches, scan_batch, unit_root
 from conftest import make_node
 
 

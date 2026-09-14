@@ -1,10 +1,10 @@
-"""Tests for ai_pipeline/versions.py -- reading which expression of an Act
+"""Tests for corpus/versions.py -- reading which expression of an Act
 a PDF is off its own front matter.
 
 The fixtures below are the real first-page text of the Acts in acts/,
 reduced to the block that matters. Every Authorised Version prints it the
 same way; a Bill and an Explanatory Memorandum print none of it."""
-from ai_pipeline.versions import (
+from corpus.versions import (
     current_version,
     describe,
     discover_versions,

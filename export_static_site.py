@@ -2,7 +2,7 @@
 Builds a static, public copy of the "browse" reading view (the same one
 dashboard.py serves live at /browse/*) as a tree of plain HTML files,
 suitable for GitHub Pages. Meant to be run by .github/workflows/pages.yml
-on every push that changes data/ai_parsed/ or data/legislation.db, so
+on every push that changes data/parsed/ or data/legislation.db, so
 updating an Act's review state through the dashboard and committing it is
 the whole publishing step -- no separate export command to remember.
 
@@ -14,7 +14,7 @@ Usage:
 A passphrase (via $SITE_PASSWORD, or --password for a local build) puts
 the whole site behind an unlock page: every page is encrypted at build
 time, so the published files are ciphertext rather than readable text
-with a decorative gate over it -- see ai_pipeline/site_crypto.py for what
+with a decorative gate over it -- see corpus/site_crypto.py for what
 that does and doesn't protect. Without one the site is open to anyone
 with the URL, which is the right default once it's meant to be public.
 
@@ -76,10 +76,10 @@ import shutil
 from pathlib import Path
 
 import dashboard
-from ai_pipeline import html_view
-from ai_pipeline.hierarchy import group_into_units
-from ai_pipeline.site_crypto import ROBOTS_TXT, SiteGate
-from ai_pipeline.versions import split_document_slug
+from corpus import html_view
+from corpus.hierarchy import group_into_units
+from corpus.site_crypto import ROBOTS_TXT, SiteGate
+from corpus.versions import split_document_slug
 
 
 def select_candidate_slugs(statuses: dict[str, dict]) -> list[str]:
@@ -321,7 +321,7 @@ def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = F
 
 def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
     """One page, encrypted behind the passphrase gate first if there is
-    one (see ai_pipeline/site_crypto.py). Everything the site publishes
+    one (see corpus/site_crypto.py). Everything the site publishes
     goes through here, so a gated build has no page that was missed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(gate.wrap(page_html) if gate else page_html, encoding="utf-8")

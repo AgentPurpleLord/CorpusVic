@@ -1,5 +1,5 @@
-"""Tests for ai_pipeline/history_notes.py's margin-note parsing."""
-from ai_pipeline.history_notes import collect_page_notes, merge_continuations, merge_note_blocks, parse_note
+"""Tests for corpus/history_notes.py's margin-note parsing."""
+from corpus.history_notes import collect_page_notes, merge_continuations, merge_note_blocks, parse_note
 
 
 def test_parse_note_simple_section():

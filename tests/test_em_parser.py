@@ -1,7 +1,7 @@
-"""Tests for ai_pipeline/em_parser.py -- the flat Explanatory Memorandum
+"""Tests for corpus/em_parser.py -- the flat Explanatory Memorandum
 parser (Clause N entries + organisational Chapter/Part headers), a much
 simpler shape than rule_parser.py's nested Act/Bill parser."""
-from ai_pipeline.em_parser import parse_em
+from corpus.em_parser import parse_em
 
 from conftest import HEAD_X0, PARA_X0, SUBPARA_X0, line, page
 

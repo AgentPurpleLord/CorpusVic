@@ -34,7 +34,7 @@ Per piece, the toolbar offers:
     gone, since the rule parser bakes each node's full ancestry into it
     at parse time and nothing else in this tool ever revisits it.
   - Structure -- add, move or remove a piece outright
-    (ai_pipeline/structure.py). Edit, Split, Merge and Nest all fix a
+    (corpus/structure.py). Edit, Split, Merge and Nest all fix a
     piece that is *wrong*; none of them fixes one that is missing (a
     heading the PDF set as an image, a provision the extractor dropped),
     one that is in the document twice (a running header read as a
@@ -51,8 +51,8 @@ Per piece, the toolbar offers:
     (the tail reassigns to another piece the same way Merge's
     destination picker works) or label it as a link -- an Act citation,
     a defined term, a Bill/EM reference -- which also attempts to
-    *resolve* it immediately (ai_pipeline/link_targets.py): an
-    act_citation against ai_pipeline/known_acts.yaml (falling back to
+    *resolve* it immediately (corpus/link_targets.py): an
+    act_citation against corpus/known_acts.yaml (falling back to
     the comprehensive Act registry), a defined_term against this Act's
     own definitions. Text displays reflowed (the source PDF's own line
     wraps joined into flowing prose) for reading, independent of the
@@ -69,13 +69,13 @@ Accepting or flagging a unit writes it into data/legislation.db and logs
 each decision (what the parser produced vs. what a human approved) there
 too -- a record of where the parser actually gets things wrong, which is
 the signal to add a profile override for that Act
-(ai_pipeline/profiles.py) rather than correcting the same pattern by hand
+(corpus/profiles.py) rather than correcting the same pattern by hand
 for the rest of the Act. An edit made directly to an already-reviewed piece
 (browsing back to fix something) persists and logs immediately, since
 there's no later Accept step to do it for. Progress is saved
 continuously, so the server can be stopped and restarted from wherever
-it left off (see ai_pipeline/db.py for why this data -- and only this
-data, not the regenerable data/ai_parsed/<act>.json -- moved off plain
+it left off (see corpus/db.py for why this data -- and only this
+data, not the regenerable data/parsed/<act>.json -- moved off plain
 JSON files).
 
 Labelled link spans are saved the moment they're labelled -- independent
@@ -100,7 +100,7 @@ each piece came from (page_start on the piece, GET /api/pages/{n}.png --
 a PyMuPDF rasterisation of that page at the panel's own zoom level,
 cached in memory) alongside or in place of the parsed text, three view
 modes cycled by the one button: text only, side-by-side split, PDF only.
-Available only when data/ai_parsed/<act>.json still has the source PDF at
+Available only when data/parsed/<act>.json still has the source PDF at
 the path it was parsed from (see load_source_pdf_path); missing entirely
 otherwise rather than a toggle that always errors.
 
@@ -146,14 +146,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import db, html_view, structure
-from ai_pipeline.ai_assist import build_suggestion
-from ai_pipeline.examples_store import add_correction, stats
-from ai_pipeline.llm_backend import OllamaUnavailable
-from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
-from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
-from ai_pipeline.link_targets import build_definition_index, resolve_link
-from ai_pipeline.schema import NODE_TYPES, types_for_document
+from corpus import db, html_view, structure
+from corpus.ai.assist import build_suggestion
+from corpus.corrections import add_correction, stats
+from corpus.ai.backend import OllamaUnavailable
+from corpus.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
+from corpus.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
+from corpus.link_targets import build_definition_index, resolve_link
+from corpus.schema import NODE_TYPES, types_for_document
 
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
@@ -173,9 +173,9 @@ def _now_iso() -> str:
 
 def load_parsed(act: str):
     """(nodes, unattached_notes, hierarchy, fingerprint). The fingerprint
-    identifies the parse itself (see ai_pipeline/reparse.py) and is None
+    identifies the parse itself (see corpus/reparse.py) and is None
     for output written before run_pipeline.py recorded one."""
-    path = Path("data/ai_parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -191,10 +191,10 @@ def positions_are_trustworthy(act: str, parse_fingerprint: "str | None") -> bool
     positions into the parse `parse_fingerprint` identifies.
 
     Every verified row is keyed by `_source_node_index` -- an index into
-    data/ai_parsed/<act>.json -- and a re-parse that adds, drops or
+    data/parsed/<act>.json -- and a re-parse that adds, drops or
     re-splits a single node shifts every index after it. run_pipeline.py
     records which parse a set of rows belongs to and re-anchors them onto
-    the new one when it changes (see ai_pipeline/reparse.py), so normally
+    the new one when it changes (see corpus/reparse.py), so normally
     this is True. It is False for rows stored before fingerprints
     existed, or if the parse was replaced by something that didn't
     re-anchor them -- and the callers below then decline to *infer*
@@ -213,13 +213,13 @@ def load_diagnostics(act: str) -> list[dict]:
 
 def load_source_pdf_path(act: str) -> str | None:
     """The source PDF path run_pipeline.py/run_em_pipeline.py stamped into
-    data/ai_parsed/<act>.json (relative to the repo root, since that's
+    data/parsed/<act>.json (relative to the repo root, since that's
     where those scripts are run from) -- used to show the actual page a
     piece came from during review (see the /api/pages/{page_no}.png
     endpoint). None if this Act's parsed output predates that field, or
     the PDF has since moved/been deleted -- the page-image endpoint 404s
     in that case rather than the server failing to start."""
-    path = Path("data/ai_parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("source")
@@ -230,7 +230,7 @@ def load_document_type(act: str) -> "str | None":
     run_pipeline.py/run_em_pipeline.py recorded it. None for a parse from
     before that field existed -- see schema.types_for_document, which
     treats that as "offer everything" rather than guessing."""
-    path = Path("data/ai_parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("document_type")
@@ -265,7 +265,7 @@ def _was_inserted(edits: dict[int, dict], index: int) -> bool:
 
 
 def load_structure_edits(act: str, parse_fingerprint: "str | None", base_dir: "str | Path | None" = None) -> dict[int, dict]:
-    """This document's structural edits (ai_pipeline/structure.py), or
+    """This document's structural edits (corpus/structure.py), or
     nothing at all when its stored positions can no longer be vouched for.
 
     Every one of these edits names a node by its position in the parse --
@@ -305,10 +305,10 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     reconstruction of that state at startup) -- but as a pure, one-shot
     read straight off disk, for a read-only consumer that has no reason to
     hold a whole server process open just to see the Act's current state.
-    Used by the live HTML browsing view (ai_pipeline/html_view.py) so a
+    Used by the live HTML browsing view (corpus/html_view.py) so a
     reviewer's in-progress edits show up immediately, without waiting for
     an export step; akn_export.py/markdown_export.py could use this too
-    instead of their own all-or-nothing verified-vs-ai_parsed choice, but
+    instead of their own all-or-nothing verified-vs-parsed choice, but
     that's a separate change from introducing it here.
 
     Returns (nodes, unattached_notes, hierarchy), the first three of
@@ -345,7 +345,7 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
 def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[list[int]], "str | None"]:
     """The same "verified where committed, original parser output
     otherwise" merge as build_current_nodes, but keyed by *original*
-    data/ai_parsed/<act>.json position instead of dropping merged-away
+    data/parsed/<act>.json position instead of dropping merged-away
     nodes and reindexing the rest: a merged-away position holds None
     rather than disappearing, so every other position keeps the same
     node_index it has everywhere else this tool keys things by position
@@ -393,7 +393,7 @@ def reflow_with_map(text: str) -> tuple[str, list[int]]:
     points, not paragraph breaks -- displaying them raw makes every piece
     look like a jagged list of half-sentences. Collapses each wrap into a
     single space for display -- the same transform every renderer and
-    exporter applies (ai_pipeline.extract.reflow) -- but also returns the
+    exporter applies (corpus.extract.reflow) -- but also returns the
     raw-offset each reflowed character came from (one longer than the
     reflowed text, for the position just past its last character) -- callers use this to translate a browser
     text selection made against the *displayed* string back into an
@@ -433,7 +433,7 @@ def _raw_to_reflowed(raw_offset: int, offset_map: list[int]) -> int:
 
 
 # Local aliases for the unit-layout constants group_into_units (now in
-# ai_pipeline/hierarchy.py, so the pipeline can group units without
+# corpus/hierarchy.py, so the pipeline can group units without
 # importing this FastAPI app) is built on. Kept because endpoints below
 # ask the same questions of individual nodes.
 _UNIT_BOUNDARY_TYPES = UNIT_BOUNDARY_TYPES
@@ -694,7 +694,7 @@ def commit_unit(
 _act: str | None = None
 _nodes: list[dict] = []
 # A reviewer's structural edits, keyed by node index -- what they
-# inserted, deleted or moved (see ai_pipeline/structure.py). Applied on
+# inserted, deleted or moved (see corpus/structure.py). Applied on
 # top of _nodes to give _order, which is the document's actual reading
 # order; _nodes itself is never reordered, because a node's index is its
 # name everywhere else in this tool.
@@ -1273,7 +1273,7 @@ app = FastAPI(title="Legislation review")
 
 # static/site/ is the published site's template -- the page shell, its
 # stylesheets, its browser-side scripts and Junicode (see
-# ai_pipeline/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
+# corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
 # loads exactly the files export_static_site.py publishes. StaticFiles
 # resolves the path itself and refuses to escape the directory, which is
@@ -1644,7 +1644,7 @@ def get_recent_verified(limit: int = 8, q: str = ""):
 
 @app.get("/api/history/unattached")
 def get_unattached_history(limit: int = 30, q: str = ""):
-    """Amendment-history margin notes attach_history (ai_pipeline/tree.py)
+    """Amendment-history margin notes attach_history (corpus/tree.py)
     couldn't confidently match to a node at parse time, for the review
     panel's history sidebar to offer a reviewer as manual-link candidates.
     Narrowed by a case-insensitive substring of the note's own citation
@@ -1666,7 +1666,7 @@ def get_unattached_history(limit: int = 30, q: str = ""):
 def attach_history_endpoint(req: HistoryAttachRequest):
     """Manually links one of the sidebar's unattached notes to a piece --
     a reviewer confirming what attach_history's own regex-based matching
-    (ai_pipeline/history_notes.py) couldn't work out on its own. Tagged
+    (corpus/history_notes.py) couldn't work out on its own. Tagged
     "manual" rather than "high"/"low" (see diagnostics.py's own
     history-low-confidence check, which only ever flags "low") so it
     reads, later, as a human's own decision rather than another guess."""
@@ -1750,7 +1750,7 @@ def reset_node_endpoint(node_index: int):
 
     A stored row holds the text as it stood when it was decided. That is
     the point for an accepted piece -- it is the human's work, and
-    ai_pipeline/reparse.py goes to some length to keep it attached to the
+    corpus/reparse.py goes to some length to keep it attached to the
     right provision when the Act is parsed again. But it also means a
     parser fix cannot reach a piece that was already looked at: the
     Criminal Procedure Act's section 5 kept showing the Part 2.2 heading
@@ -1951,7 +1951,7 @@ def undo_renest_endpoint():
 
 
 # ---------------------------------------------------------------------------
-# Restructuring: add, remove, move (see ai_pipeline/structure.py)
+# Restructuring: add, remove, move (see corpus/structure.py)
 #
 # Edit, split, merge and renest between them can fix a piece that is
 # wrong. None of them can fix a piece that is *missing* -- a heading the
@@ -2137,7 +2137,7 @@ def _ai_suggestion_precondition(node_index: int) -> dict:
     an HTTPException if this node isn't a valid target for one (yet).
 
     Refuses before a reviewer's own blind_reviews row exists for this
-    node on purpose -- see ai_pipeline.ai_assist's own module docstring
+    node on purpose -- see corpus.ai.assist's own module docstring
     on why: an AI suggestion is a third opinion to weigh against a
     human's own independent one and the parser's, never a first one
     read before forming that independent view in the first place."""
@@ -2159,7 +2159,7 @@ def _ai_suggestion_precondition(node_index: int) -> dict:
 @app.post("/api/nodes/{node_index}/ai-suggest")
 def ai_suggest_endpoint(node_index: int):
     """A local model's second opinion on an elevated-risk piece (see
-    ai_pipeline/ai_assist.py), asked only once the reviewer's own
+    corpus/ai/assist.py), asked only once the reviewer's own
     independent blind-review guess is already recorded (see
     _ai_suggestion_precondition), and cached (see db.save_ai_suggestion)
     so asking again doesn't needlessly re-run the model. Never applied
@@ -2168,7 +2168,7 @@ def ai_suggest_endpoint(node_index: int):
     human to weigh, same as every other signal here.
 
     503s with the backend's own message (see
-    ai_pipeline.llm_backend.OllamaBackend.ensure_ready) if the local
+    corpus.ai.backend.OllamaBackend.ensure_ready) if the local
     model isn't set up yet -- that message already names the exact next
     command to run (see install_ai_model.py), so it's passed through
     rather than wrapped."""
@@ -2438,7 +2438,7 @@ def reparse_unit_endpoint(unit_no: int):
     depends on everything before it. So the whole document is parsed --
     which for a 530-page Act is about two seconds -- and run_pipeline.py's
     own re-anchoring carries every stored decision across onto the
-    provision it describes (see ai_pipeline/reparse.py). Then the
+    provision it describes (see corpus/reparse.py). Then the
     decisions for *this* section are dropped, so it is the one part of the
     document that comes back fresh.
 
@@ -2511,7 +2511,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     decision about it.
 
     Called once at startup, and again by reparse_unit_endpoint -- a
-    re-parse rewrites data/ai_parsed/<act>.json underneath this process,
+    re-parse rewrites data/parsed/<act>.json underneath this process,
     and serving the node list loaded before it would mean answering from
     a parse that no longer exists. Every derived container is rebuilt
     from scratch rather than added to, so nothing from the previous parse
@@ -2540,7 +2540,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     # title on its first couple of pages (see dashboard.py's own
     # _act_title_cache, added after that exact cost showed up per page
     # view there -- one Act per process here, so once at startup is enough).
-    from ai_pipeline.akn_export import _detect_act_citation
+    from corpus.akn_export import _detect_act_citation
 
     _act_title = _detect_act_citation(_source_pdf_path).get("title") or act
     # A restart throws away every decision about this document, and a

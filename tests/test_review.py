@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from ai_pipeline import db
-from ai_pipeline.reparse import parse_fingerprint
-from ai_pipeline import structure
+from corpus import db
+from corpus.reparse import parse_fingerprint
+from corpus import structure
 from review import (
     _is_elevated_risk,
     _now_iso,
@@ -39,7 +39,7 @@ def _write_parsed(act: str, nodes: list[dict], *, record_fingerprint: bool = Tru
     Act's review rows belong to this parse, which is what run_pipeline.py
     does after re-anchoring them -- pass False to reproduce review rows
     left pointing at a parse that has since been replaced."""
-    path = Path("data/ai_parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     fingerprint = parse_fingerprint(nodes)
     path.write_text(
@@ -490,7 +490,7 @@ def test_a_piece_with_no_findings_is_not_gated(monkeypatch):
 
 
 # ---------------------------------------------------------------------
-# _ai_suggestion_precondition -- an AI suggestion (ai_pipeline/
+# _ai_suggestion_precondition -- an AI suggestion (corpus/
 # ai_assist.py) only ever becomes available once a reviewer's own
 # independent blind-review guess is already recorded, so it can never
 # anchor the judgement that step exists to protect. See that module's
@@ -568,7 +568,7 @@ def test_a_piece_reports_which_fields_no_longer_match_the_parse(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Structural edits (ai_pipeline/structure.py) applied on the read path
+# Structural edits (corpus/structure.py) applied on the read path
 # ---------------------------------------------------------------------------
 
 def _write_structure(act: str, edits: dict) -> None:
@@ -749,7 +749,7 @@ def test_annotate_paths_gives_a_continuation_the_path_of_what_it_resumes():
     """Its own type's rank is only a default. Read instead of the
     depth_rank the parser recorded, it cleared levels the continuation
     sits inside -- a wrap-up under s 11(1)(b)'s list lost the (1)."""
-    from ai_pipeline.tree import annotate_paths
+    from corpus.tree import annotate_paths
 
     nodes = annotate_paths([
         make_node("section", "11", "Place of hearing", ""),
@@ -763,7 +763,7 @@ def test_annotate_paths_gives_a_continuation_the_path_of_what_it_resumes():
 
 
 def test_a_section_level_continuation_clears_the_subsection_it_is_not_in():
-    from ai_pipeline.tree import annotate_paths
+    from corpus.tree import annotate_paths
 
     nodes = annotate_paths([
         make_node("section", "31", "Transfer", "If the Court considers-"),

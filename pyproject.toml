@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-# Lets tests import both the ai_pipeline package and the top-level CLI
+# Lets tests import both the corpus package and the top-level CLI
 # scripts (review.py, run_pipeline.py, ...) regardless of how pytest is
 # invoked (bare `pytest`, `python -m pytest`, from a subdirectory, etc.).
 pythonpath = ["."]

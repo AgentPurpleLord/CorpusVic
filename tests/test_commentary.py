@@ -1,7 +1,7 @@
-"""Tests for ai_pipeline/commentary.py -- inverting run_bill_linking.py's
+"""Tests for corpus/commentary.py -- inverting run_bill_linking.py's
 per-Bill-clause / per-EM-entry link records into "what explains this Act
 section?"."""
-from ai_pipeline.commentary import build_commentary_index, provision_key, section_numbers_in_ref
+from corpus.commentary import build_commentary_index, provision_key, section_numbers_in_ref
 
 
 def _bill_doc(bill_slug="my-bill", act_slug="my-act", links=None):

@@ -1,4 +1,4 @@
-"""Tests for ai_pipeline/llm_backend.py's status checks and error
+"""Tests for corpus/ai/backend.py's status checks and error
 messages -- no real network calls or a running Ollama server involved;
 shutil.which and urllib.request.urlopen are monkeypatched to simulate
 each precondition on its own. See tests/test_ai_assist.py for the
@@ -9,7 +9,7 @@ import urllib.error
 
 import pytest
 
-from ai_pipeline.llm_backend import OllamaBackend, OllamaUnavailable, pull_model
+from corpus.ai.backend import OllamaBackend, OllamaUnavailable, pull_model
 
 
 def _fake_urlopen_tags(models: list[str]):

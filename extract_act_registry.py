@@ -7,9 +7,9 @@ passed: Year / Act No. / Title / Repealed-by-Act-No. / Provision.
 Usage:
     python extract_act_registry.py
 
-Writes ai_pipeline/act_registry.json -- short title -> {year, act_no,
+Writes corpus/act_registry.json -- short title -> {year, act_no,
 repealed_by, repealed_provision, in_force}, consulted by
-ai_pipeline/act_registry.py as the fallback once known_acts.yaml itself
+corpus/act_registry.py as the fallback once known_acts.yaml itself
 doesn't have an answer (see link_targets.resolve_act_citation and
 bill_linking.resolve_em_links).
 
@@ -28,7 +28,7 @@ from pathlib import Path
 import fitz
 
 PDF_PATH = Path(__file__).parent / "em" / "List-of-Acts-in-chronological-order.pdf"
-OUT_PATH = Path(__file__).parent / "ai_pipeline" / "act_registry.json"
+OUT_PATH = Path(__file__).parent / "corpus" / "act_registry.json"
 
 # Column bands by x0 -- measured off the actual PDF, consistent across
 # all 213 pages (old colonial entries and modern ones alike differ only

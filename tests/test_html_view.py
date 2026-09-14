@@ -1,13 +1,13 @@
-"""Tests for ai_pipeline/html_view.py's pure rendering logic -- chiefly
+"""Tests for corpus/html_view.py's pure rendering logic -- chiefly
 render_preview, which decides what one hover card gets to show. The
 dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
 import re
 
-from ai_pipeline.amendments import build_amendment_index
-from ai_pipeline.diffing import provision_identity
-from ai_pipeline.html_view import (
+from corpus.amendments import build_amendment_index
+from corpus.diffing import provision_identity
+from corpus.html_view import (
     build_page_index,
     render_endnotes,
     render_index,
@@ -504,7 +504,7 @@ def test_render_superseded_banner_names_the_current_version_and_links_to_it():
 # ---------------------------------------------------------------------------
 
 def test_a_known_acts_own_name_is_linked_in_body_prose(monkeypatch):
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
     nodes = [
         make_node("part", "1", "Preliminary"),
@@ -521,7 +521,7 @@ def test_a_capitalised_leading_the_is_not_part_of_the_link(monkeypatch):
     # match -- but no real title is recorded with a leading "The", so the
     # lookup strips it first (matching link_targets.resolve_act_citation's
     # own convention for a reviewer-labelled citation span).
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
     nodes = [
         make_node("part", "1", "Preliminary"),
@@ -540,7 +540,7 @@ def _provisions_of(body: str) -> str:
 
 
 def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
     monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {"Crimes Act 1958": {"act_no": "6231", "year": "1958"}})
     nodes = [
@@ -559,7 +559,7 @@ def test_an_acts_own_name_is_excluded_from_the_registry_fallback_too(monkeypatch
     # separately -- an Act not yet parsed here (so absent from
     # known_acts.yaml) must still not link its own name to itself via the
     # registry fallback.
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry",
                         lambda: {"Sentencing Act 1991": {"act_no": "49", "year": "1991"}})
@@ -579,7 +579,7 @@ def test_an_act_in_the_general_registry_links_to_the_legislation_resolver(monkey
     # Act the general registry knows -- links to the standing resolver
     # rather than sitting as plain text, the same treatment an unresolved
     # margin-note citation gets (see _linked_citation_html).
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry",
                         lambda: {"Public Administration Act 2004": {"act_no": "108", "year": "2004"}})
@@ -594,7 +594,7 @@ def test_an_act_in_the_general_registry_links_to_the_legislation_resolver(monkey
 
 
 def test_an_act_in_neither_source_is_left_as_plain_text(monkeypatch):
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {})
     nodes = [
@@ -616,7 +616,7 @@ def test_a_run_on_sentence_does_not_get_swallowed_into_a_false_act_name(monkeypa
     # is that the leading, lowercase-heavy run of the sentence is excluded
     # from the match at all, not merely that the match then fails to
     # resolve.
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {})
     nodes = [
@@ -654,7 +654,7 @@ def test_a_section_page_offers_a_copy_button():
 
 
 def test_the_copy_script_ships_with_the_page():
-    from ai_pipeline.html_view import page_shell
+    from corpus.html_view import page_shell
 
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
@@ -666,7 +666,7 @@ def test_one_level_of_nesting_is_one_word_tab_stop():
     """36pt is half an inch -- the default tab stop in both Word and
     Google Docs, so a copied paragraph lands where a reader's own tab
     key would have put it."""
-    from ai_pipeline.html_view import template_text
+    from corpus.html_view import template_text
 
     assert "var INDENT_PT = 36;" in template_text("copy.js")
 
@@ -676,7 +676,7 @@ def test_a_defined_term_keeps_its_own_punctuation_tight():
     the copy must not open a gap the page itself doesn't show. Both
     clipboard flavours go through the same rule, which is why there is
     one helper rather than two spellings of it."""
-    from ai_pipeline.html_view import template_text
+    from corpus.html_view import template_text
 
     copy_js = template_text("copy.js")
     assert copy_js.count("function gap(") == 1
@@ -689,7 +689,7 @@ def test_a_defined_term_keeps_its_own_punctuation_tight():
 # "{{...}}" in a published page, which no amount of CSS review would
 # catch.
 def _shell(**kwargs) -> str:
-    from ai_pipeline.html_view import page_shell
+    from corpus.html_view import page_shell
 
     return page_shell("Test Act", "<p>body</p>", **kwargs)
 
@@ -710,7 +710,7 @@ def test_asset_urls_stay_inside_a_project_site():
     assert '<script src="/vic-legislation-parser/assets/reader.js"></script>' in page
     # Junicode is reached relative to tokens.css, so no prefix belongs in
     # the stylesheet itself -- that is what makes one file serve both.
-    from ai_pipeline.html_view import template_text
+    from corpus.html_view import template_text
 
     assert "url('fonts/Junicode-Roman.woff2')" in template_text("tokens.css")
 
@@ -724,7 +724,7 @@ def test_the_template_is_read_again_after_it_changes(tmp_path, monkeypatch):
     """Editing a stylesheet or the shell while a server is running has to
     show up on the next reload -- that is most of the reason the template
     is a file at all."""
-    import ai_pipeline.html_view as html_view_module
+    import corpus.html_view as html_view_module
 
     monkeypatch.setattr(html_view_module, "TEMPLATE_DIR", tmp_path)
     monkeypatch.setattr(html_view_module, "_template_cache", {})
@@ -880,7 +880,7 @@ def test_a_comment_in_the_page_itself_is_left_alone():
     """Only the template's own comments go: the body is the document's
     text, and a provision that quotes one is still quoting it."""
     page = _shell(base_url="/browse/a")
-    from ai_pipeline.html_view import page_shell
+    from corpus.html_view import page_shell
 
     assert "<!-- kept -->" in page_shell("T", "<p>a <!-- kept --> note</p>")
 
@@ -956,7 +956,7 @@ def test_nothing_in_a_provision_is_positioned_outside_it():
     """The structural guarantee, asserted against the stylesheet itself:
     a negative offset on a provision is what let the number escape, and a
     grid column is what replaced it."""
-    from ai_pipeline.html_view import template_text
+    from corpus.html_view import template_text
 
     import re
 
@@ -974,7 +974,7 @@ def test_the_timeline_says_when_it_cannot_compare_versions():
     register of the law the difference matters. Two versions read by
     different parsers would report the parsers' own disagreements as
     amendments -- so nothing is reported, and it says so."""
-    from ai_pipeline.html_view import render_timeline
+    from corpus.html_view import render_timeline
 
     assert render_timeline([], "/browse/a") == ""
     unavailable = render_timeline([], "/browse/a", unavailable=True)

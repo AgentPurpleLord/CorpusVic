@@ -1,4 +1,4 @@
-"""Tests for ai_pipeline/endnotes.py -- reading an Act's closing Endnotes,
+"""Tests for corpus/endnotes.py -- reading an Act's closing Endnotes,
 chiefly the Table of Amendments, which is a two-column table PyMuPDF hands
 back with every value ahead of its own label.
 
@@ -7,7 +7,7 @@ Criminal Procedure Act's own endnote pages (see conftest's own note on the
 same convention for rule_parser's tests): the record title column at
 x0=141.7, labels at 166.8, values at 265.9, and a label typeset on the same
 baseline as the first line of its value but emitted *after* it."""
-from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes, parse_citation
+from corpus.endnotes import detect_endnotes_start, parse_endnotes, parse_citation
 
 from conftest import line, page
 

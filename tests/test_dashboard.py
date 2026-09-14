@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 import dashboard
-from ai_pipeline import db, diffing
+from corpus import db, diffing
 from conftest import make_node
 
 
@@ -44,13 +44,13 @@ def test_discover_slugs_unions_uploaded_pdfs_and_already_parsed_acts(tmp_path, m
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     (tmp_path / "acts").mkdir()
     (tmp_path / "acts" / "crimes-act.pdf").write_bytes(b"%PDF-1.4")
-    (tmp_path / "data" / "ai_parsed").mkdir(parents=True)
-    (tmp_path / "data" / "ai_parsed" / "evidence-act.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "evidence-act.json").write_text("{}", encoding="utf-8")
 
     assert dashboard.discover_slugs() == ["crimes-act", "evidence-act"]
 
 
-def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, monkeypatch):
+def test_act_status_reports_not_parsed_when_no_parsed_json_exists(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     status = dashboard.act_status("crimes-act")
     assert status == {
@@ -72,7 +72,7 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
 
 
 def _write_parsed(tmp_path, slug: str, nodes: list[dict]) -> None:
-    parsed_dir = tmp_path / "data" / "ai_parsed"
+    parsed_dir = tmp_path / "data" / "parsed"
     parsed_dir.mkdir(parents=True, exist_ok=True)
     (parsed_dir / f"{slug}.json").write_text(json.dumps({"nodes": nodes}), encoding="utf-8")
 
@@ -282,7 +282,7 @@ def test_find_source_pdf_returns_none_when_missing(tmp_path, monkeypatch):
 
 def test_repo_relative_strips_the_checkout_path(tmp_path, monkeypatch):
     """The path handed to run_pipeline.py ends up verbatim in the
-    committed data/ai_parsed/<slug>.json -- it has to stay repo-relative
+    committed data/parsed/<slug>.json -- it has to stay repo-relative
     so it doesn't bake in one machine's checkout location."""
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     assert dashboard._repo_relative(tmp_path / "acts" / "crimes-act.pdf") == "acts/crimes-act.pdf"
@@ -299,10 +299,10 @@ def test_act_status_names_the_profile_the_act_should_be_parsed_with(tmp_path, mo
     """By name, not merely whether one exists: the re-parse dialog
     pre-fills this field, and it used to fill it with the slug -- which
     for a versioned Act names no profile at all."""
-    from ai_pipeline import profiles
+    from corpus import profiles
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    profiles_dir = tmp_path / "ai_pipeline" / "profiles"
+    profiles_dir = tmp_path / "corpus" / "profiles"
     profiles_dir.mkdir(parents=True)
     monkeypatch.setattr(profiles, "PROFILES_DIR", profiles_dir)
     (profiles_dir / "crimes-act.yaml").write_text("part: 'x'\n", encoding="utf-8")
@@ -360,10 +360,10 @@ def test_act_status_splits_a_versioned_slug_into_its_work_and_version(tmp_path, 
 def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatch):
     # How an Act numbers its Parts is a fact about the Act, not about one
     # reprint of it -- one profile serves all its versions.
-    from ai_pipeline import profiles
+    from corpus import profiles
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    profiles_dir = tmp_path / "ai_pipeline" / "profiles"
+    profiles_dir = tmp_path / "corpus" / "profiles"
     profiles_dir.mkdir(parents=True)
     monkeypatch.setattr(profiles, "PROFILES_DIR", profiles_dir)
     (profiles_dir / "criminal-procedure-act.yaml").write_text("part: x", encoding="utf-8")

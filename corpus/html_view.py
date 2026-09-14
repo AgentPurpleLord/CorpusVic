@@ -37,7 +37,7 @@ and no reader keeps a hundred Act numbers in their head.
 
 A Section page also carries an "Explained in" bar: the Bill clause it
 was enacted from and the Explanatory Memorandum's note on it, worked
-out by ai_pipeline/commentary.py from run_bill_linking.py's link
+out by corpus/commentary.py from run_bill_linking.py's link
 records and handed here as ready-made chips. They're ordinary links
 into those documents' own browse pages, so hovering one answers "what
 does the EM say about this provision?" without leaving the section.
@@ -201,7 +201,7 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     Also links a mention of another Act by name -- "the Crimes Act
     1958", say, in a Schedule's own prose. A candidate span (see
     _ACT_TITLE_SPAN_RE) is checked first against
-    ai_pipeline/known_acts.yaml (this pipeline's own parsed Acts, linked
+    corpus/known_acts.yaml (this pipeline's own parsed Acts, linked
     straight to their /browse/ page) and, failing that, against the
     general act_registry.json (linked instead to the standing
     /legislation/<act_no> resolver -- see dashboard.py's
@@ -397,7 +397,7 @@ def _table_html(node: dict, depth: int, id_attr: str = "", render_cell=None) -> 
     """A table, as a real table.
 
     Its rows are stored as text -- one per line, cells separated by a
-    pipe (see ai_pipeline/tables.py) -- which is what makes a table as
+    pipe (see corpus/tables.py) -- which is what makes a table as
     editable in review as any other provision. Here they go back to being
     columns, because that is the only form in which the thing can be read
     at all: "An offence against a child under the age of 16" means
@@ -432,7 +432,7 @@ def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | N
     drafter put this here" apart from "the parser worked out where this
     probably goes".
 
-    Given an amendment_index (see ai_pipeline/amendments.py), the
+    Given an amendment_index (see corpus/amendments.py), the
     citation *within* the note is a link to that Act's entry in the
     Endnotes, with the Act's full name and dates in its tooltip. The
     citation is what the note actually says and what a reader wants to
@@ -546,7 +546,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
     # Which reprint of the Act this is, as the PDF's own front matter
-    # states it (see ai_pipeline/versions.py). This is just a statement
+    # states it (see corpus/versions.py). This is just a statement
     # of fact, not yet a judgement about whether it's current --
     # knowing whether this has been superseded needs to know what other
     # versions exist, which is the timeline's job. This is stated as
@@ -626,7 +626,7 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
     Explanatory Memorandum note about it). Each chip is an ordinary
     link into that document's own page, so hovering one previews it the
     same way every other link on the page does; the caller
-    (dashboard.py, via ai_pipeline/commentary.py) works out what
+    (dashboard.py, via corpus/commentary.py) works out what
     belongs here."""
     if not crossrefs:
         return ""
@@ -644,7 +644,7 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 # An Act is reprinted every few weeks and each reprint restates the
 # whole thing, so the only way to see how a provision's wording has
-# moved is to compare the reprints (ai_pipeline/diffing.py). What comes
+# moved is to compare the reprints (corpus/diffing.py). What comes
 # back is rendered here, on the provision's own page, because that's
 # where a reader is when the question occurs to them -- not on a
 # separate compare-two-versions screen they'd have to know to go and
@@ -991,7 +991,7 @@ def render_section(
     _margin_notes_html).
 
     timeline, if given, is this provision's own entries from
-    ai_pipeline/diffing.build_timeline -- how its wording has moved
+    corpus/diffing.build_timeline -- how its wording has moved
     across the versions of the Act held here -- with version_urls
     mapping a version number to that version's page for this same
     provision. superseded, if given, is {"version", "current",
@@ -1168,7 +1168,7 @@ def _endnote_blocks_html(section: dict) -> str:
     paragraphs reflowed out of the PDF's own line wraps, its sub-
     headings as headings, its bulleted list as a list, and any
     provision it quotes set apart from the commentary around it (see
-    ai_pipeline/endnotes.py's block builder).
+    corpus/endnotes.py's block builder).
 
     Falls back to the flat "text" field for an Act parsed before
     blocks existed -- that text still carries the source's wrap points,
@@ -1214,7 +1214,7 @@ def render_endnotes(parsed: dict, act_title: str, base_url: str, summary: list[d
     information, the Table of Amendments as an actual table, and
     Explanatory details.
 
-    `summary` is ai_pipeline/amendments.summarise_by_act's output --
+    `summary` is corpus/amendments.summarise_by_act's output --
     every amending Act this Act's margin notes actually cite, with the
     provisions each one touched. That's the Table of Amendments read
     the other way round, which is the question a reader actually has;

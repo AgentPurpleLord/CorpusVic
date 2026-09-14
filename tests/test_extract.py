@@ -1,9 +1,9 @@
-"""Tests for ai_pipeline/extract.py's margin line-number filtering and
+"""Tests for corpus/extract.py's margin line-number filtering and
 bold+italic leading-run detection -- pure logic, tested directly on plain
 line/span dicts rather than a real PDF fixture (the rest of extract_pages
 needs an actual PyMuPDF document and is exercised indirectly through the
 full pipeline instead)."""
-from ai_pipeline.extract import _drop_margin_line_numbers, _leading_bold_italic, _line_text
+from corpus.extract import _drop_margin_line_numbers, _leading_bold_italic, _line_text
 
 
 def _bl(text, x0, y0=0.0):

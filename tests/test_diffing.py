@@ -1,4 +1,4 @@
-"""Tests for ai_pipeline/diffing.py -- what changed in a provision between
+"""Tests for corpus/diffing.py -- what changed in a provision between
 two Authorised Versions of an Act.
 
 An Act is reprinted every few weeks and each reprint restates the whole
@@ -7,7 +7,7 @@ out by comparing them. The three things that make that hard, and that
 these check, are that a Section's substance lives in its child nodes, that
 an inserted provision shifts every node after it, and that a reprint
 repaginates text it hasn't amended."""
-from ai_pipeline.diffing import (
+from corpus.diffing import (
     build_timeline,
     diff_versions,
     is_reordering,

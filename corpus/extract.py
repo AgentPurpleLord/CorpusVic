@@ -226,7 +226,7 @@ def _leading_bold_italic(line) -> str | None:
     spans, or None if the line doesn't open with one -- the reliable
     typesetting signal Victorian drafting uses for a defined term's own
     introduction inside a Definitions/Interpretation section (see
-    ai_pipeline/definitions.py's module docstring): "accused means a
+    corpus/definitions.py's module docstring): "accused means a
     person who—" sets "accused" bold+italic and the rest of the line
     plain, distinct from the bold-only emphasis used for Act-name
     citations elsewhere and the italic-only case citations that also

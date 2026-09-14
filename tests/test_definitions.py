@@ -1,5 +1,5 @@
-"""Tests for ai_pipeline/definitions.py's defined-term extraction."""
-from ai_pipeline.definitions import (
+"""Tests for corpus/definitions.py's defined-term extraction."""
+from corpus.definitions import (
     extract_section_ref_terms,
     extract_terms,
     looks_like_definitions_section,

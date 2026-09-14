@@ -5,7 +5,7 @@
 # page ("This Act may be cited as the Crimes Act 1958", or the bare title
 # on a modern Act's cover page).
 #
-# ai_pipeline/link_targets.py's resolve_act_citation() only ever matches
+# corpus/link_targets.py's resolve_act_citation() only ever matches
 # an act_citation-labelled span against what's listed here -- an Act not
 # in this file simply resolves to nothing yet (not a wrong guess), so add
 # a line here whenever a newly-parsed Act should become linkable from

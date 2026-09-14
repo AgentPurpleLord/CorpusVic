@@ -9,10 +9,10 @@ then.
 
 Only two label types can actually be resolved right now:
 
-  - act_citation is checked first against ai_pipeline/known_acts.yaml --
+  - act_citation is checked first against corpus/known_acts.yaml --
     the other Acts this pipeline has actually parsed, so the match comes
     with a slug it can link into. If that fails, it falls back to
-    ai_pipeline/act_registry.py's much bigger but shallower list of Acts
+    corpus/act_registry.py's much bigger but shallower list of Acts
     (taken from the OCPC's own "List of Acts in chronological order" --
     see extract_act_registry.py): there's no parsed content behind it,
     so act_slug stays None, but it confirms the citation names a real
@@ -37,10 +37,10 @@ from pathlib import Path
 
 import yaml
 
-from ai_pipeline.act_registry import load_act_registry
-from ai_pipeline.definitions import extract_section_ref_terms, extract_terms, looks_like_definitions_section
-from ai_pipeline.hierarchy import UNIT_BOUNDARY_TYPES as _UNIT_BOUNDARY_TYPES
-from ai_pipeline.hierarchy import UNIT_ROOT_TYPES as _UNIT_ROOT_TYPES
+from corpus.act_registry import load_act_registry
+from corpus.definitions import extract_section_ref_terms, extract_terms, looks_like_definitions_section
+from corpus.hierarchy import UNIT_BOUNDARY_TYPES as _UNIT_BOUNDARY_TYPES
+from corpus.hierarchy import UNIT_ROOT_TYPES as _UNIT_ROOT_TYPES
 
 KNOWN_ACTS_PATH = Path(__file__).parent / "known_acts.yaml"
 

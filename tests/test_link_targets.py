@@ -1,7 +1,7 @@
-"""Tests for ai_pipeline/link_targets.py -- resolving a labelled span's
+"""Tests for corpus/link_targets.py -- resolving a labelled span's
 text to a concrete target (which Act, which definition node), independent
 of link_review.py's FastAPI layer and of link_annotations.py's storage."""
-from ai_pipeline.link_targets import (
+from corpus.link_targets import (
     build_definition_index,
     resolve_act_citation,
     resolve_defined_term,
@@ -38,7 +38,7 @@ def test_resolve_act_citation_unknown_act_is_unresolved():
 def test_resolve_act_citation_falls_back_to_the_comprehensive_act_registry():
     """A real Act this pipeline hasn't parsed itself (not in
     known_acts.yaml) still resolves via the comprehensive registry (see
-    ai_pipeline/act_registry.py) -- no slug to link into, but confirmed
+    corpus/act_registry.py) -- no slug to link into, but confirmed
     real, with its current in-force status."""
     result = resolve_act_citation("Bail Act 1977")
     assert result["kind"] == "act"

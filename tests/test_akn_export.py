@@ -1,5 +1,5 @@
 """
-Tests for ai_pipeline/akn_export.py, including validation against the real
+Tests for corpus/akn_export.py, including validation against the real
 OASIS Akoma Ntoso 3.0 schema (tests/fixtures/akomantoso30.xsd) -- this
 project's own export was built against, and repeatedly re-validated
 against, that actual schema rather than assumptions about AKN's shape, so
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import xmlschema
 
-from ai_pipeline.akn_export import build_hierarchy_tree, export_to_akn
+from corpus.akn_export import build_hierarchy_tree, export_to_akn
 
 from conftest import make_node
 

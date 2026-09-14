@@ -1,4 +1,4 @@
-"""Tests for ai_pipeline/schema.py -- which structural types a document of
+"""Tests for corpus/schema.py -- which structural types a document of
 each kind can actually be labelled with.
 
 One flat enum meant an Act's reviewer was asked whether a provision might
@@ -6,7 +6,7 @@ be a "clause" (it never is -- that is a Bill's word for the same thing,
 see hierarchy.make_ranks) and a Bill's reviewer was offered "section".
 review.py adds back anything a node actually carries, so filtering can
 never strand a node's own type."""
-from ai_pipeline.schema import NODE_TYPES, TYPES_BY_DOCUMENT, types_for_document
+from corpus.schema import NODE_TYPES, TYPES_BY_DOCUMENT, types_for_document
 
 
 def test_an_act_is_offered_sections_and_never_clauses():

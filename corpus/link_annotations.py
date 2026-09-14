@@ -1,7 +1,7 @@
 """
 Marks a piece of text as "this should become a link" -- a reference to
 another Act, a defined term, a Bill, an Explanatory Memorandum -- on top
-of an Act's already-parsed content (data/ai_parsed/<act>.json), without
+of an Act's already-parsed content (data/parsed/<act>.json), without
 changing that content.
 
 Each mark covers a stretch of text within one node's stored `text` --
@@ -14,7 +14,7 @@ text should eventually link to something."
 
 The actual storage (now data/legislation.db, a shared SQLite file -- it
 used to be one data/links/<act>.json file per Act) lives in
-ai_pipeline/db.py alongside the other review data people create by hand
+corpus/db.py alongside the other review data people create by hand
 (verified state, the correction log). This module just re-exports that
 part of it under the name existing callers already use, so nothing
 importing add_link/delete_link/load_links/save_links/LABELS/LinkError

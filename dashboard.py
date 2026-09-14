@@ -70,15 +70,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import commentary, db, diffing, html_view
-from ai_pipeline.act_registry import load_act_registry
-from ai_pipeline.amendments import build_amendment_index, summarise_by_act
-from ai_pipeline.commentary import build_commentary_index
-from ai_pipeline.extract import slugify
-from ai_pipeline.link_targets import load_known_acts
-from ai_pipeline.profiles import profile_for
-from ai_pipeline.llm_backend import OllamaBackend, pull_model
-from ai_pipeline.versions import document_slug, read_front_matter, split_document_slug
+from corpus import commentary, db, diffing, html_view
+from corpus.act_registry import load_act_registry
+from corpus.amendments import build_amendment_index, summarise_by_act
+from corpus.commentary import build_commentary_index
+from corpus.extract import slugify
+from corpus.link_targets import load_known_acts
+from corpus.profiles import profile_for
+from corpus.ai.backend import OllamaBackend, pull_model
+from corpus.versions import document_slug, read_front_matter, split_document_slug
 from review import _resume_point, build_current_nodes, group_into_units
 
 BASE_DIR = Path(__file__).parent
@@ -108,14 +108,14 @@ def discover_slugs() -> list[str]:
                 # A work directory: each PDF in it is one version of that
                 # work as this pipeline reads it, addressed by the work's
                 # name and its own version number rather than by its
-                # filename (see ai_pipeline/versions.py).
+                # filename (see corpus/versions.py).
                 for pdf in p.glob("*.pdf"):
                     version = _pdf_version(pdf)
                     # A Bill or an EM filed with the Act it became belongs
                     # to the work's history without being a point on its
                     # timeline -- it keeps its own filename as its slug.
                     slugs.add(document_slug(p.name, version) if version is not None else slugify(pdf.stem))
-    parsed_dir = BASE_DIR / "data" / "ai_parsed"
+    parsed_dir = BASE_DIR / "data" / "parsed"
     if parsed_dir.exists():
         for p in parsed_dir.glob("*.json"):
             slugs.add(p.stem)
@@ -127,7 +127,7 @@ _pdf_version_cache: dict[tuple, "int | None"] = {}
 
 def _pdf_version(pdf: Path) -> "int | None":
     """This PDF's version number (as it states it -- see
-    ai_pipeline/versions.py), cached against the file's own
+    corpus/versions.py), cached against the file's own
     mtime and size -- discover_slugs runs on every dashboard load, and
     reading the front matter of every version of every Act on each one
     would be paying repeatedly for something that only changes when a file
@@ -143,7 +143,7 @@ def _pdf_version(pdf: Path) -> "int | None":
 
 
 def act_status(slug: str) -> dict:
-    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     work, version = split_document_slug(slug)
     status = {
         "slug": slug,
@@ -224,7 +224,7 @@ def _ensure_review_process(slug: str) -> int:
     if entry and entry["proc"].poll() is None:
         return entry["port"]
 
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
 
     port = _free_port()
@@ -265,7 +265,7 @@ def _kill_review_process(slug: str) -> None:
 
 # ---------------------------------------------------------------------------
 # run_ai_review.py child-process management -- the whole-document AI scan
-# (see ai_pipeline/ai_scan.py). Unlike review.py's child above, this one
+# (see corpus/ai/scan.py). Unlike review.py's child above, this one
 # isn't proxied: it has no HTTP server of its own, just stdout progress
 # and rows it writes to data/legislation.db as it goes (see
 # db.ai_scan_progress), which is what the dashboard polls instead.
@@ -303,7 +303,7 @@ app = FastAPI(title="Legislation pipeline dashboard")
 
 # static/site/ is the published site's template -- the page shell, its
 # stylesheets, its browser-side scripts and Junicode (see
-# ai_pipeline/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
+# corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
 # loads exactly the files export_static_site.py publishes. StaticFiles
 # resolves the path itself and refuses to escape the directory, which is
@@ -654,7 +654,7 @@ def _validate_parse_params(kind: str, profile: str, start_page: str, end_page: s
 
 def _repo_relative(path: Path) -> str:
     """run_pipeline.py records the PDF path it was given verbatim into
-    data/ai_parsed/<slug>.json's own "source" field, and that file is
+    data/parsed/<slug>.json's own "source" field, and that file is
     committed to git (see .gitignore's own comment) -- so hand it a
     repo-relative path, the same thing a human running it from the CLI
     would type. An absolute one would bake this particular machine's
@@ -761,13 +761,13 @@ def reparse_act(
     missing, or just regenerated after a parser code change, without
     starting over from "Add Act/Bill/EM".
 
-    data/ai_parsed/<slug>.json is plain regenerable output on its own,
+    data/parsed/<slug>.json is plain regenerable output on its own,
     but review.py's own verified rows in data/legislation.db are keyed by
     a *positional* index into that exact file (see .gitignore's own
     comment on why the two are committed as a pair). run_pipeline.py now
     re-anchors those rows onto the new parse rather than leaving them
     pointing at whatever moved into their old positions (see
-    ai_pipeline/reparse.py), so this no longer silently corrupts review
+    corpus/reparse.py), so this no longer silently corrupts review
     progress -- but it can still withdraw acceptance from a provision the
     parser now reads differently, and that is a real change to somebody's
     work. Refuses (409) unless `confirm` is set, once there's any
@@ -869,7 +869,7 @@ def bill_link(bill_slug: str = Form(...), act_slug: str = Form(...), em_slug: st
 
 @app.get("/api/ai/status")
 def ai_status():
-    """Whether the AI-assist feature (see ai_pipeline/ai_assist.py, and
+    """Whether the AI-assist feature (see corpus/ai/assist.py, and
     the "Ask local AI" button in each Act's review.py) is actually ready
     to use -- Ollama installed, running, and its model pulled. A quick
     local check, not a parse-time dependency: this feature stays
@@ -881,7 +881,7 @@ def ai_status():
 @app.post("/api/ai/install-model")
 def ai_install_model():
     """Pulls the AI-assist feature's model via `ollama pull` (see
-    ai_pipeline.llm_backend.pull_model) -- the same action
+    corpus.ai.backend.pull_model) -- the same action
     install_ai_model.py performs from the command line, offered here
     too since a user who's already at this dashboard shouldn't have to
     leave it to set this up. Still refuses to do anything about Ollama
@@ -905,7 +905,7 @@ def start_ai_scan(slug: str, restart: bool = False):
     entry = _ai_scan_procs.get(slug)
     if entry and entry["proc"].poll() is None:
         raise HTTPException(409, f"An AI scan for {slug!r} is already running.")
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
 
     _AI_SCAN_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -940,7 +940,7 @@ def ai_scan_progress_endpoint(slug: str):
     entry = _ai_scan_procs.get(slug)
     running = bool(entry and entry["proc"].poll() is None)
     exit_code = None if running or entry is None else entry["proc"].returncode
-    total_units = len(group_into_units(build_current_nodes(slug)[0])) if (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists() else 0
+    total_units = len(group_into_units(build_current_nodes(slug)[0])) if (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists() else 0
     log_path = _ai_scan_log_path(slug)
     log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-4000:] if log_path.exists() else ""
     return {**progress, "total_units": total_units, "running": running, "exit_code": exit_code, "log": log_tail}
@@ -967,7 +967,7 @@ def _browse_state_signature(slug: str) -> tuple:
     actually lands first under WAL, so the .db's own mtime alone would
     miss an edit a reviewer just made)."""
     paths = [
-        BASE_DIR / "data" / "ai_parsed" / f"{slug}.json",
+        BASE_DIR / "data" / "parsed" / f"{slug}.json",
         db.db_path(BASE_DIR),
         Path(f"{db.db_path(BASE_DIR)}-wal"),
     ]
@@ -1086,7 +1086,7 @@ def _page_index(slug: str) -> dict:
     cached = _page_index_cache.get(slug)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         index = {"by_node_index": {}, "by_key": {}, "schedule_by_node_index": {}}
     else:
         nodes, _unattached, hierarchy = _current_nodes(slug)
@@ -1174,7 +1174,7 @@ def _amendments(slug: str) -> dict:
     cached = _amendment_cache.get(slug)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     endnotes = None
     try:
         endnotes = json.loads(parsed_path.read_text(encoding="utf-8")).get("endnotes")
@@ -1198,7 +1198,7 @@ def _work_versions(work: str) -> list[str]:
     slugs = []
     for slug in discover_slugs():
         this_work, version = split_document_slug(slug)
-        if this_work == work and version is not None and (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+        if this_work == work and version is not None and (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
             slugs.append((version, slug))
     return [slug for _version, slug in sorted(slugs)]
 
@@ -1206,7 +1206,7 @@ def _work_versions(work: str) -> list[str]:
 def _parse_signature(slug: str) -> tuple:
     """A stamp of one document's parse file, and nothing else."""
     try:
-        st = (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").stat()
+        st = (BASE_DIR / "data" / "parsed" / f"{slug}.json").stat()
     except OSError:
         return ()
     return (st.st_mtime_ns, st.st_size)
@@ -1402,7 +1402,7 @@ def _parse_field(slug: str, key: str, default=None):
     browse pages want two small things out of it (the title and the
     version block) on every request -- so both go through here and through
     _act_title's cache rather than each re-reading the file."""
-    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     if not parsed_path.exists():
         return default
     try:
@@ -1413,7 +1413,7 @@ def _parse_field(slug: str, key: str, default=None):
 
 def _act_version(slug: str) -> dict:
     """Which version of the Act this pipeline's own parse is -- as read
-    off the PDF's front matter (see ai_pipeline/versions.py), never
+    off the PDF's front matter (see corpus/versions.py), never
     presented as "the Authorised Version" itself. Empty for a Bill, an
     Explanatory Memorandum, or a parse made before the pipeline recorded
     it."""
@@ -1437,7 +1437,7 @@ def _act_title(slug: str) -> str:
 
     title = (_act_version(slug) or {}).get("title")
     if not title:
-        from ai_pipeline.akn_export import _detect_act_citation
+        from corpus.akn_export import _detect_act_citation
 
         title = _detect_act_citation(_parse_field(slug, "source")).get("title")
     title = title or _title_from_slug(slug)
@@ -1453,7 +1453,7 @@ def _document_kind(slug: str) -> str:
     parsed this document (run_pipeline.py and run_em_pipeline.py both
     write document_type). Anything parsed before that was recorded reads
     as an Act, which is what it will have been."""
-    parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
+    parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     try:
         return json.loads(parsed_path.read_text(encoding="utf-8")).get("document_type") or "act"
     except (OSError, ValueError):
@@ -1516,7 +1516,7 @@ def legislation_resolver(citation: str):
     of legislation by its own Act number, whether or not it has been
     parsed yet -- the target every citation this pipeline detects but
     cannot yet link into more specifically should point at (see
-    ai_pipeline/amendments.py's linkify_note and html_view.py's
+    corpus/amendments.py's linkify_note and html_view.py's
     _linked_citation_html), so a reader always has something to click
     rather than inert text, and a citation that gets parsed later starts
     resolving properly without anything that already links here needing
@@ -1528,7 +1528,7 @@ def legislation_resolver(citation: str):
     to know why it didn't go anywhere, not a framework's generic error
     page."""
     info = _resolve_legislation_citation(citation)
-    if info["slug"] and (BASE_DIR / "data" / "ai_parsed" / f"{info['slug']}.json").exists():
+    if info["slug"] and (BASE_DIR / "data" / "parsed" / f"{info['slug']}.json").exists():
         return RedirectResponse(f"/browse/{info['slug']}/")
 
     if info["title"]:
@@ -1556,7 +1556,7 @@ def browse_redirect(slug: str):
 @app.get("/browse/{slug}/", response_class=HTMLResponse)
 def browse_index(slug: str):
     _validate_slug(slug)
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
     nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
@@ -1582,12 +1582,12 @@ def browse_section(slug: str, section_slug: str):
     # compares it in-memory against computed section ids and returns None
     # (-> 404) for anything that doesn't match a real one.
     _validate_slug(slug)
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
     nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
     # Which provision this page is, so its Bill/EM commentary can be looked
-    # up by number (see ai_pipeline/commentary.py for why by number).
+    # up by number (see corpus/commentary.py for why by number).
     page_index = _page_index(slug)
     node_index = next((i for i, page in page_index["by_node_index"].items() if page == section_slug), None)
     section_number = nodes[node_index].get("number") if node_index is not None else None
@@ -1634,9 +1634,9 @@ def browse_endnotes(slug: str):
     """The Act's own Endnotes -- General information, the Table of
     Amendments read as a real table, and Explanatory details. 404s for a
     document that has none (a Bill, an Explanatory Memorandum, or an Act
-    parsed before ai_pipeline/endnotes.py existed -- re-parse it)."""
+    parsed before corpus/endnotes.py existed -- re-parse it)."""
     _validate_slug(slug)
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
     nodes, _unattached, hierarchy = _current_nodes(slug)
     amendments = _amendments(slug)
@@ -1659,7 +1659,7 @@ def browse_preview(slug: str, section: str | None = None, fragment: str | None =
     only ever matched in memory against computed ids, so an unknown one is
     a plain 404 and the card simply doesn't appear."""
     _validate_slug(slug)
-    if not (BASE_DIR / "data" / "ai_parsed" / f"{slug}.json").exists():
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
     nodes, _unattached, hierarchy = _current_nodes(slug)
     preview = html_view.render_preview({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug), section, fragment)

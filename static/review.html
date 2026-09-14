@@ -495,7 +495,7 @@
   }
   .piece-text {
     /* The same 19px/1.42 over a 34em measure the published pages use
-       (ai_pipeline/html_view.py's .prov): a reviewer should be judging
+       (corpus/html_view.py's .prov): a reviewer should be judging
        the text as a reader will meet it, not in a denser tool font. */
     font-family: var(--font-reading);
     white-space: pre-wrap;
@@ -1547,7 +1547,7 @@ function pieceLabelText(piece) {
 }
 
 function renderPieceText(piece) {
-  // A table's rows are its lines (see ai_pipeline/tables.py), so reflowing
+  // A table's rows are its lines (see corpus/tables.py), so reflowing
   // it -- which is right for every other piece, where a line break is
   // just where the PDF wrapped -- runs the whole table into one
   // paragraph and hides the very structure being reviewed.
@@ -1690,7 +1690,7 @@ function buildPiece(piece, idx) {
       ? `<div class="piece-heading${headingIsTheContent ? " piece-heading-only" : ""}">${escapeHtml(piece.heading)}</div>`
       : "";
     // A table is stored as its rows, one per line, cells separated by a
-    // pipe (see ai_pipeline/tables.py) -- which is exactly what makes it
+    // pipe (see corpus/tables.py) -- which is exactly what makes it
     // editable here like anything else, and exactly what makes it
     // unreadable. So the text box stays the text box, with a rendered
     // copy under it: the reviewer checks the columns against the PDF in
@@ -1700,7 +1700,7 @@ function buildPiece(piece, idx) {
     const findingsHtml = blindPending ? "" : (piece.findings || [])
       .map((f) => {
         // "ai-scan" findings come from run_ai_review.py's whole-document
-        // audit pass (ai_pipeline/ai_scan.py) rather than diagnostics.py's
+        // audit pass (corpus/ai/scan.py) rather than diagnostics.py's
         // deterministic checks -- tagged so a reviewer can tell a model's
         // opinion apart from a rules-engine fact, same distinction the
         // "Ask local AI" second opinion already draws.
@@ -1766,7 +1766,7 @@ function buildPiece(piece, idx) {
         <div class="blind-reasoning">&ldquo;${escapeHtml(review.reasoning)}&rdquo;</div>
       </div>` : "";
     // Only offered once `review` exists -- see review.py's
-    // _ai_suggestion_precondition and ai_pipeline/ai_assist.py's own
+    // _ai_suggestion_precondition and corpus/ai/assist.py's own
     // docstring on why an AI suggestion never appears before a
     // reviewer's own independent guess is already locked in.
     const suggestion = piece.ai_suggestion;
@@ -1976,7 +1976,7 @@ function clearDragHighlights() {
 // ---------------------------------------------------------------------
 // History-notes panel: every amendment-history note already attached to
 // a piece in the open unit (Confirm/Move/Detach per note), plus a
-// searchable list of notes attach_history (ai_pipeline/tree.py) couldn't
+// searchable list of notes attach_history (corpus/tree.py) couldn't
 // confidently match to anything at parse time, for manual linking. See
 // review.py's /api/history/* endpoints.
 // ---------------------------------------------------------------------
@@ -2454,7 +2454,7 @@ document.getElementById("edit-cancel").onclick = () => { document.getElementById
 // it belongs. These do, which is why a structural fault no longer means
 // re-parsing the document and losing the review with it.
 //
-// DOCUMENT_START, matching ai_pipeline/structure.py: the front of the
+// DOCUMENT_START, matching corpus/structure.py: the front of the
 // document, as an anchor in its own right rather than an absent one.
 // ---------------------------------------------------------------------
 

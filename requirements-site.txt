@@ -2,7 +2,7 @@
 # run by .github/workflows/pages.yml). It reads the same data the GUIs do
 # -- and imports dashboard.py to do it -- so it needs everything they do.
 -r requirements-gui.txt
-# AES-GCM for the site's optional passphrase gate (ai_pipeline/site_crypto.py).
+# AES-GCM for the site's optional passphrase gate (corpus/site_crypto.py).
 # Nothing else in the pipeline encrypts anything: dashboard.py's own login
 # hashes passwords with hashlib, which is in the standard library.
 cryptography

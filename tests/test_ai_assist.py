@@ -1,8 +1,8 @@
-"""Tests for ai_pipeline/ai_assist.py's context-building and prompt
+"""Tests for corpus/ai/assist.py's context-building and prompt
 logic -- a fake backend stands in for OllamaBackend so these run with
 no real model or network involved (see tests/test_llm_backend.py for
 the backend's own status/error-message tests)."""
-from ai_pipeline.ai_assist import build_suggestion
+from corpus.ai.assist import build_suggestion
 from conftest import make_node
 
 

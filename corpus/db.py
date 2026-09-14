@@ -16,7 +16,7 @@ decisions, span-level link labels, and the correction log recording
 what a human actually changed -- exactly the things a crash partway
 through writing a whole JSON file back out used to be able to corrupt.
 
-data/ai_parsed/<act>.json (the raw parse) could technically be
+data/parsed/<act>.json (the raw parse) could technically be
 regenerated the same way, but it's committed to git *alongside*
 data/legislation.db as a deliberate pair -- see .gitignore's own
 comment on this -- because this file's verified rows are keyed by a
@@ -28,7 +28,7 @@ before committing this one).
 Every function here keeps the exact name and shape its old JSON-backed
 counterpart had (load_verified/save_verified in review.py,
 load_links/save_links/add_link/delete_link in link_annotations.py,
-add_correction/stats in examples_store.py) -- callers elsewhere in the
+add_correction/stats in corrections.py) -- callers elsewhere in the
 pipeline don't change at all, only where this data actually lives.
 
 Connections are cached per resolved absolute path, not just opened once
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS blind_reviews (
 CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 
 -- A local model's answer to one bounded question about one elevated-risk
--- node (see ai_pipeline/ai_assist.py) -- offered only after a reviewer's
+-- node (see corpus/ai/assist.py) -- offered only after a reviewer's
 -- own blind_reviews row already exists for that node, never before, so
 -- it can't anchor the independent judgement that step is there to get.
 -- Keyed the same way blind_reviews is, and moved/blocked by rename_act
@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_suggestions_act ON ai_suggestions(act);
 -- One row per *unit* (a Section/Clause and everything nested under it --
 -- the same grouping review.py works through, see hierarchy.
 -- group_into_units), from a whole-document AI scan (see
--- ai_pipeline/ai_scan.py and run_ai_review.py) rather than the one-piece
+-- corpus/ai/scan.py and run_ai_review.py) rather than the one-piece
 -- second opinion ai_suggestions holds. node_index is the unit's own root
 -- node -- a scan judges a unit as a whole, the same size piece a
 -- reviewer works through, not each of its subsections separately.
@@ -178,12 +178,12 @@ CREATE INDEX IF NOT EXISTS idx_ai_scan_findings_act ON ai_scan_findings(act);
 -- label that makes sense in one Act ("penalty", say) would just be
 -- clutter in the relabel dropdown of every other. These are labels,
 -- not hierarchy levels -- an Act's nesting order comes from its profile
--- (see ai_pipeline/hierarchy.py), so a type added here doesn't nest and
+-- (see corpus/hierarchy.py), so a type added here doesn't nest and
 -- can't have anything nested under it.
 -- Which parse the rows in `verified` were reviewed against.
--- Those rows are keyed by a *position* in data/ai_parsed/<act>.json, so
+-- Those rows are keyed by a *position* in data/parsed/<act>.json, so
 -- they only make sense against the exact parse that produced them.
--- Storing that parse's fingerprint (ai_pipeline/reparse.parse_fingerprint)
+-- Storing that parse's fingerprint (corpus/reparse.parse_fingerprint)
 -- lets a mismatch be detected instead of passing silently -- review.py
 -- refuses to infer anything from positions it can't vouch for, and
 -- run_pipeline.py knows when a re-parse needs its rows reattached.
@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS custom_types (
 );
 
 -- Structural edits the parse itself cannot express: a node the reviewer
--- inserted, one they deleted, one they moved. See ai_pipeline/structure.py
+-- inserted, one they deleted, one they moved. See corpus/structure.py
 -- for what an entry means; this table is only where they are kept.
 --
 -- Keyed by node_index like everything else, and for the same reason:
@@ -435,7 +435,7 @@ _DERIVED_TABLES = ("parse_state",)
 
 # Everything stored about one document that is keyed to a node position.
 # Clearing these is what "start this document's review again" means: a
-# re-parse re-anchors them by identity (see ai_pipeline/reparse.py), but
+# re-parse re-anchors them by identity (see corpus/reparse.py), but
 # sometimes the parse has changed enough that carrying the old decisions
 # across is the wrong answer and a clean slate is the right one.
 #
@@ -555,7 +555,7 @@ def add_link(act: str, node_index: int, start: int, end: int, label: str, node_t
     any Act's parsed data at all.
 
     `target` is an optional destination worked out ahead of time (see
-    ai_pipeline/link_targets.py's resolve_link) -- which Act, which
+    corpus/link_targets.py's resolve_link) -- which Act, which
     definition node, etc. this span points to. Working that out is the
     caller's job, not this module's: this stays a plain storage and
     validation layer, with no opinion on what counts as a valid target
@@ -689,7 +689,7 @@ def blind_review_stats(act: "str | None" = None) -> dict:
 
 # ---------------------------------------------------------------------
 # AI suggestions -- a local model's cached answer to one bounded question
-# about one elevated-risk node (see ai_pipeline/ai_assist.py)
+# about one elevated-risk node (see corpus/ai/assist.py)
 # ---------------------------------------------------------------------
 
 def _ai_suggestion_row_to_dict(row: sqlite3.Row) -> dict:
@@ -726,7 +726,7 @@ def save_ai_suggestion(act: str, node_index: int, *, answer: str, reasoning: str
 
 # ---------------------------------------------------------------------
 # AI scan findings -- a whole-document AI audit pass, one row per unit
-# (see ai_pipeline/ai_scan.py and run_ai_review.py)
+# (see corpus/ai/scan.py and run_ai_review.py)
 # ---------------------------------------------------------------------
 
 def _ai_scan_finding_row_to_dict(row: sqlite3.Row) -> dict:
@@ -791,11 +791,11 @@ def clear_ai_scan_findings(act: str) -> int:
 
 
 # ---------------------------------------------------------------------
-# Structural edits (see ai_pipeline/structure.py)
+# Structural edits (see corpus/structure.py)
 # ---------------------------------------------------------------------
 def load_structure_edits(act: str, base_dir: "str | Path | None" = None) -> dict[int, dict]:
     """{node_index: {"after", "deleted", "node"}} -- exactly the shape
-    ai_pipeline.structure.document_order takes."""
+    corpus.structure.document_order takes."""
     rows = _connect(base_dir).execute(
         "SELECT * FROM structure_edits WHERE act = ? ORDER BY node_index", (act,)
     ).fetchall()

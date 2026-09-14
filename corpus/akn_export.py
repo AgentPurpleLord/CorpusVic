@@ -1,5 +1,5 @@
 """
-Exports a parsed Act (data/ai_parsed/<act>.json, merged with whatever
+Exports a parsed Act (data/parsed/<act>.json, merged with whatever
 review.py has verified so far in data/legislation.db) to Akoma Ntoso
 XML (OASIS AKN v1.0, schema namespace akn/3.0).
 
@@ -315,7 +315,7 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
 def _render_table(parent_el, text: str) -> None:
     """A table's rows, as a real AkomaNtoso <table>.
 
-    Not one <p>: the rows are stored as text (see ai_pipeline/tables.py)
+    Not one <p>: the rows are stored as text (see corpus/tables.py)
     and reflow would join them into a single paragraph, throwing away the
     one thing a table is -- which is exactly the state the rows were
     recovered from in the first place. AKN takes HTML's own table

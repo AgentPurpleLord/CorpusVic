@@ -14,8 +14,8 @@ import pytest
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from ai_pipeline.html_view import _legislation_href, _site_prefix
-from ai_pipeline.site_crypto import SiteGate, derive_key
+from corpus.html_view import _legislation_href, _site_prefix
+from corpus.site_crypto import SiteGate, derive_key
 from conftest import make_node
 import export_static_site
 from export_static_site import (
@@ -277,7 +277,7 @@ def test_the_landing_page_carries_the_footer_exactly_once():
 
 
 # ---------------------------------------------------------------------
-# The passphrase gate (ai_pipeline/site_crypto.py). Fewer PBKDF2
+# The passphrase gate (corpus/site_crypto.py). Fewer PBKDF2
 # iterations than the real thing throughout, so the suite doesn't spend
 # a second per test deriving keys it only needs to be *a* key.
 # ---------------------------------------------------------------------
@@ -461,7 +461,7 @@ def test_a_gated_build_encrypts_its_previews(tmp_path, monkeypatch):
     import json
 
     import export_static_site as ess
-    from ai_pipeline.site_crypto import SiteGate
+    from corpus.site_crypto import SiteGate
 
     monkeypatch.setattr(ess.html_view, "render_preview",
                         lambda *a, **k: {"title": "Act", "html": "<p>a secret provision</p>"})
@@ -490,7 +490,7 @@ def test_a_published_section_carries_no_review_badge():
     """On a site that only publishes checked provisions the badge reads
     "Fully reviewed" on every page, which tells a reader nothing -- the
     same reason the contents page already drops it."""
-    from ai_pipeline.html_view import render_section
+    from corpus.html_view import render_section
 
     nodes = [
         {"type": "part", "number": "1", "heading": "Preliminary", "text": None},

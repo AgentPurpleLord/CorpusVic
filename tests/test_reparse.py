@@ -1,14 +1,14 @@
-"""Tests for ai_pipeline/reparse.py -- keeping a human's review work
+"""Tests for corpus/reparse.py -- keeping a human's review work
 attached to its provisions when an Act is parsed again.
 
-Review rows are keyed by a *position* into data/ai_parsed/<act>.json, so
+Review rows are keyed by a *position* into data/parsed/<act>.json, so
 a parser change that adds or re-splits one node shifts every row after
 it onto the wrong provision. These cover the two halves of the fix: a
 fingerprint that makes such a shift detectable, and a re-anchoring that
 moves each row onto the node holding the provision it describes."""
 import json
 
-from ai_pipeline.db import (
+from corpus.db import (
     load_orphaned_reviews,
     load_parse_fingerprint,
     load_structure_edits,
@@ -17,8 +17,8 @@ from ai_pipeline.db import (
     save_structure_edits,
     save_verified,
 )
-from ai_pipeline.hierarchy import group_into_units
-from ai_pipeline.reparse import (
+from corpus.hierarchy import group_into_units
+from corpus.reparse import (
     apply_carry_forward,
     apply_remap,
     carry_forward_review,
@@ -352,7 +352,7 @@ def test_apply_carry_forward_seeds_a_new_versions_review_from_the_last_one(tmp_p
     monkeypatch.chdir(tmp_path)
     old_nodes = _act()
     save_verified("crimes-act-v110", [_reviewed(old_nodes[1], 1)])
-    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v110.json", old_nodes)
+    _write_parse(tmp_path / "data" / "parsed" / "crimes-act-v110.json", old_nodes)
     new_nodes = _act()
 
     report = apply_carry_forward("crimes-act", "crimes-act-v111", new_nodes, group_into_units(new_nodes))
@@ -366,7 +366,7 @@ def test_apply_carry_forward_never_overwrites_a_versions_own_review(tmp_path, mo
     monkeypatch.chdir(tmp_path)
     old_nodes = _act()
     save_verified("crimes-act-v110", [_reviewed(old_nodes[1], 1)])
-    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v110.json", old_nodes)
+    _write_parse(tmp_path / "data" / "parsed" / "crimes-act-v110.json", old_nodes)
     new_nodes = _act()
     own_review = [_reviewed(new_nodes[3], 3)]
     save_verified("crimes-act-v111", own_review)
@@ -383,8 +383,8 @@ def test_apply_carry_forward_reads_from_the_nearest_reviewed_version(tmp_path, m
     monkeypatch.chdir(tmp_path)
     nodes = _act()
     save_verified("crimes-act-v109", [_reviewed(nodes[1], 1)])
-    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v109.json", nodes)
-    _write_parse(tmp_path / "data" / "ai_parsed" / "crimes-act-v110.json", nodes)
+    _write_parse(tmp_path / "data" / "parsed" / "crimes-act-v109.json", nodes)
+    _write_parse(tmp_path / "data" / "parsed" / "crimes-act-v110.json", nodes)
 
     report = apply_carry_forward("crimes-act", "crimes-act-v111", nodes)
 

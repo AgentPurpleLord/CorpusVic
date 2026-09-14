@@ -25,7 +25,7 @@ question over already-clean text, exactly what a language model is
 suited to. Feeding it raw geometry instead would just repeat the old
 model-backed parser's own mistake in a new place; feeding it a scanned
 image (OCR) would only throw signal away, since these are born-digital
-PDFs with clean text already sitting in data/ai_parsed/<act>.json.
+PDFs with clean text already sitting in data/parsed/<act>.json.
 
 Every answer is a plain, bounded classification -- see _SUGGESTION_SCHEMA
 -- never free-form advice or a rewrite of the text, and every result is
@@ -33,8 +33,8 @@ stored (see db.save_ai_suggestion) with the exact model that produced
 it, so a reviewer reading it back later knows what asked the question,
 not just what it said.
 """
-from .hierarchy import UNIT_BOUNDARY_TYPES
-from .llm_backend import OllamaBackend
+from ..hierarchy import UNIT_BOUNDARY_TYPES
+from .backend import OllamaBackend
 
 _SUGGESTION_SCHEMA = {
     "type": "object",

@@ -27,7 +27,7 @@ repo across clones and needs setting up again in each new environment.
 """
 import sys
 
-from ai_pipeline import db
+from corpus import db
 
 
 def main():

@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ai_pipeline.extract import BodyLine, PageText
+from corpus.extract import BodyLine, PageText
 
 BODY_SIZE = 12.0
 
@@ -85,7 +85,7 @@ def isolate_corrections(tmp_path, monkeypatch):
     SQLite file, verified/link data too -- to a scratch database so tests
     that go through review.py's commit/accept paths (which call
     add_correction) never touch the real project's data/legislation.db.
-    ai_pipeline.db resolves its db path relative to the current working
+    corpus.db resolves its db path relative to the current working
     directory on every call (see its own module docstring), so chdir-ing
     here is enough; no path needs monkeypatching directly."""
     monkeypatch.chdir(tmp_path)

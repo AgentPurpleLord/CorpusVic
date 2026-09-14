@@ -1,6 +1,6 @@
 """
 A local, open-source model backend for the assistive-triage feature (see
-ai_pipeline/ai_assist.py) -- never a required part of parsing itself,
+corpus/ai/assist.py) -- never a required part of parsing itself,
 just an optional second opinion a reviewer can ask for on a piece
 diagnostics has already flagged as uncertain.
 
@@ -28,7 +28,7 @@ OLLAMA_HOST = "http://localhost:11434"
 
 # A 7-8B instruction-tuned model is a reasonable default for the kind of
 # short, narrow question this feature actually asks (see
-# ai_pipeline/ai_assist.py) -- it runs on modest hardware (8GB of RAM is
+# corpus/ai/assist.py) -- it runs on modest hardware (8GB of RAM is
 # enough) without a GPU, and this task has never needed a larger model's
 # extra reasoning depth. install_ai_model.py and OllamaBackend both take
 # --model/model= to use a different one already pulled.

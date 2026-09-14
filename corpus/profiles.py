@@ -5,12 +5,12 @@ style differ from the rest without needing a code change.
 The base patterns below match the drafting style shared by every Act
 checked so far (Crimes, Evidence, Criminal Procedure, Interpretation). A
 new Act with a different numbering style doesn't need new code -- just
-add a YAML file at ai_pipeline/profiles/<act-slug>.yaml overriding the
+add a YAML file at corpus/profiles/<act-slug>.yaml overriding the
 patterns that differ (pass --profile <act-slug> to run_pipeline.py to
 use it). For example, the Criminal Procedure Act numbers its Parts
 "5.1", "5.2" instead of roman numerals, which the default "part" pattern
-doesn't allow for -- see ai_pipeline/profiles/criminal-procedure-act.yaml
-for the actual fix, and ai_pipeline/profiles/TEMPLATE.yaml for a fully-
+doesn't allow for -- see corpus/profiles/criminal-procedure-act.yaml
+for the actual fix, and corpus/profiles/TEMPLATE.yaml for a fully-
 commented starting point to copy for a new Act.
 
 These files are YAML rather than JSON specifically because every value
@@ -216,7 +216,7 @@ def profile_for(act_slug: str, base_dir: "str | Path | None" = None) -> "str | N
     one named after the slug itself.
     """
     base = Path(base_dir) if base_dir else Path(".")
-    parsed = base / "data" / "ai_parsed" / f"{act_slug}.json"
+    parsed = base / "data" / "parsed" / f"{act_slug}.json"
     if parsed.exists():
         try:
             recorded = json.loads(parsed.read_text(encoding="utf-8")).get("profile")
@@ -311,7 +311,7 @@ def load_hierarchy(name: str | None) -> list[str]:
     """The final ordered list of container levels for this Act -- the
     default (see hierarchy.py) unless the profile overrides it with its
     own `hierarchy:` list. run_pipeline.py saves this into
-    data/ai_parsed/<act>.json so the exporters can rebuild the tree
+    data/parsed/<act>.json so the exporters can rebuild the tree
     without reloading the profile."""
     if not name:
         return list(HIERARCHY_ORDER)

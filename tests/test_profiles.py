@@ -1,13 +1,13 @@
-"""Tests for ai_pipeline/profiles.py's YAML profile loading/validation."""
+"""Tests for corpus/profiles.py's YAML profile loading/validation."""
 import pytest
 
-from ai_pipeline import profiles
+from corpus import profiles
 
 
 @pytest.fixture
 def isolated_profiles_dir(tmp_path, monkeypatch):
     """Points PROFILES_DIR at a scratch directory so tests can write
-    profile files without touching the real ai_pipeline/profiles/."""
+    profile files without touching the real corpus/profiles/."""
     monkeypatch.setattr(profiles, "PROFILES_DIR", tmp_path)
     return tmp_path
 
@@ -201,7 +201,7 @@ def test_hierarchy_duplicate_level_raises(isolated_profiles_dir):
 
 
 def test_real_criminal_procedure_act_profile_overrides_part_pattern():
-    """The actual committed profile (ai_pipeline/profiles/criminal-procedure-act.yaml)
+    """The actual committed profile (corpus/profiles/criminal-procedure-act.yaml)
     fixes a real gap: the default "part" pattern can't match this Act's
     dotted Part numbering ("Part 5.1", "Part 4.6A"), so every Part-level
     heading fell through to a generic heading_group node instead."""

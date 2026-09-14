@@ -10,7 +10,7 @@ Act, click through to a section, follow a cross-reference or a defined
 term) as plain Markdown files instead of a database-backed website.
 
 Like akn_export.py, this is a read-only export over whichever node
-list you point it at (data/ai_parsed/<act>.json, merged with whatever
+list you point it at (data/parsed/<act>.json, merged with whatever
 review.py has verified so far in data/legislation.db) -- it doesn't
 change extraction, the rule parser, or review.py.
 
@@ -311,7 +311,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
 
 
 def _markdown_table(text: str) -> "str | None":
-    """A table node's stored rows (see ai_pipeline/tables.py) as a
+    """A table node's stored rows (see corpus/tables.py) as a
     Markdown table. The first row is its header, as it is everywhere
     else."""
     rows = split_rows(text)

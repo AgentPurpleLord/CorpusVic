@@ -1,8 +1,8 @@
 """
 One-time import of the old JSON-file review data (data/verified/<act>.json,
 data/links/<act>.json, data/corrections.jsonl) into data/legislation.db --
-see ai_pipeline/db.py's module docstring for why this data moved and what
-didn't (data/ai_parsed/<act>.json and the other regenerable pipeline
+see corpus/db.py's module docstring for why this data moved and what
+didn't (data/parsed/<act>.json and the other regenerable pipeline
 output stay exactly where they are).
 
 Usage:
@@ -28,7 +28,7 @@ import json
 import sys
 from pathlib import Path
 
-from ai_pipeline import db
+from corpus import db
 
 
 def migrate_verified() -> int:

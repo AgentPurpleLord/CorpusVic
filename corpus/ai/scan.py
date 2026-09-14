@@ -8,7 +8,7 @@ scanning a whole Act is genuinely slow with a local model -- see that
 script's own docstring for why, and for the batching and resume support
 that keeps it practical.
 
-This is still the same kind of question ai_pipeline/ai_assist.py asks,
+This is still the same kind of question corpus/ai/assist.py asks,
 just asked of everything instead of only what's already flagged: does
 this piece's type/number/heading look right given its own text, judged
 from the text alone, never from font or position data (that question is
@@ -28,7 +28,7 @@ several short, independent judgements in one reply just as well, so
 batching is close to free accuracy-wise and is what makes "scan
 everything" practical rather than a multi-day job.
 """
-from .llm_backend import OllamaBackend
+from .backend import OllamaBackend
 
 # Units per model call. Small enough that a single reply stays easy for
 # the model to get right (a long list of independent judgements is where
@@ -91,7 +91,7 @@ def _unit_text(nodes: list[dict], unit: list[int]) -> str:
     """type/number/heading plus the joined text of every node in the
     unit, truncated -- the same "whole provision" a reviewer sees as one
     piece, not just its own root node's frequently-empty lead-in (see
-    ai_pipeline/ai_assist.py's own note on why a Section's own "text"
+    corpus/ai/assist.py's own note on why a Section's own "text"
     field alone is often nearly nothing)."""
     root = nodes[unit[0]]
     parts = [nodes[i].get("text") or "" for i in unit]

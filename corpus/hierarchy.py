@@ -5,7 +5,7 @@ deeper than which.
 
 The default order below covers every Victorian Act checked so far. A
 particular Act can override it from its own profile (a `hierarchy:` list
-in ai_pipeline/profiles/<act-slug>.yaml) -- for example, the Criminal
+in corpus/profiles/<act-slug>.yaml) -- for example, the Criminal
 Procedure Act groups its Parts under Chapters, so its profile puts
 "chapter" on top and adds a `chapter:` pattern. See profiles.py's
 `load_hierarchy`.
@@ -13,7 +13,7 @@ Procedure Act groups its Parts under Chapters, so its profile puts
 Because the order can differ between Acts, code that walks a parsed Act
 should take the resolved order as a parameter, rather than assuming the
 default (the rule parser gets it from the profile; run_pipeline.py saves
-it into data/ai_parsed/<act>.json so the exporters can read it back
+it into data/parsed/<act>.json so the exporters can read it back
 without reloading the profile). The module-level HIERARCHY_ORDER /
 HIERARCHY_RANK / HEADING_LEVELS below are just the defaults, used when a
 node list doesn't carry its own hierarchy.
@@ -162,7 +162,7 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
     This lives here rather than in review.py because it's about how the
     units are laid out, not about the review GUI: run_pipeline.py needs
     it to reattach stored review work after a re-parse (see
-    ai_pipeline/reparse.py), and shouldn't have to import a FastAPI app
+    corpus/reparse.py), and shouldn't have to import a FastAPI app
     just to get it."""
     units: list[list[int]] = []
     current: list[int] | None = None

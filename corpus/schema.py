@@ -39,7 +39,7 @@ NODE_TYPES = [
     # together as one block of text makes the second unfindable.
     "penalty",
     # A table printed in the Act, recovered from where its cells sit on
-    # the page (see ai_pipeline/tables.py). Its rows are its text, one
+    # the page (see corpus/tables.py). Its rows are its text, one
     # per line, cells separated by a pipe -- so it is read, reviewed and
     # corrected exactly like any other provision.
     "table",

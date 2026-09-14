@@ -1,10 +1,10 @@
-"""Tests for ai_pipeline/db.py -- the SQLite-backed storage for verified
+"""Tests for corpus/db.py -- the SQLite-backed storage for verified
 review state and the correction log (link annotations are covered by
 tests/test_link_annotations.py, which exercises this same module through
-ai_pipeline.link_annotations's re-export)."""
+corpus.link_annotations's re-export)."""
 import pytest
 
-from ai_pipeline import db
+from corpus import db
 from conftest import make_node
 
 
@@ -406,7 +406,7 @@ def test_clear_act_review_keeps_what_isnt_tied_to_a_position(tmp_path, monkeypat
 
     db.clear_act_review("cpa")
 
-    from ai_pipeline.examples_store import stats
+    from corpus.corrections import stats
 
     assert stats()["total"] == 1
     assert db.load_custom_types("cpa") == ["penalty"]
@@ -469,7 +469,7 @@ def test_a_document_start_anchor_survives_the_round_trip(tmp_path, monkeypatch):
     """-1 is a real anchor (the front of the document), not a missing
     one -- it has to come back as itself and not as None."""
     monkeypatch.chdir(tmp_path)
-    from ai_pipeline.structure import DOCUMENT_START
+    from corpus.structure import DOCUMENT_START
 
     db.save_structure_edits("cpa", {
         3: {"after": DOCUMENT_START, "deleted": False, "node": make_node("part", "1")},

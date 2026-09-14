@@ -21,7 +21,7 @@
 </style>
 <style>
   /* Same variable names, and the same localStorage["reviewTheme"] key, as
-     static/review.html and ai_pipeline/html_view.py's PAGE_CSS: the theme
+     static/review.html and corpus/html_view.py's PAGE_CSS: the theme
      is one preference shared by every surface in the GUI, so switching it
      here and then opening a review or a browse page keeps it.
 
@@ -252,7 +252,7 @@
       </select>
 
       <div id="act-bill-fields">
-        <label>Profile (optional -- matches ai_pipeline/profiles/&lt;name&gt;.yaml)</label>
+        <label>Profile (optional -- matches corpus/profiles/&lt;name&gt;.yaml)</label>
         <input type="text" name="profile" placeholder="e.g. criminal-procedure-act">
 
         <div class="row">
@@ -293,7 +293,7 @@
       </select>
 
       <div id="parse-act-bill-fields">
-        <label>Profile (optional -- matches ai_pipeline/profiles/&lt;name&gt;.yaml)</label>
+        <label>Profile (optional -- matches corpus/profiles/&lt;name&gt;.yaml)</label>
         <input type="text" name="profile" placeholder="e.g. criminal-procedure-act">
 
         <div class="row">
@@ -786,7 +786,7 @@ document.getElementById("link-form").addEventListener("submit", async (e) => {
 });
 
 // ---------------------------------------------------------------------
-// AI-assist model -- see ai_pipeline/llm_backend.py and
+// AI-assist model -- see corpus/ai/backend.py and
 // install_ai_model.py, which this mirrors so a user doesn't have to
 // leave the dashboard to set the local model up.
 // ---------------------------------------------------------------------
@@ -852,7 +852,7 @@ async function installAiModel() {
 }
 
 // ---------------------------------------------------------------------
-// Whole-document AI scan -- see run_ai_review.py and ai_pipeline/ai_scan.py.
+// Whole-document AI scan -- see run_ai_review.py and corpus/ai/scan.py.
 // Runs as a background process per Act; this just starts/stops it and
 // polls its progress while the modal is open.
 // ---------------------------------------------------------------------

@@ -3,7 +3,7 @@ Keeps a human's review work attached to the right provisions when an Act
 gets parsed again.
 
 review.py stores each reviewed piece keyed by `_source_node_index` -- a
-*position* in data/ai_parsed/<act>.json. That's fine as long as the
+*position* in data/parsed/<act>.json. That's fine as long as the
 parse never changes, but wrong the moment it does: a parser improvement
 that adds, removes or re-splits even one node shifts every index after
 it, and the stored review rows silently start describing the wrong
@@ -358,7 +358,7 @@ def apply_remap(
     the verified table is keyed by node position, and an orphan doesn't
     have one any more, so this is the only way to keep them at all.
 
-    Structural edits (ai_pipeline/structure.py) do not survive a
+    Structural edits (corpus/structure.py) do not survive a
     re-parse, and are discarded here -- see _discard_structure_edits.
     """
     from . import db
@@ -446,9 +446,9 @@ def apply_carry_forward(
     if target_version is None:
         return None
 
-    ai_parsed_dir = Path(base_dir or ".") / "data" / "ai_parsed"
+    parsed_dir = Path(base_dir or ".") / "data" / "parsed"
     earlier = []
-    for path in ai_parsed_dir.glob(f"{work}-v*.json"):
+    for path in parsed_dir.glob(f"{work}-v*.json"):
         _w, version = split_document_slug(path.stem)
         if version is not None and version < target_version:
             earlier.append((version, path))

@@ -4,7 +4,7 @@ inserting a node that isn't in the PDF's own text, deleting one that
 shouldn't be there, and moving one to where it actually belongs.
 
 Everything else in this pipeline identifies a node by its *position* in
-data/ai_parsed/<act>.json -- verified rows, link spans, blind reviews, AI
+data/parsed/<act>.json -- verified rows, link spans, blind reviews, AI
 suggestions and scan findings all key on that integer, and
 review.positions_are_trustworthy exists precisely because a re-parse can
 invalidate it. So the one thing these edits must never do is renumber

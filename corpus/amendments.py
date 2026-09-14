@@ -5,16 +5,16 @@ already has, but hasn't linked together yet.
 An Act's margin notes name the Act that changed a provision, but only by
 number -- "S. 3 def. of accused amended by No. 68/2009 s. 51(b)(i)".
 Those are already parsed and attached to each node
-(ai_pipeline/history_notes.py), so the numbers are there, structured.
+(corpus/history_notes.py), so the numbers are there, structured.
 What that number actually means is in the Endnotes' Table of Amendments
-(ai_pipeline/endnotes.py): No. 68/2009 is the Criminal Procedure
+(corpus/endnotes.py): No. 68/2009 is the Criminal Procedure
 Amendment (Consequential and Transitional Provisions) Act 2009, assented
 24.11.09, sections 3-58 commencing 25.11.09.
 
 This module looks one up from the other, with a fallback: if an Act is
 named in a margin note but isn't in this Act's own Table of Amendments
 (maybe it amended a provision that's since been repealed), it can still
-be identified from ai_pipeline/act_registry.json, which has every
+be identified from corpus/act_registry.json, which has every
 Victorian Act's title, number and current in-force status. That fallback
 doesn't include assent or commencement dates, and the result always says
 which source it came from, so a caller never mistakes a registry-only

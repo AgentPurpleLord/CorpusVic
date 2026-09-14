@@ -5,22 +5,22 @@ against a single line of text without re-running the whole pipeline.
 Usage:
     python show_profile.py crimes-act
         Lists every pattern key, its resolved regex, and whether it's the
-        default or overridden by ai_pipeline/profiles/crimes-act.yaml.
+        default or overridden by corpus/profiles/crimes-act.yaml.
 
     python show_profile.py criminal-procedure-act --test "Part 5.1—Introduction"
         Shows which pattern key(s) match that exact line and what they
         capture as (number, heading/rest) -- the fast edit-test loop for
-        writing a profile override, see ai_pipeline/profiles/TEMPLATE.yaml.
+        writing a profile override, see corpus/profiles/TEMPLATE.yaml.
 """
 import argparse
 
-from ai_pipeline.hierarchy import HIERARCHY_ORDER
-from ai_pipeline.profiles import ProfileError, describe_profile, load_hierarchy, load_profile
+from corpus.hierarchy import HIERARCHY_ORDER
+from corpus.profiles import ProfileError, describe_profile, load_hierarchy, load_profile
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("profile", help="profile name, e.g. crimes-act (matches ai_pipeline/profiles/<name>.yaml)")
+    ap.add_argument("profile", help="profile name, e.g. crimes-act (matches corpus/profiles/<name>.yaml)")
     ap.add_argument("--test", metavar="LINE", help="check LINE against every pattern and show matches/captures")
     args = ap.parse_args()
 

@@ -1,9 +1,9 @@
-"""Tests for ai_pipeline/structure.py -- what an insert, a delete and a
+"""Tests for corpus/structure.py -- what an insert, a delete and a
 move mean for a document's reading order."""
 import pytest
 
-from ai_pipeline import structure
-from ai_pipeline.structure import DOCUMENT_START, StructureError
+from corpus import structure
+from corpus.structure import DOCUMENT_START, StructureError
 
 
 def edit(after=None, deleted=False, node=None):

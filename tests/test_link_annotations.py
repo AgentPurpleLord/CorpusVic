@@ -1,10 +1,10 @@
-"""Tests for the pure link-annotation data model (ai_pipeline/
-link_annotations.py, a thin re-export of ai_pipeline/db.py's storage) --
+"""Tests for the pure link-annotation data model (corpus/
+link_annotations.py, a thin re-export of corpus/db.py's storage) --
 validation and persistence, independent of review.py's FastAPI layer
 entirely."""
 import pytest
 
-from ai_pipeline.link_annotations import LinkError, add_link, delete_link, load_links, save_links
+from corpus.link_annotations import LinkError, add_link, delete_link, load_links, save_links
 
 
 @pytest.fixture

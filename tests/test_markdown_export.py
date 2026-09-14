@@ -1,10 +1,10 @@
-"""Tests for ai_pipeline/markdown_export.py."""
+"""Tests for corpus/markdown_export.py."""
 import re
 
 import yaml
 
-from ai_pipeline.akn_export import build_hierarchy_tree
-from ai_pipeline.markdown_export import (
+from corpus.akn_export import build_hierarchy_tree
+from corpus.markdown_export import (
     _github_slug,
     export_to_markdown,
     page_title,

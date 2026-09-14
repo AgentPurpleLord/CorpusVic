@@ -28,7 +28,7 @@ Why this needs its own parser, rather than reusing the Act's own
 What this is actually *for*: the Act's own margin notes name amending
 Acts by number only ("amended by No. 68/2009 s. 51(b)(i)"). The Table
 of Amendments is what turns those numbers into a title, an assent date
-and a commencement date -- see ai_pipeline/amendments.py, which joins
+and a commencement date -- see corpus/amendments.py, which joins
 the two together.
 
 This works on a best-effort basis, same as everywhere else in this
@@ -72,7 +72,7 @@ _TRAILING_QUALIFIER_RE = re.compile(r"\s*\([^)]*\)\s*$")
 # The record's title line ends with the citation the line above already
 # captured ("Bus Safety Act 2009, No. 13/2009") -- trimmed off `title`
 # so it reads as the Act's own short title, which is how it's shown and
-# how it matches ai_pipeline/act_registry.json's own keys.
+# how it matches corpus/act_registry.json's own keys.
 _TRAILING_CITATION_RE = re.compile(r",?\s*(?:S\.R\.\s*)?No\.\s*\d+\s*/\s*\d{4}\s*$")
 
 _DIVIDER_RE = re.compile(r"^[–—\-]{5,}$")

@@ -555,7 +555,7 @@ class _LineParser:
         self.prev_was_heading_group = False
         # Whether the currently-open Section/Clause looks like a
         # Definitions/Interpretation section (see
-        # ai_pipeline.definitions.looks_like_definitions_section) --
+        # corpus.definitions.looks_like_definitions_section) --
         # reset every time one opens (_open_node, below), gating
         # _try_definition_start so a bold+italic leading run only ever
         # becomes its own "definition" node inside a section that's
@@ -823,7 +823,7 @@ class _LineParser:
         )
 
     def _open_table(self, table, lines: list[BodyLine], char_start: int) -> None:
-        """Emits a table (see ai_pipeline/tables.py) as one node.
+        """Emits a table (see corpus/tables.py) as one node.
 
         Appended straight to self.nodes rather than pushed on the stack,
         like a note: it is part of what the provision above it says, and

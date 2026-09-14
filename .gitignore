@@ -15,12 +15,12 @@ _site/
 # the UI -- not durable state, just the latest run's output.
 data/ai_scan_logs/
 
-# data/ai_parsed/<act>.json (the raw parse) and data/legislation.db (the
+# data/parsed/<act>.json (the raw parse) and data/legislation.db (the
 # durable, human-created review state overlaid on it -- verified rows,
-# link annotations, the correction log; see ai_pipeline/db.py's module
+# link annotations, the correction log; see corpus/db.py's module
 # docstring) ARE committed, deliberately, as a pair: review.py's verified
 # rows are keyed by a *positional* index into that exact parse, so a
-# clone that had the DB but regenerated ai_parsed from a later parser
+# clone that had the DB but regenerated parsed from a later parser
 # version could silently misalign verified content with the wrong
 # provisions. Committing both together means a fresh clone (e.g. a
 # temporary cloud dev environment) can open review.py immediately with

@@ -2,14 +2,14 @@
 Parses an Act PDF into hierarchical components (Part/Division/Section/...),
 ready for human review.
 
-Deterministic and offset-based (ai_pipeline/rule_parser.py): it matches
+Deterministic and offset-based (corpus/rule_parser.py): it matches
 numbering patterns and font weight/size/position against a per-act-family
-profile (ai_pipeline/profiles.py) with no model call at all -- free,
+profile (corpus/profiles.py) with no model call at all -- free,
 instant, and able to prove nothing was silently dropped, since every input
 line ends up in exactly one node (see the completeness check in the
 diagnostics report below, which aborts this script if it ever fails). New
 Acts with a different numbering style are handled by adding a profile
-override, not by changing code -- see ai_pipeline/profiles.py's docstring.
+override, not by changing code -- see corpus/profiles.py's docstring.
 
 There used to be a second, model-backed engine here. It was removed rather
 than fixed: it read the page as plain text, so it never saw the font
@@ -38,13 +38,13 @@ drafting conventions, so pass that Act's --profile too where one exists
 nothing here ties a profile's filename to the PDF slug it's used with.
 
 An Act's closing Endnotes are split off before the body parse and handed
-to ai_pipeline/endnotes.py, which reads the Table of Amendments as a real
+to corpus/endnotes.py, which reads the Table of Amendments as a real
 table (see its own docstring for why that needs geometry, not text). The
-result rides along in data/ai_parsed/<act-slug>.json under "endnotes".
+result rides along in data/parsed/<act-slug>.json under "endnotes".
 
 Writes:
     data/extracted/<act-slug>.json     -- cleaned per-page text
-    data/ai_parsed/<act-slug>.json     -- the structured node list + endnotes
+    data/parsed/<act-slug>.json     -- the structured node list + endnotes
     data/diagnostics/<act-slug>.json   -- the anomaly report
 
 Next step: python review.py <act-slug>
@@ -54,18 +54,18 @@ import json
 import sys
 from pathlib import Path
 
-from ai_pipeline.diagnostics import run_diagnostics
-from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
-from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
-from ai_pipeline.hierarchy import group_into_units
-from ai_pipeline.profiles import profile_for
-from ai_pipeline.reparse import (apply_carry_forward, apply_remap, describe_remap,
+from corpus.diagnostics import run_diagnostics
+from corpus.endnotes import detect_endnotes_start, parse_endnotes
+from corpus.extract import extract_pages, pages_to_dicts, slugify
+from corpus.hierarchy import group_into_units
+from corpus.profiles import profile_for
+from corpus.reparse import (apply_carry_forward, apply_remap, describe_remap,
                                  parse_fingerprint, parser_version)
-from ai_pipeline.versions import describe as describe_version
-from ai_pipeline.versions import document_slug, read_front_matter, work_directory
-from ai_pipeline.rule_parser import parse_act
-from ai_pipeline.toc import detect_body_start
-from ai_pipeline.tree import attach_history
+from corpus.versions import describe as describe_version
+from corpus.versions import document_slug, read_front_matter, work_directory
+from corpus.rule_parser import parse_act
+from corpus.toc import detect_body_start
+from corpus.tree import attach_history
 
 
 def run_parser(pages, act_slug: str, profile_name: str | None, document_type: str = "act"):
@@ -85,7 +85,7 @@ def main():
         help="\"bill\" parses a Bill instead of an enacted Act (see the module docstring)",
     )
     ap.add_argument("--profile", default=None,
-                    help="pattern profile name (ai_pipeline/profiles/<name>.yaml); "
+                    help="pattern profile name (corpus/profiles/<name>.yaml); "
                          "defaults to whatever this document was parsed with before, or a profile named "
                          "after it")
     ap.add_argument("--no-profile", action="store_true",
@@ -96,7 +96,7 @@ def main():
 
     pdf_path = Path(args.pdf_path)
     # Which expression of the Act this is, read off its own front matter
-    # (see ai_pipeline/versions.py). Needed before the slug, because a PDF
+    # (see corpus/versions.py). Needed before the slug, because a PDF
     # sitting in a work directory is stored under that work and its own
     # version number rather than under its filename.
     version = read_front_matter(pdf_path)
@@ -153,7 +153,7 @@ def main():
     # re-parse cannot quietly come back with a worse one.
     profile_name = None if args.no_profile else (args.profile or profile_for(act_slug))
     if profile_name and not args.profile:
-        print(f"Using profile ai_pipeline/profiles/{profile_name}.yaml (override with --profile, "
+        print(f"Using profile corpus/profiles/{profile_name}.yaml (override with --profile, "
               "or --no-profile for none)")
     nodes, parse_result = run_parser(pages, act_slug, profile_name, document_type=args.document_type)
     engine_meta = {"engine": "rules", "profile": profile_name, "document_type": args.document_type}
@@ -183,7 +183,7 @@ def main():
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
 
-    parsed_dir = Path("data/ai_parsed")
+    parsed_dir = Path("data/parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
     out_path = parsed_dir / f"{act_slug}.json"
     out_path.write_text(
@@ -196,7 +196,7 @@ def main():
                 # are keyed by position into it, so this is what lets
                 # anything reading them tell "these positions still mean
                 # what they meant" from "this parse has moved underneath
-                # them" -- see ai_pipeline/reparse.py.
+                # them" -- see corpus/reparse.py.
                 "fingerprint": parse_fingerprint(nodes),
                 # Which parser read this PDF. Two versions of one Act can
                 # only be compared to find what Parliament amended if the
@@ -228,7 +228,7 @@ def main():
     # review work from the nearest earlier version that has some, so a
     # reviewer opens it already carrying forward everything that didn't
     # change rather than starting from nothing (see
-    # ai_pipeline/reparse.py's apply_carry_forward -- it never overwrites
+    # corpus/reparse.py's apply_carry_forward -- it never overwrites
     # review work this version already has of its own).
     if is_version:
         carried = apply_carry_forward(work, act_slug, nodes, group_into_units(nodes))

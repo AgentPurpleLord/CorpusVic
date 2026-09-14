@@ -1,7 +1,7 @@
 """
 Parses a Bill's Explanatory Memorandum (EM) PDF into a flat node list --
 "Clause N ..." entries plus organisational Chapter/Part headers (see
-ai_pipeline/em_parser.py for why an EM's own structure is this much
+corpus/em_parser.py for why an EM's own structure is this much
 flatter than an Act or Bill, and doesn't reuse rule_parser.py).
 
 Usage:
@@ -9,7 +9,7 @@ Usage:
 
 Writes:
     data/extracted/<em-slug>.json     -- cleaned per-page text
-    data/ai_parsed/<em-slug>.json     -- the structured node list
+    data/parsed/<em-slug>.json     -- the structured node list
 
 Next step: python review.py <em-slug>
     (an EM entry has no children of its own -- an EM's structure is flat
@@ -21,11 +21,11 @@ import json
 import sys
 from pathlib import Path
 
-from ai_pipeline.em_parser import parse_em
-from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
-from ai_pipeline.hierarchy import HIERARCHY_ORDER, group_into_units
-from ai_pipeline.reparse import apply_remap, describe_remap, parse_fingerprint
-from ai_pipeline.versions import read_front_matter
+from corpus.em_parser import parse_em
+from corpus.extract import extract_pages, pages_to_dicts, slugify
+from corpus.hierarchy import HIERARCHY_ORDER, group_into_units
+from corpus.reparse import apply_remap, describe_remap, parse_fingerprint
+from corpus.versions import read_front_matter
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
     for w in result.warnings:
         print(f"  ! {w}")
 
-    parsed_dir = Path("data/ai_parsed")
+    parsed_dir = Path("data/parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
     out_path = parsed_dir / f"{em_slug}.json"
     out_path.write_text(
@@ -64,7 +64,7 @@ def main():
                 # under which its "clause" entries rank as sections do.
                 # An EM has no Authorised Version of its own -- recorded
                 # anyway so every parsed document has the same shape, and
-                # so its title comes through (see ai_pipeline/versions.py).
+                # so its title comes through (see corpus/versions.py).
                 "version": read_front_matter(pdf_path),
                 "hierarchy": list(HIERARCHY_ORDER),
                 # See run_pipeline.py's own note: this is what tells a

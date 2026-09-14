@@ -3,7 +3,7 @@ Runs a whole-document AI audit pass over an already-parsed Act, Bill or
 Explanatory Memorandum: the local model looks at *every* unit (not just
 the ones diagnostics.py already flagged) and says whether its own
 type/number/heading/text classification looks right -- see
-ai_pipeline/ai_scan.py's own docstring for the question it asks and why.
+corpus/ai/scan.py's own docstring for the question it asks and why.
 
 Usage:
     python run_ai_review.py crimes-act
@@ -35,9 +35,9 @@ candidates for it to guard.
 """
 import argparse
 
-from ai_pipeline import db
-from ai_pipeline.ai_scan import BATCH_SIZE, iter_unit_batches, scan_batch, unit_root
-from ai_pipeline.llm_backend import DEFAULT_MODEL, OLLAMA_HOST, OllamaBackend, OllamaUnavailable
+from corpus import db
+from corpus.ai.scan import BATCH_SIZE, iter_unit_batches, scan_batch, unit_root
+from corpus.ai.backend import DEFAULT_MODEL, OLLAMA_HOST, OllamaBackend, OllamaUnavailable
 from review import build_effective_nodes_indexed, positions_are_trustworthy
 
 

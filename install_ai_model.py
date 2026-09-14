@@ -1,6 +1,6 @@
 """
 Sets up the local model the AI-assist feature uses (see
-ai_pipeline/ai_assist.py) -- an optional second opinion a reviewer can
+corpus/ai/assist.py) -- an optional second opinion a reviewer can
 ask for on a piece diagnostics has already flagged as uncertain. This
 feature is entirely optional: nothing in the parsing pipeline needs it,
 and skipping this script just means that one button in review.py stays
@@ -9,14 +9,14 @@ unavailable.
 Everything here runs locally. Ollama (https://ollama.com) serves an
 open-source model file from disk on this machine, with no network
 access needed once the model is pulled and no data leaving it -- see
-ai_pipeline/llm_backend.py's own module docstring for why Ollama is
+corpus/ai/backend.py's own module docstring for why Ollama is
 the only backend this project uses.
 
 Usage:
     python install_ai_model.py                     # pull the default model
     python install_ai_model.py --model llama3.1:8b-instruct
 
-This checks, in order, for the three things ai_pipeline.llm_backend.
+This checks, in order, for the three things corpus.ai.backend.
 OllamaBackend.ensure_ready checks at review time -- Ollama installed,
 Ollama running, the model pulled -- and only ever does the third one
 for you. The first two are left to you to fix and re-run this for:
@@ -28,7 +28,7 @@ doesn't.
 import argparse
 import sys
 
-from ai_pipeline.llm_backend import DEFAULT_MODEL, OLLAMA_HOST, OllamaBackend, pull_model
+from corpus.ai.backend import DEFAULT_MODEL, OLLAMA_HOST, OllamaBackend, pull_model
 
 
 def main():

@@ -149,7 +149,7 @@
   }
 
   // A preview is the provision's own words, so on a gated build it is
-  // encrypted exactly as the pages are (see ai_pipeline/site_crypto.py).
+  // encrypted exactly as the pages are (see corpus/site_crypto.py).
   // The key is the one the unlock page already derived -- found by the
   // salt this page carries, so no passphrase is handled here and a reader
   // who hasn't unlocked simply gets no card.

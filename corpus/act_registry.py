@@ -4,7 +4,7 @@ of Acts in chronological order" (em/List-of-Acts-in-chronological-
 order.pdf) -- see extract_act_registry.py for how the JSON file this
 reads was produced.
 
-This is different from, and complements, ai_pipeline/known_acts.yaml:
+This is different from, and complements, corpus/known_acts.yaml:
 known_acts.yaml is a small, hand-curated list of Acts this pipeline has
 actually parsed (so there's real content to link to). act_registry.json
 covers almost every Victorian Act ever passed, but only shallow details
