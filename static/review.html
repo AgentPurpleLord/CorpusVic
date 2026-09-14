@@ -423,6 +423,14 @@
   .deleted-piece { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; font-size: 13px; }
   .deleted-piece .picker-label { text-decoration: line-through; color: var(--muted); }
   .deleted-piece .picker-preview { flex: 1; color: var(--muted); text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A table piece: the stored pipe-separated rows above, and the table
+     they mean below. Set apart and captioned, so there is no mistaking
+     which of the two a reviewer is editing. */
+  .piece-table { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; overflow-x: auto; }
+  .piece-table-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  .piece-table table { border-collapse: collapse; font-family: var(--font-reading); font-size: 15px; }
+  .piece-table th, .piece-table td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; text-align: left; }
+  .piece-table th { font-weight: 600; background: var(--hover-bg); }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
   /* A Part/Division/Chapter heading is the whole of its piece -- there is no
      body text underneath for it to caption, so it reads as the content it is,
@@ -1095,6 +1103,11 @@ function pieceLabelText(piece) {
 }
 
 function renderPieceText(piece) {
+  // A table's rows are its lines (see ai_pipeline/tables.py), so reflowing
+  // it -- which is right for every other piece, where a line break is
+  // just where the PDF wrapped -- runs the whole table into one
+  // paragraph and hides the very structure being reviewed.
+  if (piece.type === "table") return escapeHtml(piece.text || "");
   const text = piece.reflowed;
   const sorted = [...piece.links].sort((a, b) => a.start_reflowed - b.start_reflowed);
   let html = "";
@@ -1118,6 +1131,21 @@ function renderPieceText(piece) {
   if (piece.heading) return "";
   return "<span style=\"color:var(--muted)\">no text and no heading &mdash; "
        + "check the page, this is usually a parsing fault</span>";
+}
+
+// The stored rows, as the table they are. Read-only: the text above it
+// is what gets edited, and this repaints from it on the next load.
+function renderPieceTable(text) {
+  const rows = (text || "").split("\n")
+    .filter((row) => row.trim())
+    .map((row) => row.split("|").map((cell) => cell.trim()));
+  if (!rows.length) return "";
+  const head = rows[0].map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+  const body = rows.slice(1)
+    .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<div class="piece-table"><div class="piece-table-label">As a table</div>
+    <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function describeTarget(link) {
@@ -1217,6 +1245,14 @@ function buildPiece(piece, idx) {
     const headingLine = !blindPending && piece.heading && piece.type !== "definition"
       ? `<div class="piece-heading${headingIsTheContent ? " piece-heading-only" : ""}">${escapeHtml(piece.heading)}</div>`
       : "";
+    // A table is stored as its rows, one per line, cells separated by a
+    // pipe (see ai_pipeline/tables.py) -- which is exactly what makes it
+    // editable here like anything else, and exactly what makes it
+    // unreadable. So the text box stays the text box, with a rendered
+    // copy under it: the reviewer checks the columns against the PDF in
+    // the table, and fixes a cell split in the wrong place by typing.
+    const tableHtml = !blindPending && piece.type === "table"
+      ? renderPieceTable(piece.text) : "";
     const findingsHtml = blindPending ? "" : (piece.findings || [])
       .map((f) => {
         // "ai-scan" findings come from run_ai_review.py's whole-document
@@ -1331,6 +1367,7 @@ function buildPiece(piece, idx) {
       </div>
       ${headingLine}
       <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece)}</div>
+      ${tableHtml}
       ${blindFormHtml}
       ${blindResultHtml}
       ${aiSuggestHtml}

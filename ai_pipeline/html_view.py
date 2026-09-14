@@ -73,6 +73,7 @@ import re
 from pathlib import Path
 
 from .akn_export import build_hierarchy_tree
+from .tables import split_rows
 from .amendments import anchor_id, describe, linkify_note
 from .diffing import provision_identity
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
@@ -389,6 +390,36 @@ def _provision_html(node_type: str, header_text: "str | None", text_html: "str |
     return (
         f'<div class="{" ".join(classes)}"{id_attr} style="--depth:{depth}">'
         f'{"".join(bits)}</div>'
+    )
+
+
+def _table_html(node: dict, depth: int, id_attr: str = "", render_cell=None) -> str:
+    """A table, as a real table.
+
+    Its rows are stored as text -- one per line, cells separated by a
+    pipe (see ai_pipeline/tables.py) -- which is what makes a table as
+    editable in review as any other provision. Here they go back to being
+    columns, because that is the only form in which the thing can be read
+    at all: "An offence against a child under the age of 16" means
+    nothing without the defence printed beside it.
+
+    The first row is the header. Every table in this corpus has one, and
+    they say so in as many words ("Column 1 / Column 2", "Provisions of
+    this Act / Subject-matter")."""
+    render_cell = render_cell or _esc
+    rows = split_rows(node.get("text") or "")
+    if not rows:
+        return ""
+    caption = f"<caption>{_esc(node['heading'])}</caption>" if node.get("heading") else ""
+    head = "".join(f"<th>{render_cell(cell)}</th>" for cell in rows[0])
+    body = "".join(
+        "<tr>" + "".join(f"<td>{render_cell(cell)}</td>" for cell in row) + "</tr>"
+        for row in rows[1:]
+    )
+    return (
+        f'<div class="prov prov-table"{id_attr} style="--depth:{depth}">'
+        f"<table>{caption}<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+        "</div>"
     )
 
 
@@ -1051,11 +1082,17 @@ def render_section(
         slug = slugs.get(key)
         id_attr = f' id="{_esc(slug)}"' if slug else ""
 
-        out.append(_provision_html(
-            unit_node["type"], unit["header_text"],
-            None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
-            unit["depth"], id_attr,
-        ))
+        if unit_node["type"] == "table":
+            out.append(_table_html(
+                unit_node, unit["depth"], id_attr,
+                lambda cell: linkify(_esc(cell), target_filename, slug),
+            ))
+        else:
+            out.append(_provision_html(
+                unit_node["type"], unit["header_text"],
+                None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
+                unit["depth"], id_attr,
+            ))
         # One margin cell per provision, empty or not: the two columns
         # are auto-placed rows of the same grid, so a note only stays
         # level with the provision it belongs to if every provision
@@ -1240,10 +1277,13 @@ def _preview_prov_html(unit: dict, base_depth: int) -> str:
     previews of previews, and its ids would collide with the real
     page's own."""
     node = unit["tree_node"]["node"]
+    depth = max(unit["depth"] - base_depth, 0)
+    if node["type"] == "table":
+        return _table_html(node, depth)
     return _provision_html(
         node["type"], unit["header_text"],
         None if unit["text"] is None else _esc(unit["text"]),
-        max(unit["depth"] - base_depth, 0),
+        depth,
     )
 
 

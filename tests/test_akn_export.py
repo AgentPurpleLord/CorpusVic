@@ -214,3 +214,20 @@ def test_an_act_with_a_penalty_still_validates_against_the_real_schema():
         make_node("penalty", None, None, "Penalty: Level 2 imprisonment (25 years maximum)."),
     ]
     assert_valid_akn(export_to_akn({"nodes": nodes, "act": "test-act"}))
+
+
+def test_a_table_exports_as_a_real_table():
+    """Its rows are stored as text, and reflow would join them into one
+    paragraph -- throwing away the one thing a table is, and putting the
+    rows back into exactly the state they were recovered from."""
+    nodes = _small_act_nodes() + [
+        make_node("table", None, "Table", "Column 1 | Column 2\nan offence | a defence"),
+    ]
+    tree = export_to_akn({"nodes": nodes, "act": "test-act"})
+    assert_valid_akn(tree)
+
+    root = tree.getroot()
+    assert "an offence | a defence" not in ET.tostring(root, encoding="unicode")
+    assert [e.tag.rsplit("}", 1)[-1] for e in root.iter() if e.tag.endswith("}tr")] == ["tr", "tr"]
+    cells = [e.text for e in root.iter() if e.tag.endswith("}p")]
+    assert "Column 1" in cells and "a defence" in cells

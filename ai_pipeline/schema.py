@@ -38,6 +38,11 @@ NODE_TYPES = [
     # you do it are separate facts about an offence, and running them
     # together as one block of text makes the second unfindable.
     "penalty",
+    # A table printed in the Act, recovered from where its cells sit on
+    # the page (see ai_pipeline/tables.py). Its rows are its text, one
+    # per line, cells separated by a pipe -- so it is read, reviewed and
+    # corrected exactly like any other provision.
+    "table",
     "repealed",
     # No longer emitted -- an EM's entries are typed "clause" now (see
     # em_parser.py's own docstring). Kept so an EM parsed before that
@@ -66,11 +71,11 @@ TYPES_BY_DOCUMENT = {
     # A consolidated Act: sections, and the "* * * *" markers standing in
     # for provisions since repealed.
     "act": [*_STRUCTURE, "section", *_SUBLEVELS, "definition", "continuation", "note", "example",
-            "penalty", "repealed"],
+            "penalty", "table", "repealed"],
     # A Bill numbers its top-level provisions clauses until it is enacted.
     # Nothing in it is repealed yet.
     "bill": [*_STRUCTURE, "clause", *_SUBLEVELS, "definition", "continuation", "note", "example",
-             "penalty"],
+             "penalty", "table"],
     # An Explanatory Memorandum is a flat sequence of notes on the Bill's
     # own clauses, under organisational headings, with bulleted lists
     # inside an entry parsed as paragraphs (see em_parser.py).

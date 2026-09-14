@@ -994,3 +994,47 @@ def test_an_act_offers_its_bill_and_em_from_its_own_contents():
     assert "the Bill it was enacted from" in page
     # Nothing at all where there is no related document to offer.
     assert "Related documents" not in render_index(_parsed(_definitions_act()), "A", "/browse/a")
+
+
+# ---------------------------------------------------------------------
+# Tables
+# ---------------------------------------------------------------------
+
+def _table_act() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "7A", "Time limits removed", ""),
+        make_node("subsection", "3", None, "...described in column 1 of the Table..."),
+        make_node(
+            "table", None, "Table",
+            "Column 1 | Column 2\n"
+            "An offence against a child | A defence under section 45(4)\n"
+            "An offence against a 16 year old | A defence under section 48(2)",
+        ),
+    ]
+
+
+def test_a_table_renders_as_a_table():
+    """Its rows are stored as text, which is what makes it editable in
+    review. Here they have to go back to being columns: "An offence
+    against a child" means nothing without the defence printed beside
+    it."""
+    body = render_section(_parsed(_table_act()), "Test Act", "/browse/a", "s7a")
+
+    assert '<div class="prov prov-table"' in body
+    assert "<th>Column 1</th><th>Column 2</th>" in body
+    assert "<td>An offence against a child</td>" in body
+    assert "<caption>Table</caption>" in body
+    # The stored form is never what a reader sees.
+    assert "Column 1 | Column 2" not in body
+
+
+def test_a_tables_cells_are_linkified_like_any_other_text():
+    nodes = _definitions_act()
+    # Inside section 3, not after the section that follows it.
+    nodes.insert(-1, make_node("table", None, None, "Term | Meaning\nthe accused | a person charged"))
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s3")
+
+    assert re.search(r"<td>[^<]*<a[^>]*>accused</a>[^<]*</td>", body), (
+        "a defined term inside a cell should link the same way it does in prose"
+    )

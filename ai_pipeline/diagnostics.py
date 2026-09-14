@@ -59,7 +59,7 @@ class DiagnosticsReport:
 # so an empty one cannot have come from a real penalty line at all.
 _LEAF_TYPES = {
     "section", "clause", "subsection", "paragraph", "subparagraph", "sub_subparagraph",
-    "note", "definition", "repealed", "example", "penalty",
+    "note", "definition", "repealed", "example", "penalty", "table",
 }
 
 

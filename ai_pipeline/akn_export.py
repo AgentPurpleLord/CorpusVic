@@ -65,6 +65,7 @@ from pathlib import Path
 
 from .extract import reflow
 from .hierarchy import HIERARCHY_ORDER, make_ranks
+from .tables import split_rows
 from .versions import read_front_matter
 
 AKN_NS = "http://docs.oasis-open.org/legaldocml/ns/akn/3.0"
@@ -228,7 +229,7 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
                 # AKN has no native element for a penalty, so it renders
                 # through the same <hcontainer name="penalty"> fallback
                 # a note does; the eId still names it for what it is.
-                "penalty": "pnlty",
+                "penalty": "pnlty", "table": "tbl",
             }.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
@@ -275,11 +276,33 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
             _render_p(intro, node["text"])
         for child in tree_node["children"]:
             el.append(render_tree_node(child, hierarchy_order=hierarchy_order))
+    elif t == "table":
+        _render_table(ET.SubElement(el, _q("content")), node.get("text") or "")
     else:
         content = ET.SubElement(el, _q("content"))
         _render_p(content, node.get("text") or "")
 
     return el
+
+
+def _render_table(parent_el, text: str) -> None:
+    """A table's rows, as a real AkomaNtoso <table>.
+
+    Not one <p>: the rows are stored as text (see ai_pipeline/tables.py)
+    and reflow would join them into a single paragraph, throwing away the
+    one thing a table is -- which is exactly the state the rows were
+    recovered from in the first place. AKN takes HTML's own table
+    elements for this."""
+    rows = split_rows(text)
+    if not rows:
+        _render_p(parent_el, "")
+        return
+    table_el = ET.SubElement(parent_el, _q("table"))
+    for index, row in enumerate(rows):
+        row_el = ET.SubElement(table_el, _q("tr"))
+        for cell in row:
+            cell_el = ET.SubElement(row_el, _q("th" if index == 0 else "td"))
+            _render_p(cell_el, cell)
 
 
 # ---------------------------------------------------------------------------

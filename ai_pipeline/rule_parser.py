@@ -43,6 +43,7 @@ from .definitions import looks_like_definitions_section
 from .extract import BodyLine, PageText, join_printed_line
 from .hierarchy import HIERARCHY_ORDER, heading_levels, make_ranks
 from .profiles import load_hierarchy, load_profile
+from .tables import find_table
 
 
 @dataclass
@@ -658,13 +659,26 @@ class _LineParser:
 
     def feed(self, lines: list[BodyLine]) -> None:
         self.lines_total = len(lines)
+        # A table is claimed whole, by the run of lines it occupies, so
+        # everything after its first line is already spoken for. The
+        # per-line bookkeeping above still runs for each of them -- they
+        # were consumed, just not one at a time.
+        consumed_through = -1
         for idx, line in enumerate(lines):
             text = line.text.strip()
             char_start = self.cursor
             char_end = self.cursor + len(text)
             self.cursor = char_end + 1  # account for the "\n" join
             self.lines_consumed += 1
+            if idx <= consumed_through:
+                continue
             if not text:
+                continue
+
+            table = find_table(lines, idx)
+            if table is not None:
+                self._open_table(table, lines, char_start)
+                consumed_through = table.end - 1
                 continue
             next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
 
@@ -762,6 +776,26 @@ class _LineParser:
             # provision swallowed the caption introducing the next one.
             or line.bold
         )
+
+    def _open_table(self, table, lines: list[BodyLine], char_start: int) -> None:
+        """Emits a table (see ai_pipeline/tables.py) as one node.
+
+        Appended straight to self.nodes rather than pushed on the stack,
+        like a note: it is part of what the provision above it says, and
+        nothing nests inside one. Its rows live in its text, which is
+        what makes it as editable in review as any other piece."""
+        self._close_marked_block()
+        self.marked_block_type = None
+        block = lines[table.start : table.end]
+        end = char_start
+        for line in block:
+            end += len(line.text.strip()) + 1
+        self.nodes.append({
+            "type": "table", "number": None, "heading": table.heading,
+            "text": table.text,
+            "page_start": block[0].page_no, "page_end": block[-1].page_no,
+            "char_start": char_start, "char_end": end - 1, "source": "rules",
+        })
 
     def _open_penalty(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
         """Starts a penalty node at a "Penalty: ..." line.
