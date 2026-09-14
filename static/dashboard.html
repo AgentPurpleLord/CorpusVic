@@ -3,10 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Legislation pipeline dashboard</title>
-<!-- Inter, self-hosted alongside Junicode in the page template's own font
-     directory (static/site/fonts/, mounted at /assets) rather than pulled
-     off a CDN -- one rule for both faces, and one fewer thing that has to
-     be reachable for this to render. -->
+<!-- Inter and Junicode are self-hosted. --->
 <style>
   @font-face {
     font-family: 'Inter';
@@ -20,20 +17,6 @@
   }
 </style>
 <style>
-  /* Same variable names, and the same localStorage["reviewTheme"] key, as
-     static/review.html and ai_pipeline/html_view.py's PAGE_CSS: the theme
-     is one preference shared by every surface in the GUI, so switching it
-     here and then opening a review or a browse page keeps it.
-
-     Palette: "Modernist" -- flat, architectural, a near-mono red accent on
-     a warm off-white ground, zero corner radius, strong dividers (see the
-     imported Claude Design system this was adapted from). The dark values
-     aren't the light ones inverted: they're a separate OKLCH ramp on the
-     same hue/chroma family (accent hue ~31.5°, neutral hue ~17.3°, matching
-     the light palette's own red and warm gray), pulled to the lightness
-     steps that stay legible on a dark ground -- e.g. the accent moves to a
-     lighter step (its own "accent-400") rather than reusing the deep red
-     that only reads correctly on a light ground. */
   :root {
     color-scheme: light;
     --bg: #f3f2f2;
@@ -142,12 +125,7 @@
   .badge.in-progress { background: var(--badge-progress-bg); color: var(--flagged); }
   .badge.not-started, .badge.not-parsed { background: var(--badge-bg); color: var(--pending); }
   .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  /* A Bill, the Act it became, and its Explanatory Memorandum belong
-     together -- shown as one row rather than three unrelated cards
-     scattered down the page. A row of one (nothing links to it, or
-     nothing else has been added yet) gets no wrapper at all: the
-     grouping only earns its keep once there's more than one card to
-     group. */
+  /* Bill + Act + Explanatory Memorandum all inter-relate. Shown as one row. */
   .doc-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
   .doc-row .act-card { flex: 1 1 260px; margin: 0; }
   .doc-row.grouped {
