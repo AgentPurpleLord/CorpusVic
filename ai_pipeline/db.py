@@ -383,6 +383,38 @@ _HUMAN_WORK_TABLES = (
 _DERIVED_TABLES = ("parse_state",)
 
 
+# Everything stored about one document that is keyed to a node position.
+# Clearing these is what "start this document's review again" means: a
+# re-parse re-anchors them by identity (see ai_pipeline/reparse.py), but
+# sometimes the parse has changed enough that carrying the old decisions
+# across is the wrong answer and a clean slate is the right one.
+#
+# corrections and custom_types are deliberately not here. A correction is
+# an append-only record of what a parser said and what a human said
+# instead -- it belongs to no position and is the only history of those
+# judgements. A custom type is the reviewer's own vocabulary. Neither
+# stops a document being reviewed again from scratch.
+_POSITION_KEYED_TABLES = (
+    "verified", "links", "blind_reviews", "orphaned_reviews", "ai_suggestions", "ai_scan_findings",
+)
+
+
+def clear_act_review(act: str, base_dir: "str | Path | None" = None) -> dict[str, int]:
+    """Throws away every stored decision about one document, returning
+    {table: rows deleted} for the tables that had any.
+
+    Also drops the recorded parse fingerprint, so the next parse is not
+    compared against one nothing is keyed to any more."""
+    conn = _connect(base_dir)
+    cleared = {}
+    with conn:
+        for table in _POSITION_KEYED_TABLES + _DERIVED_TABLES:
+            cur = conn.execute(f"DELETE FROM {table} WHERE act = ?", (act,))
+            if cur.rowcount:
+                cleared[table] = cur.rowcount
+    return cleared
+
+
 def rename_act(old: str, new: str, base_dir: "str | Path | None" = None) -> dict[str, int]:
     """Moves every stored row from one document slug to another,
     returning {table: rows moved}.

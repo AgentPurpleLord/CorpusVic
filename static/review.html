@@ -586,6 +586,10 @@
         <button class="btn" id="merge-open-btn">Merge pieces&hellip;</button>
         <button class="btn primary" id="accept-btn">Accept unit</button>
         <button class="btn" id="flag-btn">Flag for follow-up</button>
+        <!-- Both undo decisions rather than make them, so they sit apart
+             from Accept and Flag and neither is the primary action. -->
+        <button class="btn" id="clear-unit-btn" title="Drop every decision in this section, so it comes back undecided against the current parse">Clear decisions</button>
+        <button class="btn" id="reparse-unit-btn" title="Parse this document again from its PDF, then bring this section back undecided against the new parse">Re-parse section&hellip;</button>
         <span style="margin-left:auto; font-size:11.5px; color:var(--muted);">Drag a piece by its left edge onto another to merge &middot; drag its &#8676; Nest handle onto another to nest under it</span>
       </div>
       <div id="empty-state">Loading&hellip;</div>
@@ -1546,6 +1550,49 @@ async function decideUnit(flagged) {
 
 document.getElementById("accept-btn").onclick = () => decideUnit(false);
 document.getElementById("flag-btn").onclick = () => decideUnit(true);
+
+// A parser fix rarely changes one provision -- it changes how a whole
+// section was read -- so undoing a section's decisions in one go is the
+// counterpart to the per-piece reset, not a bulk convenience.
+document.getElementById("clear-unit-btn").onclick = async () => {
+  const decided = currentUnit.pieces.filter((p) => p.verified_at || p.needs_followup).length;
+  if (!decided) { toast("Nothing has been decided in this section yet."); return; }
+  if (!confirm(`Drop ${decided} decision(s) in this section?\n\n`
+             + "Every piece comes back undecided, against whatever the parse says now. "
+             + "The parse itself is not touched.")) return;
+  try {
+    const result = await api(`api/units/${currentUnitNo}/clear`, { method: "POST" });
+    toast(`Cleared ${result.cleared} decision(s).`);
+    currentUnit = await api(`api/units/${currentUnitNo}`);
+    renderUnit();
+    updateUnitRowStatus(currentUnitNo, currentUnit.status);
+  } catch (e) { toast(e.message, true); }
+};
+
+// Parsing one section on its own isn't a thing -- where a section starts
+// depends on everything before it -- so this parses the document and
+// clears only this section, which is the useful shape of the request:
+// the section is re-read, the review work everywhere else survives.
+document.getElementById("reparse-unit-btn").onclick = async () => {
+  if (!confirm("Parse this document again from its PDF?\n\n"
+             + "Decisions everywhere else are carried across onto the provisions they describe. "
+             + "This section's own decisions are dropped, so it comes back fresh against the new parse.")) return;
+  const btn = document.getElementById("reparse-unit-btn");
+  btn.disabled = true;
+  btn.textContent = "Re-parsing\u2026";
+  try {
+    const result = await api(`api/units/${currentUnitNo}/reparse`, { method: "POST" });
+    toast(result.detail);
+    // The parse is new, so everything is reloaded -- unit numbers can
+    // have moved, and the server says where this section landed.
+    await loadMeta();
+    await loadUnit(result.unit_no == null ? currentUnitNo : result.unit_no);
+  } catch (e) { toast(e.message, true); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = "Re-parse section\u2026";
+  }
+};
 
 // Deciding one piece used to reload the whole unit and the whole sidebar:
 // two round trips, then every piece in the unit and all several hundred

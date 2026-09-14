@@ -95,6 +95,8 @@ import argparse
 import bisect
 import json
 import re
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -113,7 +115,8 @@ from ai_pipeline.link_annotations import LABELS, LinkError, add_link, delete_lin
 from ai_pipeline.link_targets import build_definition_index, resolve_link
 from ai_pipeline.schema import NODE_TYPES, types_for_document
 
-STATIC_DIR = Path(__file__).parent / "static"
+BASE_DIR = Path(__file__).parent
+STATIC_DIR = BASE_DIR / "static"
 
 # ---------------------------------------------------------------------------
 # Pure logic shared with the test suite (tests/test_review.py) -- no I/O,
@@ -1774,6 +1777,83 @@ def accept_unit(unit_no: int, req: AcceptRequest):
     return {"unit_no": unit_no, "status": _unit_status(unit_no)}
 
 
+@app.post("/api/units/{unit_no}/clear")
+def clear_unit_endpoint(unit_no: int):
+    """Drops every stored decision in one unit, so the whole section comes
+    back undecided against whatever the parse says now.
+
+    The same thing reset_node_endpoint does for one piece, for a Section
+    with thirty of them. A parser fix rarely changes a single provision --
+    it changes how a whole section was read -- and going through that
+    section one piece at a time to say so is work the fix was supposed to
+    save."""
+    if not (0 <= unit_no < len(_units)):
+        raise HTTPException(404, "No such unit")
+    cleared = 0
+    for i in _units[unit_no]:
+        _pending_edits.pop(i, None)
+        row = _verified_by_source_index.pop(i, None)
+        if row is not None:
+            _verified[:] = [v for v in _verified if v is not row]
+            cleared += 1
+    if cleared:
+        save_verified(_act, _verified)
+    return {"unit_no": unit_no, "cleared": cleared, "status": _unit_status(unit_no)}
+
+
+@app.post("/api/units/{unit_no}/reparse")
+def reparse_unit_endpoint(unit_no: int):
+    """Parses this document again and brings just this section back
+    undecided against the result.
+
+    There is no such thing as parsing one section on its own: the parser
+    reads the document as one stream of lines, and where a section starts
+    depends on everything before it. So the whole document is parsed --
+    which for a 530-page Act is about two seconds -- and run_pipeline.py's
+    own re-anchoring carries every stored decision across onto the
+    provision it describes (see ai_pipeline/reparse.py). Then the
+    decisions for *this* section are dropped, so it is the one part of the
+    document that comes back fresh.
+
+    That is the useful shape of "re-parse this section": the section is
+    re-read from the PDF, and the review work everywhere else survives.
+
+    The unit is found again by what its opening provision *is* rather
+    than by its number, because a re-parse can add or remove nodes
+    earlier in the document and move every unit after them."""
+    if not (0 <= unit_no < len(_units)):
+        raise HTTPException(404, "No such unit")
+    if not _source_pdf_path:
+        raise HTTPException(400, "This document has no source PDF recorded, so it can't be parsed again.")
+    root = _nodes[_units[unit_no][0]]
+    identity = (root["type"], root.get("number"), root.get("heading"))
+
+    cmd = [sys.executable, "run_pipeline.py", _source_pdf_path]
+    if _document_type in ("bill", "em"):
+        cmd += ["--document-type", _document_type]
+    result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=900)
+    if result.returncode != 0:
+        raise HTTPException(500, f"Re-parsing {_act} failed:\n{result.stdout}{result.stderr}"[:2000])
+
+    _load_state(_act)
+    found = next(
+        (u for u, indices in enumerate(_units)
+         if (_nodes[indices[0]]["type"], _nodes[indices[0]].get("number"),
+             _nodes[indices[0]].get("heading")) == identity),
+        None,
+    )
+    if found is None:
+        # The parse no longer has this section at all. Everything else is
+        # already re-anchored, so this is a real finding rather than a
+        # failure -- say so instead of clearing a different section.
+        return {"unit_no": None, "cleared": 0, "reparsed": True,
+                "detail": f"{_act} was parsed again, but no section matching "
+                          f"{identity[1] or identity[0]} is in the new parse."}
+    cleared = clear_unit_endpoint(found)
+    return {"unit_no": found, "cleared": cleared["cleared"], "reparsed": True,
+            "detail": f"{_act} was parsed again; this section's {cleared['cleared']} decision(s) were cleared."}
+
+
 @app.get("/api/links")
 def get_links():
     return load_links(_act)
@@ -1799,21 +1879,36 @@ def remove_link(link_id: str):
     return {"ok": True}
 
 
-def main():
-    global _act, _nodes, _units, _unit_of_index, _verified, _definition_index
-    global _findings_by_node, _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
-    global _source_pdf_path, _act_title, _document_type
+def _load_state(act: str, restart: bool = False) -> None:
+    """Reads everything this process serves for one document: its parse,
+    its source PDF, the units that parse groups into, and every stored
+    decision about it.
 
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("act")
-    ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--restart", action="store_true", help="ignore existing progress and start from the beginning")
-    args = ap.parse_args()
+    Called once at startup, and again by reparse_unit_endpoint -- a
+    re-parse rewrites data/ai_parsed/<act>.json underneath this process,
+    and serving the node list loaded before it would mean answering from
+    a parse that no longer exists. Every derived container is rebuilt
+    from scratch rather than added to, so nothing from the previous parse
+    survives into the new one."""
+    global _act, _nodes, _units, _verified, _definition_index, _parse_fingerprint
+    global _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
+    global _source_pdf_path, _act_title, _document_type, _positions_trusted
+    global _pdf_doc
 
-    _act = args.act
-    _nodes, _unattached_notes, _hierarchy, _parse_fingerprint = load_parsed(args.act)
-    _source_pdf_path = load_source_pdf_path(args.act)
-    _document_type = load_document_type(args.act)
+    _act = act
+    _unit_of_index.clear()
+    _verified_by_source_index.clear()
+    _pending_edits.clear()
+    _merged_away.clear()
+    _findings_by_node.clear()
+    _page_image_cache.clear()
+    if _pdf_doc is not None:
+        _pdf_doc.close()
+        _pdf_doc = None
+
+    _nodes, _unattached_notes, _hierarchy, _parse_fingerprint = load_parsed(act)
+    _source_pdf_path = load_source_pdf_path(act)
+    _document_type = load_document_type(act)
     # Computed once here, not per-request: _detect_act_citation re-reads
     # and re-extracts the *whole* source PDF via PyMuPDF just to find the
     # title on its first couple of pages (see dashboard.py's own
@@ -1821,14 +1916,14 @@ def main():
     # view there -- one Act per process here, so once at startup is enough).
     from ai_pipeline.akn_export import _detect_act_citation
 
-    _act_title = _detect_act_citation(_source_pdf_path).get("title") or args.act
+    _act_title = _detect_act_citation(_source_pdf_path).get("title") or act
     _units = group_into_units(_nodes)
     for u, indices in enumerate(_units):
         for i in indices:
             _unit_of_index[i] = u
     _definition_index = build_definition_index(_nodes)
 
-    for finding in load_diagnostics(args.act):
+    for finding in load_diagnostics(act):
         if finding.get("node_index") is not None:
             _findings_by_node.setdefault(finding["node_index"], []).append(finding)
 
@@ -1840,8 +1935,8 @@ def main():
     # ai_suggestions already are: these rows are cached against a node
     # position from whenever the scan ran, and a re-parse that wasn't
     # re-anchored can no longer vouch for what that position now holds.
-    if positions_are_trustworthy(args.act, _parse_fingerprint):
-        for row in db.load_ai_scan_findings(args.act):
+    if positions_are_trustworthy(act, _parse_fingerprint):
+        for row in db.load_ai_scan_findings(act):
             if row["severity"] != "clean":
                 _findings_by_node.setdefault(row["node_index"], []).append({
                     "severity": row["severity"],
@@ -1850,7 +1945,7 @@ def main():
                     "node_index": row["node_index"],
                 })
 
-    _verified = [] if args.restart else load_verified(args.act)
+    _verified = [] if restart else load_verified(act)
     for v in _verified:
         if "_source_node_index" in v:
             _verified_by_source_index[v["_source_node_index"]] = v
@@ -1858,12 +1953,12 @@ def main():
         # Nothing reviewed yet, so whatever gets accepted from here on
         # belongs to this parse -- record that now, rather than leaving
         # the first session's work unattributable to any parse at all.
-        db.save_parse_fingerprint(args.act, _parse_fingerprint)
+        db.save_parse_fingerprint(act, _parse_fingerprint)
     # After the verified rows are in: the type list includes every type
     # actually in use (see _builtin_type_names), and a reviewer's own
     # relabel lives in those rows, not in the parse.
     _refresh_relabel_types()
-    _positions_trusted = positions_are_trustworthy(args.act, _parse_fingerprint)
+    _positions_trusted = positions_are_trustworthy(act, _parse_fingerprint)
     _startup_resume_unit = _resume_point(_units, _verified, markers_are_complete=_positions_trusted)
     # Reconstruct which nodes were merged away in a prior session: any
     # index belonging to an already-fully-processed unit (before the
@@ -1879,6 +1974,15 @@ def main():
             for i in _units[u]:
                 if i not in _verified_by_source_index:
                     _merged_away.add(i)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("act")
+    ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--restart", action="store_true", help="ignore existing progress and start from the beginning")
+    args = ap.parse_args()
+    _load_state(args.act, restart=args.restart)
 
     import uvicorn
 

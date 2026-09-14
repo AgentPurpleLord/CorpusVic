@@ -308,6 +308,22 @@
         </div>
       </div>
 
+      <!-- Re-anchoring reviewed pieces onto the new parse is the right
+           default, and what happens when this is left alone. It is the
+           wrong answer after a parser change big enough that the stored
+           decisions describe provisions that no longer exist in that
+           shape -- and then resetting them one at a time is the only
+           other way out. -->
+      <label id="parse-discard-label" style="display:none">
+        <input type="checkbox" id="parse-discard-checkbox" style="width:auto; margin-right:6px;">
+        Start the review again &mdash; discard every stored decision for this document
+      </label>
+      <div id="parse-discard-note" class="warning" style="display:none">
+        Accepted pieces, flags, link annotations, independent assessments and AI scan findings for this
+        document will be deleted. This cannot be undone. The log of past corrections and your own custom
+        types are kept &mdash; neither is tied to a position in the parse.
+      </div>
+
       <label id="parse-confirm-label" style="display:none">
         <input type="checkbox" id="parse-confirm-checkbox" style="width:auto; margin-right:6px;">
         I understand -- replace the existing parse anyway
@@ -624,16 +640,35 @@ function openParseModal(slug) {
   document.getElementById("parse-form").reset();
 
   const reviewed = s.reviewed_units || 0;
+  const keepWarning = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Re-parsing `
+    + "regenerates the raw structure from the PDF. Your reviewed pieces are carried across onto the "
+    + "provisions they describe, but any whose wording the parser now reads differently will have their "
+    + "acceptance withdrawn for you to look at again.";
   const warn = document.getElementById("parse-warning");
   const confirmLabel = document.getElementById("parse-confirm-label");
   const confirmCheckbox = document.getElementById("parse-confirm-checkbox");
+  const discardLabel = document.getElementById("parse-discard-label");
+  const discardCheckbox = document.getElementById("parse-discard-checkbox");
+  const discardNote = document.getElementById("parse-discard-note");
   confirmCheckbox.checked = false;
+  discardCheckbox.checked = false;
+  discardNote.style.display = "none";
+  // Only offered where there is something to discard.
+  discardLabel.style.display = s.parsed && reviewed > 0 ? "flex" : "none";
+  discardCheckbox.onchange = () => {
+    discardNote.style.display = discardCheckbox.checked ? "block" : "none";
+    // A re-parse that keeps the work and one that throws it away are
+    // different enough decisions that the confirmation has to say which
+    // it is being given for.
+    confirmCheckbox.checked = false;
+    warn.textContent = discardCheckbox.checked
+      ? `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Every one of those decisions `
+        + "will be deleted and the Act will come back with nothing reviewed at all."
+      : keepWarning;
+  };
   if (s.parsed && reviewed > 0) {
     warn.style.display = "block";
-    warn.textContent = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Re-parsing `
-      + "regenerates the raw structure from the PDF. Your reviewed pieces are carried across onto the "
-      + "provisions they describe, but any whose wording the parser now reads differently will have their "
-      + "acceptance withdrawn for you to look at again.";
+    warn.textContent = keepWarning;
     confirmLabel.style.display = "flex";
   } else {
     warn.style.display = "none";
@@ -661,6 +696,7 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
   try {
     const fd = new FormData(form);
     fd.set("confirm", document.getElementById("parse-confirm-checkbox").checked ? "true" : "false");
+    fd.set("discard", document.getElementById("parse-discard-checkbox").checked ? "true" : "false");
     const res = await fetch(`/api/acts/${slug}/reparse`, { method: "POST", body: fd });
     const data = await res.json();
     if (res.status === 409) {
@@ -672,9 +708,12 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
       toast("Check the box to confirm replacing the existing parse.", true);
       return;
     }
-    logEl.textContent = data.log || data.detail || "(no output)";
+    const cleared = Object.entries(data.cleared || {});
+    logEl.textContent =
+      (cleared.length ? `Discarded review data: ${cleared.map(([t, n]) => `${n} ${t}`).join(", ")}\n\n` : "")
+      + (data.log || data.detail || "(no output)");
     if (data.ok) {
-      toast(`Parsed ${slug}`);
+      toast(cleared.length ? `Parsed ${slug} -- review data discarded` : `Parsed ${slug}`);
       closeModal("parse-modal");
       loadActs();
     } else if (res.ok) {

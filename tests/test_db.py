@@ -354,3 +354,67 @@ def test_rename_act_overwrites_the_destinations_own_parse_fingerprint(tmp_path, 
     db.rename_act("cpa", "cpa-v114")
 
     assert db.load_parse_fingerprint("cpa-v114") == "reviewed-against-this"
+
+
+def _one_of_everything(act: str) -> None:
+    db.save_verified(act, [{"type": "section", "number": "1", "_source_node_index": 0}])
+    db.add_link(act, 0, 0, 4, "act_citation", "text here")
+    db.add_correction(act, parser_output={"type": "section"}, human_output={"type": "note"}, changed=True)
+    db.save_blind_review(act, 0, guessed_type="section", guessed_number="1", guessed_heading=None,
+                         reasoning="reads like a section", matched_type=True, matched_number=True)
+    db.save_ai_suggestion(act, 0, answer="a", reasoning="r", confidence="low", model="m")
+    db.save_ai_scan_finding(act, 0, severity="warning", message="looks wrong", model="m")
+    db.add_orphaned_reviews(act, [{"type": "section", "number": "99"}])
+    db.save_parse_fingerprint(act, "abc123")
+    db.add_custom_type(act, "penalty")
+
+
+def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, monkeypatch):
+    """Re-anchoring a document's decisions onto a new parse is the right
+    default, but not after a parser change big enough that they describe
+    provisions that no longer exist in that shape. Then the only
+    alternative to this is resetting them one at a time."""
+    monkeypatch.chdir(tmp_path)
+    _one_of_everything("cpa")
+
+    cleared = db.clear_act_review("cpa")
+
+    assert set(cleared) == {
+        "verified", "links", "blind_reviews", "orphaned_reviews",
+        "ai_suggestions", "ai_scan_findings", "parse_state",
+    }
+    assert db.load_verified("cpa") == []
+    assert db.load_links("cpa") == []
+    assert db.get_blind_review("cpa", 0) is None
+    assert db.get_ai_suggestion("cpa", 0) is None
+    assert db.load_ai_scan_findings("cpa") == []
+    assert db.load_orphaned_reviews("cpa") == []
+    assert db.load_parse_fingerprint("cpa") is None
+
+
+def test_clear_act_review_keeps_what_isnt_tied_to_a_position(tmp_path, monkeypatch):
+    """A correction is the only record of what a parser said and what a
+    human said instead; a custom type is the reviewer's own vocabulary.
+    Neither belongs to a node position, and neither stops a document being
+    reviewed again from scratch."""
+    monkeypatch.chdir(tmp_path)
+    _one_of_everything("cpa")
+
+    db.clear_act_review("cpa")
+
+    from ai_pipeline.examples_store import stats
+
+    assert stats()["total"] == 1
+    assert db.load_custom_types("cpa") == ["penalty"]
+
+
+def test_clear_act_review_leaves_other_documents_alone(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _one_of_everything("cpa")
+    _one_of_everything("interpretation")
+
+    db.clear_act_review("cpa")
+
+    assert db.load_verified("cpa") == []
+    assert len(db.load_verified("interpretation")) == 1
+    assert db.load_parse_fingerprint("interpretation") == "abc123"
