@@ -674,10 +674,12 @@ function openParseModal(slug) {
     warn.style.display = "none";
     confirmLabel.style.display = "none";
   }
-  // Pre-fill the Act's own profile when it has one -- leaving it blank
-  // silently produces a worse parse rather than an error (see
-  // act_status's has_profile).
-  if (s.has_profile) document.querySelector("#parse-form input[name=profile]").value = slug;
+  // Pre-fill the profile this document should be parsed with, by name.
+  // Leaving it blank is fine now (run_pipeline works the same name out
+  // for itself), but filling it with the *slug* was not: a versioned Act
+  // got "criminal-procedure-act-v114", which is not a profile that
+  // exists, and the parse quietly came back worse.
+  if (s.profile) document.querySelector("#parse-form input[name=profile]").value = s.profile;
   onParseKindChange();
   openModal("parse-modal");
 }

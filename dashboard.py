@@ -76,6 +76,7 @@ from ai_pipeline.amendments import build_amendment_index, summarise_by_act
 from ai_pipeline.commentary import build_commentary_index
 from ai_pipeline.extract import slugify
 from ai_pipeline.link_targets import load_known_acts
+from ai_pipeline.profiles import profile_for
 from ai_pipeline.llm_backend import OllamaBackend, pull_model
 from ai_pipeline.versions import document_slug, read_front_matter, split_document_slug
 from review import _resume_point, build_current_nodes, group_into_units
@@ -143,7 +144,6 @@ def _pdf_version(pdf: Path) -> "int | None":
 
 def act_status(slug: str) -> dict:
     parsed_path = BASE_DIR / "data" / "ai_parsed" / f"{slug}.json"
-    profiles_dir = BASE_DIR / "ai_pipeline" / "profiles"
     work, version = split_document_slug(slug)
     status = {
         "slug": slug,
@@ -162,10 +162,13 @@ def act_status(slug: str) -> dict:
         # any kind of error. Looked up under the work first: how an Act
         # numbers its Parts is a fact about the Act, not about one reprint
         # of it, so one profile serves all its versions.
-        "has_profile": any(
-            (profiles_dir / f"{name}{ext}").exists()
-            for name in {work, slug} for ext in (".yaml", ".yml")
-        ),
+        # The profile this document should be parsed with, by name --
+        # not merely whether one exists. The re-parse dialog pre-fills
+        # this field, and filling it with the slug meant a versioned Act
+        # was handed "criminal-procedure-act-v114", which is not a
+        # profile that exists: its Parts stopped matching and Chapter 2
+        # swallowed Part 2.1's heading, with nothing to say why.
+        "profile": profile_for(slug, BASE_DIR),
         "parsed": parsed_path.exists(),
         # "act" / "bill" / "em" -- what the pipeline recorded when it
         # parsed this one (filled in below, from the parse this function

@@ -416,6 +416,18 @@
   .accept-piece-btn { color: var(--accepted-text) !important; border-color: var(--piece-accepted-border) !important; }
   .flag-piece-btn { color: var(--flagged-text) !important; border-color: var(--piece-flagged-border) !important; }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
+  /* A Part/Division/Chapter heading is the whole of its piece -- there is no
+     body text underneath for it to caption, so it reads as the content it is,
+     in the same reading face and size .piece-text uses. */
+  .piece-heading-only {
+    font-family: var(--font-reading);
+    font-size: 19px;
+    line-height: 1.42;
+    max-width: 34em;
+    margin-bottom: 0;
+    cursor: text;
+    user-select: text;
+  }
   .piece-text {
     /* The same 19px/1.42 over a 34em measure the published pages use
        (ai_pipeline/html_view.py's .prov): a reviewer should be judging
@@ -1033,6 +1045,13 @@ async function loadUnit(n, pdfPage) {
   }
 }
 
+// The unit's own header already reads "SECTION 11 Place of hearing", so
+// repeating "SECTION" on the first piece under it said nothing. Its own
+// number is what distinguishes it from the pieces below.
+function rootLabelText(piece) {
+  return piece.number ? `${piece.type.toUpperCase()} ${piece.number}` : piece.type.toUpperCase();
+}
+
 function pieceLabelText(piece) {
   if (piece.label && piece.label !== "SECTION") return piece.label;
   if (piece.type === "heading_group") return unitRowLabel({ type: "heading_group", heading: piece.heading });
@@ -1055,7 +1074,16 @@ function renderPieceText(piece) {
     cursor = l.end_reflowed;
   }
   html += escapeHtml(text.slice(cursor));
-  return html || "<span style=\"color:var(--muted)\">(no text)</span>";
+  if (html) return html;
+  // A piece with no body text of its own is usually not empty at all --
+  // a Section's own node carries its heading and hands the body to its
+  // subsections, and a Subdivision caption is nothing but a heading.
+  // Calling those "(no text)" read as a parsing failure when what was
+  // there was exactly what should be. Only a piece with neither gets
+  // that, and it says which kind of nothing it is.
+  if (piece.heading) return "";
+  return "<span style=\"color:var(--muted)\">no text and no heading &mdash; "
+       + "check the page, this is usually a parsing fault</span>";
 }
 
 function describeTarget(link) {
@@ -1119,8 +1147,13 @@ function buildPiece(piece, idx) {
     div.dataset.type = piece.type;
     div.dataset.nodeIndex = piece.node_index;
     const isRoot = idx === 0 && currentUnit.root_type === piece.type && piece.label === "SECTION";
+    // A Section's heading *is* its content until its subsections start,
+    // so it is set as the piece's own words rather than as a caption
+    // above an apparently empty piece.
+    const headingIsTheContent = !piece.text && !!piece.heading;
     const headingLine = !blindPending && piece.heading && piece.type !== "definition"
-      ? `<div class="piece-heading">${escapeHtml(piece.heading)}</div>` : "";
+      ? `<div class="piece-heading${headingIsTheContent ? " piece-heading-only" : ""}">${escapeHtml(piece.heading)}</div>`
+      : "";
     const findingsHtml = blindPending ? "" : (piece.findings || [])
       .map((f) => {
         // "ai-scan" findings come from run_ai_review.py's whole-document
@@ -1216,7 +1249,7 @@ function buildPiece(piece, idx) {
       ? `<span class="nest-handle" draggable="true" title="Drag onto another piece to nest this one under it">&#8676; Nest</span>` : "";
     div.innerHTML = `
       <div class="piece-top">
-        <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
+        <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? rootLabelText(piece) : pieceLabelText(piece))}</span>
         <span class="piece-type">${blindPending ? "awaiting your assessment" : escapeHtml(piece.type)}</span>
         ${statusBadgeHtml}
         <div class="piece-toolbar">
