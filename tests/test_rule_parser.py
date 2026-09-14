@@ -1360,3 +1360,83 @@ def test_a_penalty_belongs_to_its_sections_review_unit():
 
     section_unit = next(u for u in units if nodes[u[0]]["type"] == "section")
     assert [nodes[i]["type"] for i in section_unit] == ["section", "penalty"]
+
+
+# ---------------------------------------------------------------------
+# Where a provision is printed
+#
+# A node is built from lines that each know exactly where they are, and
+# all of it used to be thrown away the moment their text was joined -- a
+# node remembered which pages it spanned and nothing else. There was
+# nothing to draw, so the parse could only be reviewed as text beside a
+# picture of the page, never on it.
+# ---------------------------------------------------------------------
+
+def test_every_node_knows_where_it_is_printed():
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("3 Punishment for murder", bold=True, y0=130),
+        line("(1) A person who commits murder", x0=HEAD_X0, y0=142),
+        line("is guilty of an offence.", x0=HEAD_X0, y0=154),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert all(n.get("rects") for n in nodes), [n["type"] for n in nodes if not n.get("rects")]
+    assert find(nodes, "part", "I")["rects"] == [
+        {"page": 1, "x0": HEAD_X0, "y0": 100.0, "x1": HEAD_X0 + 200.0, "y1": 110.0},
+    ]
+
+
+def test_a_provisions_lines_become_one_box():
+    """One box per run, not one per line: what a reader wants to see is a
+    box around the provision."""
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("3 Punishment", bold=True, y0=130),
+        line("(1) A person who does this", x0=HEAD_X0, y0=142, x1=HEAD_X0 + 180),
+        line("is guilty of an offence.", x0=HEAD_X0 + 10, y0=154, x1=HEAD_X0 + 240),
+    ]
+    rects = find(_parse(lines).nodes, "subsection", "1")["rects"]
+
+    assert rects == [{"page": 1, "x0": HEAD_X0, "y0": 142.0, "x1": HEAD_X0 + 240.0, "y1": 164.0}]
+
+
+def test_lines_far_apart_are_two_boxes():
+    """A provision whose own text resumes below something that
+    interrupted it is two runs, and two boxes -- which is also the shape
+    a reviewer needs for a continuation that resumes in more than one
+    place."""
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("3 Punishment", bold=True, y0=130),
+        line("Text at the top.", x0=HEAD_X0, y0=142),
+        line("Text much further down.", x0=HEAD_X0, y0=400),
+    ]
+    rects = find(_parse(lines).nodes, "section", "3")["rects"]
+
+    assert len(rects) == 2
+    assert [r["y0"] for r in rects] == [130.0, 400.0]
+
+
+def test_a_box_never_spans_two_pages():
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("3 Punishment", bold=True, y0=700),
+        line("carried over to the next page.", x0=HEAD_X0, y0=120, page_no=2),
+    ]
+    rects = find(_parse(lines).nodes, "section", "3")["rects"]
+
+    assert [r["page"] for r in rects] == [1, 2]
+
+
+def test_a_repealed_marker_is_boxed_across_its_asterisks():
+    lines = [
+        line("Part I—Offences", bold=True, y0=100),
+        line("3 Punishment", bold=True, y0=130),
+        line("*", x0=200, y0=142, x1=206),
+        line("*", x0=260, y0=142, x1=266),
+        line("*", x0=320, y0=142, x1=326),
+    ]
+    rects = find(_parse(lines).nodes, "repealed")["rects"]
+
+    assert rects == [{"page": 1, "x0": 200.0, "y0": 142.0, "x1": 326.0, "y1": 152.0}]

@@ -26,6 +26,10 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
     looked the same. See compute_unit_labels, which reads this same field
     back to tell them apart.
 
+    "continuation" is the other odd one out, for the opposite reason: it
+    is not a level at all, so it never *starts* a context -- it inherits
+    the one it resumes. See its own branch below.
+
     "definition" also needs its own separate clearing rule below, because
     it doesn't get a real slot in hierarchy_order (it shares subsection's
     rank instead -- see make_ranks), so the generic loop that clears
@@ -41,6 +45,22 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
     current = {level: None for level in hierarchy_order}
     for node in nodes:
         t = node.get("type")
+        if t == "continuation":
+            # A continuation is not a level of its own: it resumes the
+            # provision whose list just closed, so its path is that
+            # provision's. depth_rank is where the parser actually put it
+            # (see rule_parser's _consume_as_continuation); its *type's*
+            # rank is only a default, and reading that instead cleared
+            # levels it sits inside -- a wrap-up under s 11(1)(b)'s list
+            # lost the (b), and one inside a defined term lost the term,
+            # leaving both labelled as though they belonged to nothing.
+            effective = node.get("depth_rank")
+            if effective is None:
+                effective = rank[t]
+            for deeper in hierarchy_order[effective:]:
+                current[deeper] = None
+            node["path"] = dict(current)
+            continue
         if t in rank:
             if t == "definition":
                 current["definition"] = node.get("heading")

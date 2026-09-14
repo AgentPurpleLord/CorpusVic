@@ -697,3 +697,79 @@ def test_a_deleted_position_holds_none_in_the_indexed_view(tmp_path, monkeypatch
 
     assert effective[0]["heading"] == "Murder"
     assert effective[1] is None
+
+
+# ---------------------------------------------------------------------
+# Continuations are named after what they continue
+# ---------------------------------------------------------------------
+
+def test_a_continuation_is_labelled_with_the_provision_it_continues():
+    """It is not a provision of its own: it is the rest of subsection
+    (1)'s sentence, resumed after (a) and (b) (Criminal Procedure Act
+    s 11(1) is the shape). Labelled "[continuation 1]" it read as a
+    separate thing that happened to land there."""
+    unit = [
+        make_node("section", "11", "Place of hearing", ""),
+        dict(make_node("subsection", "1", None, "nearest to-"), path={"section": "11", "subsection": "1"}),
+        dict(make_node("paragraph", "a", None, "where the offence was committed; or"),
+             path={"section": "11", "subsection": "1", "paragraph": "a"}),
+        dict(make_node("continuation", None, None, "except where otherwise provided."),
+             path={"section": "11", "subsection": "1"}, depth_rank=7),
+    ]
+    assert compute_unit_labels(unit) == ["SECTION", "(1)", "(1)(a)", "(1) continuation"]
+
+
+def test_a_continuation_inside_a_defined_term_is_named_after_the_term():
+    unit = [
+        make_node("section", "3", "Definitions", "In this Act-"),
+        dict(make_node("definition", None, "sentence", "includes-"), path={"definition": "sentence"}),
+        dict(make_node("paragraph", "a", None, "the recording of a conviction; and"),
+             path={"definition": "sentence", "paragraph": "a"}),
+        dict(make_node("continuation", None, None, "but does not include a fine."),
+             path={"definition": "sentence"}, depth_rank=7),
+    ]
+    assert compute_unit_labels(unit)[-1] == "sentence continuation"
+
+
+def test_a_continuation_that_closes_a_whole_section_says_so():
+    """Some sections break into a list directly, with no subsection to
+    resume -- there is no chain to name it by, and the thing it continues
+    is the section itself."""
+    unit = [
+        make_node("section", "31", "Transfer", "If the Court considers that-"),
+        dict(make_node("paragraph", "a", None, "a fair hearing cannot be had; or"),
+             path={"section": "31", "paragraph": "a"}),
+        dict(make_node("continuation", None, None, "the Court may transfer the proceeding."),
+             path={"section": "31"}),
+    ]
+    assert compute_unit_labels(unit)[-1] == "SECTION continuation"
+
+
+def test_annotate_paths_gives_a_continuation_the_path_of_what_it_resumes():
+    """Its own type's rank is only a default. Read instead of the
+    depth_rank the parser recorded, it cleared levels the continuation
+    sits inside -- a wrap-up under s 11(1)(b)'s list lost the (1)."""
+    from ai_pipeline.tree import annotate_paths
+
+    nodes = annotate_paths([
+        make_node("section", "11", "Place of hearing", ""),
+        make_node("subsection", "1", None, "nearest to-"),
+        make_node("paragraph", "a", None, "one place; or"),
+        dict(make_node("continuation", None, None, "except where provided."), depth_rank=7),
+    ])
+
+    assert nodes[-1]["path"]["subsection"] == "1"
+    assert nodes[-1]["path"]["paragraph"] is None
+
+
+def test_a_section_level_continuation_clears_the_subsection_it_is_not_in():
+    from ai_pipeline.tree import annotate_paths
+
+    nodes = annotate_paths([
+        make_node("section", "31", "Transfer", "If the Court considers-"),
+        make_node("paragraph", "a", None, "a fair hearing cannot be had; or"),
+        make_node("continuation", None, None, "the Court may transfer."),
+    ])
+
+    assert nodes[-1]["path"]["subsection"] is None
+    assert nodes[-1]["path"]["section"] == "31"

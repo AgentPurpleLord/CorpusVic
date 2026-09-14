@@ -273,17 +273,63 @@
   }
   #pdf-toolbar button { background: #1f2937; color: #e5e7eb; border-color: #4b5563; }
   #pdf-toolbar button:hover { background: #111827; }
+  #pdf-toolbar button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   #pdf-image-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
   /* At zoom 1 the page fits the panel's width, as it always has. Above
      that it overflows and #pdf-image-wrap scrolls -- and the image is
      re-fetched rendered at that zoom (see loadPdfPage), so the extra
      width is extra detail rather than bigger pixels. align-self keeps a
      zoomed page from being squashed back to fit by the flex row. */
-  #pdf-image {
-    width: calc(var(--pdf-zoom, 1) * 100%); max-width: none; height: auto;
+  #pdf-stage {
+    position: relative;
+    width: calc(var(--pdf-zoom, 1) * 100%); max-width: none;
     align-self: flex-start; flex-shrink: 0;
     box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white;
   }
+  #pdf-image { display: block; width: 100%; max-width: none; height: auto; }
+  /* Sits exactly over the page, at the page's own coordinates. */
+  #pdf-overlay { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  #pdf-overlay[hidden] { display: none; }
+  /* A provision, as the parser read it. Faint until it is pointed at:
+     the page has to stay readable, or drawing on it is worse than not. */
+  .box-shape {
+    fill: var(--box-fill); fill-opacity: 0.10;
+    stroke: var(--box-stroke); stroke-width: 1; stroke-opacity: 0.55;
+    vector-effect: non-scaling-stroke; cursor: pointer;
+  }
+  .box-hot .box-shape { fill-opacity: 0.26; stroke-opacity: 1; stroke-width: 1.5; }
+  .box-selected .box-shape { fill-opacity: 0.30; stroke-opacity: 1; stroke-width: 2; }
+  .box-drawn .box-shape { stroke-dasharray: none; }
+  /* A box nobody has touched is the parser's guess; one a person drew is
+     a decision. Dashes say which is which without a legend. */
+  .box-parsed .box-shape { stroke-dasharray: 4 3; }
+  .box-group[data-status="accepted"] { --box-fill: #16a34a; --box-stroke: #15803d; }
+  .box-group[data-status="flagged"] { --box-fill: #f59e0b; --box-stroke: #b45309; }
+  .box-group[data-status="pending"] { --box-fill: #2563eb; --box-stroke: #1d4ed8; }
+  .box-label {
+    font-family: var(--font-ui); font-size: 8px; font-weight: 600;
+    fill: var(--box-stroke); paint-order: stroke; stroke: #fff; stroke-width: 2.5px;
+    pointer-events: none; user-select: none; opacity: 0;
+  }
+  .box-selected .box-label { opacity: 1; }
+  /* An amendment note, where the Act prints it, joined to the provision
+     it amends by the line the page itself implies by putting them side
+     by side. */
+  .note-shape { fill: #a855f7; fill-opacity: 0.10; stroke: #7e22ce; stroke-width: 1; vector-effect: non-scaling-stroke; cursor: pointer; }
+  .note-link { stroke: #7e22ce; stroke-width: 1; stroke-opacity: 0.5; stroke-dasharray: 3 2; fill: none; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .note-link.low { stroke-dasharray: 1 3; }
+  .note-hot .note-shape { fill-opacity: 0.3; }
+  .note-hot .note-link { stroke-opacity: 1; stroke-width: 2; }
+  .note-unattached .note-shape { stroke-dasharray: 4 3; fill: #ef4444; stroke: #b91c1c; }
+  /* The box being dragged out right now. */
+  .box-draft { fill: #2563eb; fill-opacity: 0.16; stroke: #1d4ed8; stroke-width: 2; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+  /* A page is a dense place; every box on it being draggable at once
+     would mean dragging the wrong one. Only the box in hand has grips. */
+  .box-handle { fill: #fff; stroke: var(--box-stroke); stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: nwse-resize; opacity: 0; pointer-events: none; }
+  .box-selected .box-handle { opacity: 1; pointer-events: auto; }
+  #pdf-stage.drawing { cursor: crosshair; }
+  #pdf-stage.drawing #pdf-overlay { pointer-events: none; }
+  #pdf-hint { font-size: 11.5px; color: #fcd34d; }
   #pdf-zoom-label { min-width: 38px; text-align: center; }
   .page-jump-btn { font-size: 10.5px !important; padding: 2px 6px !important; }
 
@@ -399,6 +445,9 @@
   .piece-table table { border-collapse: collapse; font-family: var(--font-reading); font-size: 15px; }
   .piece-table th, .piece-table td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; text-align: left; }
   .piece-table th { font-weight: 600; background: var(--hover-bg); }
+  /* The piece whose box is being pointed at on the page, and the other
+     way round. The pairing is the whole reason for drawing boxes. */
+  .piece.piece-hot { box-shadow: inset 3px 0 0 var(--accent); background: var(--hover-bg); }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
   /* A Part/Division/Chapter heading is the whole of its piece -- there is no
      body text underneath for it to caption, so it reads as the content it is,
@@ -603,9 +652,18 @@
       <span id="pdf-zoom-label">100%</span>
       <button class="btn small" id="pdf-zoom-in" title="Zoom in">+</button>
       <button class="btn small" id="pdf-zoom-reset" title="Fit the page to the panel width">Fit</button>
+      <button class="btn small" id="pdf-boxes-btn" title="Show what the parser read on this page, as boxes you can work on">Boxes</button>
+      <span id="pdf-hint"></span>
     </div>
     <div id="pdf-image-wrap">
-      <img id="pdf-image" alt="Source PDF page">
+      <!-- The page and the parse, in one stack. The overlay's viewBox is
+           the page's own size in PDF points, so a provision's box is
+           drawn at the coordinates the parser recorded with no arithmetic
+           anywhere and no re-drawing when the zoom changes. -->
+      <div id="pdf-stage">
+        <img id="pdf-image" alt="Source PDF page">
+        <svg id="pdf-overlay" preserveAspectRatio="none" hidden></svg>
+      </div>
     </div>
   </div>
 
@@ -855,9 +913,384 @@ function loadPdfPage(pageNo) {
     currentPageNo = pageNo;
     document.getElementById("pdf-image").src = probe.src;
     document.getElementById("pdf-page-label").textContent = `Page ${pageNo}`;
+    loadPageBoxes();
   };
   probe.onerror = () => toast(`No page ${pageNo} in this Act's source PDF`, true);
   probe.src = `api/pages/${pageNo}.png?zoom=${pdfZoom}`;
+}
+
+// ---------------------------------------------------------------------
+// The page as the thing you work on
+//
+// Until now the PDF panel was a picture to check the parsed text
+// against: you read the text on the left and the page on the right and
+// held the correspondence in your head. Everything the parser knows
+// about where a provision *is* was thrown away the moment its lines were
+// joined into text (see rule_parser.add_rect, which is where it stopped
+// being thrown away).
+//
+// So: the parse, drawn on the page. A box per provision, at the
+// coordinates it was read from. Point at one to find it in the text,
+// click it to go there, right-click it for everything the text panel
+// lets you do to it -- and drag to say the box is somewhere else, which
+// is the one thing the text panel can't express at all. A note printed
+// in the margin is drawn where it prints, joined by a line to the
+// provision it amends, and re-attached by pointing at a different box.
+//
+// The overlay's viewBox is the page's own size in points, so a rect goes
+// on screen at the numbers the parser recorded -- no scale factor to
+// keep in step with the zoom, and nothing to redraw when it changes.
+// ---------------------------------------------------------------------
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+let boxesOn = localStorage.getItem("reviewPdfBoxes") !== "off";
+let pageBoxes = null;          // the /boxes payload for currentPageNo
+let hotNodeIndex = null;       // the piece under the pointer, or selected
+let boxDraft = null;           // { nodeIndex, mode: "replace" | "add" }
+let noteBeingMoved = null;     // a margin note waiting to be pointed at a box
+
+function overlayEl() { return document.getElementById("pdf-overlay"); }
+
+async function loadPageBoxes() {
+  if (!boxesOn || currentPageNo == null) {
+    pageBoxes = null;
+    renderOverlay();
+    return;
+  }
+  try {
+    pageBoxes = await api(`api/pages/${currentPageNo}/boxes`);
+  } catch {
+    // A page with nothing on it is not an error worth a toast.
+    pageBoxes = null;
+  }
+  renderOverlay();
+}
+
+function svgEl(name, attrs, cls) {
+  const el = document.createElementNS(SVG_NS, name);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (cls) el.setAttribute("class", cls);
+  return el;
+}
+
+function rectAttrs(r) {
+  return { x: r.x0, y: r.y0, width: Math.max(r.x1 - r.x0, 0.5), height: Math.max(r.y1 - r.y0, 0.5) };
+}
+
+function renderOverlay() {
+  const svg = overlayEl();
+  svg.innerHTML = "";
+  // The attribute, not the property: `hidden` is an HTMLElement IDL
+  // attribute and this is an SVGElement, so `svg.hidden = false` sets a
+  // plain JS property and leaves the element display:none.
+  svg.toggleAttribute("hidden", !pageBoxes);
+  document.getElementById("pdf-hint").textContent =
+    boxDraft ? "Drag a box over the text this piece covers  (Esc to cancel)"
+    : noteBeingMoved ? "Click the box this note belongs to  (Esc to cancel)"
+    : "";
+  if (!pageBoxes) return;
+  svg.setAttribute("viewBox", `0 0 ${pageBoxes.width} ${pageBoxes.height}`);
+
+  for (const box of pageBoxes.boxes) {
+    const g = svgEl("g", { "data-status": box.status, "data-node-index": box.node_index },
+      `box-group ${box.drawn ? "box-drawn" : "box-parsed"}`
+      + (box.node_index === hotNodeIndex ? " box-selected" : ""));
+    for (const r of box.rects) g.appendChild(svgEl("rect", rectAttrs(r), "box-shape"));
+    // The label and the drag handles belong to the box and are built
+    // with it, shown by CSS only while it is the one being pointed at.
+    // Drawn on every box at once they covered the line above each one,
+    // and a page of legislation buried under its own labels is worse
+    // than no boxes at all -- but rebuilding the overlay on hover to
+    // show one tore the element out from under the pointer mid-gesture,
+    // so a right-click never landed.
+    const first = box.rects[0];
+    if (box.label) {
+      g.appendChild(Object.assign(
+        svgEl("text", { x: first.x0 - 3, y: Math.max(first.y0 + 7, 9), "text-anchor": "end" }, "box-label"),
+        { textContent: box.label },
+      ));
+    }
+    if (pageBoxes.editable) {
+      box.rects.forEach((r, i) => {
+        const handle = svgEl("rect", { x: r.x1 - 3, y: r.y1 - 3, width: 6, height: 6 }, "box-handle");
+        handle.addEventListener("mousedown", (e) => startResize(e, box, i));
+        g.appendChild(handle);
+      });
+    }
+    g.addEventListener("mouseenter", () => setHotNode(box.node_index, false));
+    g.addEventListener("mouseleave", () => setHotNode(null, false));
+    g.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (noteBeingMoved) { attachNoteToNode(box.node_index); return; }
+      goToPiece(box.node_index);
+    });
+    g.addEventListener("contextmenu", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      setHotNode(box.node_index, true);
+      showBoxMenu(e.clientX, e.clientY, box);
+    });
+    if (box.node_index === hotNodeIndex) g.classList.add("box-selected");
+    svg.appendChild(g);
+  }
+
+  for (const note of pageBoxes.notes) {
+    const g = svgEl("g", {}, `note-group${note.node_index == null ? " note-unattached" : ""}`);
+    g.appendChild(svgEl("rect", rectAttrs(note.rect), "note-shape"));
+    const target = note.node_index == null
+      ? null : pageBoxes.boxes.find((b) => b.node_index === note.node_index);
+    if (target && target.rects.length) {
+      // From the middle of the note to the middle of the provision's
+      // left edge -- the line the page draws by putting them level.
+      const from = note.rect, to = target.rects[0];
+      g.appendChild(svgEl("line", {
+        x1: from.x0 < to.x0 ? from.x1 : from.x0, y1: (from.y0 + from.y1) / 2,
+        x2: from.x0 < to.x0 ? to.x0 : to.x1, y2: (to.y0 + to.y1) / 2,
+      }, `note-link${note.confidence === "low" ? " low" : ""}`));
+    }
+    g.addEventListener("mouseenter", () => g.classList.add("note-hot"));
+    g.addEventListener("mouseleave", () => g.classList.remove("note-hot"));
+    g.addEventListener("click", (e) => { e.stopPropagation(); startMovingNote(note); });
+    g.addEventListener("contextmenu", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      showNoteMenu(e.clientX, e.clientY, note);
+    });
+    svg.appendChild(g);
+  }
+}
+
+// Both directions: pointing at a box lights the piece, and pointing at a
+// piece lights the box. Which is the whole reason for drawing them.
+function setHotNode(nodeIndex, sticky) {
+  if (!sticky && hotNodeIndex != null && boxIsSticky) return;
+  hotNodeIndex = nodeIndex;
+  boxIsSticky = sticky;
+  for (const div of document.querySelectorAll(".piece")) {
+    div.classList.toggle("piece-hot", Number(div.dataset.nodeIndex) === nodeIndex);
+  }
+  // Classes only, never a rebuild: the element being pointed at has to
+  // survive being pointed at.
+  for (const g of overlayEl().querySelectorAll(".box-group")) {
+    g.classList.toggle("box-selected", Number(g.dataset.nodeIndex) === nodeIndex);
+  }
+}
+let boxIsSticky = false;
+
+async function goToPiece(nodeIndex) {
+  const here = currentUnit && currentUnit.pieces.some((p) => p.node_index === nodeIndex);
+  if (!here) {
+    const box = pageBoxes && pageBoxes.boxes.find((b) => b.node_index === nodeIndex);
+    if (!box) return;
+    await loadUnit(box.unit_no, currentPageNo);
+  }
+  const div = document.querySelector(`.piece[data-node-index="${nodeIndex}"]`);
+  if (div) {
+    div.scrollIntoView({ block: "center", behavior: "smooth" });
+    div.classList.add("piece-hot");
+  }
+  setHotNode(nodeIndex, true);
+}
+
+// ---------------------------------------------------------------------
+// Drawing a box
+// ---------------------------------------------------------------------
+
+function pagePoint(event) {
+  const svg = overlayEl();
+  const pt = svg.createSVGPoint();
+  pt.x = event.clientX; pt.y = event.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function beginDraw(nodeIndex, mode) {
+  boxDraft = { nodeIndex, mode };
+  document.getElementById("pdf-stage").classList.add("drawing");
+  renderOverlay();
+}
+
+function cancelPageAction() {
+  boxDraft = null;
+  noteBeingMoved = null;
+  document.getElementById("pdf-stage").classList.remove("drawing");
+  renderOverlay();
+}
+
+function currentRectsFor(nodeIndex) {
+  const box = pageBoxes && pageBoxes.boxes.find((b) => b.node_index === nodeIndex);
+  return box ? box.rects.map((r) => ({ ...r })) : [];
+}
+
+// Only this page's rects come back from /boxes, so a piece that also
+// prints on the page before or after would lose those on a save. Its
+// other pages are fetched and kept.
+async function rectsAcrossPages(nodeIndex) {
+  const piece = currentUnit && currentUnit.pieces.find((p) => p.node_index === nodeIndex);
+  if (!piece) return currentRectsFor(nodeIndex);
+  return piece.rects.filter((r) => r.page !== currentPageNo);
+}
+
+async function saveRects(nodeIndex, rects) {
+  try {
+    await api(`api/nodes/${nodeIndex}/rects`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rects }),
+    });
+    toast(rects === null ? "Box back to the parser's." : "Box saved.");
+    await loadUnit(currentUnitNo, currentPageNo);
+  } catch (e) { toast(e.message, true); }
+}
+
+function attachDrawing() {
+  const stage = document.getElementById("pdf-stage");
+  let start = null, draft = null;
+
+  stage.addEventListener("mousedown", (e) => {
+    if (!boxDraft || e.button !== 0) return;
+    e.preventDefault();
+    start = pagePoint(e);
+    draft = svgEl("rect", { x: start.x, y: start.y, width: 0, height: 0 }, "box-draft");
+    overlayEl().appendChild(draft);
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!draft) return;
+    const now = pagePoint(e);
+    draft.setAttribute("x", Math.min(start.x, now.x));
+    draft.setAttribute("y", Math.min(start.y, now.y));
+    draft.setAttribute("width", Math.abs(now.x - start.x));
+    draft.setAttribute("height", Math.abs(now.y - start.y));
+  });
+
+  window.addEventListener("mouseup", async (e) => {
+    if (!draft) return;
+    const now = pagePoint(e);
+    const rect = {
+      page: currentPageNo,
+      x0: Math.min(start.x, now.x), y0: Math.min(start.y, now.y),
+      x1: Math.max(start.x, now.x), y1: Math.max(start.y, now.y),
+    };
+    const { nodeIndex, mode } = boxDraft;
+    draft.remove(); draft = null; start = null;
+    // A click rather than a drag: nothing was drawn, so nothing changes.
+    if (rect.x1 - rect.x0 < 2 || rect.y1 - rect.y0 < 2) { cancelPageAction(); return; }
+    const keep = mode === "add"
+      ? [...(await rectsAcrossPages(nodeIndex)), ...currentRectsFor(nodeIndex)]
+      : await rectsAcrossPages(nodeIndex);
+    cancelPageAction();
+    await saveRects(nodeIndex, [...keep, rect]);
+  });
+}
+
+function startResize(event, box, rectIndex) {
+  event.preventDefault(); event.stopPropagation();
+  const rects = box.rects.map((r) => ({ ...r }));
+  const move = (e) => {
+    const now = pagePoint(e);
+    rects[rectIndex].x1 = Math.max(now.x, rects[rectIndex].x0 + 2);
+    rects[rectIndex].y1 = Math.max(now.y, rects[rectIndex].y0 + 2);
+    const shape = overlayEl().querySelectorAll(
+      `.box-group[data-node-index="${box.node_index}"] .box-shape`)[rectIndex];
+    if (shape) for (const [k, v] of Object.entries(rectAttrs(rects[rectIndex]))) shape.setAttribute(k, v);
+  };
+  const up = async () => {
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", up);
+    await saveRects(box.node_index, [...(await rectsAcrossPages(box.node_index)), ...rects]);
+  };
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+}
+
+// ---------------------------------------------------------------------
+// Right-clicking the page
+// ---------------------------------------------------------------------
+
+function showBoxMenu(x, y, box) {
+  menu.innerHTML = `<div class="preview">${escapeHtml(box.label || box.type)} &mdash; ${escapeHtml(box.preview.slice(0, 70))}</div>`;
+  const add = (label, onClick, cls) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    if (cls) btn.className = cls;
+    btn.onclick = () => { hideMenu(); onClick(); };
+    menu.appendChild(btn);
+  };
+  add("Go to this piece", () => goToPiece(box.node_index));
+  if (pageBoxes.editable) {
+    add("Edit…", async () => { await goToPiece(box.node_index); openEditModal(box.node_index); });
+    add("Redraw this box", () => beginDraw(box.node_index, "replace"));
+    add("Add another box", () => beginDraw(box.node_index, "add"));
+    if (box.drawn) add("Back to the parser's box", () => saveRects(box.node_index, null));
+    add("Insert a piece below…", async () => { await goToPiece(box.node_index); openInsertModal(box.node_index); });
+    add("Move after…", async () => {
+      await goToPiece(box.node_index);
+      window._pickerExclude = box.node_index;
+      openPicker("Put this piece directly after which one?", box.node_index,
+        (target) => movePiece(box.node_index, target));
+    });
+    add("Delete this piece", async () => { await goToPiece(box.node_index); deletePiece(box.node_index); }, "remove");
+  }
+  showMenuAt(x, y);
+}
+
+function showNoteMenu(x, y, note) {
+  menu.innerHTML = `<div class="preview">${escapeHtml(note.raw.slice(0, 110))}</div>`;
+  const add = (label, onClick, cls) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    if (cls) btn.className = cls;
+    btn.onclick = () => { hideMenu(); onClick(); };
+    menu.appendChild(btn);
+  };
+  add(note.node_index == null ? "Attach to a box…" : "Attach to a different box…",
+      () => startMovingNote(note));
+  if (note.node_index != null) {
+    add("Detach this note", async () => {
+      try {
+        await api("api/history/detach", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ node_index: note.node_index, history_index: note.history_index }),
+        });
+        toast("Detached.");
+        await afterMutation(currentPageNo);
+      } catch (e) { toast(e.message, true); }
+    }, "remove");
+  }
+  showMenuAt(x, y);
+}
+
+function startMovingNote(note) {
+  noteBeingMoved = note;
+  renderOverlay();
+}
+
+async function attachNoteToNode(nodeIndex) {
+  const note = noteBeingMoved;
+  noteBeingMoved = null;
+  try {
+    if (note.node_index == null) {
+      await api("api/history/attach", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unattached_id: note.unattached_id, node_index: nodeIndex }),
+      });
+    } else {
+      await api("api/history/move", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          node_index: note.node_index, history_index: note.history_index,
+          target_node_index: nodeIndex,
+        }),
+      });
+    }
+    toast("Note attached.");
+    await afterMutation(currentPageNo);
+  } catch (e) { toast(e.message, true); renderOverlay(); }
+}
+
+function setBoxesOn(on) {
+  boxesOn = on;
+  localStorage.setItem("reviewPdfBoxes", on ? "on" : "off");
+  document.getElementById("pdf-boxes-btn").classList.toggle("on", on);
+  if (!on) cancelPageAction();
+  loadPageBoxes();
 }
 
 function applyPdfZoom() {
@@ -890,6 +1323,17 @@ function jumpToPiecePage(pageNo) {
 document.getElementById("pdf-toggle-btn").onclick = cycleViewMode;
 document.getElementById("pdf-prev").onclick = () => currentPageNo > 1 && loadPdfPage(currentPageNo - 1);
 document.getElementById("pdf-next").onclick = () => loadPdfPage((currentPageNo || 0) + 1);
+document.getElementById("pdf-boxes-btn").onclick = () => setBoxesOn(!boxesOn);
+document.getElementById("pdf-boxes-btn").classList.toggle("on", boxesOn);
+attachDrawing();
+// Clicking the page itself, off any box, drops whatever was half-done.
+document.getElementById("pdf-stage").addEventListener("click", () => {
+  if (boxDraft || noteBeingMoved) return;   // mouseup on the draw handles those
+  if (boxIsSticky) setHotNode(null, false);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && (boxDraft || noteBeingMoved)) cancelPageAction();
+});
 document.getElementById("pdf-zoom-in").onclick = () => stepPdfZoom(1);
 document.getElementById("pdf-zoom-out").onclick = () => stepPdfZoom(-1);
 document.getElementById("pdf-zoom-reset").onclick = () => setPdfZoom(1);
@@ -1343,6 +1787,10 @@ function buildPiece(piece, idx) {
       ${driftHtml}
       ${verifiedHtml}
     `;
+    div.addEventListener("mouseenter", () => {
+      if (!boxIsSticky) setHotNode(piece.node_index, false);
+    });
+    div.addEventListener("mouseleave", () => { if (!boxIsSticky) setHotNode(null, false); });
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
     const structureBtn = div.querySelector(".structure-btn");
     if (structureBtn) {

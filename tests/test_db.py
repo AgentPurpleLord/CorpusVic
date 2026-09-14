@@ -368,6 +368,7 @@ def _one_of_everything(act: str) -> None:
     db.save_parse_fingerprint(act, "abc123")
     db.add_custom_type(act, "penalty")
     db.save_structure_edits(act, {1: {"after": 0, "deleted": True, "node": None}})
+    db.save_node_rects(act, 0, [{"page": 1, "x0": 10.0, "y0": 20.0, "x1": 100.0, "y1": 40.0}])
 
 
 def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, monkeypatch):
@@ -382,7 +383,7 @@ def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, mo
 
     assert set(cleared) == {
         "verified", "links", "blind_reviews", "orphaned_reviews",
-        "ai_suggestions", "ai_scan_findings", "structure_edits", "parse_state",
+        "ai_suggestions", "ai_scan_findings", "structure_edits", "node_rects", "parse_state",
     }
     assert db.load_verified("cpa") == []
     assert db.load_links("cpa") == []
@@ -391,6 +392,7 @@ def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, mo
     assert db.load_ai_scan_findings("cpa") == []
     assert db.load_orphaned_reviews("cpa") == []
     assert db.load_structure_edits("cpa") == {}
+    assert db.load_node_rects("cpa") == {}
     assert db.load_parse_fingerprint("cpa") is None
 
 
@@ -474,3 +476,45 @@ def test_a_document_start_anchor_survives_the_round_trip(tmp_path, monkeypatch):
     })
 
     assert db.load_structure_edits("cpa")[3]["after"] == DOCUMENT_START
+
+
+# ---------------------------------------------------------------------
+# Boxes a reviewer drew
+# ---------------------------------------------------------------------
+
+def test_node_rects_round_trip(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    rects = [
+        {"page": 50, "x0": 190.1, "y0": 390.1, "x1": 454.3, "y1": 433.9},
+        {"page": 50, "x0": 209.8, "y0": 490.8, "x1": 455.8, "y1": 513.2},
+    ]
+    db.save_node_rects("cpa", 286, rects)
+
+    assert db.load_node_rects("cpa") == {286: rects}
+
+
+def test_drawing_a_box_again_replaces_the_one_before():
+    """A reviewer redrawing a box is correcting it, not adding to it."""
+    db.save_node_rects("cpa", 286, [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
+    db.save_node_rects("cpa", 286, [{"page": 1, "x0": 5.0, "y0": 6.0, "x1": 7.0, "y1": 8.0}])
+
+    assert db.load_node_rects("cpa")[286] == [{"page": 1, "x0": 5.0, "y0": 6.0, "x1": 7.0, "y1": 8.0}]
+
+
+def test_no_box_and_no_opinion_about_the_box_are_different(tmp_path, monkeypatch):
+    """An empty list says "this provision has no box"; deleting the row
+    hands it back to whatever the parser read off the page. A reviewer
+    can mean either."""
+    monkeypatch.chdir(tmp_path)
+    db.save_node_rects("cpa", 5, [])
+    assert db.load_node_rects("cpa") == {5: []}
+
+    db.save_node_rects("cpa", 5, None)
+    assert db.load_node_rects("cpa") == {}
+
+
+def test_boxes_are_per_document(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    db.save_node_rects("cpa", 1, [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
+
+    assert db.load_node_rects("interpretation") == {}

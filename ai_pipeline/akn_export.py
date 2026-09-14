@@ -178,7 +178,10 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
             while level_stack and level_stack[-1][0] >= idx:
                 level_stack.pop()
             parent_level, parent = level_stack[-1]
-            token = f"{EID_PREFIX[t]}_{_sanitize_token(node.get('number'))}"
+            # A continuation has no number and never needs one: it is
+            # its provision's own tail, so "..__subsec_1__wrapup" says
+            # everything, where the generic token said "wrapup_u".
+            token = "wrapup" if t == "continuation" else f"{EID_PREFIX[t]}_{_sanitize_token(node.get('number'))}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
             tree_node = {"node": node, "eid": eid, "children": []}
             parent["children"].append(tree_node)
@@ -270,12 +273,36 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
     if node.get("heading"):
         ET.SubElement(el, _q("heading")).text = node["heading"]
 
-    if tree_node["children"]:
+    # A continuation is not a thing of its own: it is the rest of *this*
+    # provision's sentence, resumed after the list it broke into. AKN says
+    # so with <wrapUp> -- the counterpart of the <intro> the provision
+    # opened with, and a part of the provision rather than a sibling
+    # sitting beside its paragraphs. See _consume_as_continuation, and
+    # s 11(1) of the Criminal Procedure Act for the shape: lead-in,
+    # (a), (b), "except where otherwise provided by...".
+    wrap_ups = [c for c in tree_node["children"] if c["node"]["type"] == "continuation"]
+    children = [c for c in tree_node["children"] if c["node"]["type"] != "continuation"]
+    if not children:
+        # <wrapUp> is only legal after at least one nested hierarchy
+        # element, so a provision left holding nothing but a continuation
+        # (which the parser cannot produce, but a reviewer's merges and
+        # deletions can) keeps it as an ordinary child instead of losing
+        # it.
+        children, wrap_ups = tree_node["children"], []
+
+    if children:
         if node.get("text"):
             intro = ET.SubElement(el, _q("intro"))
             _render_p(intro, node["text"])
-        for child in tree_node["children"]:
+        for child in children:
             el.append(render_tree_node(child, hierarchy_order=hierarchy_order))
+        if wrap_ups:
+            # One <wrapUp> however many continuations there are: the
+            # element is the provision's own tail, and a provision has
+            # one tail.
+            wrap_up = ET.SubElement(el, _q("wrapUp"))
+            for child in wrap_ups:
+                _render_p(wrap_up, child["node"].get("text") or "")
     elif t == "table":
         _render_table(ET.SubElement(el, _q("content")), node.get("text") or "")
     else:

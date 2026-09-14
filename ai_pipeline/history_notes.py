@@ -74,16 +74,39 @@ def _split_subpath(subpath_str: str | None) -> list[str]:
 
 
 def merge_continuations(notes: list[str]) -> list[str]:
-    merged: list[str] = []
-    for n in notes:
-        n = n.strip()
-        if not n:
+    """A note too long for one block of margin runs on into the next, so
+    a block that doesn't open with a citation continues the one above."""
+    return [text for text, _rect in merge_note_blocks((n, None) for n in notes)]
+
+
+def merge_note_blocks(blocks) -> list[tuple]:
+    """The same merge, carrying each note's place on the page with it.
+
+    A note that ran on over several blocks of margin is one note printed
+    down one stretch of the margin, so its rect is the union of theirs --
+    which is what has to be drawn to show a reader, or a reviewer, which
+    provision it sits beside."""
+    merged: list[list] = []
+    for text, rect in blocks:
+        text = (text or "").strip()
+        if not text:
             continue
-        if merged and not _CITATION_START_RE.match(n):
-            merged[-1] = merged[-1].rstrip() + " " + n
+        if merged and not _CITATION_START_RE.match(text):
+            merged[-1][0] = merged[-1][0].rstrip() + " " + text
+            merged[-1][1] = _union(merged[-1][1], rect)
         else:
-            merged.append(n)
-    return merged
+            merged.append([text, rect])
+    return [(text, rect) for text, rect in merged]
+
+
+def _union(a: "dict | None", b: "dict | None") -> "dict | None":
+    if a is None or b is None or a.get("page") != b.get("page"):
+        return a or b
+    return {
+        "page": a["page"],
+        "x0": min(a["x0"], b["x0"]), "y0": min(a["y0"], b["y0"]),
+        "x1": max(a["x1"], b["x1"]), "y1": max(a["y1"], b["y1"]),
+    }
 
 
 def parse_note(raw: str) -> dict:
@@ -155,8 +178,14 @@ def collect_page_notes(pages: list[PageText]) -> list[dict]:
     """Flattens every page's margin notes into parsed, page-tagged records."""
     notes = []
     for page in pages:
-        for raw in merge_continuations(page.margin_notes):
+        rects = getattr(page, "margin_note_rects", None) or [None] * len(page.margin_notes)
+        for raw, rect in merge_note_blocks(zip(page.margin_notes, rects)):
             parsed = parse_note(raw)
             parsed["page"] = page.page_no
+            if rect is not None:
+                # Where it is printed, so the review view can draw the
+                # line the Act itself draws by putting the note beside
+                # the provision it amends.
+                parsed["rect"] = rect
             notes.append(parsed)
     return notes

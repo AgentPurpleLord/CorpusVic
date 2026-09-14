@@ -104,10 +104,14 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
 
     for idx, node in enumerate(nodes):
         if node["type"] in _LEAF_TYPES and not node["text"] and node["type"] != "note":
+            # Deliberately short. It is read beside the piece it is about,
+            # which already shows the type, the number and the page, so
+            # repeating them there filled a line with what was on screen
+            # anyway; the Finding still carries both as fields for any
+            # reader that has no piece in front of it.
             report.findings.append(Finding(
                 "info", "empty-node",
-                f"{node['type']} {node['number']!r} has no body text (page {node['page_start']}) -- "
-                "either a genuinely heading-only provision, or the next line's classification swallowed its text.",
+                "no body text, either a heading-only, or the next line's classification swallowed its text.",
                 page=node["page_start"], node_index=idx,
             ))
 

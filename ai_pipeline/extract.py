@@ -118,6 +118,13 @@ class PageText:
     body: str
     page_width: float = 0.0
     margin_notes: list = field(default_factory=list)
+    # Where each of those notes is printed, in the same order -- the Act
+    # prints them in the margin beside the provision they amend, and that
+    # is the only thing that says which provision a note belongs to when
+    # its own text doesn't name one. Kept beside the text rather than
+    # folded into it so nothing that already reads margin_notes as plain
+    # strings has to change.
+    margin_note_rects: list = field(default_factory=list)
     header: list = field(default_factory=list)
     footer: list = field(default_factory=list)
     body_lines: list = field(default_factory=list)  # list[BodyLine]
@@ -349,7 +356,7 @@ def extract_pages(pdf_path: str) -> list[PageText]:
             elif y0 >= h * BOTTOM_FOOTER_FRACTION:
                 footer.append((y0, text))
             elif x0 >= w * MARGIN_RIGHT_X0_FRACTION or x0 <= w * MARGIN_LEFT_X0_FRACTION:
-                margin.append((y0, text))
+                margin.append((y0, text, (x0, y0, x1, y1)))
             else:
                 for l in blk["lines"]:
                     lx0, ly0, lx1, ly1 = l["bbox"]
@@ -367,7 +374,12 @@ def extract_pages(pdf_path: str) -> list[PageText]:
                 page_no=page_no,
                 body="\n".join(l.text for l in body_lines),
                 page_width=w,
-                margin_notes=[t for _, t in margin],
+                margin_notes=[t for _y, t, _r in margin],
+                margin_note_rects=[
+                    {"page": page_no, "x0": round(x0, 1), "y0": round(y0, 1),
+                     "x1": round(x1, 1), "y1": round(y1, 1)}
+                    for _y, _t, (x0, y0, x1, y1) in margin
+                ],
                 header=[t for _, t in header],
                 footer=[t for _, t in footer],
                 body_lines=body_lines,

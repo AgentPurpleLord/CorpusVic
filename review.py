@@ -99,11 +99,37 @@ A "Show source PDF" toggle in the header renders the actual source page
 each piece came from (page_start on the piece, GET /api/pages/{n}.png --
 a PyMuPDF rasterisation of that page at the panel's own zoom level,
 cached in memory) alongside or in place of the parsed text, three view
-modes cycled by the one button: text only, side-by-side split, PDF only. This is read-only --
-purely a check against the real page, nothing here feeds back into the
-parse -- available only when data/ai_parsed/<act>.json still has the
-source PDF at the path it was parsed from (see load_source_pdf_path);
-missing entirely otherwise rather than a toggle that always errors.
+modes cycled by the one button: text only, side-by-side split, PDF only.
+Available only when data/ai_parsed/<act>.json still has the source PDF at
+the path it was parsed from (see load_source_pdf_path); missing entirely
+otherwise rather than a toggle that always errors.
+
+The page is not a picture to check the text against. It is the second
+place the document can be worked on, and for some things the only one.
+"Boxes" draws the parse onto the page: a box round every provision
+printed there, at the coordinates its lines were read from
+(rule_parser.add_rect, GET /api/pages/{n}/boxes). Point at a box and its
+piece lights up in the text panel, and the other way round. Right-click
+one for everything the text panel offers -- edit it, insert a piece below
+it, move it, delete it -- and for the two things only the page can say:
+
+  - Where a provision actually is. Redraw a box, drag its corner, or add
+    a second one, and that is stored as the reviewer's own
+    (POST /api/nodes/{i}/rects, db.node_rects) and wins over the
+    parser's. More than one box is the ordinary case for a continuation,
+    which resumes its provision's sentence somewhere further down the
+    page. Drawing a box says nothing about the piece's text and does not
+    touch it: a box can be corrected long before the piece is decided,
+    and correcting one is not a decision.
+  - Which provision an amendment note belongs to. The Act answers this
+    by printing the note in the margin beside the provision, which is
+    the only answer there is when the note's own text names none -- so
+    the note is drawn where it prints, joined by a line to the provision
+    it is attached to, and re-attached by pointing at a different box.
+
+The text view stays exactly as it was, and is still where most of the
+work happens. What the page adds is everything that is about *position*,
+which text beside a picture could only ever be guessed at.
 """
 import argparse
 import bisect
@@ -573,6 +599,14 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     mis-parsed repeated number, or two same-named terms redefined in
     separate Definitions sections that both landed in one review unit).
 
+    A Continuation is named after whatever it continues -- "(1)
+    continuation", from its own path. It carries no number because it
+    isn't a provision in its own right: it is the rest of subsection
+    (1)'s sentence, resumed after that subsection's list has finished
+    (see rule_parser's _consume_as_continuation, and s 11(1) of the
+    Criminal Procedure Act for the shape). A running counter made it read
+    as a separate provision that happened to land there.
+
     A Subsection/Paragraph/Subparagraph nested under a Definition (a
     Definitions section's own "term means— (a) ...; (b) ...;" lists) has
     no subsection number to anchor its own chain to -- path["definition"]
@@ -595,6 +629,20 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
             labels.append(chain)
         elif node["type"] == "definition" and node.get("heading"):
             labels.append(node["heading"])
+        elif node["type"] == "continuation":
+            # Named after the provision it continues, because it is not a
+            # thing of its own -- "(1) continuation" is the rest of
+            # subsection (1)'s sentence, resumed after (a) and (b)
+            # (Criminal Procedure Act s 11(1) is the shape). Labelled
+            # "[continuation 1]", it read as a separate provision that
+            # happened to land there, which is exactly what it isn't.
+            path = node.get("path") or {}
+            chain = "".join(
+                f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") if path.get(level)
+            )
+            if path.get("definition"):
+                chain = f"{path['definition']} {chain}".strip()
+            labels.append(f"{chain} continuation" if chain else "SECTION continuation")
         else:
             counters[node["type"]] = counters.get(node["type"], 0) + 1
             labels.append(f"[{node['type']} {counters[node['type']]}]")
@@ -651,6 +699,10 @@ _nodes: list[dict] = []
 # order; _nodes itself is never reordered, because a node's index is its
 # name everywhere else in this tool.
 _structure_edits: dict[int, dict] = {}
+# Boxes a reviewer has drawn or adjusted, keyed by node index. The parser
+# puts its own on every node it builds (rule_parser.add_rect); these win
+# where a person has said otherwise. See db.node_rects.
+_node_rects: dict[int, list[dict]] = {}
 _order: list[int] = []
 # False when the stored positions can't be vouched for against this
 # parse, which is when a structural edit could move or delete the wrong
@@ -718,6 +770,17 @@ def _node_is_live(i: int) -> bool:
 def _require_live(i: int) -> None:
     if not _node_is_live(i):
         raise HTTPException(404, f"No such node: {i}")
+
+
+def _rects_for(i: int) -> list[dict]:
+    """Where node i is printed: what a reviewer drew if they drew
+    anything, else what the parser recorded when it read the page."""
+    if i in _node_rects:
+        return _node_rects[i]
+    try:
+        return _parse_node(i).get("rects") or []
+    except KeyError:
+        return []
 
 
 def _current_node(i: int) -> dict:
@@ -867,7 +930,16 @@ def _recompute_unit_paths(unit_no: int) -> None:
     for i in indices[1:]:
         node = _current_node(i)
         t = node.get("type")
-        if t in rank:
+        if t == "continuation":
+            # Inherits the context it resumes rather than starting one --
+            # the same rule tree.annotate_paths applies, replayed here so
+            # a renest gives the same answer a re-parse would.
+            effective = node.get("depth_rank")
+            if effective is None:
+                effective = rank[t]
+            for deeper in _hierarchy[effective:]:
+                current[deeper] = None
+        elif t in rank:
             if t == "definition":
                 current["definition"] = node.get("heading")
             else:
@@ -1103,6 +1175,11 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "needs_followup": bool(node.get("needs_followup")),
         "page_start": node.get("page_start"),
         "page_end": node.get("page_end"),
+        # Where it is printed, for the PDF view to draw it. "drawn" says
+        # a person put it there rather than the parser, which is the one
+        # thing a reviewer needs to know before moving it.
+        "rects": _rects_for(node_index),
+        "rects_drawn": node_index in _node_rects,
         # Whether what is on screen still matches what the parser says.
         # It won't when the piece carries a human's correction -- which is
         # the point -- but also when it carries a stored row from before a
@@ -1386,6 +1463,155 @@ def get_page_image(page_no: int, zoom: float = 1.0):
     png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
     _cache_page_image(key, png_bytes)
     return Response(content=png_bytes, media_type="image/png")
+
+
+@app.get("/api/pages/{page_no}/boxes")
+def get_page_boxes(page_no: int):
+    """Every provision printed on this page, and where.
+
+    This is what makes the page itself the thing a reviewer works on
+    rather than a picture to check the text against. The whole page, not
+    just the unit currently open: a provision's neighbours are the
+    context that says whether it starts and ends where the parser thinks
+    it does, and half of them belong to the section before or after.
+
+    Sizes are in PDF points from the top-left of the page, and the page's
+    own size comes back with them, so the overlay works out its own scale
+    from the rendered image rather than having to know what zoom it asked
+    for (see get_page_image, which renders at a zoom of the panel's
+    choosing)."""
+    doc = _get_pdf_doc()
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
+    page = doc[page_no - 1]
+
+    boxes = []
+    for unit_no, indices in enumerate(_units):
+        labels = None
+        for position, i in enumerate(indices):
+            if i in _merged_away:
+                continue
+            rects = [r for r in _rects_for(i) if r.get("page") == page_no]
+            if not rects:
+                continue
+            if labels is None:
+                live = [j for j in indices if j not in _merged_away]
+                nodes = [_current_node(j) for j in live]
+                computed = (
+                    compute_unit_labels(nodes)
+                    if nodes and nodes[0]["type"] in _UNIT_ROOT_TYPES
+                    else ["" for _ in nodes]
+                )
+                labels = dict(zip(live, computed))
+            node = _current_node(i)
+            boxes.append({
+                "node_index": i,
+                "unit_no": unit_no,
+                "label": labels.get(i) or pieces_label(node),
+                "type": node["type"],
+                "status": _piece_status(i),
+                "preview": reflow_with_map(node.get("text") or node.get("heading") or "")[0][:140],
+                "rects": rects,
+                "drawn": i in _node_rects,
+            })
+
+    return {
+        "page": page_no,
+        "width": round(page.rect.width, 2),
+        "height": round(page.rect.height, 2),
+        "boxes": boxes,
+        "notes": _page_note_boxes(page_no),
+        "editable": _structure_editable,
+    }
+
+
+def pieces_label(node: dict) -> str:
+    """A label for a piece outside any Section's own numbering -- a Part
+    or Division heading, which is its own one-piece unit."""
+    bits = [node["type"].upper()]
+    if node.get("number"):
+        bits.append(node["number"])
+    return " ".join(bits)
+
+
+def _piece_status(i: int) -> str:
+    row = _verified_by_source_index.get(i)
+    if row is None:
+        return "pending"
+    return "flagged" if row.get("needs_followup") else "accepted"
+
+
+def _page_note_boxes(page_no: int) -> list[dict]:
+    """The amendment-history notes printed in this page's margin, where
+    they are printed, and which provision each is attached to.
+
+    The Act itself draws the link by setting the note beside the
+    provision it amends, and that placement is the only thing that says
+    which provision a note belongs to when its own text doesn't name one.
+    Handing back both ends lets the view draw the line the page implies
+    -- and lets a reviewer redraw it by pointing at a different box."""
+    notes = []
+    for i in _order:
+        if i in _merged_away:
+            continue
+        for position, h in enumerate(_current_node(i).get("history") or []):
+            rect = h.get("rect")
+            if rect and rect.get("page") == page_no:
+                notes.append({
+                    "raw": h.get("raw", ""), "rect": rect,
+                    "node_index": i, "history_index": position,
+                    "confidence": h.get("confidence"),
+                })
+    still_unattached = set(_currently_unattached_indices())
+    for position, note in enumerate(_unattached_notes):
+        rect = note.get("rect")
+        if rect and rect.get("page") == page_no and position in still_unattached:
+            notes.append({
+                "raw": note.get("raw", ""), "rect": rect,
+                "node_index": None, "unattached_id": position,
+                "confidence": None,
+            })
+    return notes
+
+
+class RectsRequest(BaseModel):
+    # None hands the piece back to the parser's own box; [] says it has
+    # none. Both are answers, and they are different ones.
+    rects: "list[dict] | None" = None
+
+
+@app.post("/api/nodes/{node_index}/rects")
+def set_node_rects_endpoint(node_index: int, req: RectsRequest):
+    """Records where a reviewer says this piece is printed.
+
+    Drawing a box is not a decision about the piece's text, and does not
+    touch it: the boxes live in their own table (see db.node_rects) and
+    the piece stays exactly as undecided, or as accepted, as it was. What
+    it changes is what the page shows -- which is the whole point of
+    working on the page rather than beside it."""
+    _require_structure_editable()
+    _require_live(node_index)
+    rects = None
+    if req.rects is not None:
+        rects = []
+        for raw in req.rects:
+            try:
+                rect = {
+                    "page": int(raw["page"]),
+                    "x0": round(float(raw["x0"]), 1), "y0": round(float(raw["y0"]), 1),
+                    "x1": round(float(raw["x1"]), 1), "y1": round(float(raw["y1"]), 1),
+                }
+            except (KeyError, TypeError, ValueError) as e:
+                raise HTTPException(400, f"Not a rectangle: {raw!r}") from e
+            if rect["x1"] <= rect["x0"] or rect["y1"] <= rect["y0"]:
+                raise HTTPException(400, "A box needs width and height")
+            rects.append(rect)
+    if rects is None:
+        _node_rects.pop(node_index, None)
+    else:
+        _node_rects[node_index] = rects
+    db.save_node_rects(_act, node_index, rects)
+    return {"node_index": node_index, "rects": _rects_for(node_index), "drawn": node_index in _node_rects}
 
 
 @app.get("/api/verified/recent")
@@ -2293,7 +2519,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     global _act, _nodes, _units, _verified, _definition_index, _parse_fingerprint
     global _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
     global _source_pdf_path, _act_title, _document_type, _positions_trusted
-    global _pdf_doc, _structure_edits, _order, _structure_editable
+    global _pdf_doc, _structure_edits, _order, _structure_editable, _node_rects
 
     _act = act
     _unit_of_index.clear()
@@ -2325,6 +2551,10 @@ def _load_state(act: str, restart: bool = False) -> None:
     _structure_edits = {} if restart else load_structure_edits(act, _parse_fingerprint)
     if restart:
         db.save_structure_edits(act, {})
+    # Gated the same way, and for the same reason: a box is recorded
+    # against a node *position*, so against a parse those positions no
+    # longer describe it would be drawn over the wrong provision.
+    _node_rects = db.load_node_rects(act) if (_structure_editable and not restart) else {}
     _order, _units = order_and_units(len(_nodes), _structure_edits, _parse_node)
     for u, indices in enumerate(_units):
         for i in indices:
