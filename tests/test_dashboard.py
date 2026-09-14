@@ -59,7 +59,7 @@ def test_act_status_reports_not_parsed_when_no_ai_parsed_json_exists(tmp_path, m
         "work": "crimes-act",
         "version": None,
         "version_as_at": None,
-        "has_profile": False,
+        "profile": None,
         "parsed": False,
         "kind": "act",
         "node_count": None,
@@ -295,13 +295,20 @@ def test_repo_relative_leaves_a_path_outside_the_repo_alone(tmp_path, monkeypatc
     assert dashboard._repo_relative(outside) == str(outside)
 
 
-def test_act_status_reports_whether_the_act_has_its_own_profile(tmp_path, monkeypatch):
-    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    (tmp_path / "ai_pipeline" / "profiles").mkdir(parents=True)
-    (tmp_path / "ai_pipeline" / "profiles" / "crimes-act.yaml").write_text("part: 'x'\n", encoding="utf-8")
+def test_act_status_names_the_profile_the_act_should_be_parsed_with(tmp_path, monkeypatch):
+    """By name, not merely whether one exists: the re-parse dialog
+    pre-fills this field, and it used to fill it with the slug -- which
+    for a versioned Act names no profile at all."""
+    from ai_pipeline import profiles
 
-    assert dashboard.act_status("crimes-act")["has_profile"] is True
-    assert dashboard.act_status("evidence-act")["has_profile"] is False
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    profiles_dir = tmp_path / "ai_pipeline" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    monkeypatch.setattr(profiles, "PROFILES_DIR", profiles_dir)
+    (profiles_dir / "crimes-act.yaml").write_text("part: 'x'\n", encoding="utf-8")
+
+    assert dashboard.act_status("crimes-act")["profile"] == "crimes-act"
+    assert dashboard.act_status("evidence-act")["profile"] is None
 
 
 # ---------------------------------------------------------------------
@@ -353,11 +360,15 @@ def test_act_status_splits_a_versioned_slug_into_its_work_and_version(tmp_path, 
 def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatch):
     # How an Act numbers its Parts is a fact about the Act, not about one
     # reprint of it -- one profile serves all its versions.
-    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    (tmp_path / "ai_pipeline" / "profiles").mkdir(parents=True)
-    (tmp_path / "ai_pipeline" / "profiles" / "criminal-procedure-act.yaml").write_text("part: x", encoding="utf-8")
+    from ai_pipeline import profiles
 
-    assert dashboard.act_status("criminal-procedure-act-v114")["has_profile"] is True
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    profiles_dir = tmp_path / "ai_pipeline" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    monkeypatch.setattr(profiles, "PROFILES_DIR", profiles_dir)
+    (profiles_dir / "criminal-procedure-act.yaml").write_text("part: x", encoding="utf-8")
+
+    assert dashboard.act_status("criminal-procedure-act-v114")["profile"] == "criminal-procedure-act"
 
 
 def _write_bill_link(tmp_path, name: str, doc: dict) -> None:

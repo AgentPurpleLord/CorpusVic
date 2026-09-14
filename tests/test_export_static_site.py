@@ -498,3 +498,46 @@ def test_a_published_section_carries_no_review_badge():
     parsed = {"nodes": nodes, "hierarchy": None}
     assert "verify-badge" in render_section(parsed, "A", "/browse/a", "s1")
     assert "verify-badge" not in render_section(parsed, "A", "/browse/a", "s1", show_review_badge=False)
+
+
+def test_a_bill_and_its_em_are_not_listed_beside_their_act():
+    """An Explanatory Memorandum is written about a Bill, and a Bill
+    becomes an Act: they belong to that Act, whose own contents page
+    offers them. Listing all three side by side would present them as
+    separate publications and make choosing between them the reader's
+    first problem."""
+    import export_static_site as ess
+
+    published = [
+        _doc(slug="crimes-act"),
+        dict(_doc(slug="crimes-bill"), kind="bill"),
+        dict(_doc(slug="crimes-bill-em"), kind="em"),
+    ]
+    original = ess.dashboard.related_documents
+    ess.dashboard.related_documents = lambda slug: (
+        [{"slug": "crimes-bill", "kind": "bill"}, {"slug": "crimes-bill-em", "kind": "em"}]
+        if slug == "crimes-act" else []
+    )
+    try:
+        page = ess._landing_page_html(published, "")
+    finally:
+        ess.dashboard.related_documents = original
+    entries = page.split('<ul class="section-list">')[1].split("</ul>")[0]
+
+    assert "/browse/crimes-act/" in entries
+    assert "crimes-bill" not in entries
+
+
+def test_a_bill_no_published_act_claims_is_still_listed():
+    """Better an odd entry on the front page than a document nothing
+    reaches."""
+    import export_static_site as ess
+
+    original = ess.dashboard.related_documents
+    ess.dashboard.related_documents = lambda slug: []
+    try:
+        page = ess._landing_page_html([dict(_doc(slug="orphan-bill"), kind="bill")], "")
+    finally:
+        ess.dashboard.related_documents = original
+
+    assert "/browse/orphan-bill/" in page

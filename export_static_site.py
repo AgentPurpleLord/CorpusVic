@@ -191,6 +191,17 @@ def _rewrite_urls(value, base_path: str, slugs: dict):
     return value
 
 
+def publishes_anything(slug: str) -> bool:
+    """Whether this document has even one approved provision, and so will
+    produce pages at all. The same question _build_doc answers on its way
+    past; asked separately because an Act's contents page has to link to
+    its Bill and Explanatory Memorandum, and cannot know whether those
+    exist until every document has been looked at."""
+    nodes, _unattached, _hierarchy = dashboard._current_nodes(slug)
+    page_index = dashboard._page_index(slug)
+    return bool(approved_page_slugs(nodes, group_into_units(nodes), page_index["by_node_index"]))
+
+
 def _default_base_path() -> str:
     """"/repo-name" when $GITHUB_REPOSITORY (owner/repo, set by every
     GitHub Actions job) is present, matching a project site's default
@@ -283,7 +294,7 @@ def _write(path: Path, page_html: str, gate: "SiteGate | None" = None) -> None:
 
 
 def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None" = None,
-               slugs: "dict | None" = None) -> "dict | None":
+               slugs: "dict | None" = None, published_slugs: "set[str] | None" = None) -> "dict | None":
     """Every page for one document: its index, one per section, and its
     Endnotes if it has any -- exactly what browse_index/browse_section/
     browse_endnotes each build for one HTTP request, just written to
@@ -319,6 +330,8 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     # are the same answer on every page of it.
     version = dashboard._act_version(slug)
     version_dates = dashboard._version_dates(slug)
+    timeline_unavailable = dashboard._timeline(
+        split_document_slug(slug)[0]).get("mixed_parsers", False)
 
     # Units grouped over the same node list page_index was built from, so
     # the two agree on what a node index means. (build_effective_nodes_
@@ -339,6 +352,15 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
          "version": version},
         title, base_url, superseded=site(dashboard._superseded(slug)),
         unpublished_pages=unpublished_pages, show_review_badge=False,
+        # Only documents this build actually published: a link from an
+        # Act's contents to a Bill nobody has reviewed yet would be a
+        # link to a page that isn't there.
+        related=[
+            {"slug": d["slug"], "kind": d["kind"], "title": dashboard._act_title(d["slug"]),
+             "href": f"{base_path}/browse/{slugs.get(d['slug'], d['slug'])}/"}
+            for d in dashboard.related_documents(slug)
+            if d["slug"] in (published_slugs or ())
+        ],
     )
     if unpublished_pages:
         index_body = _partial_notice_html(len(published_pages), len(all_pages)) + index_body
@@ -367,7 +389,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             timeline=entries, version_urls=site(version_urls),
             superseded=site(dashboard._superseded(slug)),
             version_dates=version_dates, unpublished_pages=unpublished_pages,
-            show_review_badge=False,
+            show_review_badge=False, timeline_unavailable=timeline_unavailable,
         )
         if body is None:
             continue  # not expected -- page_index only ever names real sections
@@ -530,9 +552,26 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
     by side would make choosing the right one the reader's first problem.
 
     A document is current here exactly when site_slugs gave it the work's
-    own unversioned address."""
+    own unversioned address.
+
+    Bills and Explanatory Memorandums are left off too. An Explanatory
+    Memorandum is written about a Bill and a Bill becomes an Act: they
+    belong to that Act, and its own contents page offers them (see
+    render_index's `related`). Listing all three side by side here would
+    present them as separate publications and make choosing between them
+    a reader's first problem. One that no published Act claims is listed
+    after all -- better an odd entry than a page nothing reaches."""
     kind_labels = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}
-    current = [doc for doc in published if doc["site_slug"] == split_document_slug(doc["slug"])[0]]
+    claimed = {
+        d["slug"]
+        for doc in published
+        for d in dashboard.related_documents(doc["slug"])
+    }
+    current = [
+        doc for doc in published
+        if doc["site_slug"] == split_document_slug(doc["slug"])[0]
+        and (doc["kind"] == "act" or doc["slug"] not in claimed)
+    ]
     rows = "".join(
         "<li>"
         f'<a href="{base_path}/browse/{doc["site_slug"]}/">{html.escape(doc["title"])}</a> '
@@ -573,9 +612,16 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> tupl
     statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
     candidates = select_candidate_slugs(statuses)
     slugs = site_slugs(candidates)
-    # _build_doc returns None for a candidate with nothing approved in it.
+    # Which candidates will publish anything, worked out before any page
+    # is written: an Act's contents links to its Bill and Explanatory
+    # Memorandum, and it can only do that for documents this build is
+    # actually going to produce. Everything it reads is cached, so the
+    # pass costs almost nothing.
+    will_publish = {slug for slug in candidates if publishes_anything(slug)}
     published = [
-        doc for doc in (_build_doc(slug, out, base_path, gate, slugs) for slug in candidates) if doc
+        doc for doc in
+        (_build_doc(slug, out, base_path, gate, slugs, will_publish) for slug in candidates)
+        if doc
     ]
     landing = _landing_page_html(published, base_path)
     _write(out / "index.html", landing, gate)

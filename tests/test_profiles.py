@@ -23,9 +23,20 @@ def test_load_profile_none_returns_compiled_defaults():
     assert m and m.group(1) == "1" and m.group(2) == "Short title"
 
 
-def test_load_profile_missing_file_falls_back_to_defaults(isolated_profiles_dir):
-    patterns = profiles.load_profile("no-such-act")
-    assert patterns["part"].pattern == profiles.DEFAULT_PATTERNS["part"]
+def test_load_profile_refuses_a_profile_that_isnt_there(isolated_profiles_dir):
+    """Falling back to the built-in patterns looks harmless and isn't: the
+    Criminal Procedure Act parsed with the defaults stops matching "Part
+    2.1" as a Part at all and folds its heading into the Chapter above
+    it, with nothing anywhere to say why."""
+    with pytest.raises(profiles.ProfileError) as raised:
+        profiles.load_profile("no-such-act")
+    assert "no-such-act" in str(raised.value)
+
+
+def test_parsing_with_no_profile_at_all_is_still_the_defaults(isolated_profiles_dir):
+    """Asking for none and asking for one that doesn't exist are
+    different things."""
+    assert profiles.load_profile(None)["part"].pattern == profiles.DEFAULT_PATTERNS["part"]
 
 
 def test_load_profile_with_override_only_changes_that_key(isolated_profiles_dir):

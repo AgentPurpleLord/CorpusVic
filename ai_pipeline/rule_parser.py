@@ -28,7 +28,10 @@ of lines. `_LineParser.feed` makes one pass; for each line it tries the
 classifiers below in order (`_try_bold_heading` -> `_try_schedule_hangs_off`
 -> `_try_definition_start` -> `_try_bracket_item` -> `_try_bold_emphasis`),
 and any line none of them claims falls through to
-`_consume_as_continuation`. Each classifier returns True once it's
+`_consume_as_continuation`. Ahead of all of them sit the marker blocks --
+Notes, Examples and Penalties -- which are recognised by their own
+opening words and then run as a small state machine
+(`_handle_marked_block`) until something structural ends them. Each classifier returns True once it's
 handled the line. The bookkeeping for the open-node stack
 (`_open_node`/`_close_top`/...) is shared state on the instance.
 """
@@ -37,9 +40,10 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .definitions import looks_like_definitions_section
-from .extract import BodyLine, PageText
+from .extract import BodyLine, PageText, join_printed_line
 from .hierarchy import HIERARCHY_ORDER, heading_levels, make_ranks
 from .profiles import load_hierarchy, load_profile
+from .tables import find_table
 
 
 @dataclass
@@ -386,28 +390,10 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 _INDENT_TOLERANCE = 3.0
 
 
-# A line that ends in a hyphen or a dash was broken at a character the
-# words already contained -- "charge-sheet", "cross-examine",
-# "Broad-based", "of—" -- so the next line joins straight onto it. Every
-# one of the hyphen-ending lines across this project's parsed corpus is
-# such a compound; none is a word a typesetter split for fit, which is
-# why undoing the break would be wrong here.
-_JOINS_TIGHT = ("-", "\u2014", "\u2013")
-
-
 def _append_text(node: dict, text: str, line: BodyLine, char_end: int) -> None:
-    """Adds one more printed line to a node's text as running prose.
-
-    The line break itself is not part of the legislation -- it is where
-    the PDF's column happened to run out -- so it is not kept. Keeping it
-    meant every consumer had to undo it (and several did, differently, or
-    forgot to), and it made the stored text disagree with the same words
-    quoted anywhere else."""
-    if node["text"]:
-        joiner = "" if node["text"].endswith(_JOINS_TIGHT) else " "
-        node["text"] = node["text"] + joiner + text
-    else:
-        node["text"] = text
+    """Adds one more printed line to a node's text -- see
+    extract.join_printed_line for what happens to the break itself."""
+    node["text"] = join_printed_line(node["text"], text)
     node["page_end"] = line.page_no
     node["char_end"] = char_end
 
@@ -444,6 +430,11 @@ _SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+[\d()\s,]+\.?$")
 # -- the three real Schedule headings of the one Bill that sets them
 # this way, and nothing else.
 _BARE_SCHEDULE_RE = re.compile(r"^Schedule\s+(\d+[A-Za-z]*)$", re.IGNORECASE)
+
+
+# The levels _try_bracket_item recognises by shape alone, with no font
+# information -- the boundaries that open without needing to be bold.
+_BRACKETED_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
 
 
 def _looks_like_boundary(text: str, patterns: dict) -> bool:
@@ -635,7 +626,7 @@ class _LineParser:
                 _append_text(self.stack[-1], l.text.strip(), l, char_end)
         run.clear()
 
-    def _resolve_hanging_list(self, x0: float) -> None:
+    def _resolve_hanging_list(self, x0: float) -> bool:
         """A common legislative construct opens a subsection (or section)
         with lead-in text, breaks into a lettered or roman-numeral
         list, and then closes the list with text that grammatically
@@ -649,25 +640,45 @@ class _LineParser:
         shallower level actually sits at that indent, not continuing
         the list item. This only ever closes subsection, paragraph or
         subparagraph levels -- Part, Division, Subdivision and Section
-        only ever close through an explicit pattern match."""
+        only ever close through an explicit pattern match.
+
+        Returns whether it closed anything, because that is exactly the
+        signal that the line about to be consumed is a wrap-up rather
+        than an ordinary continuation -- see _consume_as_continuation."""
+        closed = False
         while (
             len(self.stack) > 1
             and self.rank[self.stack[-1]["type"]] >= self._hanging_list_floor
             and x0 < self.stack_x0[-1] - _INDENT_TOLERANCE
         ):
             self._close_top()
+            closed = True
+        return closed
 
     # -- main pass --------------------------------------------------------
 
     def feed(self, lines: list[BodyLine]) -> None:
         self.lines_total = len(lines)
+        # A table is claimed whole, by the run of lines it occupies, so
+        # everything after its first line is already spoken for. The
+        # per-line bookkeeping above still runs for each of them -- they
+        # were consumed, just not one at a time.
+        consumed_through = -1
         for idx, line in enumerate(lines):
             text = line.text.strip()
             char_start = self.cursor
             char_end = self.cursor + len(text)
             self.cursor = char_end + 1  # account for the "\n" join
             self.lines_consumed += 1
+            if idx <= consumed_through:
+                continue
             if not text:
+                continue
+
+            table = find_table(lines, idx)
+            if table is not None:
+                self._open_table(table, lines, char_start)
+                consumed_through = table.end - 1
                 continue
             next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
 
@@ -687,6 +698,10 @@ class _LineParser:
             if self.patterns["example_marker"].match(text):
                 self._close_marked_block()
                 self.marked_block_type = "example"
+                continue
+
+            if self.patterns["penalty_marker"].match(text):
+                self._open_penalty(line, text, char_start, char_end)
                 continue
 
             if self.marked_block_type and self._handle_marked_block(line, text, char_start, char_end):
@@ -724,8 +739,8 @@ class _LineParser:
     # -- classifiers -----------------------------------------------------
 
     def _ends_marked_block(self, line: BodyLine, text: str) -> bool:
-        """True if this line can't possibly be more of a Notes/Example
-        block's own text -- either it matches one of the ordinary
+        """True if this line can't possibly be more of a Notes/Example/
+        Penalty block's own text -- either it matches one of the ordinary
         structural patterns (_looks_like_boundary: a new Part, Division,
         etc.), or it's a fresh defined term opening inside a Definitions
         section (see _try_definition_start), which _looks_like_boundary
@@ -733,14 +748,89 @@ class _LineParser:
         alone with no font information -- nothing about a definition's
         shape is something a text pattern alone can catch; only its
         typesetting gives it away."""
-        return _looks_like_boundary(text, self.patterns) or bool(self._in_definitions_section and line.leading_bold_italic)
+        if self.marked_block_type == "penalty" and not line.bold:
+            # A penalty's own wording starts lines with numbers all the
+            # time -- "1200 penalty units maximum) or both;", "600
+            # penalty units." -- and the section pattern is "a number,
+            # then some words", so _looks_like_boundary read half of them
+            # as a new section and cut the penalty off mid-sentence. In
+            # the ordinary flow that pattern only ever opens a section on
+            # a *bold* line (see _try_bold_heading); this holds a penalty
+            # to the same rule, leaving only the boundaries that
+            # genuinely need no bold to be recognised.
+            return (
+                text == "*"
+                or any(self.patterns[key].match(text) for key in _BRACKETED_LEVELS if key in self.patterns)
+                or bool(self._in_definitions_section and line.leading_bold_italic)
+            )
+        return (
+            _looks_like_boundary(text, self.patterns)
+            or bool(self._in_definitions_section and line.leading_bold_italic)
+            # A bold line. These blocks are always set in plain body
+            # text, so a whole line in bold is a heading, and a heading
+            # that matches no structural pattern (a bare topical caption
+            # -- "Offences relating to Horse-drawn Vehicles, Public
+            # Vehicles, Animals, &c.") is invisible to
+            # _looks_like_boundary, which reads text alone. Without
+            # this, a Penalty running to the foot of a group's last
+            # provision swallowed the caption introducing the next one.
+            or line.bold
+        )
+
+    def _open_table(self, table, lines: list[BodyLine], char_start: int) -> None:
+        """Emits a table (see ai_pipeline/tables.py) as one node.
+
+        Appended straight to self.nodes rather than pushed on the stack,
+        like a note: it is part of what the provision above it says, and
+        nothing nests inside one. Its rows live in its text, which is
+        what makes it as editable in review as any other piece."""
+        self._close_marked_block()
+        self.marked_block_type = None
+        block = lines[table.start : table.end]
+        end = char_start
+        for line in block:
+            end += len(line.text.strip()) + 1
+        self.nodes.append({
+            "type": "table", "number": None, "heading": table.heading,
+            "text": table.text,
+            "page_start": block[0].page_no, "page_end": block[-1].page_no,
+            "char_start": char_start, "char_end": end - 1, "source": "rules",
+        })
+
+    def _open_penalty(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
+        """Starts a penalty node at a "Penalty: ..." line.
+
+        Unlike Notes and Examples, whose marker word sits alone on its
+        own line above the block, a penalty's marker and its content are
+        the same line -- so this opens the node rather than merely
+        arming a state machine. Everything after it rides the same
+        machinery, because a penalty wraps and ends exactly the way
+        those do: further plain lines belong to it ("Penalty: Level 3
+        imprisonment (20 years / maximum).", and the multi-limb
+        "Penalty: If the injury was caused intentionally-- / level 5
+        imprisonment..."), and the next structural line ends it.
+
+        Appended straight to self.nodes rather than pushed on the stack,
+        like a note: it is a fact about the provision above it, not a
+        container, and nothing ever nests inside one.
+        """
+        self._close_marked_block()
+        self.marked_block_type = "penalty"
+        self.current_marked_block = {
+            "type": "penalty", "number": None, "heading": None, "text": text,
+            "page_start": line.page_no, "page_end": line.page_no,
+            "char_start": char_start, "char_end": char_end, "source": "rules",
+        }
+        self.nodes.append(self.current_marked_block)
 
     def _handle_marked_block(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
-        """Inside a "Notes" (or singular "Note") or "Example" block --
-        self.marked_block_type says which; both share this same state
-        machine, since an Example is set up exactly like a singular
-        Note, just under a different marker word (see basic-
-        structure.yaml). Returns True if the line belongs to the open
+        """Inside a "Notes" (or singular "Note"), "Example" or "Penalty"
+        block -- self.marked_block_type says which; all three share this
+        same state machine, since an Example is set up exactly like a
+        singular Note under a different marker word (see basic-
+        structure.yaml), and a Penalty differs only in being opened by
+        its own first line rather than by a marker above it (see
+        _open_penalty). Returns True if the line belongs to the open
         block (the caller skips to the next line); returns False --
         having also closed the block -- when it's ended and the line
         needs normal classification instead."""
@@ -1129,14 +1219,29 @@ class _LineParser:
     def _consume_as_continuation(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
         """Continuation of whatever is currently open. If nothing is
         open yet (preamble text before the first Part), open a
-        synthetic holder rather than dropping it."""
+        synthetic holder rather than dropping it.
+
+        Where the line outdented past a list to resume the sentence the
+        provision opened with, it becomes a node of its own rather than
+        being added to that provision's text. It has to: the list items
+        are already in the node list, so appending here would print the
+        wrap-up *before* the list it comes after. The Summary Offences
+        Act's section 5 read "Where in a prosecution for obstructing a
+        footpath street or road under—the obstruction alleged is by
+        assemblage of persons ..." with its (a) and (b) stranded
+        afterwards, which is not what the section says."""
         if not self.stack:
             self._open_node(self._preamble_level, None, "Preliminary", line, char_start)
             self.warnings.append(
                 f"page {line.page_no}: text before any recognised Part -- filed under a synthetic preamble node"
             )
-        else:
-            self._resolve_hanging_list(line.x0)
+        elif self._resolve_hanging_list(line.x0) and self.stack[-1]["text"]:
+            top = self.stack[-1]
+            if top["type"] != "continuation":
+                # One level inside the provision being resumed, so it sits
+                # with that provision's list items and after them.
+                self._open_node("continuation", None, None, line, char_start,
+                                rank=self.stack_rank[-1] + 1)
         _append_text(self.stack[-1], text, line, char_end)
 
 

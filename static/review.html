@@ -415,7 +415,35 @@
   .piece-toolbar button { font-size: 11px; padding: 2px 7px; }
   .accept-piece-btn { color: var(--accepted-text) !important; border-color: var(--piece-accepted-border) !important; }
   .flag-piece-btn { color: var(--flagged-text) !important; border-color: var(--piece-flagged-border) !important; }
+  /* Deleted pieces, offered back. Set apart from the unit's real
+     content and struck through, so there is no reading it as part of the
+     document -- it is a record of something taken out of it. */
+  #deleted-pieces { margin: 14px 0 0; padding: 10px 12px; border: 1px dashed var(--border); }
+  #deleted-pieces h4 { margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .deleted-piece { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; font-size: 13px; }
+  .deleted-piece .picker-label { text-decoration: line-through; color: var(--muted); }
+  .deleted-piece .picker-preview { flex: 1; color: var(--muted); text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A table piece: the stored pipe-separated rows above, and the table
+     they mean below. Set apart and captioned, so there is no mistaking
+     which of the two a reviewer is editing. */
+  .piece-table { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; overflow-x: auto; }
+  .piece-table-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  .piece-table table { border-collapse: collapse; font-family: var(--font-reading); font-size: 15px; }
+  .piece-table th, .piece-table td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; text-align: left; }
+  .piece-table th { font-weight: 600; background: var(--hover-bg); }
   .piece-heading { font-weight: 600; margin-bottom: 4px; }
+  /* A Part/Division/Chapter heading is the whole of its piece -- there is no
+     body text underneath for it to caption, so it reads as the content it is,
+     in the same reading face and size .piece-text uses. */
+  .piece-heading-only {
+    font-family: var(--font-reading);
+    font-size: 19px;
+    line-height: 1.42;
+    max-width: 34em;
+    margin-bottom: 0;
+    cursor: text;
+    user-select: text;
+  }
   .piece-text {
     /* The same 19px/1.42 over a 34em measure the published pages use
        (ai_pipeline/html_view.py's .prov): a reviewer should be judging
@@ -582,6 +610,7 @@
         </div>
       </div>
       <div id="pieces"></div>
+      <div id="deleted-pieces" hidden></div>
       <div id="unit-actions" style="display:none">
         <button class="btn" id="merge-open-btn">Merge pieces&hellip;</button>
         <button class="btn primary" id="accept-btn">Accept unit</button>
@@ -645,6 +674,31 @@
     <div class="modal-actions">
       <button class="btn" id="edit-cancel">Cancel</button>
       <button class="btn primary" id="edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Insert modal -- a piece the parse doesn't contain (see review.py's
+     insert_node_endpoint). Same fields as Edit, because a piece a person
+     types in is the same kind of thing as one the parser produced. -->
+<div class="overlay" id="insert-overlay" hidden>
+  <div class="modal">
+    <h3 id="insert-title">Insert a piece</h3>
+    <div class="hint">
+      For text the parse is missing entirely &mdash; a heading the PDF set as an image,
+      a provision the extractor dropped. It starts unreviewed, like any other piece.
+    </div>
+    <label>Type</label>
+    <select id="insert-type"></select>
+    <label>Number</label>
+    <input type="text" id="insert-number">
+    <label>Heading</label>
+    <input type="text" id="insert-heading">
+    <label>Text</label>
+    <textarea id="insert-text"></textarea>
+    <div class="modal-actions">
+      <button class="btn" id="insert-cancel">Cancel</button>
+      <button class="btn primary" id="insert-save">Insert</button>
     </div>
   </div>
 </div>
@@ -1033,6 +1087,13 @@ async function loadUnit(n, pdfPage) {
   }
 }
 
+// The unit's own header already reads "SECTION 11 Place of hearing", so
+// repeating "SECTION" on the first piece under it said nothing. Its own
+// number is what distinguishes it from the pieces below.
+function rootLabelText(piece) {
+  return piece.number ? `${piece.type.toUpperCase()} ${piece.number}` : piece.type.toUpperCase();
+}
+
 function pieceLabelText(piece) {
   if (piece.label && piece.label !== "SECTION") return piece.label;
   if (piece.type === "heading_group") return unitRowLabel({ type: "heading_group", heading: piece.heading });
@@ -1042,6 +1103,11 @@ function pieceLabelText(piece) {
 }
 
 function renderPieceText(piece) {
+  // A table's rows are its lines (see ai_pipeline/tables.py), so reflowing
+  // it -- which is right for every other piece, where a line break is
+  // just where the PDF wrapped -- runs the whole table into one
+  // paragraph and hides the very structure being reviewed.
+  if (piece.type === "table") return escapeHtml(piece.text || "");
   const text = piece.reflowed;
   const sorted = [...piece.links].sort((a, b) => a.start_reflowed - b.start_reflowed);
   let html = "";
@@ -1055,7 +1121,31 @@ function renderPieceText(piece) {
     cursor = l.end_reflowed;
   }
   html += escapeHtml(text.slice(cursor));
-  return html || "<span style=\"color:var(--muted)\">(no text)</span>";
+  if (html) return html;
+  // A piece with no body text of its own is usually not empty at all --
+  // a Section's own node carries its heading and hands the body to its
+  // subsections, and a Subdivision caption is nothing but a heading.
+  // Calling those "(no text)" read as a parsing failure when what was
+  // there was exactly what should be. Only a piece with neither gets
+  // that, and it says which kind of nothing it is.
+  if (piece.heading) return "";
+  return "<span style=\"color:var(--muted)\">no text and no heading &mdash; "
+       + "check the page, this is usually a parsing fault</span>";
+}
+
+// The stored rows, as the table they are. Read-only: the text above it
+// is what gets edited, and this repaints from it on the next load.
+function renderPieceTable(text) {
+  const rows = (text || "").split("\n")
+    .filter((row) => row.trim())
+    .map((row) => row.split("|").map((cell) => cell.trim()));
+  if (!rows.length) return "";
+  const head = rows[0].map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+  const body = rows.slice(1)
+    .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<div class="piece-table"><div class="piece-table-label">As a table</div>
+    <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function describeTarget(link) {
@@ -1094,7 +1184,36 @@ function renderUnit() {
   currentUnit.pieces.forEach((piece, idx) => {
     container.appendChild(buildPiece(piece, idx));
   });
+  renderDeletedPieces();
   renderUnitFooter();
+}
+
+// Pieces deleted out of this unit, offered back. A deletion is a
+// judgement, and the reviewer who made it is the one who should get to
+// change their mind about it -- so it is shown where it was made rather
+// than only discoverable by reading the database.
+function renderDeletedPieces() {
+  const box = document.getElementById("deleted-pieces");
+  const deleted = currentUnit.deleted_pieces || [];
+  box.hidden = deleted.length === 0;
+  box.innerHTML = deleted.length
+    ? `<h4>Deleted from this section</h4>` : "";
+  for (const piece of deleted) {
+    const row = document.createElement("div");
+    row.className = "deleted-piece";
+    const label = `${piece.type.toUpperCase()} ${piece.number || ""}`.trim();
+    row.innerHTML = `<span class="picker-label">${escapeHtml(label)}</span>
+      <span class="picker-preview">${escapeHtml(piece.heading || piece.text || "(no text)")}</span>
+      <button class="btn small restore-btn">Restore</button>`;
+    row.querySelector(".restore-btn").onclick = async () => {
+      try {
+        await api(`api/nodes/${piece.node_index}/restore`, { method: "POST" });
+        toast("Restored.");
+        await afterMutation();
+      } catch (e) { toast(e.message, true); }
+    };
+    box.appendChild(row);
+  }
 }
 
 // One piece's element. Split out of renderUnit so that accepting a single
@@ -1119,8 +1238,21 @@ function buildPiece(piece, idx) {
     div.dataset.type = piece.type;
     div.dataset.nodeIndex = piece.node_index;
     const isRoot = idx === 0 && currentUnit.root_type === piece.type && piece.label === "SECTION";
+    // A Section's heading *is* its content until its subsections start,
+    // so it is set as the piece's own words rather than as a caption
+    // above an apparently empty piece.
+    const headingIsTheContent = !piece.text && !!piece.heading;
     const headingLine = !blindPending && piece.heading && piece.type !== "definition"
-      ? `<div class="piece-heading">${escapeHtml(piece.heading)}</div>` : "";
+      ? `<div class="piece-heading${headingIsTheContent ? " piece-heading-only" : ""}">${escapeHtml(piece.heading)}</div>`
+      : "";
+    // A table is stored as its rows, one per line, cells separated by a
+    // pipe (see ai_pipeline/tables.py) -- which is exactly what makes it
+    // editable here like anything else, and exactly what makes it
+    // unreadable. So the text box stays the text box, with a rendered
+    // copy under it: the reviewer checks the columns against the PDF in
+    // the table, and fixes a cell split in the wrong place by typing.
+    const tableHtml = !blindPending && piece.type === "table"
+      ? renderPieceTable(piece.text) : "";
     const findingsHtml = blindPending ? "" : (piece.findings || [])
       .map((f) => {
         // "ai-scan" findings come from run_ai_review.py's whole-document
@@ -1214,20 +1346,28 @@ function buildPiece(piece, idx) {
     // side is restricted here.
     const nestHandleHtml = idx > 0
       ? `<span class="nest-handle" draggable="true" title="Drag onto another piece to nest this one under it">&#8676; Nest</span>` : "";
+    // One button rather than four: adding, moving and removing a piece
+    // are the rare actions next to Edit and Accept, and spreading them
+    // across the toolbar would put a Delete beside the button a reviewer
+    // presses hundreds of times an hour.
+    const structureHtml = currentUnit.structure_editable
+      ? `<button class="btn small structure-btn" title="Add, move or remove pieces">Structure &#9662;</button>` : "";
     div.innerHTML = `
       <div class="piece-top">
-        <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? "SECTION" : pieceLabelText(piece))}</span>
+        <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? rootLabelText(piece) : pieceLabelText(piece))}</span>
         <span class="piece-type">${blindPending ? "awaiting your assessment" : escapeHtml(piece.type)}</span>
         ${statusBadgeHtml}
         <div class="piece-toolbar">
           ${nestHandleHtml}
           ${pageJumpHtml}
+          ${structureHtml}
           ${decisionButtonsHtml}
           <button class="btn small edit-piece-btn">Edit</button>
         </div>
       </div>
       ${headingLine}
       <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece)}</div>
+      ${tableHtml}
       ${blindFormHtml}
       ${blindResultHtml}
       ${aiSuggestHtml}
@@ -1236,6 +1376,13 @@ function buildPiece(piece, idx) {
       ${verifiedHtml}
     `;
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
+    const structureBtn = div.querySelector(".structure-btn");
+    if (structureBtn) {
+      structureBtn.onclick = (e) => {
+        const box = structureBtn.getBoundingClientRect();
+        showStructureMenu(box.left, box.bottom + 4, piece.node_index);
+      };
+    }
     const jumpBtn = div.querySelector(".page-jump-btn");
     if (jumpBtn) jumpBtn.onclick = () => jumpToPiecePage(piece.page_start);
     const acceptBtn = div.querySelector(".accept-piece-btn");
@@ -1847,6 +1994,122 @@ function openEditModal(nodeIndex) {
   };
 }
 document.getElementById("edit-cancel").onclick = () => { document.getElementById("edit-overlay").hidden = true; };
+
+// ---------------------------------------------------------------------
+// Restructuring: add, move, remove (review.py's insert/move/delete/
+// restore endpoints).
+//
+// Edit, Split, Merge and Nest between them fix a piece that is wrong.
+// None of them fixes one that is *missing* -- a heading the PDF set as
+// an image, a provision the extractor dropped -- or one that is in the
+// document twice, or one the parser attached three sections from where
+// it belongs. These do, which is why a structural fault no longer means
+// re-parsing the document and losing the review with it.
+//
+// DOCUMENT_START, matching ai_pipeline/structure.py: the front of the
+// document, as an anchor in its own right rather than an absent one.
+// ---------------------------------------------------------------------
+
+const DOCUMENT_START = -1;
+
+function showStructureMenu(x, y, nodeIndex) {
+  const pieces = currentUnit.pieces;
+  const idx = pieces.findIndex((p) => p.node_index === nodeIndex);
+  menu.innerHTML = `<div class="preview">${escapeHtml(pieceLabelText(pieces[idx]))}</div>`;
+
+  const add = (label, onClick, extraClass) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    if (extraClass) btn.className = extraClass;
+    btn.onclick = () => { hideMenu(); onClick(); };
+    menu.appendChild(btn);
+  };
+
+  // Up and down reorder *within* this section: index 0 is the section
+  // itself, so nothing can move above index 1 without leaving the unit,
+  // which is what "Move after..." is for.
+  if (idx > 1) add("Move up", () => movePiece(nodeIndex, pieces[idx - 2].node_index));
+  if (idx > 0 && idx < pieces.length - 1) add("Move down", () => movePiece(nodeIndex, pieces[idx + 1].node_index));
+  add("Move after\u2026", () => {
+    window._pickerExclude = nodeIndex;
+    openPicker("Put this piece directly after which one?", nodeIndex, (target) => movePiece(nodeIndex, target));
+  });
+  add("Insert a piece below\u2026", () => openInsertModal(nodeIndex));
+  // "Above this section" is the last piece of the section before it --
+  // which is the start of the document only for the first section. The
+  // server works it out (see _unit_payload's anchor_above); the client
+  // has no idea what precedes this unit.
+  if (idx === 0) add("Insert a piece above\u2026", () => openInsertModal(currentUnit.anchor_above, "above this section"));
+  add("Delete this piece", () => deletePiece(nodeIndex), "remove");
+  showMenuAt(x, y);
+}
+
+async function movePiece(nodeIndex, afterNodeIndex) {
+  try {
+    const res = await api("api/move", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ node_index: nodeIndex, after_node_index: afterNodeIndex }),
+    });
+    toast("Moved.");
+    // A move can carry a piece out of this section entirely, and the
+    // unit numbering shifts under it either way (see review.py's
+    // _rebuild_structure) -- so follow it to wherever it now lives
+    // rather than repainting a unit number that may mean something else.
+    await loadMeta();
+    await loadUnit(res.unit_no);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deletePiece(nodeIndex) {
+  const piece = currentUnit.pieces.find((p) => p.node_index === nodeIndex);
+  const label = piece ? pieceLabelText(piece) : `node ${nodeIndex}`;
+  if (!confirm(`Delete ${label} from the document?\n\nUse this for text that should not be there at all -- `
+             + `a page header the parser read as a provision, or the same provision picked up twice. `
+             + `To keep the text and move it somewhere else, use Merge instead.\n\n`
+             + `It can be restored from this section afterwards.`)) return;
+  try {
+    await api(`api/nodes/${nodeIndex}/delete`, { method: "POST" });
+    toast("Deleted.");
+    await afterMutation();
+  } catch (e) { toast(e.message, true); }
+}
+
+function openInsertModal(afterNodeIndex, whereLabel) {
+  const after = currentUnit.pieces.find((p) => p.node_index === afterNodeIndex);
+  document.getElementById("insert-title").textContent =
+    whereLabel ? `Insert a piece ${whereLabel}`
+    : after ? `Insert a piece after ${pieceLabelText(after)}`
+    : "Insert a piece at the start of the document";
+  const sel = document.getElementById("insert-type");
+  sel.innerHTML = META.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+  // The type of the piece it follows is the likeliest answer by a long
+  // way: a missing subsection is nearly always missing from a run of
+  // them.
+  if (after && META.node_types.includes(after.type)) sel.value = after.type;
+  document.getElementById("insert-number").value = "";
+  document.getElementById("insert-heading").value = "";
+  document.getElementById("insert-text").value = "";
+  document.getElementById("insert-overlay").hidden = false;
+  document.getElementById("insert-save").onclick = async () => {
+    try {
+      const res = await api("api/nodes/insert", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          after_node_index: afterNodeIndex,
+          type: sel.value,
+          number: document.getElementById("insert-number").value || null,
+          heading: document.getElementById("insert-heading").value || null,
+          text: document.getElementById("insert-text").value,
+        }),
+      });
+      document.getElementById("insert-overlay").hidden = true;
+      toast("Inserted.");
+      await loadMeta();
+      await loadUnit(res.unit_no);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("insert-cancel").onclick = () => { document.getElementById("insert-overlay").hidden = true; };
 
 // ---------------------------------------------------------------------
 // Target picker (shared by Split's "reassign the tail" step and Merge's

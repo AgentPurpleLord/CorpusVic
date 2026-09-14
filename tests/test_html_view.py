@@ -967,3 +967,74 @@ def test_nothing_in_a_provision_is_positioned_outside_it():
 
     assert "display: grid" in prov_rule
     assert "text-indent" not in css, "a hanging indent can paint outside the box it belongs to"
+
+
+def test_the_timeline_says_when_it_cannot_compare_versions():
+    """"No changes" and "not comparable" are different answers, and on a
+    register of the law the difference matters. Two versions read by
+    different parsers would report the parsers' own disagreements as
+    amendments -- so nothing is reported, and it says so."""
+    from ai_pipeline.html_view import render_timeline
+
+    assert render_timeline([], "/browse/a") == ""
+    unavailable = render_timeline([], "/browse/a", unavailable=True)
+    assert "can't be shown yet" in unavailable
+    assert "Re-parse every version" in unavailable
+
+
+def test_an_act_offers_its_bill_and_em_from_its_own_contents():
+    related = [
+        {"slug": "crimes-bill", "kind": "bill", "title": "Crimes Bill 1957", "href": "/browse/crimes-bill/"},
+        {"slug": "crimes-bill-em", "kind": "em", "title": "Crimes Bill 1957 EM", "href": "/browse/crimes-bill-em/"},
+    ]
+    page = render_index(_parsed(_definitions_act()), "Crimes Act 1958", "/browse/a", related=related)
+
+    assert "Related documents" in page
+    assert 'href="/browse/crimes-bill/"' in page and 'href="/browse/crimes-bill-em/"' in page
+    assert "the Bill it was enacted from" in page
+    # Nothing at all where there is no related document to offer.
+    assert "Related documents" not in render_index(_parsed(_definitions_act()), "A", "/browse/a")
+
+
+# ---------------------------------------------------------------------
+# Tables
+# ---------------------------------------------------------------------
+
+def _table_act() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "7A", "Time limits removed", ""),
+        make_node("subsection", "3", None, "...described in column 1 of the Table..."),
+        make_node(
+            "table", None, "Table",
+            "Column 1 | Column 2\n"
+            "An offence against a child | A defence under section 45(4)\n"
+            "An offence against a 16 year old | A defence under section 48(2)",
+        ),
+    ]
+
+
+def test_a_table_renders_as_a_table():
+    """Its rows are stored as text, which is what makes it editable in
+    review. Here they have to go back to being columns: "An offence
+    against a child" means nothing without the defence printed beside
+    it."""
+    body = render_section(_parsed(_table_act()), "Test Act", "/browse/a", "s7a")
+
+    assert '<div class="prov prov-table"' in body
+    assert "<th>Column 1</th><th>Column 2</th>" in body
+    assert "<td>An offence against a child</td>" in body
+    assert "<caption>Table</caption>" in body
+    # The stored form is never what a reader sees.
+    assert "Column 1 | Column 2" not in body
+
+
+def test_a_tables_cells_are_linkified_like_any_other_text():
+    nodes = _definitions_act()
+    # Inside section 3, not after the section that follows it.
+    nodes.insert(-1, make_node("table", None, None, "Term | Meaning\nthe accused | a person charged"))
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s3")
+
+    assert re.search(r"<td>[^<]*<a[^>]*>accused</a>[^<]*</td>", body), (
+        "a defined term inside a cell should link the same way it does in prose"
+    )

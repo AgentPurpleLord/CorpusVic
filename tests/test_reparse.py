@@ -8,7 +8,15 @@ fingerprint that makes such a shift detectable, and a re-anchoring that
 moves each row onto the node holding the provision it describes."""
 import json
 
-from ai_pipeline.db import load_orphaned_reviews, load_parse_fingerprint, load_verified, save_verified
+from ai_pipeline.db import (
+    load_orphaned_reviews,
+    load_parse_fingerprint,
+    load_structure_edits,
+    load_verified,
+    save_parse_fingerprint,
+    save_structure_edits,
+    save_verified,
+)
 from ai_pipeline.hierarchy import group_into_units
 from ai_pipeline.reparse import (
     apply_carry_forward,
@@ -388,3 +396,72 @@ def test_apply_carry_forward_does_nothing_for_a_works_first_version(tmp_path, mo
     nodes = _act()
 
     assert apply_carry_forward("crimes-act", "crimes-act-v110", nodes) is None
+
+
+# ---------------------------------------------------------------------
+# Structural edits do not survive a re-parse
+# ---------------------------------------------------------------------
+
+def test_a_reparse_discards_structural_edits(tmp_path, monkeypatch):
+    """"Delete node 87" is a position into the parse that has just been
+    replaced. A verified row can be re-anchored because it carries the
+    provision it describes; an edit carries nothing about the node it
+    points at, so applying it to whatever now sits there would delete a
+    provision nobody asked to lose."""
+    monkeypatch.chdir(tmp_path)
+    old_nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    save_parse_fingerprint("crimes-act", parse_fingerprint(old_nodes))
+    save_structure_edits("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+    new_nodes = [make_node("section", "1", "Murder"), make_node("note", None, None, "a note"),
+                 make_node("section", "2", "Manslaughter")]
+
+    report = apply_remap("crimes-act", new_nodes, group_into_units(new_nodes))
+
+    assert load_structure_edits("crimes-act") == {}
+    assert report["structure_edits_dropped"] == 1
+    assert "structural edit" in describe_remap(report)
+
+
+def test_a_reparse_keeps_the_text_of_an_inserted_piece(tmp_path, monkeypatch):
+    """The one thing a re-parse can't reproduce: a person typed it in
+    precisely because the parse didn't have it."""
+    monkeypatch.chdir(tmp_path)
+    old_nodes = [make_node("section", "1", "Murder")]
+    save_parse_fingerprint("crimes-act", parse_fingerprint(old_nodes))
+    typed_in = make_node("subsection", "1", None, "a subsection the extractor dropped")
+    save_structure_edits("crimes-act", {1: {"after": 0, "deleted": False, "node": typed_in}})
+    new_nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+
+    apply_remap("crimes-act", new_nodes, group_into_units(new_nodes))
+
+    orphans = load_orphaned_reviews("crimes-act")
+    assert [o["text"] for o in orphans] == ["a subsection the extractor dropped"]
+
+
+def test_structural_edits_are_reported_even_with_no_review_rows_to_remap(tmp_path, monkeypatch):
+    """A document can have been restructured without a single piece
+    having been accepted yet -- apply_remap's "nothing to move" early
+    exit still has to say what it threw away."""
+    monkeypatch.chdir(tmp_path)
+    old_nodes = [make_node("section", "1", "Murder")]
+    save_parse_fingerprint("crimes-act", parse_fingerprint(old_nodes))
+    save_structure_edits("crimes-act", {0: {"after": 5, "deleted": False, "node": None}})
+    new_nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+
+    report = apply_remap("crimes-act", new_nodes, group_into_units(new_nodes))
+
+    assert report["structure_edits_dropped"] == 1
+    assert load_structure_edits("crimes-act") == {}
+
+
+def test_reparsing_the_very_same_parse_leaves_structural_edits_alone(tmp_path, monkeypatch):
+    """Re-running the pipeline over an unchanged PDF is not a reason to
+    undo a reviewer's restructuring -- the positions still mean what they
+    meant."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
+    save_parse_fingerprint("crimes-act", parse_fingerprint(nodes))
+    save_structure_edits("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+
+    assert apply_remap("crimes-act", nodes, group_into_units(nodes)) is None
+    assert set(load_structure_edits("crimes-act")) == {1}

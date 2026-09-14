@@ -344,7 +344,12 @@ def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     trailing independent clause grammatically resumes subsection (1)'s
     own lead-in sentence, not paragraph (b)'s -- and the PDF's own
     hanging indent (the trailing clause outdents back past the
-    Paragraph's own wrap indent) is what tells them apart."""
+    Paragraph's own wrap indent) is what tells them apart.
+
+    It belongs to the subsection but comes *after* its list, so it is a
+    node of its own nested inside it rather than more of its text: the
+    list items are already in the node list by then, and adding to the
+    subsection would print the wrap-up before the list it follows."""
     lines = [
         line("Part I—Offences", bold=True),
         line("Division 1—Offences against the person", bold=True),
@@ -360,9 +365,14 @@ def test_hanging_list_reattaches_trailing_clause_to_lead_in():
     result = _parse(lines)
     subsection2 = find(result.nodes, "subsection", "2")
     paragraph_b = find(result.nodes, "paragraph", "b")
-    assert "shall be guilty" in subsection2["text"]
+    wrap_up = find(result.nodes, "continuation")
+    assert "shall be guilty" in wrap_up["text"]
     assert "shall be guilty" not in paragraph_b["text"]
+    assert "shall be guilty" not in subsection2["text"]
     assert paragraph_b["text"].rstrip().endswith("suicide—")
+    # Reading order: the lead-in, then the list, then the wrap-up.
+    order = [n["type"] for n in result.nodes]
+    assert order.index("subsection") < order.index("paragraph") < order.index("continuation")
 
 
 def test_chapter_heading_recognised_and_nests_a_part_under_it():
@@ -1165,3 +1175,188 @@ def test_a_topical_heading_is_not_swallowed_by_an_open_definitions_run():
 
     assert any(n["type"] == "heading_group" and n["heading"] == "Fingerprinting" for n in nodes)
     assert "Fingerprinting" not in [n["heading"] for n in nodes if n["type"] == "definition"]
+
+
+# ---------------------------------------------------------------------
+# Printed lists and wrap-up text
+# ---------------------------------------------------------------------
+def test_a_bulleted_line_starts_its_own_item():
+    """Joining these into the prose gave "as follows—• evidence relevant
+    to ... ; • a summary of ..." -- the bullets stranded mid-paragraph,
+    one glued tight to the dash before it and the next taking a space.
+    A break before a bullet is the one kind the text keeps."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Directions", bold=True),
+        line("Counsel must inform the judge of each element in", x0=HEAD_X0),
+        line("issue, including—", x0=WRAP_X0),
+        line("• whether the act was a dangerous act; and", x0=WRAP_X0),
+        line("• whether the act caused death.", x0=WRAP_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"].split("\n") == [
+        "Counsel must inform the judge of each element in issue, including—",
+        "• whether the act was a dangerous act; and",
+        "• whether the act caused death.",
+    ]
+
+
+def test_a_bullet_printed_alone_on_its_line_keeps_its_words():
+    """The Crimes Act sets some of these with the marker on one line and
+    the item on the next."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Directions", bold=True),
+        line("The matters in issue include—", x0=HEAD_X0),
+        line("•", x0=WRAP_X0),
+        line("whether the act was a dangerous act; and", x0=WRAP_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"].split("\n") == [
+        "The matters in issue include—",
+        "• whether the act was a dangerous act; and",
+    ]
+
+
+def test_an_em_dash_at_the_end_of_a_line_does_not_close_up():
+    """Unlike a hyphen, it opens a list rather than breaking a word: "an
+    offence described as being—" followed by its own list, then the rest
+    of the sentence, must not come back as "being—in either case"."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Directions", bold=True),
+        line("An offence described as being—", x0=HEAD_X0),
+        line("in either case, an indictable offence.", x0=HEAD_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"] == "An offence described as being— in either case, an indictable offence."
+
+
+# ---------------------------------------------------------------------
+# Penalties
+#
+# Victorian drafting sets the penalty for an offence on its own line
+# under the provision creating it. Read as more of that provision's text,
+# what the offence forbids and what happens to you if you do it run
+# together into one block, and the second becomes unfindable.
+# ---------------------------------------------------------------------
+
+def test_a_penalty_becomes_its_own_node():
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("Division 1—Offences against the person", bold=True),
+        line("3 Punishment for murder", bold=True),
+        line("A person who commits murder is guilty of an indictable offence.", x0=HEAD_X0),
+        line("Penalty: Level 2 imprisonment (25 years maximum).", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    penalty = find(nodes, "penalty")
+    assert penalty["text"] == "Penalty: Level 2 imprisonment (25 years maximum)."
+    section = find(nodes, "section", "3")
+    assert "Penalty" not in section["text"]
+
+
+def test_a_penalty_keeps_its_wrapped_lines():
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment for murder", bold=True),
+        line("A person who commits murder is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: Level 2 imprisonment (25 years", x0=HEAD_X0),
+        line("maximum).", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: Level 2 imprisonment (25 years maximum)."
+
+
+def test_a_penalty_line_starting_with_a_number_does_not_end_the_penalty():
+    """The regression this was written for: a penalty's own wording
+    starts lines with numbers constantly ("1200 penalty units maximum)"),
+    and the section pattern is "a number, then some words" -- so half of
+    them were read as a new section and the penalty was cut off
+    mid-sentence. In the ordinary flow that pattern only opens a section
+    on a *bold* line."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: In the case of an individual, a level 5 fine", x0=HEAD_X0),
+        line("1200 penalty units maximum) or both.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"].endswith("1200 penalty units maximum) or both.")
+    assert not [n for n in nodes if n["type"] == "section" and n.get("number") == "1200"]
+
+
+def test_a_penalty_ends_at_the_next_bold_heading():
+    """A bare topical caption matches no structural pattern at all, so
+    only its boldness gives it away -- without that, a penalty at the
+    foot of a group's last provision swallowed the caption introducing
+    the next one."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0),
+        line("Offences relating to Horse-drawn Vehicles, Public Vehicles, Animals, &c.", bold=True),
+        line("4 Another offence", bold=True),
+        line("Text.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: 25 penalty units."
+    assert find(nodes, "section", "4")["heading"] == "Another offence"
+
+
+def test_a_penalty_ends_at_the_next_bracketed_subsection():
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("(1) A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0),
+        line("(2) In this section, this means that.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert find(nodes, "penalty")["text"] == "Penalty: 25 penalty units."
+    assert find(nodes, "subsection", "2")["text"] == "In this section, this means that."
+
+
+def test_the_word_penalty_mid_sentence_is_not_a_penalty():
+    """"penalty" is everywhere in ordinary legislative prose. Every real
+    penalty line starts one and is capitalised and followed by a colon;
+    none of the prose uses is."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Recovery", bold=True),
+        line("Where a penalty is prescribed by law, the person shall pay it, and the", x0=HEAD_X0),
+        line("penalty must be recovered only before the Magistrates' Court.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert not [n for n in nodes if n["type"] == "penalty"]
+    assert "penalty must be recovered" in find(nodes, "section", "3")["text"]
+
+
+def test_a_penalty_belongs_to_its_sections_review_unit():
+    """Like a note: it is a fact about the provision above it, not a
+    container and not a boundary, so it is reviewed alongside the
+    offence it attaches to."""
+    from ai_pipeline.hierarchy import group_into_units
+
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("3 Punishment", bold=True),
+        line("A person who does this is guilty of an offence.", x0=HEAD_X0),
+        line("Penalty: 25 penalty units.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+    units = group_into_units(nodes)
+
+    section_unit = next(u for u in units if nodes[u[0]]["type"] == "section")
+    assert [nodes[i]["type"] for i in section_unit] == ["section", "penalty"]

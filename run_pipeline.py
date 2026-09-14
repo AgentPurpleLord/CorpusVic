@@ -58,8 +58,9 @@ from ai_pipeline.diagnostics import run_diagnostics
 from ai_pipeline.endnotes import detect_endnotes_start, parse_endnotes
 from ai_pipeline.extract import extract_pages, pages_to_dicts, slugify
 from ai_pipeline.hierarchy import group_into_units
-from ai_pipeline.profiles import profile_exists
-from ai_pipeline.reparse import apply_carry_forward, apply_remap, describe_remap, parse_fingerprint
+from ai_pipeline.profiles import profile_for
+from ai_pipeline.reparse import (apply_carry_forward, apply_remap, describe_remap,
+                                 parse_fingerprint, parser_version)
 from ai_pipeline.versions import describe as describe_version
 from ai_pipeline.versions import document_slug, read_front_matter, work_directory
 from ai_pipeline.rule_parser import parse_act
@@ -83,7 +84,12 @@ def main():
         "--document-type", choices=["act", "bill"], default="act",
         help="\"bill\" parses a Bill instead of an enacted Act (see the module docstring)",
     )
-    ap.add_argument("--profile", default=None, help="pattern profile name (ai_pipeline/profiles/<name>.yaml)")
+    ap.add_argument("--profile", default=None,
+                    help="pattern profile name (ai_pipeline/profiles/<name>.yaml); "
+                         "defaults to whatever this document was parsed with before, or a profile named "
+                         "after it")
+    ap.add_argument("--no-profile", action="store_true",
+                    help="parse with the built-in patterns even if a profile exists for this document")
     ap.add_argument("--start-page", type=int, default=None, help="1-indexed; default: auto-detect end of Table of Provisions")
     ap.add_argument("--end-page", type=int, default=None)
     args = ap.parse_args()
@@ -142,15 +148,13 @@ def main():
     # written for kept parsing on the defaults -- which is what happened to
     # the Evidence Act's Parts. An explicit --profile still wins.
     #
-    # Looked up under the *work* before the document: how an Act numbers
-    # its Parts is a fact about the Act, not about one reprint of it, so
-    # one criminal-procedure-act.yaml serves all five of its versions
-    # rather than needing a copy per version.
-    profile_name = args.profile or next(
-        (name for name in ((work if is_version else act_slug), act_slug) if profile_exists(name)), None
-    )
+    # Worked out rather than remembered -- see profiles.profile_for. It
+    # prefers whatever the last parse of this document actually used, so a
+    # re-parse cannot quietly come back with a worse one.
+    profile_name = None if args.no_profile else (args.profile or profile_for(act_slug))
     if profile_name and not args.profile:
-        print(f"Using profile ai_pipeline/profiles/{profile_name}.yaml (named after this Act)")
+        print(f"Using profile ai_pipeline/profiles/{profile_name}.yaml (override with --profile, "
+              "or --no-profile for none)")
     nodes, parse_result = run_parser(pages, act_slug, profile_name, document_type=args.document_type)
     engine_meta = {"engine": "rules", "profile": profile_name, "document_type": args.document_type}
     hierarchy_order = parse_result.hierarchy
@@ -194,6 +198,10 @@ def main():
                 # what they meant" from "this parse has moved underneath
                 # them" -- see ai_pipeline/reparse.py.
                 "fingerprint": parse_fingerprint(nodes),
+                # Which parser read this PDF. Two versions of one Act can
+                # only be compared to find what Parliament amended if the
+                # same parser read both -- see reparse.parser_version.
+                "parser_version": parser_version(),
                 "nodes": nodes, "unattached_notes": unattached_notes,
                 "endnotes": endnotes,
             },

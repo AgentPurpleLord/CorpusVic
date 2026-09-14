@@ -73,6 +73,7 @@ import re
 from pathlib import Path
 
 from .akn_export import build_hierarchy_tree
+from .tables import split_rows
 from .amendments import anchor_id, describe, linkify_note
 from .diffing import provision_identity
 from .hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
@@ -392,6 +393,36 @@ def _provision_html(node_type: str, header_text: "str | None", text_html: "str |
     )
 
 
+def _table_html(node: dict, depth: int, id_attr: str = "", render_cell=None) -> str:
+    """A table, as a real table.
+
+    Its rows are stored as text -- one per line, cells separated by a
+    pipe (see ai_pipeline/tables.py) -- which is what makes a table as
+    editable in review as any other provision. Here they go back to being
+    columns, because that is the only form in which the thing can be read
+    at all: "An offence against a child under the age of 16" means
+    nothing without the defence printed beside it.
+
+    The first row is the header. Every table in this corpus has one, and
+    they say so in as many words ("Column 1 / Column 2", "Provisions of
+    this Act / Subject-matter")."""
+    render_cell = render_cell or _esc
+    rows = split_rows(node.get("text") or "")
+    if not rows:
+        return ""
+    caption = f"<caption>{_esc(node['heading'])}</caption>" if node.get("heading") else ""
+    head = "".join(f"<th>{render_cell(cell)}</th>" for cell in rows[0])
+    body = "".join(
+        "<tr>" + "".join(f"<td>{render_cell(cell)}</td>" for cell in row) + "</tr>"
+        for row in rows[1:]
+    )
+    return (
+        f'<div class="prov prov-table"{id_attr} style="--depth:{depth}">'
+        f"<table>{caption}<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
+        "</div>"
+    )
+
+
 def _margin_notes_html(node: dict, base_url: str = "", amendment_index: dict | None = None) -> str:
     """This one provision's own amendment-history notes, for the right-
     hand margin column beside it -- the same place the source PDF
@@ -469,7 +500,7 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None, unpublished_pages: "set[str] | None" = None,
-                 show_review_badge: bool = True) -> str:
+                 show_review_badge: bool = True, related: "list[dict] | None" = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section
     is built from it, so the caller controls the URL scheme entirely.
@@ -486,6 +517,13 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     dangerous reading: a missing section must never look like a section
     that doesn't exist. None (the live dashboard, which shows
     everything) marks nothing.
+
+    related, if given, is the Bill this Act was enacted from and that
+    Bill's Explanatory Memorandum, as [{"title", "href", "kind"}]. They
+    belong to the Act rather than standing beside it -- an Explanatory
+    Memorandum is written about a Bill and is meaningless without it --
+    so they are offered here, from the Act's own contents, rather than on
+    the site's front page as if the three were separate publications.
 
     show_review_badge is how much of the Act a human has checked, which
     is what a reviewer wants to know and the wrong thing to tell a
@@ -524,6 +562,15 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
             "&mdash; general information, the Table of Amendments, explanatory details</div>"
         )
+    if related:
+        kinds = {"bill": "the Bill it was enacted from",
+                 "em": "the Explanatory Memorandum written about that Bill"}
+        items = "".join(
+            f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a> '
+            f'<span class="related-kind">&mdash; {kinds.get(doc.get("kind"), "")}</span></li>'
+            for doc in related
+        )
+        out.append(f'<div class="related"><h2>Related documents</h2><ul class="section-list">{items}</ul></div>')
     list_open = False
 
     def close_list():
@@ -666,7 +713,7 @@ def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | No
 
 
 def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
-                    version_urls: "dict | None" = None) -> str:
+                    version_urls: "dict | None" = None, unavailable: bool = False) -> str:
     """A provision's history across the versions of the Act held here,
     or "" where it has none.
 
@@ -676,7 +723,20 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
     collapsed summary says how many changes there are and when the
     last one was, so the control answers the first question without
     being opened.
+
+    unavailable says the versions of this Act were read by different
+    parsers, so they cannot be compared yet (see dashboard._timeline).
+    Said plainly rather than by showing nothing: "no changes" and "not
+    comparable" are different answers, and on a register of the law the
+    difference matters.
     """
+    if unavailable:
+        return (
+            '<div class="timeline-unavailable">How this provision has changed across versions '
+            "can't be shown yet: the versions of this Act held here were read by different "
+            "versions of the parser, and comparing them would report the parsers' own "
+            "disagreements as amendments. Re-parse every version to restore it.</div>"
+        )
     if not entries:
         return ""
     newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
@@ -919,6 +979,7 @@ def render_section(
     timeline: list[dict] | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
     unpublished_pages: "set[str] | None" = None, show_review_badge: bool = True,
+    timeline_unavailable: bool = False,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -992,7 +1053,8 @@ def render_section(
             superseded.get("version"), superseded.get("current"),
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
-    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
+    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls,
+                               unavailable=timeline_unavailable))
     out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads the way the Act itself does: each provision
@@ -1020,11 +1082,17 @@ def render_section(
         slug = slugs.get(key)
         id_attr = f' id="{_esc(slug)}"' if slug else ""
 
-        out.append(_provision_html(
-            unit_node["type"], unit["header_text"],
-            None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
-            unit["depth"], id_attr,
-        ))
+        if unit_node["type"] == "table":
+            out.append(_table_html(
+                unit_node, unit["depth"], id_attr,
+                lambda cell: linkify(_esc(cell), target_filename, slug),
+            ))
+        else:
+            out.append(_provision_html(
+                unit_node["type"], unit["header_text"],
+                None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
+                unit["depth"], id_attr,
+            ))
         # One margin cell per provision, empty or not: the two columns
         # are auto-placed rows of the same grid, so a note only stays
         # level with the provision it belongs to if every provision
@@ -1209,10 +1277,13 @@ def _preview_prov_html(unit: dict, base_depth: int) -> str:
     previews of previews, and its ids would collide with the real
     page's own."""
     node = unit["tree_node"]["node"]
+    depth = max(unit["depth"] - base_depth, 0)
+    if node["type"] == "table":
+        return _table_html(node, depth)
     return _provision_html(
         node["type"], unit["header_text"],
         None if unit["text"] is None else _esc(unit["text"]),
-        max(unit["depth"] - base_depth, 0),
+        depth,
     )
 
 

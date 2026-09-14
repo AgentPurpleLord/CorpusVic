@@ -134,3 +134,100 @@ def test_export_to_akn_of_a_bill_validates():
     tree = export_to_akn({"nodes": nodes, "act": "test-bill"})
     assert_valid_akn(tree)
     assert tree.find(f".//{{{FINAL_NS}}}clause") is not None
+
+
+# ---------------------------------------------------------------------
+# Penalties attach to the provision that creates the offence
+# ---------------------------------------------------------------------
+
+def _tree_eids(tree_roots):
+    found = []
+    def walk(node):
+        found.append((node["node"]["type"], node["eid"]))
+        for child in node["children"]:
+            walk(child)
+    for root in tree_roots:
+        walk(root)
+    return found
+
+
+def test_a_penalty_attaches_to_its_section_not_to_the_list_above_it():
+    """A penalty is printed after the whole provision, so whatever was
+    open when the parser reached it is the deepest thing in the list
+    above. Left alone, s 1's penalty came out under paragraph (b), where
+    nothing looking for the section's penalty would find it."""
+    nodes = [
+        make_node("part", "I", "Offences"),
+        make_node("section", "1", "Murder", "A person who—"),
+        make_node("paragraph", "a", None, "does this; or"),
+        make_node("paragraph", "b", None, "does that;"),
+        make_node("continuation", None, None, "is guilty of an indictable offence."),
+        make_node("penalty", None, None, "Penalty: Level 2 imprisonment (25 years maximum)."),
+    ]
+    tree_roots, _collisions = build_hierarchy_tree(nodes)
+
+    eid = next(e for t, e in _tree_eids(tree_roots) if t == "penalty")
+    assert eid == "part_i__sec_1__pnlty_1"
+
+
+def test_a_penalty_stays_under_the_subsection_that_creates_the_offence():
+    """It pops back past list items and the wrap-up, and no further: a
+    penalty under subsection (1) belongs to subsection (1), not to the
+    section as a whole."""
+    nodes = [
+        make_node("part", "I", "Offences"),
+        make_node("section", "9", "Wilful damage", ""),
+        make_node("subsection", "1", None, "A person who—"),
+        make_node("paragraph", "a", None, "does this;"),
+        # depth_rank is where the parser actually put it -- a wrap-up
+        # closing a subsection's (a)/(b) list sits at the list's own
+        # depth, inside that subsection (see rule_parser's
+        # _consume_as_continuation).
+        dict(make_node("continuation", None, None, "shall be guilty of an offence."), depth_rank=7),
+        make_node("penalty", None, None, "Penalty: 25 penalty units."),
+        make_node("subsection", "1A", None, "In any proceedings for an offence against subsection (1)..."),
+    ]
+    tree_roots, _collisions = build_hierarchy_tree(nodes)
+
+    eid = next(e for t, e in _tree_eids(tree_roots) if t == "penalty")
+    assert eid == "part_i__sec_9__subsec_1__pnlty_1"
+
+
+def test_a_penalty_does_not_swallow_what_comes_after_it():
+    """Popping the stack for the penalty must not leave the next
+    subsection nested inside it."""
+    nodes = [
+        make_node("part", "I", "Offences"),
+        make_node("section", "9", "Wilful damage", ""),
+        make_node("subsection", "1", None, "An offence."),
+        make_node("penalty", None, None, "Penalty: 25 penalty units."),
+        make_node("subsection", "2", None, "Another thing."),
+    ]
+    tree_roots, _collisions = build_hierarchy_tree(nodes)
+
+    section = tree_roots[0]["children"][0]
+    assert [c["node"].get("number") for c in section["children"]] == ["1", "2"]
+
+
+def test_an_act_with_a_penalty_still_validates_against_the_real_schema():
+    nodes = _small_act_nodes() + [
+        make_node("penalty", None, None, "Penalty: Level 2 imprisonment (25 years maximum)."),
+    ]
+    assert_valid_akn(export_to_akn({"nodes": nodes, "act": "test-act"}))
+
+
+def test_a_table_exports_as_a_real_table():
+    """Its rows are stored as text, and reflow would join them into one
+    paragraph -- throwing away the one thing a table is, and putting the
+    rows back into exactly the state they were recovered from."""
+    nodes = _small_act_nodes() + [
+        make_node("table", None, "Table", "Column 1 | Column 2\nan offence | a defence"),
+    ]
+    tree = export_to_akn({"nodes": nodes, "act": "test-act"})
+    assert_valid_akn(tree)
+
+    root = tree.getroot()
+    assert "an offence | a defence" not in ET.tostring(root, encoding="unicode")
+    assert [e.tag.rsplit("}", 1)[-1] for e in root.iter() if e.tag.endswith("}tr")] == ["tr", "tr"]
+    cells = [e.text for e in root.iter() if e.tag.endswith("}p")]
+    assert "Column 1" in cells and "a defence" in cells

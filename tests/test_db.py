@@ -367,6 +367,7 @@ def _one_of_everything(act: str) -> None:
     db.add_orphaned_reviews(act, [{"type": "section", "number": "99"}])
     db.save_parse_fingerprint(act, "abc123")
     db.add_custom_type(act, "penalty")
+    db.save_structure_edits(act, {1: {"after": 0, "deleted": True, "node": None}})
 
 
 def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, monkeypatch):
@@ -381,7 +382,7 @@ def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, mo
 
     assert set(cleared) == {
         "verified", "links", "blind_reviews", "orphaned_reviews",
-        "ai_suggestions", "ai_scan_findings", "parse_state",
+        "ai_suggestions", "ai_scan_findings", "structure_edits", "parse_state",
     }
     assert db.load_verified("cpa") == []
     assert db.load_links("cpa") == []
@@ -389,6 +390,7 @@ def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, mo
     assert db.get_ai_suggestion("cpa", 0) is None
     assert db.load_ai_scan_findings("cpa") == []
     assert db.load_orphaned_reviews("cpa") == []
+    assert db.load_structure_edits("cpa") == {}
     assert db.load_parse_fingerprint("cpa") is None
 
 
@@ -418,3 +420,57 @@ def test_clear_act_review_leaves_other_documents_alone(tmp_path, monkeypatch):
     assert db.load_verified("cpa") == []
     assert len(db.load_verified("interpretation")) == 1
     assert db.load_parse_fingerprint("interpretation") == "abc123"
+
+
+# ---------------------------------------------------------------------
+# Structural edits
+# ---------------------------------------------------------------------
+
+def test_structure_edits_round_trip(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    inserted = make_node("subsection", "2", None, "a subsection the extractor dropped")
+    db.save_structure_edits("cpa", {
+        4: {"after": 1, "deleted": False, "node": inserted},
+        2: {"after": 0, "deleted": True, "node": None},
+        3: {"after": 7, "deleted": False, "node": None},
+    })
+
+    assert db.load_structure_edits("cpa") == {
+        2: {"after": 0, "deleted": True, "node": None},
+        3: {"after": 7, "deleted": False, "node": None},
+        4: {"after": 1, "deleted": False, "node": inserted},
+    }
+
+
+def test_saving_structure_edits_replaces_the_whole_set(tmp_path, monkeypatch):
+    """Same whole-list overwrite save_verified does -- review.py holds
+    the complete picture and writes it whenever any part changes, so a
+    restore has to be able to remove a row by leaving it out."""
+    monkeypatch.chdir(tmp_path)
+    db.save_structure_edits("cpa", {2: {"after": 0, "deleted": True, "node": None}})
+
+    db.save_structure_edits("cpa", {})
+
+    assert db.load_structure_edits("cpa") == {}
+
+
+def test_structure_edits_are_per_document(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    db.save_structure_edits("cpa", {2: {"after": 0, "deleted": True, "node": None}})
+    db.save_structure_edits("interpretation", {})
+
+    assert set(db.load_structure_edits("cpa")) == {2}
+    assert db.load_structure_edits("interpretation") == {}
+
+
+def test_a_document_start_anchor_survives_the_round_trip(tmp_path, monkeypatch):
+    """-1 is a real anchor (the front of the document), not a missing
+    one -- it has to come back as itself and not as None."""
+    monkeypatch.chdir(tmp_path)
+    from ai_pipeline.structure import DOCUMENT_START
+
+    db.save_structure_edits("cpa", {
+        3: {"after": DOCUMENT_START, "deleted": False, "node": make_node("part", "1")},
+    })
+
+    assert db.load_structure_edits("cpa")[3]["after"] == DOCUMENT_START

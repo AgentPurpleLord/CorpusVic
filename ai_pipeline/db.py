@@ -213,6 +213,30 @@ CREATE TABLE IF NOT EXISTS custom_types (
     created_at TEXT NOT NULL,
     PRIMARY KEY (act, name)
 );
+
+-- Structural edits the parse itself cannot express: a node the reviewer
+-- inserted, one they deleted, one they moved. See ai_pipeline/structure.py
+-- for what an entry means; this table is only where they are kept.
+--
+-- Keyed by node_index like everything else, and for the same reason:
+-- these edits change a document's *order*, never its indices. An
+-- inserted node takes an index above every parse position (node_json is
+-- what makes it a node at all, since there is no parse entry to fall
+-- back to); a parse node that was moved or deleted keeps the index the
+-- parse gave it.
+CREATE TABLE IF NOT EXISTS structure_edits (
+    act TEXT NOT NULL,
+    node_index INTEGER NOT NULL,
+    -- The node this one follows. -1 (structure.DOCUMENT_START) is the
+    -- front of the document; NULL leaves a parse node where the parse
+    -- put it.
+    after_index INTEGER,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    node_json TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_index)
+);
+CREATE INDEX IF NOT EXISTS idx_structure_edits_act ON structure_edits(act);
 """
 
 _connections: dict[str, sqlite3.Connection] = {}
@@ -396,6 +420,7 @@ _DERIVED_TABLES = ("parse_state",)
 # stops a document being reviewed again from scratch.
 _POSITION_KEYED_TABLES = (
     "verified", "links", "blind_reviews", "orphaned_reviews", "ai_suggestions", "ai_scan_findings",
+    "structure_edits",
 )
 
 
@@ -737,6 +762,47 @@ def clear_ai_scan_findings(act: str) -> int:
     with conn:
         cur = conn.execute("DELETE FROM ai_scan_findings WHERE act = ?", (act,))
     return cur.rowcount
+
+
+# ---------------------------------------------------------------------
+# Structural edits (see ai_pipeline/structure.py)
+# ---------------------------------------------------------------------
+def load_structure_edits(act: str, base_dir: "str | Path | None" = None) -> dict[int, dict]:
+    """{node_index: {"after", "deleted", "node"}} -- exactly the shape
+    ai_pipeline.structure.document_order takes."""
+    rows = _connect(base_dir).execute(
+        "SELECT * FROM structure_edits WHERE act = ? ORDER BY node_index", (act,)
+    ).fetchall()
+    return {
+        row["node_index"]: {
+            "after": row["after_index"],
+            "deleted": bool(row["deleted"]),
+            "node": json.loads(row["node_json"]) if row["node_json"] is not None else None,
+        }
+        for row in rows
+    }
+
+
+def save_structure_edits(act: str, edits: dict[int, dict], base_dir: "str | Path | None" = None) -> None:
+    """Replaces every structural edit stored for this document with
+    exactly what is in `edits` now -- the same whole-list overwrite
+    save_verified does, and for the same reason: review.py holds the
+    complete picture in memory and writes it whenever any part changes."""
+    conn = _connect(base_dir)
+    with conn:
+        conn.execute("DELETE FROM structure_edits WHERE act = ?", (act,))
+        conn.executemany(
+            "INSERT INTO structure_edits (act, node_index, after_index, deleted, node_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    act, index, edit.get("after"), 1 if edit.get("deleted") else 0,
+                    json.dumps(edit["node"]) if edit.get("node") is not None else None,
+                    edit.get("created_at") or _now_iso(),
+                )
+                for index, edit in sorted(edits.items())
+            ],
+        )
 
 
 # ---------------------------------------------------------------------

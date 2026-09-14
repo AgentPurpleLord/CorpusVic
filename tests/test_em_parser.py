@@ -39,7 +39,7 @@ def test_inline_clause_number_on_same_line_as_explanation():
     lines = [line("Clause 155 provides that the Bill does not change the"), line("nature of a committal proceeding.")]
     result = _parse(lines)
     entry = find(result.nodes, "clause", "155")
-    assert entry["text"] == "provides that the Bill does not change the\nnature of a committal proceeding."
+    assert entry["text"] == "provides that the Bill does not change the nature of a committal proceeding."
 
 
 def test_pinpoint_clause_reference_gets_its_own_entry():
@@ -209,7 +209,7 @@ def test_a_bullet_item_that_wraps_stays_one_provision():
     ]
     result = _parse(lines)
 
-    assert result.nodes[1]["text"] == "state the offence that the accused is alleged\nto have committed;"
+    assert result.nodes[1]["text"] == "state the offence that the accused is alleged to have committed;"
 
 
 def test_a_nested_bullet_list_nests():
@@ -266,7 +266,7 @@ def test_a_line_back_at_an_outer_item_continues_that_item():
     ]
     result = _parse(lines)
 
-    assert result.nodes[1]["text"] == "an offence described as being—\nin either case, an indictable offence."
+    assert result.nodes[1]["text"] == "an offence described as being— in either case, an indictable offence."
     assert result.nodes[2]["text"] == "a level 5 offence; or"
 
 
@@ -325,3 +325,43 @@ def test_a_chapter_heading_after_a_schedule_closes_it():
 
     assert find(result.nodes, "clause", "1")["schedule"] == "1"
     assert "schedule" not in find(result.nodes, "clause", "2")
+
+
+def test_paragraph_breaks_survive_but_wrapped_lines_do_not():
+    """An Explanatory Memorandum is prose: a clause note runs to several
+    paragraphs, and where one ends is carried only by the space the
+    typesetter left above the next. Keeping every printed line break left
+    a note looking like verse; keeping none left it one undifferentiated
+    block."""
+    lines = [
+        line("Clause 2", bold=True, y0=88, x1=260),
+        line("provides for the commencement of the Bill. Chapter 1 comes", y0=100, x1=440),
+        # Stops short of the margin, and a clear step up from the 12pt
+        # pitch above: the end of a paragraph.
+        line("into operation on the day after Royal Assent.", y0=112, x1=390),
+        line("The other provisions commence on a day to be", y0=130, x1=440),
+        line("proclaimed.", y0=142, x1=280),
+    ]
+    result = parse_em([page(lines)])
+    entry = find(result.nodes, "clause", "2")
+
+    assert entry["text"].split("\n") == [
+        "provides for the commencement of the Bill. Chapter 1 comes into operation "
+        "on the day after Royal Assent.",
+        "The other provisions commence on a day to be proclaimed.",
+    ]
+
+
+def test_a_wrapped_line_is_not_a_paragraph_just_because_it_is_short():
+    """The vertical gap has to agree. Without it, every line that happened
+    to end early was called a paragraph break -- 91 of them in the
+    Criminal Procedure Bill's own EM, splitting sentences mid-clause."""
+    lines = [
+        line("Clause 2", bold=True, y0=88, x1=260),
+        # Short, but with no extra space above the line that follows it.
+        line("provides for the commencement", y0=100, x1=330),
+        line("of the Bill on Royal Assent.", y0=112, x1=440),
+    ]
+    entry = find(parse_em([page(lines)]).nodes, "clause", "2")
+
+    assert "\n" not in entry["text"]

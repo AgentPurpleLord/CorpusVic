@@ -27,8 +27,9 @@ profile is explaining *why* this Act's numbering is different.
 
 Any pattern you don't override falls back to DEFAULT_PATTERNS. Every
 pattern (default or overridden) needs at least two capture groups --
-(number, heading/rest) -- except "notes_marker" (a plain yes/no check,
-no groups needed) and "subdivision" (two two-group options, four groups
+(number, heading/rest) -- except the marker patterns "notes_marker",
+"example_marker" and "penalty_marker" (plain yes/no checks, no groups
+needed) and "subdivision" (two two-group options, four groups
 total; see its own comment below). This is checked as soon as the
 profile loads, not later while parsing, so a typo in a profile is
 reported right away, naming the exact key that's wrong, instead of
@@ -53,12 +54,14 @@ patterns (and which ones are overrides versus defaults), and
 which pattern a specific line matches and what it captures -- the
 fastest way to check an edit before re-running the whole pipeline.
 """
+import json
 import re
 from pathlib import Path
 
 import yaml
 
 from .hierarchy import HIERARCHY_ORDER
+from .versions import _DOCUMENT_SLUG_RE
 
 PROFILES_DIR = Path(__file__).parent / "profiles"
 
@@ -72,7 +75,8 @@ _REQUIRED_LEVELS = {"section", "subsection", "paragraph", "subparagraph"}
 _RESERVED_KEYS = {"hierarchy"}
 
 # Every pattern must have exactly two capture groups: (number, heading/rest),
-# except notes_marker/example_marker (pure boundary checks, no groups).
+# except notes_marker/example_marker/penalty_marker (pure boundary checks,
+# no groups).
 DEFAULT_PATTERNS = {
     # A Schedule heading uses the same "Word N—Title" shape as Chapter,
     # Part and Division, but the dash between them has been seen doubled
@@ -121,6 +125,20 @@ DEFAULT_PATTERNS = {
     # (see rule_parser.py's _handle_marked_block) -- same bold, body-
     # sized, standalone-line style, just a different word.
     "example_marker": r"^Examples?$",
+    # The penalty for an offence, which Victorian drafting sets on its
+    # own line under the provision creating it: "Penalty: Level 3
+    # imprisonment (20 years maximum)." It is not part of the offence's
+    # own sentence and shouldn't read as though it were -- see
+    # rule_parser's own penalty handling.
+    #
+    # Anchored and capitalised deliberately. "penalty" appears
+    # constantly in ordinary legislative prose ("...where a penalty is
+    # prescribed by law...", "the penalty must be recovered only
+    # before..."), and every one of those is mid-sentence and lowercase;
+    # every real penalty line starts one. The colon is required for the
+    # same reason -- it is what makes the line a label rather than a
+    # sentence.
+    "penalty_marker": r"^Penalt(?:y|ies)\s*:",
 }
 
 # Every key is matched with case sensitivity except these -- a Chapter,
@@ -143,10 +161,11 @@ class ProfileError(ValueError):
 
 
 # Every key needs (number, heading/rest) -- two groups -- except
-# notes_marker/example_marker, which are just yes/no checks ("does this
-# line say "Notes"/"Example"?"); rule_parser.py only checks whether they
-# matched at all and never reads a group from either.
-_MIN_GROUPS = {"notes_marker": 0, "example_marker": 0}
+# notes_marker/example_marker/penalty_marker, which are just yes/no
+# checks ("does this line say "Notes"/"Example"/"Penalty:"?");
+# rule_parser.py only checks whether they matched at all and never reads
+# a group from any of them.
+_MIN_GROUPS = {"notes_marker": 0, "example_marker": 0, "penalty_marker": 0}
 
 
 def _validate_pattern(source: str, key: str, pattern: str) -> None:
@@ -181,6 +200,37 @@ def _profile_path(name: str) -> Path | None:
     return None
 
 
+def profile_for(act_slug: str, base_dir: "str | Path | None" = None) -> "str | None":
+    """The profile a document should be parsed with, worked out rather
+    than remembered by whoever is running the parse.
+
+    Nothing ties a profile's filename to a PDF, so a re-parse that simply
+    forgot to name one produced a quietly worse parse instead of an
+    error: without its own profile the Criminal Procedure Act's "Part
+    2.1" stops matching as a Part at all, and its heading is swallowed
+    into the Chapter above it. The fix is to stop asking.
+
+    In order: the profile the existing parse recorded using, then a
+    profile file named after the work (one profile serves every reprint
+    of an Act -- how it numbers its Parts is a fact about the Act), then
+    one named after the slug itself.
+    """
+    base = Path(base_dir) if base_dir else Path(".")
+    parsed = base / "data" / "ai_parsed" / f"{act_slug}.json"
+    if parsed.exists():
+        try:
+            recorded = json.loads(parsed.read_text(encoding="utf-8")).get("profile")
+        except (OSError, ValueError):
+            recorded = None
+        if recorded and profile_exists(recorded):
+            return recorded
+    work = _DOCUMENT_SLUG_RE.match(act_slug)
+    for name in ([work.group("work")] if work else []) + [act_slug]:
+        if profile_exists(name):
+            return name
+    return None
+
+
 def profile_exists(name: str) -> bool:
     """Whether a profile file of this name exists. run_pipeline.py uses
     this to apply an Act's own profile automatically -- a file named
@@ -190,14 +240,26 @@ def profile_exists(name: str) -> bool:
 
 
 def _load_raw(name: str) -> tuple[str | None, dict]:
-    """(path-as-str, parsed-mapping) for a profile file, or (None, {}) if
-    there's no file for this name. Raises ProfileError on invalid YAML or
-    a top level that isn't a mapping -- everything else (unknown keys,
-    bad patterns, a malformed hierarchy) is checked by whichever caller
-    needs it."""
+    """(path-as-str, parsed-mapping) for a profile file. Raises
+    ProfileError if there is no such profile, on invalid YAML, or on a top
+    level that isn't a mapping -- everything else (unknown keys, bad
+    patterns, a malformed hierarchy) is checked by whichever caller needs
+    it.
+
+    Called only with a name; parsing with no profile at all is the
+    `name is None` path in load_profile, which never reaches here."""
     path = _profile_path(name)
     if path is None:
-        return None, {}
+        # Named a profile that isn't there. Falling back to the built-in
+        # patterns looks harmless and isn't: the Criminal Procedure Act
+        # parsed with the defaults stops matching "Part 2.1" as a Part at
+        # all and folds its heading into the Chapter above it, with
+        # nothing anywhere to say why. Asking for a profile that does not
+        # exist is a mistake, and mistakes are better loud.
+        raise ProfileError(
+            f"No profile named {name!r} in {PROFILES_DIR} -- "
+            f"available: {', '.join(sorted(p.stem for p in PROFILES_DIR.glob('*.y*ml'))) or '(none)'}"
+        )
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as e:

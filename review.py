@@ -33,6 +33,20 @@ Per piece, the toolbar offers:
     label like "(8C)(ii)(iii)" even after the offending piece itself is
     gone, since the rule parser bakes each node's full ancestry into it
     at parse time and nothing else in this tool ever revisits it.
+  - Structure -- add, move or remove a piece outright
+    (ai_pipeline/structure.py). Edit, Split, Merge and Nest all fix a
+    piece that is *wrong*; none of them fixes one that is missing (a
+    heading the PDF set as an image, a provision the extractor dropped),
+    one that is in the document twice (a running header read as a
+    provision), or one the parser attached three Sections from where it
+    belongs. These do, which is why a structural fault no longer means
+    re-parsing the document and losing the review along with it.
+    Deleting is recorded, not destructive: a deleted piece is listed
+    under the Section it came out of and can be restored to exactly
+    where it was. None of it renumbers anything -- an inserted piece
+    takes an index above every parse position and order is held
+    separately, so every stored decision, link span and finding still
+    names the provision it always did.
   - Drag-select a span of a piece's own text to either split it there
     (the tail reassigns to another piece the same way Merge's
     destination picker works) or label it as a link -- an Act citation,
@@ -106,7 +120,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from ai_pipeline import db, html_view
+from ai_pipeline import db, html_view, structure
 from ai_pipeline.ai_assist import build_suggestion
 from ai_pipeline.examples_store import add_correction, stats
 from ai_pipeline.llm_backend import OllamaUnavailable
@@ -196,6 +210,68 @@ def load_document_type(act: str) -> "str | None":
     return json.loads(path.read_text(encoding="utf-8")).get("document_type")
 
 
+def _node_at(parse_nodes: list[dict], edits: dict[int, dict]):
+    """index -> the node it names, before any review decision about it:
+    the parse's own node, or, above the parse, the one a reviewer
+    inserted there."""
+    def at(index: int) -> dict:
+        if 0 <= index < len(parse_nodes):
+            return parse_nodes[index]
+        edit = edits.get(index)
+        if edit is not None and edit.get("node") is not None:
+            return edit["node"]
+        raise KeyError(f"no node at index {index}")
+    return at
+
+
+def _was_inserted(edits: dict[int, dict], index: int) -> bool:
+    """Whether this index names a node a reviewer added rather than one
+    the parser produced.
+
+    Worth its own name because of what it guards: a node in a finished
+    unit with no verified row is taken to have been merged away, which is
+    sound for a parse node and exactly wrong for an inserted one -- a
+    piece someone typed into an already-reviewed Section has no row
+    because nobody has reviewed it yet, and inferring it away would make
+    it vanish on the next startup."""
+    edit = edits.get(index)
+    return edit is not None and edit.get("node") is not None
+
+
+def load_structure_edits(act: str, parse_fingerprint: "str | None", base_dir: "str | Path | None" = None) -> dict[int, dict]:
+    """This document's structural edits (ai_pipeline/structure.py), or
+    nothing at all when its stored positions can no longer be vouched for.
+
+    Every one of these edits names a node by its position in the parse --
+    "insert after node 412", "delete node 87" -- so against a parse those
+    positions no longer describe, applying them would move and delete
+    provisions at random. The same guard verified rows already get (see
+    positions_are_trustworthy), for the same reason. The rows stay in the
+    database untouched; the review server refuses further structural
+    edits in that state rather than overwriting them from an empty
+    starting point."""
+    if not positions_are_trustworthy(act, parse_fingerprint):
+        return {}
+    return db.load_structure_edits(act, base_dir)
+
+
+def order_and_units(
+    parse_len: int, edits: dict[int, dict], node_at
+) -> tuple[list[int], list[list[int]]]:
+    """(document order, units) after applying structural edits, both in
+    terms of node *index* rather than list position.
+
+    group_into_units works on a list and answers in positions into that
+    list, which is the same thing as an index only while the two agree.
+    Once a reviewer has inserted or moved something they don't, so the
+    positions it gives back are translated straight home through the
+    order they were read from -- every unit still names its nodes by the
+    index everything else in this tool keys on."""
+    order = structure.document_order(parse_len, edits)
+    groups = group_into_units([node_at(i) for i in order])
+    return order, [[order[position] for position in group] for group in groups]
+
+
 def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     """The same "verified where committed, original parser output
     otherwise" merge the live review server keeps in memory via
@@ -212,9 +288,13 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     Returns (nodes, unattached_notes, hierarchy), the first three of
     load_parsed's own return, with merged-away nodes simply absent, so
     any consumer that already builds a hierarchy tree from load_parsed's
-    output works unchanged against this instead."""
+    output works unchanged against this instead. A reviewer's structural
+    edits are applied too, so what comes back is in the order they put it
+    in, with what they inserted present and what they deleted gone."""
     nodes, unattached_notes, hierarchy, fingerprint = load_parsed(act)
-    units = group_into_units(nodes)
+    edits = load_structure_edits(act, fingerprint)
+    node_at = _node_at(nodes, edits)
+    order, units = order_and_units(len(nodes), edits, node_at)
     verified = load_verified(act)
     verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
 
@@ -229,10 +309,10 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     if positions_are_trustworthy(act, fingerprint):
         for u in range(_resume_point(units, list(verified), markers_are_complete=True)):
             for i in units[u]:
-                if i not in verified_by_source_index:
+                if i not in verified_by_source_index and not _was_inserted(edits, i):
                     merged_away.add(i)
 
-    current_nodes = [verified_by_source_index.get(i, node) for i, node in enumerate(nodes) if i not in merged_away]
+    current_nodes = [verified_by_source_index.get(i, node_at(i)) for i in order if i not in merged_away]
     return current_nodes, unattached_notes, hierarchy
 
 
@@ -253,7 +333,9 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
     over the *original* nodes, so a unit's own indices are also stable
     node_index values a caller can hand straight to db.save_ai_scan_finding."""
     nodes, _unattached_notes, _hierarchy, fingerprint = load_parsed(act)
-    units = group_into_units(nodes)
+    edits = load_structure_edits(act, fingerprint)
+    node_at = _node_at(nodes, edits)
+    order, units = order_and_units(len(nodes), edits, node_at)
     verified = load_verified(act)
     verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
 
@@ -261,10 +343,19 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
     if positions_are_trustworthy(act, fingerprint):
         for u in range(_resume_point(units, list(verified), markers_are_complete=True)):
             for i in units[u]:
-                if i not in verified_by_source_index:
+                if i not in verified_by_source_index and not _was_inserted(edits, i):
                     merged_away.add(i)
 
-    effective_nodes = [None if i in merged_away else verified_by_source_index.get(i, node) for i, node in enumerate(nodes)]
+    # Long enough to be indexed by every live node, inserted ones
+    # included -- their indices sit above the parse by construction (see
+    # structure.next_index). A deleted node's slot holds None for the
+    # same reason a merged-away one does: the position still exists, the
+    # provision doesn't.
+    live = set(order)
+    effective_nodes = [
+        None if i in merged_away or i not in live else verified_by_source_index.get(i, node_at(i))
+        for i in range(max([len(nodes) - 1, *edits], default=-1) + 1)
+    ]
     return effective_nodes, units, fingerprint
 
 
@@ -554,6 +645,18 @@ def commit_unit(
 
 _act: str | None = None
 _nodes: list[dict] = []
+# A reviewer's structural edits, keyed by node index -- what they
+# inserted, deleted or moved (see ai_pipeline/structure.py). Applied on
+# top of _nodes to give _order, which is the document's actual reading
+# order; _nodes itself is never reordered, because a node's index is its
+# name everywhere else in this tool.
+_structure_edits: dict[int, dict] = {}
+_order: list[int] = []
+# False when the stored positions can't be vouched for against this
+# parse, which is when a structural edit could move or delete the wrong
+# provision. The endpoints refuse in that state rather than write rows
+# that name nodes they don't mean -- see load_structure_edits.
+_structure_editable = True
 _units: list[list[int]] = []
 _unit_of_index: dict[int, int] = {}
 _verified: list[dict] = []
@@ -588,6 +691,35 @@ _PAGE_ZOOM_STEPS = (1.0, 1.25, 1.5, 2.0, 2.5, 3.0)
 _PAGE_CACHE_BUDGET_BYTES = 120 * 1024 * 1024
 
 
+def _parse_node(i: int) -> dict:
+    """What sits at index i before any review decision about it: the
+    parse's own node, or, for an index above the parse, the node a
+    reviewer inserted there. The baseline an edit is a change *from*, and
+    what "reset to parse" goes back to -- for an inserted node that is
+    the node as it was inserted, since no parser ever had an opinion
+    about it."""
+    return _node_at(_nodes, _structure_edits)(i)
+
+
+def _index_limit() -> int:
+    """One past the highest index this document can name -- the parse's
+    own length, extended by any inserted node (see structure.next_index).
+    For the few callers that genuinely want a position-keyed array rather
+    than document order."""
+    return max([len(_nodes) - 1, *_structure_edits], default=-1) + 1
+
+
+def _node_is_live(i: int) -> bool:
+    """Whether index i names a node the document currently has -- not
+    deleted, not merged away, and actually a node at all."""
+    return structure.is_live(i, len(_nodes), _structure_edits) and i not in _merged_away
+
+
+def _require_live(i: int) -> None:
+    if not _node_is_live(i):
+        raise HTTPException(404, f"No such node: {i}")
+
+
 def _current_node(i: int) -> dict:
     """Node i as this session currently sees it: a pending (not yet
     Accepted/Flagged) edit first, else its already-reviewed state if the
@@ -596,7 +728,7 @@ def _current_node(i: int) -> dict:
         return _pending_edits[i]
     if i in _verified_by_source_index:
         return _verified_by_source_index[i]
-    return _nodes[i]
+    return _parse_node(i)
 
 
 def _is_committed(i: int) -> bool:
@@ -649,7 +781,7 @@ def _patch_path_level(i: int, level: str, value: str | None) -> None:
     elif i in _verified_by_source_index:
         node = _verified_by_source_index[i]
     else:
-        node = _nodes[i]
+        node = _parse_node(i)
     node["path"] = {**(node.get("path") or {}), level: value}
 
 
@@ -750,6 +882,58 @@ def _recompute_unit_paths(unit_no: int) -> None:
         save_verified(_act, _verified)
 
 
+def _rebuild_structure() -> None:
+    """Recomputes document order and the unit layout after a structural
+    edit, and persists the edits that produced it.
+
+    A unit is not a stored thing: group_into_units derives it from the
+    node list, so inserting a Section splits a unit in two and deleting
+    one folds two into one. That renumbers units -- and _unit_end_index,
+    the marker saying "review got this far", is stored as a unit *number*
+    on a verified row. Left alone it would point at a different unit
+    after every structural edit, and at startup that marker is what
+    decides which nodes are treated as deliberately merged away. So each
+    marker is carried across by identity instead: the unit it named is
+    found again by a node that was in it, and the marker is rewritten to
+    wherever that node now lives. A marker for a unit that no longer
+    exists at all is dropped rather than left pointing somewhere
+    arbitrary."""
+    global _order
+    old_units = [list(indices) for indices in _units]
+    _order, new_units = order_and_units(len(_nodes), _structure_edits, _parse_node)
+    _units[:] = new_units
+    _unit_of_index.clear()
+    for unit_no, indices in enumerate(_units):
+        for i in indices:
+            _unit_of_index[i] = unit_no
+
+    remap: dict[int, int] = {}
+    for old_no, indices in enumerate(old_units):
+        for i in indices:
+            if i in _unit_of_index:
+                remap[old_no] = _unit_of_index[i]
+                break
+    for row in _verified:
+        if "_unit_end_index" in row:
+            moved_to = remap.get(row["_unit_end_index"])
+            if moved_to is None:
+                row.pop("_unit_end_index")
+            else:
+                row["_unit_end_index"] = moved_to
+    save_verified(_act, _verified)
+    db.save_structure_edits(_act, _structure_edits)
+
+
+def _require_structure_editable() -> None:
+    if not _structure_editable:
+        raise HTTPException(
+            409,
+            "This document's stored review positions no longer match its parse, so a structural "
+            "edit here could move or delete the wrong provision. Re-parse it (which re-anchors the "
+            "stored rows) before restructuring it.",
+        )
+
+
 def _unit_status(unit_no: int) -> str:
     indices = [i for i in _units[unit_no] if i not in _merged_away]
     if not indices:
@@ -783,7 +967,7 @@ def _accept_node(i: int, flagged: bool) -> dict:
     already-committed node (e.g. flagging it after having accepted it, or
     vice versa): updates its verification status in place rather than
     appending a duplicate entry to `verified`."""
-    original = _nodes[i]
+    original = _parse_node(i)
     node = dict(_current_node(i))
     if flagged:
         node["needs_followup"] = True
@@ -823,7 +1007,7 @@ def _history_key(note: dict) -> tuple:
 
 def _attached_history_keys() -> set[tuple]:
     keys: set[tuple] = set()
-    for i in range(len(_nodes)):
+    for i in _order:
         if i in _merged_away:
             continue
         for h in _current_node(i).get("history") or []:
@@ -931,12 +1115,39 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
 
 
 def _differs_from_parse(node_index: int, node: dict) -> list:
-    """Which of a piece's fields no longer match the current parse."""
-    original = _nodes[node_index]
+    """Which of a piece's fields no longer match the current parse. For a
+    piece the reviewer inserted, the comparison is against the piece as
+    they inserted it -- no parser ever had an opinion about it, so
+    nothing here can be a stale snapshot of an older one."""
+    original = _parse_node(node_index)
     return [
         field for field in ("type", "number", "heading", "text")
         if (node.get(field) or "") != (original.get(field) or "")
     ]
+
+
+def _deleted_in_unit(unit_no: int) -> list[int]:
+    """Indices of pieces deleted out of this unit, in the order they sat
+    in.
+
+    A deleted piece is not in any unit -- it is not in the document at
+    all -- so the unit it *was* in is found through the piece it follows,
+    which delete_node_endpoint records for exactly this. Where that piece
+    was itself deleted the chain is walked back until it reaches one that
+    wasn't, so deleting a run of pieces still leaves every one of them
+    offered back in the same place."""
+    found = []
+    for index, edit in sorted(_structure_edits.items()):
+        if not edit.get("deleted"):
+            continue
+        anchor = edit.get("after")
+        seen = {index}
+        while anchor is not None and anchor not in _unit_of_index and anchor not in seen:
+            seen.add(anchor)
+            anchor = (_structure_edits.get(anchor) or {}).get("after")
+        if anchor is not None and _unit_of_index.get(anchor) == unit_no:
+            found.append(index)
+    return found
 
 
 def _unit_payload(unit_no: int) -> dict:
@@ -948,8 +1159,28 @@ def _unit_payload(unit_no: int) -> dict:
         "unit_no": unit_no,
         "unit_count": len(_units),
         "status": _unit_status(unit_no),
-        "root_type": _nodes[_units[unit_no][0]]["type"],
+        "root_type": _parse_node(_units[unit_no][0])["type"],
         "pieces": [_build_piece(i, lbl, n, links_by_node) for i, n, lbl in zip(indices, unit_nodes, labels)],
+        # Offered back rather than gone for good -- a deletion is a
+        # judgement, and the reviewer who made it is the one who should
+        # get to change their mind about it.
+        "deleted_pieces": [
+            {
+                "node_index": i,
+                "type": _parse_node(i)["type"],
+                "number": _parse_node(i).get("number"),
+                "heading": _parse_node(i).get("heading"),
+                "text": (_parse_node(i).get("text") or "")[:200],
+            }
+            for i in _deleted_in_unit(unit_no)
+        ],
+        "structure_editable": _structure_editable,
+        # What a piece inserted *above* this unit would follow -- the
+        # last piece of the unit before it, or the start of the document.
+        # Only the server knows the document order, and "above this
+        # section" is not the same anchor as "the start of the document"
+        # for any section but the first.
+        "anchor_above": _anchor_before(_units[unit_no][0]) if _units[unit_no] else structure.DOCUMENT_START,
         # Only known within this same server session -- a merge doesn't
         # persist "where did this go" anywhere reconstructible from disk,
         # so this is None (not an error) after a restart. See merge_endpoint.
@@ -994,6 +1225,21 @@ class MergeRequest(BaseModel):
 class RenestRequest(BaseModel):
     node_index: int
     target_node_index: int
+
+
+class InsertRequest(BaseModel):
+    # -1 (structure.DOCUMENT_START) inserts at the very start of the
+    # document; otherwise the piece this new one follows.
+    after_node_index: int
+    type: str
+    number: str | None = None
+    heading: str | None = None
+    text: str = ""
+
+
+class MoveRequest(BaseModel):
+    node_index: int
+    after_node_index: int
 
 
 class AcceptRequest(BaseModel):
@@ -1050,10 +1296,10 @@ def index():
 
 @app.get("/api/meta")
 def get_meta():
-    tree_info = compute_unit_tree_info([_nodes[indices[0]]["type"] for indices in _units], _hierarchy)
+    tree_info = compute_unit_tree_info([_parse_node(indices[0])["type"] for indices in _units], _hierarchy)
     units_summary = []
     for u, indices in enumerate(_units):
-        root = _nodes[indices[0]]
+        root = _parse_node(indices[0])
         units_summary.append({
             "unit_no": u,
             "type": root["type"],
@@ -1200,8 +1446,7 @@ def attach_history_endpoint(req: HistoryAttachRequest):
     reads, later, as a human's own decision rather than another guess."""
     if not (0 <= req.unattached_id < len(_unattached_notes)):
         raise HTTPException(404, "No such note")
-    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(req.node_index)
     note = dict(_unattached_notes[req.unattached_id])
     if _history_key(note) in _attached_history_keys():
         raise HTTPException(400, "This note is already linked to a provision")
@@ -1220,10 +1465,8 @@ def move_history_endpoint(req: HistoryMoveRequest):
     (target_node_index == node_index), since both are "a human looked at
     this and this is where it belongs" and get the same "manual" stamp
     either way."""
-    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
-        raise HTTPException(404, "No such node")
-    if not (0 <= req.target_node_index < len(_nodes)) or req.target_node_index in _merged_away:
-        raise HTTPException(404, "No such target node")
+    _require_live(req.node_index)
+    _require_live(req.target_node_index)
     history = list(_current_node(req.node_index).get("history") or [])
     if not (0 <= req.history_index < len(history)):
         raise HTTPException(404, "No such history note on this piece")
@@ -1254,8 +1497,7 @@ def detach_history_endpoint(req: HistoryDetachRequest):
     exactly what diagnostics.py's own module docstring says this tool
     never does. Appending it here, once, keeps it discoverable and
     re-attachable instead."""
-    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(req.node_index)
     history = list(_current_node(req.node_index).get("history") or [])
     if not (0 <= req.history_index < len(history)):
         raise HTTPException(404, "No such history note on this piece")
@@ -1268,8 +1510,7 @@ def detach_history_endpoint(req: HistoryDetachRequest):
 
 @app.post("/api/nodes/{node_index}/edit")
 def edit_node_endpoint(node_index: int, req: EditRequest):
-    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(node_index)
     if req.type not in _relabel_types:
         raise HTTPException(400, f"Unknown type {req.type!r}")
     updated = _mutate_node(node_index, type=req.type, number=req.number or None, heading=req.heading or None, text=req.text)
@@ -1296,14 +1537,13 @@ def reset_node_endpoint(node_index: int):
     today. Deliberately explicit rather than automatic: whether a stored
     row is a human's correction or a stale snapshot of an older parse is
     exactly the judgement a reviewer is here to make."""
-    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(node_index)
     _pending_edits.pop(node_index, None)
     row = _verified_by_source_index.pop(node_index, None)
     if row is not None:
         _verified[:] = [v for v in _verified if v is not row]
         save_verified(_act, _verified)
-    node = _nodes[node_index]
+    node = _parse_node(node_index)
     return {
         "node_index": node_index,
         "type": node["type"], "number": node.get("number"), "heading": node.get("heading"),
@@ -1314,9 +1554,8 @@ def reset_node_endpoint(node_index: int):
 @app.post("/api/split")
 def split_endpoint(req: SplitRequest):
     i = req.node_index
-    if not (0 <= i < len(_nodes)) or i in _merged_away:
-        raise HTTPException(404, "No such node")
-    if not (0 <= req.target_node_index < len(_nodes)) or req.target_node_index in _merged_away or req.target_node_index == i:
+    _require_live(i)
+    if not _node_is_live(req.target_node_index) or req.target_node_index == i:
         raise HTTPException(400, "Invalid split target")
 
     node = _current_node(i)
@@ -1341,8 +1580,7 @@ def merge_endpoint(req: MergeRequest):
     if not sources:
         raise HTTPException(400, "No source piece(s) given")
     for i in [target, *sources]:
-        if not (0 <= i < len(_nodes)) or i in _merged_away:
-            raise HTTPException(404, f"No such node: {i}")
+        _require_live(i)
     if target in sources:
         raise HTTPException(400, "A piece can't be merged into itself")
 
@@ -1357,6 +1595,7 @@ def merge_endpoint(req: MergeRequest):
     combined = "\n".join(
         (_current_node(j).get("text") or "").strip() for j in sorted(sources) if (_current_node(j).get("text") or "").strip()
     )
+    merged_inserted: list[int] = []
     _append_text_to_node(target, combined)
     target_path = _current_node(target).get("path") or {}
     for j in sources:
@@ -1364,9 +1603,15 @@ def merge_endpoint(req: MergeRequest):
         # looks for was set by whatever the rule parser originally opened
         # j as, not whatever j's type/number may since have been edited
         # to -- see _repair_cascaded_path.
-        _repair_cascaded_path(j, _nodes[j], target_path)
+        _repair_cascaded_path(j, _parse_node(j), target_path)
         _merged_away.add(j)
         _pending_edits.pop(j, None)
+        if _was_inserted(_structure_edits, j):
+            # An inserted piece can't be *inferred* merged away at the
+            # next startup the way a parse node is (see _was_inserted),
+            # so merging one is recorded as the deletion it amounts to:
+            # its text now lives in the destination.
+            merged_inserted.append(j)
 
     target_unit_no = _unit_of_index.get(target)
     source_unit_emptied = all(j in _merged_away for j in _units[source_unit_no])
@@ -1385,6 +1630,15 @@ def merge_endpoint(req: MergeRequest):
             # good as tagging one of its own nodes).
             _verified_by_source_index[target]["_unit_end_index"] = source_unit_no
             save_verified(_act, _verified)
+    if merged_inserted:
+        # Last, so the unit bookkeeping above still sees the layout the
+        # merge was decided against before the rebuild renumbers it.
+        candidate = _structure_edits
+        for j in merged_inserted:
+            candidate = structure.with_edit(candidate, j, deleted=True)
+        _structure_edits.clear()
+        _structure_edits.update(candidate)
+        _rebuild_structure()
     return {"ok": True}
 
 
@@ -1408,8 +1662,7 @@ def renest_endpoint(req: RenestRequest):
     a much bigger restructuring this isn't meant to cover."""
     i, target = req.node_index, req.target_node_index
     for idx in (i, target):
-        if not (0 <= idx < len(_nodes)) or idx in _merged_away:
-            raise HTTPException(404, f"No such node: {idx}")
+        _require_live(idx)
     if i == target:
         raise HTTPException(400, "A piece can't be nested under itself")
     unit_no = _unit_of_index.get(i)
@@ -1471,6 +1724,151 @@ def undo_renest_endpoint():
     return {"node_index": i, "unit_no": unit_no, "type": updated["type"], "path": updated.get("path")}
 
 
+# ---------------------------------------------------------------------------
+# Restructuring: add, remove, move (see ai_pipeline/structure.py)
+#
+# Edit, split, merge and renest between them can fix a piece that is
+# wrong. None of them can fix a piece that is *missing* -- a heading the
+# PDF set as an image, a provision the extractor dropped -- or one that
+# is there twice, or one the parser attached three sections away from
+# where it belongs. These three do, and they are the reason a structural
+# fault no longer means re-parsing the document and losing the review.
+# ---------------------------------------------------------------------------
+
+def _anchor_before(i: int) -> int:
+    """The node this one currently follows -- what it would need to be
+    put back after. DOCUMENT_START when it is the first thing in the
+    document."""
+    position = _order.index(i)
+    return _order[position - 1] if position else structure.DOCUMENT_START
+
+
+def _commit_structure(candidate: dict[int, dict]) -> None:
+    """Adopts a proposed set of structural edits, after checking it
+    actually describes a document. Tried before it is kept, so a move
+    that would place a piece after itself is refused with nothing
+    changed."""
+    try:
+        structure.document_order(len(_nodes), candidate)
+    except structure.StructureError as e:
+        raise HTTPException(400, str(e)) from e
+    _structure_edits.clear()
+    _structure_edits.update(candidate)
+    _rebuild_structure()
+
+
+@app.post("/api/nodes/insert")
+def insert_node_endpoint(req: InsertRequest):
+    """Adds a piece the parse doesn't contain, directly after
+    `after_node_index` (-1 for the very start of the document).
+
+    It takes an index above every parse position, so nothing else shifts
+    -- every stored decision, link span and finding still names the same
+    provision it did before. Page numbers are inherited from the piece it
+    follows so the source-PDF panel still opens somewhere useful, and it
+    starts unreviewed, because a reviewer typing a provision in is
+    exactly as much in need of checking as a parser emitting one."""
+    _require_structure_editable()
+    node_type = req.type.strip()
+    if node_type not in _relabel_types:
+        raise HTTPException(400, f"Unknown type: {req.type!r}")
+    after = req.after_node_index
+    if after != structure.DOCUMENT_START:
+        _require_live(after)
+
+    neighbour = _current_node(after) if after != structure.DOCUMENT_START else {}
+    index = structure.next_index(len(_nodes), _structure_edits)
+    node = {
+        "type": node_type,
+        "number": (req.number or "").strip() or None,
+        "heading": (req.heading or "").strip() or None,
+        "text": req.text,
+        "page_start": neighbour.get("page_start"),
+        "page_end": neighbour.get("page_start"),
+        "char_start": None,
+        "char_end": None,
+        # Says where this came from wherever a node's origin is shown or
+        # exported: not a line of the PDF, a person.
+        "source": "inserted-in-review",
+        "path": dict(neighbour.get("path") or {}),
+    }
+    placed = structure.place_after(_structure_edits, index, after)
+    placed[index]["node"] = node
+    _commit_structure(placed)
+    unit_no = _unit_of_index[index]
+    _recompute_unit_paths(unit_no)
+    return {"node_index": index, "unit_no": unit_no, "unit_count": len(_units)}
+
+
+@app.post("/api/nodes/{node_index}/delete")
+def delete_node_endpoint(node_index: int):
+    """Removes a piece from the document -- for one the parser invented
+    out of a page header, a running footer, or the same provision picked
+    up twice.
+
+    Distinct from Merge, which keeps the text and moves it somewhere
+    else; this is for text that should not be in the document at all.
+    Recorded rather than destroyed: the piece keeps its index and its
+    place in the order, so Restore puts it back exactly where it was,
+    with whatever had already been decided about it intact."""
+    _require_structure_editable()
+    _require_live(node_index)
+    unit_no = _unit_of_index[node_index]
+    unit_indices = [i for i in _units[unit_no] if i not in _merged_away]
+    if unit_indices[0] == node_index and len(unit_indices) > 1:
+        raise HTTPException(
+            400, "Can't delete the section itself while it still has pieces nested under it."
+        )
+    _commit_structure(structure.with_edit(
+        _structure_edits, node_index, after=_anchor_before(node_index), deleted=True,
+    ))
+    return {"node_index": node_index, "unit_count": len(_units)}
+
+
+@app.post("/api/nodes/{node_index}/restore")
+def restore_node_endpoint(node_index: int):
+    """Puts a deleted piece back where it was."""
+    _require_structure_editable()
+    edit = _structure_edits.get(node_index)
+    if edit is None or not edit.get("deleted"):
+        raise HTTPException(404, f"Node {node_index} isn't deleted")
+    _commit_structure(structure.with_edit(_structure_edits, node_index, deleted=False))
+    return {"node_index": node_index, "unit_no": _unit_of_index[node_index], "unit_count": len(_units)}
+
+
+@app.post("/api/move")
+def move_node_endpoint(req: MoveRequest):
+    """Puts a piece directly after another one, anywhere in the document.
+
+    Renest changes what a piece *is* (its level); this changes where it
+    *sits*, which is the other half of "the parser attached this to the
+    wrong place" -- a subsection that belongs to the previous section, a
+    note that landed before the provision it annotates. Recorded as
+    "follows that piece" rather than as a position, so it stays put as
+    other things are inserted and moved around it."""
+    _require_structure_editable()
+    _require_live(req.node_index)
+    after = req.after_node_index
+    if after != structure.DOCUMENT_START:
+        _require_live(after)
+    if after == req.node_index:
+        raise HTTPException(400, "A piece can't be placed after itself")
+
+    was_in_unit = _unit_of_index[req.node_index]
+    _commit_structure(structure.place_after(_structure_edits, req.node_index, after, _order))
+    now_in_unit = _unit_of_index[req.node_index]
+    # Both ends: the piece takes its numbering from where it now sits,
+    # and the unit it left renumbers without it.
+    for unit_no in {was_in_unit, now_in_unit}:
+        if unit_no < len(_units):
+            _recompute_unit_paths(unit_no)
+    moved = _current_node(req.node_index)
+    return {
+        "node_index": req.node_index, "unit_no": now_in_unit, "unit_count": len(_units),
+        "path": moved.get("path"),
+    }
+
+
 @app.post("/api/nodes/{node_index}/blind-guess")
 def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
     """Records a reviewer's own classification of an elevated-risk piece,
@@ -1484,8 +1882,7 @@ def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
     "(A)" and "a" count as the same answer) -- this is reported back to
     the reviewer, not judged; disagreeing with the parser is a fine,
     useful outcome, not an error."""
-    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(node_index)
     if not req.reasoning.strip():
         raise HTTPException(400, "A short reason for this assessment is required")
     if req.type not in _relabel_types:
@@ -1518,8 +1915,7 @@ def _ai_suggestion_precondition(node_index: int) -> dict:
     on why: an AI suggestion is a third opinion to weigh against a
     human's own independent one and the parser's, never a first one
     read before forming that independent view in the first place."""
-    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(node_index)
     if not _is_elevated_risk(node_index):
         raise HTTPException(400, "This piece isn't flagged by diagnostics -- there's nothing here for a second opinion to weigh in on.")
     if db.get_blind_review(_act, node_index) is None:
@@ -1551,9 +1947,15 @@ def ai_suggest_endpoint(node_index: int):
     command to run (see install_ai_model.py), so it's passed through
     rather than wrapped."""
     finding = _ai_suggestion_precondition(node_index)
-    current_nodes = [_current_node(i) for i in range(len(_nodes))]
+    # Document order, not index order: build_suggestion reads forward
+    # from the piece to the end of its unit, which is only the right
+    # neighbours while the list it walks is in reading order (see
+    # ai_assist._history_low_confidence_context). So the piece is handed
+    # over by where it sits, not by the index it is stored under.
+    live = [i for i in _order if i not in _merged_away]
+    current_nodes = [_current_node(i) for i in live]
     try:
-        suggestion = build_suggestion(finding, node_index, current_nodes)
+        suggestion = build_suggestion(finding, live.index(node_index), current_nodes)
     except OllamaUnavailable as e:
         raise HTTPException(503, str(e)) from e
     record = db.save_ai_suggestion(
@@ -1598,7 +2000,7 @@ def _type_usage() -> dict[str, int]:
     type they've just relabelled the last node away from reads as unused
     straight away."""
     counts: dict[str, int] = {}
-    for i in range(len(_nodes)):
+    for i in _order:
         if i in _merged_away:
             continue
         t = _current_node(i).get("type")
@@ -1625,7 +2027,7 @@ def _reassign_type(old_type: str, new_type: str) -> int:
     a not-yet-committed piece) exactly as if it had been done one at a
     time in the GUI. Returns how many nodes moved."""
     moved = 0
-    for i in range(len(_nodes)):
+    for i in _order:
         if i in _merged_away:
             continue
         if _current_node(i).get("type") == old_type:
@@ -1714,8 +2116,7 @@ def accept_node(node_index: int, req: AcceptRequest):
     dot) still only turns done/flagged once *every* one of its pieces has
     been decided one way or another, whether that happened here one at a
     time or via that whole-unit endpoint; see _unit_status."""
-    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(node_index)
     if not req.flagged and _blind_review_gate_indices([node_index]):
         raise HTTPException(400, "This piece needs your own independent assessment before it can be accepted -- see the form above its text.")
     node = _accept_node(node_index, req.flagged)
@@ -1761,7 +2162,7 @@ def accept_unit(unit_no: int, req: AcceptRequest):
                 f"{len(blocked)} piece(s) in this unit need your own independent assessment before the unit can be accepted.",
             )
     if outstanding:
-        unit_orig = [_nodes[i] for i in outstanding]
+        unit_orig = [_parse_node(i) for i in outstanding]
         unit_nodes = [_current_node(i) for i in outstanding]
         before = len(_verified)
         commit_unit(unit_nodes, unit_orig, _act, _verified, flagged=req.flagged, unit_index=unit_no)
@@ -1825,7 +2226,7 @@ def reparse_unit_endpoint(unit_no: int):
         raise HTTPException(404, "No such unit")
     if not _source_pdf_path:
         raise HTTPException(400, "This document has no source PDF recorded, so it can't be parsed again.")
-    root = _nodes[_units[unit_no][0]]
+    root = _parse_node(_units[unit_no][0])
     identity = (root["type"], root.get("number"), root.get("heading"))
 
     cmd = [sys.executable, "run_pipeline.py", _source_pdf_path]
@@ -1838,8 +2239,8 @@ def reparse_unit_endpoint(unit_no: int):
     _load_state(_act)
     found = next(
         (u for u, indices in enumerate(_units)
-         if (_nodes[indices[0]]["type"], _nodes[indices[0]].get("number"),
-             _nodes[indices[0]].get("heading")) == identity),
+         if (_parse_node(indices[0])["type"], _parse_node(indices[0]).get("number"),
+             _parse_node(indices[0]).get("heading")) == identity),
         None,
     )
     if found is None:
@@ -1861,8 +2262,7 @@ def get_links():
 
 @app.post("/api/links")
 def post_link(req: LinkRequest):
-    if not (0 <= req.node_index < len(_nodes)) or req.node_index in _merged_away:
-        raise HTTPException(404, "No such node")
+    _require_live(req.node_index)
     node_text = _current_node(req.node_index).get("text") or ""
     span_text = node_text[req.start : req.end]
     target = resolve_link(req.label, span_text, _nodes, _definition_index)
@@ -1893,7 +2293,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     global _act, _nodes, _units, _verified, _definition_index, _parse_fingerprint
     global _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
     global _source_pdf_path, _act_title, _document_type, _positions_trusted
-    global _pdf_doc
+    global _pdf_doc, _structure_edits, _order, _structure_editable
 
     _act = act
     _unit_of_index.clear()
@@ -1917,7 +2317,15 @@ def _load_state(act: str, restart: bool = False) -> None:
     from ai_pipeline.akn_export import _detect_act_citation
 
     _act_title = _detect_act_citation(_source_pdf_path).get("title") or act
-    _units = group_into_units(_nodes)
+    # A restart throws away every decision about this document, and a
+    # reviewer's inserts, deletions and moves are decisions -- leaving
+    # them would restart the review against a structure nothing else
+    # remembers agreeing to.
+    _structure_editable = positions_are_trustworthy(act, _parse_fingerprint)
+    _structure_edits = {} if restart else load_structure_edits(act, _parse_fingerprint)
+    if restart:
+        db.save_structure_edits(act, {})
+    _order, _units = order_and_units(len(_nodes), _structure_edits, _parse_node)
     for u, indices in enumerate(_units):
         for i in indices:
             _unit_of_index[i] = u
@@ -1972,7 +2380,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     if _positions_trusted:
         for u in range(_startup_resume_unit):
             for i in _units[u]:
-                if i not in _verified_by_source_index:
+                if i not in _verified_by_source_index and not _was_inserted(_structure_edits, i):
                     _merged_away.add(i)
 
 

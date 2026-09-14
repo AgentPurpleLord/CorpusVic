@@ -304,3 +304,21 @@ def test_a_schedule_whose_items_are_ordinary_sections_gets_no_page_of_its_own(tm
 def test_page_title_spells_out_a_pageable_schedule():
     node = make_node("schedule", "3", "Persons who may witness statements")
     assert page_title(node) == "Schedule 3 - Persons who may witness statements"
+
+
+def test_a_table_exports_as_a_markdown_table(tmp_path):
+    """A table node has both a caption and a body, unlike every other
+    heading-carrying node. Falling through to those dropped every row of
+    it, and "### Table" with nothing under it was all that reached the
+    page."""
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "7A", "Time limits removed", ""),
+        make_node("table", None, "Table", "Column 1 | Column 2\nan offence | a defence"),
+    ]
+    export_to_markdown({"nodes": nodes, "act": "test-act"}, tmp_path)
+
+    page = (tmp_path / "sections" / "s7a.md").read_text(encoding="utf-8")
+    assert "| Column 1 | Column 2 |" in page
+    assert "| --- | --- |" in page
+    assert "| an offence | a defence |" in page

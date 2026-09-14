@@ -46,6 +46,7 @@ from pathlib import Path
 import yaml
 
 from .akn_export import _format_num, build_hierarchy_tree
+from .tables import split_rows
 from .definitions import (
     extract_section_ref_terms,
     extract_terms,
@@ -274,6 +275,18 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
         # find any more, since the term is no longer at the start of
         # the text.
         yield {"tree_node": tree_node, "clause_index": 0, "text": text or None, "header_text": heading, "level": level, "depth": depth}
+    elif t == "table":
+        # A table has both a caption and a body, unlike the pure
+        # heading-only nodes below -- which is why it needs its own
+        # branch: falling through to those dropped every row of it, and
+        # "### Table" with nothing under it was all that reached the
+        # page. Its own text is used rather than the reflowed copy above,
+        # because for a table a line break is a row.
+        yield {
+            "tree_node": tree_node, "clause_index": 0,
+            "text": _markdown_table(node.get("text") or ""),
+            "header_text": heading, "level": level, "depth": depth,
+        }
     elif heading and not is_root:
         header_text = f"{label} {heading}".strip() if label else heading
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level, "depth": depth}
@@ -295,6 +308,24 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     child_depth = depth if is_root else depth + 1
     for child in tree_node["children"]:
         yield from _iter_body_units(child, child_depth, in_definitions, _is_page_root=False)
+
+
+def _markdown_table(text: str) -> "str | None":
+    """A table node's stored rows (see ai_pipeline/tables.py) as a
+    Markdown table. The first row is its header, as it is everywhere
+    else."""
+    rows = split_rows(text)
+    if not rows:
+        return None
+    width = max(len(row) for row in rows)
+
+    def render(row: list[str]) -> str:
+        cells = [cell.replace("|", "\\|") for cell in row]
+        cells += [""] * (width - len(cells))
+        return "| " + " | ".join(cells) + " |"
+
+    return "\n".join([render(rows[0]), "| " + " | ".join(["---"] * width) + " |",
+                       *(render(row) for row in rows[1:])])
 
 
 def compute_section_slugs(tree_node: dict) -> dict[tuple[str, int], str | None]:
