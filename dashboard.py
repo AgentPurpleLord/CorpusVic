@@ -751,6 +751,7 @@ def reparse_act(
     start_page: str = Form(""),
     end_page: str = Form(""),
     confirm: str = Form(""),
+    discard: str = Form(""),
 ):
     """Re-runs the pipeline against an already-uploaded PDF -- no new
     upload needed -- so an Act can be re-parsed with a profile it was
@@ -767,7 +768,16 @@ def reparse_act(
     progress -- but it can still withdraw acceptance from a provision the
     parser now reads differently, and that is a real change to somebody's
     work. Refuses (409) unless `confirm` is set, once there's any
-    reviewed progress to re-anchor."""
+    reviewed progress to re-anchor.
+
+    `discard` throws that progress away instead of carrying it across.
+    Re-anchoring is the right default -- it is somebody's work -- but it
+    is the wrong answer after a parser change big enough that the old
+    decisions describe provisions that no longer exist in that shape, and
+    then resetting them one at a time is the only alternative. What it
+    clears is listed in db.clear_act_review. It is done *before* the
+    pipeline runs, so there is nothing left for the re-anchoring step to
+    carry and the new parse starts clean."""
     _validate_slug(slug)
     _validate_parse_params(kind, profile, start_page, end_page)
 
@@ -775,17 +785,25 @@ def reparse_act(
     if pdf_path is None:
         raise HTTPException(404, f"No source PDF found for {slug!r} in acts/ -- add it via 'Add Act/Bill/EM' first.")
 
+    wants_discard = discard.strip().lower() == "true"
     status = act_status(slug)
     reviewed = status.get("reviewed_units") or 0
     if status["parsed"] and reviewed > 0 and confirm.strip().lower() != "true":
         raise HTTPException(
             409,
-            f"{slug} has {reviewed} of {status['unit_count']} unit(s) already reviewed. Re-parsing regenerates "
-            "the raw structure from the PDF; your reviewed pieces are carried across onto the provisions they "
-            "describe, but any whose wording the parser now reads differently will have their acceptance "
-            "withdrawn for you to look at again. Confirm to re-parse.",
+            f"{slug} has {reviewed} of {status['unit_count']} unit(s) already reviewed. "
+            + (
+                "Discarding review data throws every one of those decisions away -- accepted pieces, flags, "
+                "link annotations, independent assessments and AI scan findings -- and cannot be undone. "
+                "The Act comes back with nothing reviewed at all. Confirm to re-parse."
+                if wants_discard else
+                "Re-parsing regenerates the raw structure from the PDF; your reviewed pieces are carried "
+                "across onto the provisions they describe, but any whose wording the parser now reads "
+                "differently will have their acceptance withdrawn for you to look at again. Confirm to re-parse."
+            ),
         )
 
+    cleared = db.clear_act_review(slug) if wants_discard else {}
     _act_title_cache.pop(slug, None)
     cmd = _build_parse_command(pdf_path, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
@@ -795,7 +813,7 @@ def reparse_act(
         # "Review" click rather than let it keep serving the old node
         # list against a database that may no longer line up with it.
         _kill_review_process(slug)
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "cleared": cleared}
 
 
 @app.post("/api/acts/{slug}/export/akn")
