@@ -916,7 +916,24 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "needs_followup": bool(node.get("needs_followup")),
         "page_start": node.get("page_start"),
         "page_end": node.get("page_end"),
+        # Whether what is on screen still matches what the parser says.
+        # It won't when the piece carries a human's correction -- which is
+        # the point -- but also when it carries a stored row from before a
+        # parser fix, and those two look identical from here. Saying which
+        # fields differ lets the reviewer tell them apart at a glance and,
+        # where it is the second, reset the piece (see
+        # reset_node_endpoint).
+        "differs_from_parse": _differs_from_parse(node_index, node),
     }
+
+
+def _differs_from_parse(node_index: int, node: dict) -> list:
+    """Which of a piece's fields no longer match the current parse."""
+    original = _nodes[node_index]
+    return [
+        field for field in ("type", "number", "heading", "text")
+        if (node.get(field) or "") != (original.get(field) or "")
+    ]
 
 
 def _unit_payload(unit_no: int) -> dict:
@@ -1254,6 +1271,41 @@ def edit_node_endpoint(node_index: int, req: EditRequest):
         raise HTTPException(400, f"Unknown type {req.type!r}")
     updated = _mutate_node(node_index, type=req.type, number=req.number or None, heading=req.heading or None, text=req.text)
     return {"node_index": node_index, "type": updated["type"], "number": updated.get("number"), "heading": updated.get("heading")}
+
+
+@app.post("/api/nodes/{node_index}/reset")
+def reset_node_endpoint(node_index: int):
+    """Puts one piece back to exactly what the parser says now, and
+    returns it to the queue undecided.
+
+    A stored row holds the text as it stood when it was decided. That is
+    the point for an accepted piece -- it is the human's work, and
+    ai_pipeline/reparse.py goes to some length to keep it attached to the
+    right provision when the Act is parsed again. But it also means a
+    parser fix cannot reach a piece that was already looked at: the
+    Criminal Procedure Act's section 5 kept showing the Part 2.2 heading
+    swallowed into its note long after the parse stopped doing that,
+    because a flagged row from before the fix still carried it.
+
+    So this is the way back. It clears any pending edit, drops the stored
+    row entirely, and leaves the piece unverified and unflagged, so it
+    comes round again and is decided against the text the parser produces
+    today. Deliberately explicit rather than automatic: whether a stored
+    row is a human's correction or a stale snapshot of an older parse is
+    exactly the judgement a reviewer is here to make."""
+    if not (0 <= node_index < len(_nodes)) or node_index in _merged_away:
+        raise HTTPException(404, "No such node")
+    _pending_edits.pop(node_index, None)
+    row = _verified_by_source_index.pop(node_index, None)
+    if row is not None:
+        _verified[:] = [v for v in _verified if v is not row]
+        save_verified(_act, _verified)
+    node = _nodes[node_index]
+    return {
+        "node_index": node_index,
+        "type": node["type"], "number": node.get("number"), "heading": node.get("heading"),
+        "unit_status": _unit_status(_unit_of_index[node_index]),
+    }
 
 
 @app.post("/api/split")

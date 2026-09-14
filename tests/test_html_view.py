@@ -899,3 +899,71 @@ def test_the_outline_marks_a_provision_that_is_not_published_yet():
     assert 'href="/browse/a/section/s11"' in outline, "still linked, not hidden"
     # And a published neighbour is left alone.
     assert 'section/s10" aria-current="page">' in outline
+
+
+# ---------------------------------------------------------------------------
+# A provision's own box
+# ---------------------------------------------------------------------------
+# The number used to be hung in the margin with a negative text-indent,
+# which put it outside the div by construction: on a section page it was
+# painted over the outline beside it, further over the larger the reading
+# size. The markup is now two elements in two grid columns, and what these
+# pin down is that nothing reintroduces an offset that can leak.
+def test_a_numbered_provision_keeps_its_number_in_its_own_element():
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "10", "Common assault", "A person must not—"),
+        make_node("paragraph", "a", None, "do a thing; or"),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s10")
+
+    # The number and the words are two elements, both inside the
+    # provision's own div -- nothing is left to position outside it.
+    assert ('<div class="prov prov-paragraph" id="a" style="--depth:0">'
+            '<span class="prov-num">(a)</span>'
+            '<span class="prov-text">do a thing; or</span></div>') in body
+
+
+def test_a_provision_with_no_number_still_has_a_text_element():
+    """It is what puts the words in the second column -- without it they
+    would start under the numbers rather than beside them."""
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "This Act has purposes."),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s1")
+
+    assert '<span class="prov-text">This Act has purposes.</span>' in body
+
+
+def test_a_defined_terms_own_words_stay_with_its_text():
+    """A term is not a number in a margin: it is the first words of its
+    own sentence, so it belongs in the text column, not the number's."""
+    body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
+
+    assert '<span class="prov-text"><span class="prov-term">accused</span> means a person' in body
+    # And the tight-punctuation rule still applies inside it.
+    nodes = [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "3", "Definitions", "In this Act—"),
+        make_node("definition", None, "amended", ", in relation to an instrument, includes varied;"),
+    ]
+    body = render_section(_parsed(nodes), "Test Act", "/browse/a", "s3")
+    assert '<span class="prov-term">amended</span>, in relation to' in body
+
+
+def test_nothing_in_a_provision_is_positioned_outside_it():
+    """The structural guarantee, asserted against the stylesheet itself:
+    a negative offset on a provision is what let the number escape, and a
+    grid column is what replaced it."""
+    from ai_pipeline.html_view import template_text
+
+    import re
+
+    # Comments only explain the rules; it is the rules themselves that
+    # have to be clean of it (this note's own prose included).
+    css = re.sub(r"/\*.*?\*/", "", template_text("page.css"), flags=re.S)
+    prov_rule = css.split(".prov {")[1].split("}")[0]
+
+    assert "display: grid" in prov_rule
+    assert "text-indent" not in css, "a hanging indent can paint outside the box it belongs to"

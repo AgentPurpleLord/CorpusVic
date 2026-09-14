@@ -436,6 +436,11 @@
   mark.label-other { background: #e5e7eb; }
   mark.resolved { border-bottom-color: #16a34a; }
   mark.unresolved { border-bottom: 2px dashed #9ca3af; }
+  .piece-drift {
+    font-size: 12px; color: var(--muted); margin-top: 8px;
+    padding: 7px 9px; background: var(--panel); border-left: 2px solid var(--border);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
   .piece-findings { margin-top: 6px; font-size: 12.5px; color: var(--flagged-text); }
   .piece-findings div { margin-top: 2px; }
   .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
@@ -886,6 +891,19 @@ async function loadMeta() {
   renderSidebar();
 }
 
+// Which row is highlighted, and the status of the one being left and the
+// one being entered. Falls back to a full render when the row isn't in
+// the DOM at all -- filtered out, or inside a collapsed branch -- since
+// then there is nothing to move the highlight to.
+function setActiveUnitRow(n) {
+  const list = document.getElementById("unit-list");
+  const target = list.querySelector(`.unit-row[data-unit-no="${n}"]`);
+  if (!target) { renderSidebar(); return; }
+  const previous = list.querySelector(".unit-row.active");
+  if (previous && previous !== target) previous.classList.remove("active");
+  target.classList.add("active");
+}
+
 function unitRowLabel(u) {
   if (u.type === "heading_group") {
     const heading = (u.heading || "").trim().replace(/\s+/g, " ");
@@ -935,6 +953,7 @@ function renderSidebar() {
     if (applyCollapse && !isUnitVisible(u)) continue;
     const row = document.createElement("div");
     row.className = `unit-row status-${u.status}` + (u.unit_no === currentUnitNo ? " active" : "");
+    row.dataset.unitNo = u.unit_no;   // so one row's status can be repainted on its own
     row.style.paddingLeft = `${10 + u.depth * 14}px`;
     const toggleHtml = hasChildren.has(u.unit_no)
       ? `<span class="tree-toggle">${collapsedUnits.has(u.unit_no) ? "&#9656;" : "&#9662;"}</span>`
@@ -992,7 +1011,11 @@ async function loadUnit(n, pdfPage) {
   document.getElementById("empty-state").style.display = "none";
   document.getElementById("unit-header").style.display = "flex";
   renderUnit();
-  renderSidebar();
+  // Moving the highlight, not rebuilding the list: on a long Act that is
+  // several hundred rows of DOM thrown away and recreated to change which
+  // one is outlined. The list only has to be rebuilt when what is *in* it
+  // could have changed, which is loadMeta's job (see afterMutation).
+  setActiveUnitRow(n);
   if (document.body.dataset.historyPanel === "open") renderHistoryPanel();
   if (viewMode !== "text") {
     const target = pdfPage || (arrivingAtANewUnit && currentUnit.pieces[0] ? currentUnit.pieces[0].page_start : null);
@@ -1062,13 +1085,19 @@ function renderUnit() {
   } else {
     titleEl.textContent = "Merged away entirely -- its content now lives in whichever piece it was merged into (see the sidebar)";
   }
-  const badge = document.getElementById("unit-status-badge");
-  badge.textContent = currentUnit.status;
-  badge.className = `status-badge ${currentUnit.status}`;
-
   const container = document.getElementById("pieces");
   container.innerHTML = "";
   currentUnit.pieces.forEach((piece, idx) => {
+    container.appendChild(buildPiece(piece, idx));
+  });
+  renderUnitFooter();
+}
+
+// One piece's element. Split out of renderUnit so that accepting a single
+// piece can replace just that piece (see applyPieceDecision) instead of
+// tearing down and rebuilding every piece in the unit.
+function buildPiece(piece, idx) {
+  {
     const div = document.createElement("div");
     const isAccepted = !!piece.verified_at;
     const isFlagged = !!piece.needs_followup;
@@ -1100,6 +1129,20 @@ function renderUnit() {
       }).join("");
     const verifiedHtml = piece.verified_at
       ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>` : "";
+    // What is stored for a piece and what the parser says now can differ
+    // for two very different reasons: a human corrected it, or it was
+    // decided before a parser fix and is now a stale snapshot. Only a
+    // reviewer can tell which, so this says what differs and offers the
+    // way back, rather than choosing for them.
+    const drift = piece.differs_from_parse || [];
+    const driftHtml = drift.length
+      ? `<div class="piece-drift">
+           This piece's ${drift.join(", ")} ${drift.length > 1 ? "differ" : "differs"} from the
+           current parse &mdash; either it was corrected here, or it was decided before the
+           parser changed.
+           <button class="btn small reset-piece-btn" title="Discard what is stored and take the parser's current output, leaving this piece undecided">Reset to parse</button>
+         </div>`
+      : "";
     const statusBadgeHtml = isAccepted
       ? `<span class="piece-status-badge accepted">&#10003; Accepted</span>`
       : isFlagged ? `<span class="piece-status-badge flagged">&#9873; Flagged</span>` : "";
@@ -1185,6 +1228,7 @@ function renderUnit() {
       ${blindResultHtml}
       ${aiSuggestHtml}
       <div class="piece-findings">${findingsHtml}</div>
+      ${driftHtml}
       ${verifiedHtml}
     `;
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
@@ -1194,6 +1238,8 @@ function renderUnit() {
     if (acceptBtn) acceptBtn.onclick = () => acceptPiece(piece.node_index, false);
     const flagBtn = div.querySelector(".flag-piece-btn");
     if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
+    const resetBtn = div.querySelector(".reset-piece-btn");
+    if (resetBtn) resetBtn.onclick = () => resetPiece(piece.node_index);
     const blindSubmitBtn = div.querySelector(".blind-submit-btn");
     if (blindSubmitBtn) blindSubmitBtn.onclick = () => submitBlindGuess(div, piece.node_index);
     const aiSuggestBtn = div.querySelector(".ai-suggest-btn");
@@ -1205,8 +1251,16 @@ function renderUnit() {
       div.appendChild(grip);
     }
     attachPieceDragAndDrop(div, piece.node_index);
-    container.appendChild(div);
-  });
+    return div;
+  }
+}
+
+// The parts of the unit header that depend on what has been decided in
+// it, repainted on their own after a single piece changes.
+function renderUnitFooter() {
+  const badge = document.getElementById("unit-status-badge");
+  badge.textContent = currentUnit.status;
+  badge.className = `status-badge ${currentUnit.status}`;
 
   const anyPieceDecided = currentUnit.pieces.some((p) => p.verified_at || p.needs_followup);
   const isFlaggedUnit = currentUnit.status === "flagged";
@@ -1476,33 +1530,87 @@ document.getElementById("history-search").addEventListener("input", (e) => {
 document.getElementById("prev-btn").onclick = () => currentUnitNo > 0 && loadUnit(currentUnitNo - 1);
 document.getElementById("next-btn").onclick = () => currentUnitNo < META.unit_count - 1 && loadUnit(currentUnitNo + 1);
 
-document.getElementById("accept-btn").onclick = async () => {
+// Deciding a whole unit does change every piece in it, so the unit itself
+// is reloaded -- but nothing outside it moved, so the sidebar keeps its
+// rows and its scroll, and only this unit's own status dot is repainted.
+async function decideUnit(flagged) {
   try {
-    await api(`api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: false }) });
-    toast("Accepted.");
-    await afterMutation();
+    const result = await api(`api/units/${currentUnitNo}/accept`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
+    });
+    toast(flagged ? "Flagged for follow-up." : "Accepted.");
+    await loadUnit(currentUnitNo);
+    updateUnitRowStatus(currentUnitNo, result.status);
   } catch (e) { toast(e.message, true); }
-};
-document.getElementById("flag-btn").onclick = async () => {
-  try {
-    await api(`api/units/${currentUnitNo}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged: true }) });
-    toast("Flagged for follow-up.");
-    await afterMutation();
-  } catch (e) { toast(e.message, true); }
-};
+}
 
+document.getElementById("accept-btn").onclick = () => decideUnit(false);
+document.getElementById("flag-btn").onclick = () => decideUnit(true);
+
+// Deciding one piece used to reload the whole unit and the whole sidebar:
+// two round trips, then every piece in the unit and all several hundred
+// sidebar rows rebuilt from scratch, for a change to one piece and one
+// status dot. On a long Act that is the pause between clicking Accept and
+// being able to click the next one.
+//
+// Nothing about that was needed. The accept endpoint already returns the
+// three things that changed -- the piece's own stamp, its flag, and the
+// unit's status -- so they are applied here, and exactly the two elements
+// affected are repainted. What the reviewer is looking at (their scroll
+// position, the PDF page, the sidebar's scroll) simply stays put, because
+// nothing else is touched.
 async function acceptPiece(nodeIndex, flagged) {
-  // Read the page off the piece before the reload replaces currentUnit:
-  // a Section can run over several pages, and the piece just decided is
-  // the one the reviewer is looking at.
   const piece = currentUnit && currentUnit.pieces.find((p) => p.node_index === nodeIndex);
   try {
-    await api(`api/nodes/${nodeIndex}/accept`, {
+    const result = await api(`api/nodes/${nodeIndex}/accept`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
     });
     toast(flagged ? "Piece flagged." : "Piece accepted.");
-    await afterMutation(piece && piece.page_start);
+    applyPieceDecision(result);
   } catch (e) { toast(e.message, true); }
+}
+
+async function resetPiece(nodeIndex) {
+  if (!confirm("Discard what is stored for this piece and take the parser's current output?\n\n"
+             + "It will come back undecided, to be accepted or flagged against the new text.")) return;
+  try {
+    await api(`api/nodes/${nodeIndex}/reset`, { method: "POST" });
+    toast("Reset to the current parse.");
+    // The text itself changes, so the unit is reloaded rather than
+    // patched -- but nothing outside it moved.
+    const result = await api(`api/units/${currentUnitNo}`);
+    currentUnit = result;
+    renderUnit();
+    updateUnitRowStatus(currentUnitNo, currentUnit.status);
+  } catch (e) { toast(e.message, true); }
+}
+
+function applyPieceDecision(result) {
+  const idx = currentUnit.pieces.findIndex((p) => p.node_index === result.node_index);
+  if (idx === -1) return;
+  const piece = currentUnit.pieces[idx];
+  piece.verified_at = result.verified_at;
+  piece.needs_followup = result.needs_followup;
+  currentUnit.status = result.unit_status;
+
+  const container = document.getElementById("pieces");
+  const existing = container.children[idx];
+  if (existing) container.replaceChild(buildPiece(piece, idx), existing);
+  renderUnitFooter();
+  updateUnitRowStatus(currentUnitNo, result.unit_status);
+}
+
+// One sidebar row's status, without rebuilding the list. The row may not
+// be in the DOM at all (filtered out, or inside a collapsed branch), in
+// which case keeping META right is the whole job -- the row will be
+// rendered from it the next time the list is built.
+function updateUnitRowStatus(unitNo, status) {
+  if (META && META.units[unitNo]) META.units[unitNo].status = status;
+  const row = document.querySelector(`#unit-list .unit-row[data-unit-no="${unitNo}"]`);
+  if (!row) return;
+  row.className = `unit-row status-${status}` + (unitNo === currentUnitNo ? " active" : "");
+  const dot = row.querySelector(".status-dot");
+  if (dot) dot.className = `status-dot ${status}`;
 }
 
 async function afterMutation(pdfPage) {

@@ -292,7 +292,7 @@ def test_definition_continuation_line_stays_attached_without_its_own_lead():
     result = _parse(lines)
     assert sum(1 for n in result.nodes if n["type"] == "definition") == 1
     definition = find(result.nodes, "definition", None)
-    assert definition["text"] == "means the period permitted by or\nunder this Act for commencing an appeal;"
+    assert definition["text"] == "means the period permitted by or under this Act for commencing an appeal;"
 
 
 def test_a_long_defined_terms_own_wrap_extends_the_heading_not_a_new_definition():
@@ -618,7 +618,7 @@ def test_singular_unnumbered_note_becomes_its_own_note_node():
     section_278 = find(result.nodes, "section", "278")
     assert section_278["text"] == "A person sentenced for an offence may appeal."
     note = find(result.nodes, "note", None)
-    assert note["text"] == "See the definitions of originating court and original\njurisdiction in section 3."
+    assert note["text"] == "See the definitions of originating court and original jurisdiction in section 3."
     section_279 = find(result.nodes, "section", "279")
     assert "notice" in section_279["text"]
     assert "definitions of originating court" not in section_279["text"]
@@ -862,7 +862,7 @@ def test_example_marker_becomes_its_own_example_node():
     assert section_41["text"] == "A full brief must contain a notice."
     example = find(result.nodes, "example", None)
     assert example["text"] == (
-        "The informant may agree with the accused's legal\npractitioner on a time and place for inspection."
+        "The informant may agree with the accused's legal practitioner on a time and place for inspection."
     )
     section_42 = find(result.nodes, "section", "42")
     assert "informant may agree" not in section_42["text"]
@@ -1009,3 +1009,159 @@ def test_schedule_own_items_do_not_collide_with_earlier_act_sections():
     schedule_items = [n for n in result.nodes if n["type"] == "section" and n["number"] == "1"]
     assert len(schedule_items) == 2
     assert any("Form of charge-sheet" == n["heading"] for n in schedule_items)
+
+
+# ---------------------------------------------------------------------
+# A printed line break is not part of the legislation
+# ---------------------------------------------------------------------
+def test_a_wrapped_line_becomes_running_prose():
+    """The break is where the PDF's column ran out, not something the Act
+    says. Keeping it left every consumer to undo it, and made the stored
+    text disagree with the same words quoted anywhere else."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Murder", bold=True),
+        line("A person who commits murder is guilty of", x0=HEAD_X0),
+        line("an indictable offence.", x0=WRAP_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"] == "A person who commits murder is guilty of an indictable offence."
+
+
+def test_a_line_broken_at_a_hyphen_closes_up():
+    """Every hyphen-ending line across this project's corpus breaks a
+    compound the words already contained -- "charge-sheet",
+    "cross-examine" -- never a word split for fit."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("1 Commencement", bold=True),
+        line("The informant must file the charge-", x0=HEAD_X0),
+        line("sheet within 12 months.", x0=WRAP_X0),
+    ]
+    section = find(_parse(lines).nodes, "section", "1")
+
+    assert section["text"] == "The informant must file the charge-sheet within 12 months."
+
+
+# ---------------------------------------------------------------------
+# A bracket after a comma continues a sentence
+# ---------------------------------------------------------------------
+def test_a_wrapped_list_of_references_is_not_a_new_provision():
+    """"a provision of Subdivision (8A), (8B)," / "(8C), (8D) ..." used to
+    open a subsection numbered 8C in the middle of a sentence, taking the
+    rest of that sentence with it -- which is what stopped the Criminal
+    Procedure Act's section 4(1)(a)(i), (ii) and (iii) separating."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("4 Meaning of sexual offence", bold=True),
+        line("(1) In this Act, sexual offence means—", x0=HEAD_X0),
+        line("(a) an offence against—", x0=PARA_X0),
+        line("(i) a provision of Subdivision (8A), (8B),", x0=SUBPARA_X0),
+        line("(8C), (8D) or (8E) of the Crimes Act 1958; or", x0=SUBPARA_X0),
+        line("(ii) section 327(2) of that Act.", x0=SUBPARA_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert not any(n["type"] == "subsection" and n.get("number") == "8C" for n in nodes)
+    first = find(nodes, "subparagraph", "i")
+    assert first["text"] == (
+        "a provision of Subdivision (8A), (8B), (8C), (8D) or (8E) of the Crimes Act 1958; or"
+    )
+    assert find(nodes, "subparagraph", "ii")["text"] == "section 327(2) of that Act."
+
+
+# ---------------------------------------------------------------------
+# An inserted paragraph is still a sibling
+# ---------------------------------------------------------------------
+def test_a_paragraph_inserted_by_an_amendment_keeps_its_siblings_in_line():
+    """An amending Act inserts between (a) and (b) by suffixing: (a),
+    (ab), (b). Reading only (ac) as (ab)'s sibling made (b) a
+    subparagraph of it -- and then (b)'s own (i), (ii) paragraphs."""
+    lines = [
+        line("Part I—Offences", bold=True),
+        line("4 Meaning of sexual offence", bold=True),
+        line("(1) In this Act, sexual offence means—", x0=HEAD_X0),
+        line("(a) an offence against the person; or", x0=PARA_X0),
+        line("(ab) an intimate image offence; or", x0=PARA_X0),
+        line("(b) an offence an element of which involves—", x0=PARA_X0),
+        line("(i) any person engaging in sexual activity; or", x0=SUBPARA_X0),
+        line("(ii) any person taking part in a sexual act.", x0=SUBPARA_X0),
+    ]
+    nodes = _parse(lines).nodes
+    kinds = {(n["type"], n.get("number")) for n in nodes}
+
+    assert ("paragraph", "ab") in kinds
+    assert ("paragraph", "b") in kinds, "the original next paragraph, after an insertion"
+    assert ("subparagraph", "i") in kinds and ("subparagraph", "ii") in kinds
+
+
+# ---------------------------------------------------------------------
+# Definitions announced part-way through a section
+# ---------------------------------------------------------------------
+def _definitions_in_a_subsection():
+    return [
+        line("Part I—Offences", bold=True),
+        line("4 Meaning of sexual offence", bold=True),
+        line("(1) An offence is a sexual offence if it is listed.", x0=HEAD_X0),
+        line("(6) In this section—", x0=HEAD_X0),
+        line("commercial sexual services has the meaning given by", x0=PARA_X0,
+             leading_bold_italic="commercial sexual services"),
+        line("section 35(1) of the Crimes Act 1958;", x0=PARA_WRAP_X0),
+        line("sexual performance has the meaning given by section", x0=PARA_X0,
+             leading_bold_italic="sexual performance"),
+        line("49Q(3) of that Act.", x0=PARA_WRAP_X0),
+    ]
+
+
+def test_a_lead_in_inside_a_subsection_opens_its_definitions():
+    """The Criminal Procedure Act's section 4 is headed "Meaning of sexual
+    offence" and puts four defined terms in its subsection (6). Nothing in
+    the heading announces them, so the lead-in is the only announcement
+    there is -- without it they arrive as one unbroken block of text."""
+    nodes = _parse(_definitions_in_a_subsection()).nodes
+    terms = [n["heading"] for n in nodes if n["type"] == "definition"]
+
+    assert terms == ["commercial sexual services", "sexual performance"]
+    assert find(nodes, "definition")["text"] == (
+        "has the meaning given by section 35(1) of the Crimes Act 1958;"
+    )
+
+
+def test_those_definitions_nest_under_the_subsection_that_introduced_them():
+    """They belong to subsection (6), not beside it: a definition's depth
+    depends on what introduced it, which is why the parser records it on
+    the node rather than leaving it to be inferred from the type."""
+    from ai_pipeline.akn_export import build_hierarchy_tree
+    from ai_pipeline.hierarchy import HIERARCHY_ORDER
+
+    nodes = _parse(_definitions_in_a_subsection()).nodes
+    roots, _collisions = build_hierarchy_tree(nodes, HIERARCHY_ORDER)
+
+    def walk(tree_node):
+        if tree_node["node"] and tree_node["node"].get("number") == "6":
+            return tree_node
+        for child in tree_node["children"]:
+            found = walk(child)
+            if found:
+                return found
+
+    subsection_6 = next(filter(None, (walk(r) for r in roots)))
+    assert [c["node"]["heading"] for c in subsection_6["children"]] == [
+        "commercial sexual services", "sexual performance",
+    ]
+
+
+def test_a_topical_heading_is_not_swallowed_by_an_open_definitions_run():
+    """A run of definitions stays open until the next section, so one of
+    these headings can arrive first. It would otherwise be taken for a
+    defined term and take the rest of the Act's structure with it."""
+    lines = _definitions_in_a_subsection() + [
+        line("Fingerprinting", bold=True, leading_bold_italic="Fingerprinting"),
+        line("5 Taking of fingerprints", bold=True),
+        line("A member of the force may take fingerprints.", x0=HEAD_X0),
+    ]
+    nodes = _parse(lines).nodes
+
+    assert any(n["type"] == "heading_group" and n["heading"] == "Fingerprinting" for n in nodes)
+    assert "Fingerprinting" not in [n["heading"] for n in nodes if n["type"] == "definition"]

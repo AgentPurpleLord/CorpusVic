@@ -163,7 +163,12 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
     for node in nodes:
         t = node["type"]
         if t in rank:
-            idx = rank[t]
+            # depth_rank, where the parser recorded one, is where this
+            # node actually sits: a definition introduced by a lead-in
+            # inside a subsection belongs under that subsection, not
+            # beside it at the depth its type alone implies (see
+            # rule_parser._note_definitions_lead_in).
+            idx = node.get("depth_rank", rank[t])
             while level_stack and level_stack[-1][0] >= idx:
                 level_stack.pop()
             parent_level, parent = level_stack[-1]

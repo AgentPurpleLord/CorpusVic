@@ -169,6 +169,25 @@ _GROUP_HEADING_MAX_WORDS = 8
 # body-size, and sit at the start of a fresh clause exactly like a real
 # topic heading does, so the only thing that tells the two apart is the
 # shape of the opening words.
+# "In this section—", "In this Act—", "In this Division—": the standard
+# drafting lead-in that opens a run of defined terms. A Definitions
+# section announces itself in its heading (see
+# definitions.looks_like_definitions_section), but plenty of sections
+# define terms without being called that -- the Criminal Procedure Act's
+# section 4 ("Meaning of sexual offence") puts four of them in its
+# subsection (6) -- and there the lead-in is the only announcement there
+# is.
+# Anchored at the start of the line (after any provision number), because
+# "In this section" only announces definitions when it opens the sentence.
+# Mid-sentence it is doing something else entirely -- "it does not matter
+# that the offence is described in this section—" and "Nothing in this
+# section—" both end exactly the same way and define nothing.
+_DEFINITIONS_LEAD_IN_RE = re.compile(
+    r"^(?:\(\S{1,6}\)\s*)?In th(?:is|e)\s+"
+    r"(?:Act|section|Division|Part|Subdivision|Chapter|Schedule)\b[^.;]{0,60}[\u2014:]\s*$",
+    re.IGNORECASE,
+)
+
 _DEFLIKE_RE = re.compile(
     r"^[A-Za-z][\w \"',()/-]{0,80}?\s+(?:means?\b|has\b|have\b|includes?\b)|[—-]\s*see\s+section\b",
     re.IGNORECASE,
@@ -297,6 +316,47 @@ def _looks_like_subdivision_title(heading: str) -> bool:
     return not _DEFLIKE_RE.search(heading)
 
 
+def _split_insertion(token: str, base_re: str) -> "tuple[str, str]":
+    """A provision number as (what it was inserted after, the suffix that
+    inserted it): "ab" -> ("a", "b"), "ia" -> ("i", "a"), "b" -> ("b", "")."""
+    m = re.match(base_re, token)
+    return (m.group(0), token[m.end():]) if m else (token, "")
+
+
+def _continues_run(prev: str, content: str, base_re: str, next_in_base) -> bool:
+    """Is `content` a sibling of `prev` in the same numbered run?
+
+    Straightforwardly, (a) is followed by (b) and (i) by (ii). But an
+    amending Act inserts a provision between two existing ones by
+    suffixing the one before it -- (a), (ab), (b), or (i), (ia), (ii) --
+    and every step of that is still the same run:
+
+      (a)  -> (ab)   a first insertion after (a)
+      (ab) -> (ac)   a second insertion after (a)
+      (ab) -> (b)    back to the original sequence
+
+    Reading only the plain next token as a sibling is what made the
+    Criminal Procedure Act's section 4(1)(b) come out as a subparagraph
+    of (ab) -- which then made its own (i), (ii) and (iii) come out as
+    paragraphs of it."""
+    if content == next_in_base(prev):
+        return True
+    base, suffix = _split_insertion(prev, base_re)
+    if not suffix:
+        # An insertion opening after this one: "ab" after "a".
+        return content[:-1] == prev and len(content) == len(prev) + 1
+    # A further insertion after the same base, or the base's own next.
+    return content == base + _next_letter(suffix) or content == next_in_base(base)
+
+
+def _continues_letters(prev: str, content: str) -> bool:
+    return _continues_run(prev, content, r"^[a-z]", _next_letter)
+
+
+def _continues_romans(prev: str, content: str) -> bool:
+    return _continues_run(prev, content, r"^[ivxlcdm]+", lambda t: _next_roman(t) or "")
+
+
 def _bracket_level(content: str, stack: list[dict]) -> str:
     """Works out what a bracketed token like "(1)", "(a)", "(i)" actually
     is. Digits are always a subsection. For letters, single letters and
@@ -312,11 +372,11 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
     if stack:
         top = stack[-1]
         if top["type"] == "paragraph":
-            if _next_letter(top["number"]) == content:
+            if _continues_letters(top["number"], content):
                 return "paragraph"
             return "subparagraph"
         if top["type"] == "subparagraph":
-            if _next_roman(top["number"]) == content:
+            if _continues_romans(top["number"], content):
                 return "subparagraph"
             if len(stack) >= 2 and stack[-2]["type"] == "paragraph":
                 return "paragraph"
@@ -326,8 +386,28 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 _INDENT_TOLERANCE = 3.0
 
 
+# A line that ends in a hyphen or a dash was broken at a character the
+# words already contained -- "charge-sheet", "cross-examine",
+# "Broad-based", "of—" -- so the next line joins straight onto it. Every
+# one of the hyphen-ending lines across this project's parsed corpus is
+# such a compound; none is a word a typesetter split for fit, which is
+# why undoing the break would be wrong here.
+_JOINS_TIGHT = ("-", "\u2014", "\u2013")
+
+
 def _append_text(node: dict, text: str, line: BodyLine, char_end: int) -> None:
-    node["text"] = (node["text"] + "\n" + text) if node["text"] else text
+    """Adds one more printed line to a node's text as running prose.
+
+    The line break itself is not part of the legislation -- it is where
+    the PDF's column happened to run out -- so it is not kept. Keeping it
+    meant every consumer had to undo it (and several did, differently, or
+    forgot to), and it made the stored text disagree with the same words
+    quoted anywhere else."""
+    if node["text"]:
+        joiner = "" if node["text"].endswith(_JOINS_TIGHT) else " "
+        node["text"] = node["text"] + joiner + text
+    else:
+        node["text"] = text
     node["page_end"] = line.page_no
     node["char_end"] = char_end
 
@@ -415,6 +495,8 @@ class _LineParser:
         # until its heading is complete -- see _flush_hangs_off.
         self._pending_hangs_off: "tuple[dict, str, int] | None" = None
         self.stack_x0: list[float] = []
+        # The depth each open node was opened at, parallel to `stack`.
+        self.stack_rank: list[float] = []
         self.warnings: list[str] = []
 
         # Which kind of bold-marker block ("Notes"/singular "Note", or
@@ -448,6 +530,13 @@ class _LineParser:
         # actually introducing defined terms, never on some unrelated
         # bold+italic text elsewhere.
         self._in_definitions_section = False
+        # Where a definition opened by a lead-in should sit. None means
+        # the default: a Definitions section's own terms sit at
+        # subsection depth (see hierarchy.make_ranks). A lead-in found
+        # *inside* a provision sets this one deeper than that provision,
+        # so the terms nest under the subsection that introduces them
+        # instead of closing it and becoming its siblings.
+        self._definition_rank = None
 
     # -- stack bookkeeping ---------------------------------------------------
 
@@ -455,6 +544,7 @@ class _LineParser:
         self._flush_hangs_off()
         node = self.stack.pop()
         self.stack_x0.pop()
+        self.stack_rank.pop()
         node["text"] = node["text"].strip()
 
     def _flush_hangs_off(self) -> None:
@@ -471,21 +561,41 @@ class _LineParser:
         self._pending_hangs_off = None
         _append_heading(node, text, char_end)
 
-    def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine, char_start: int) -> dict:
+    def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine,
+                   char_start: int, rank: "int | None" = None) -> dict:
         self._flush_hangs_off()
-        rank = self.rank[level]
-        while self.stack and self.rank[self.stack[-1]["type"]] >= rank:
+        if rank is None:
+            rank = self.rank[level]
+        # Compared against the depth each open node was *opened* at, not
+        # its type's own: a definition's depth depends on what introduced
+        # it (see _definition_rank), so two definitions opened inside the
+        # same subsection still close each other, while neither closes
+        # that subsection.
+        while self.stack and self.stack_rank[-1] >= rank:
             self._close_top()
         if level == self.top_level_type:
+            # A new Section starts a clean slate: whether it defines
+            # terms is its own business, and any lead-in depth from the
+            # previous one goes with it.
             self._in_definitions_section = looks_like_definitions_section(heading)
+            self._definition_rank = None
         node = {
             "type": level, "number": number, "heading": heading, "text": "",
             "page_start": line.page_no, "page_end": line.page_no,
             "char_start": char_start, "char_end": char_start, "source": "rules",
         }
+        if rank != self.rank[level]:
+            # This node sits somewhere its type alone doesn't say -- a
+            # definition introduced inside a subsection rather than
+            # directly under a Definitions section. Recorded on the node
+            # so that everything downstream nests it where the parser
+            # decided, not where make_ranks would put it by type (see
+            # akn_export.build_hierarchy_tree).
+            node["depth_rank"] = rank
         self.nodes.append(node)
         self.stack.append(node)
         self.stack_x0.append(line.x0)
+        self.stack_rank.append(rank)
         return node
 
     def _close_marked_block(self) -> None:
@@ -587,12 +697,13 @@ class _LineParser:
             if not (
                 self._try_bold_heading(line, text, char_start, was_heading_group)
                 or self._try_schedule_hangs_off(line, text, char_end)
-                or self._try_definition_start(line, text, char_start, char_end)
+                or self._try_definition_start(line, text, char_start, char_end, next_text)
                 or self._try_bracket_item(line, text, char_start, char_end, was_heading_group)
                 or self._try_bold_emphasis(line, text, char_start, char_end, next_text)
             ):
                 self._consume_as_continuation(line, text, char_start, char_end)
 
+            self._note_definitions_lead_in(text)
             self.prev_text = text
 
         if self.asterisk_run:
@@ -815,7 +926,8 @@ class _LineParser:
             top["char_end"] = char_end
         return True
 
-    def _try_definition_start(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+    def _try_definition_start(self, line: BodyLine, text: str, char_start: int, char_end: int,
+                              next_text: str = "") -> bool:
         """Inside a Definitions/Interpretation section, a defined term is
         reliably set bold and italic where it's introduced ("accused
         means a person who—") -- clearly different typesetting from the
@@ -839,6 +951,18 @@ class _LineParser:
         rules one out) can never be mistaken for a defined term outside
         a section that's actually introducing them."""
         if not (self._in_definitions_section and line.leading_bold_italic):
+            return False
+        if round(line.size, 1) > self.body_size or _looks_like_group_heading(
+            text, self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels), next_text
+        ):
+            # A topical heading between two sections ("Theft, robbery,
+            # burglary, &c.", "Fingerprinting"), not a defined term. Now
+            # that a lead-in can turn definitions on part-way through a
+            # section, the run stays on until the next section opens --
+            # and one of these headings can arrive first, where it would
+            # otherwise be swallowed as a term and take the rest of the
+            # Act's structure with it. A defined term is never set larger
+            # than body text, and never has a heading's shape.
             return False
         term = line.leading_bold_italic
         if not text.startswith(term):
@@ -870,7 +994,7 @@ class _LineParser:
                 _append_text(top, remainder, line, char_end)
             return True
 
-        self._open_node("definition", None, term, line, char_start)
+        self._open_node("definition", None, term, line, char_start, rank=self._definition_rank)
         if remainder:
             _append_text(self.stack[-1], remainder, line, char_end)
         return True
@@ -899,6 +1023,20 @@ class _LineParser:
                     # sequence ambiguity to resolve here.
                     bracket_match, level = m3, "sub_subparagraph"
         if not (level and bracket_match):
+            return False
+        if self.prev_text.rstrip().endswith(","):
+            # A wrapped list of cross-references, not a new provision:
+            # "a provision of Subdivision (8A), (8B)," / "(8C), (8D), ..."
+            # would otherwise open a subsection numbered 8C in the middle
+            # of a sentence, taking the rest of that sentence with it and
+            # throwing the numbering of everything after it.
+            #
+            # A comma is the signal because legislative drafting never
+            # puts one before a new numbered provision: an item ends with
+            # a full stop, a semicolon, "; or", "; and" or an em dash.
+            # Every one of the 35 places in this project's parsed corpus
+            # where a bracketed provision follows a comma-ended line is
+            # this same mistake.
             return False
 
         remainder = bracket_match.group(2).strip() or None
@@ -966,6 +1104,27 @@ class _LineParser:
                 self._open_node(self._preamble_level, None, "Preliminary", line, char_start)
             _append_text(self.stack[-1], text, line, char_end)
         return True
+
+    def _note_definitions_lead_in(self, text: str) -> None:
+        """"In this section—" and its relatives open a run of defined
+        terms from wherever they appear, not only from a section headed
+        Definitions. The Criminal Procedure Act's section 4 is the case
+        that matters: it is headed "Meaning of sexual offence" and puts
+        four defined terms in its subsection (6), where nothing in the
+        heading announces them and they would otherwise arrive as one
+        unbroken block of text inside that subsection.
+
+        The terms are opened one level below whatever provision carried
+        the lead-in, so they nest under it. In a section that *is* headed
+        Definitions the lead-in is usually the section's own first line,
+        which leaves the depth where it already was."""
+        if not _DEFINITIONS_LEAD_IN_RE.search(text) or not self.stack:
+            return
+        self._in_definitions_section = True
+        top = self.stack[-1]
+        # A lead-in in the Section's own text leaves definitions where
+        # make_ranks puts them; one inside a subsection nests them there.
+        self._definition_rank = None if top["type"] == self.top_level_type else self.stack_rank[-1] + 1
 
     def _consume_as_continuation(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
         """Continuation of whatever is currently open. If nothing is
