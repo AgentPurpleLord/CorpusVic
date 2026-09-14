@@ -436,6 +436,11 @@
   mark.label-other { background: #e5e7eb; }
   mark.resolved { border-bottom-color: #16a34a; }
   mark.unresolved { border-bottom: 2px dashed #9ca3af; }
+  .piece-drift {
+    font-size: 12px; color: var(--muted); margin-top: 8px;
+    padding: 7px 9px; background: var(--panel); border-left: 2px solid var(--border);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
   .piece-findings { margin-top: 6px; font-size: 12.5px; color: var(--flagged-text); }
   .piece-findings div { margin-top: 2px; }
   .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
@@ -1124,6 +1129,20 @@ function buildPiece(piece, idx) {
       }).join("");
     const verifiedHtml = piece.verified_at
       ? `<div class="piece-verified">Verified ${escapeHtml(piece.verified_at)}</div>` : "";
+    // What is stored for a piece and what the parser says now can differ
+    // for two very different reasons: a human corrected it, or it was
+    // decided before a parser fix and is now a stale snapshot. Only a
+    // reviewer can tell which, so this says what differs and offers the
+    // way back, rather than choosing for them.
+    const drift = piece.differs_from_parse || [];
+    const driftHtml = drift.length
+      ? `<div class="piece-drift">
+           This piece's ${drift.join(", ")} ${drift.length > 1 ? "differ" : "differs"} from the
+           current parse &mdash; either it was corrected here, or it was decided before the
+           parser changed.
+           <button class="btn small reset-piece-btn" title="Discard what is stored and take the parser's current output, leaving this piece undecided">Reset to parse</button>
+         </div>`
+      : "";
     const statusBadgeHtml = isAccepted
       ? `<span class="piece-status-badge accepted">&#10003; Accepted</span>`
       : isFlagged ? `<span class="piece-status-badge flagged">&#9873; Flagged</span>` : "";
@@ -1209,6 +1228,7 @@ function buildPiece(piece, idx) {
       ${blindResultHtml}
       ${aiSuggestHtml}
       <div class="piece-findings">${findingsHtml}</div>
+      ${driftHtml}
       ${verifiedHtml}
     `;
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
@@ -1218,6 +1238,8 @@ function buildPiece(piece, idx) {
     if (acceptBtn) acceptBtn.onclick = () => acceptPiece(piece.node_index, false);
     const flagBtn = div.querySelector(".flag-piece-btn");
     if (flagBtn) flagBtn.onclick = () => acceptPiece(piece.node_index, true);
+    const resetBtn = div.querySelector(".reset-piece-btn");
+    if (resetBtn) resetBtn.onclick = () => resetPiece(piece.node_index);
     const blindSubmitBtn = div.querySelector(".blind-submit-btn");
     if (blindSubmitBtn) blindSubmitBtn.onclick = () => submitBlindGuess(div, piece.node_index);
     const aiSuggestBtn = div.querySelector(".ai-suggest-btn");
@@ -1545,6 +1567,21 @@ async function acceptPiece(nodeIndex, flagged) {
     });
     toast(flagged ? "Piece flagged." : "Piece accepted.");
     applyPieceDecision(result);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function resetPiece(nodeIndex) {
+  if (!confirm("Discard what is stored for this piece and take the parser's current output?\n\n"
+             + "It will come back undecided, to be accepted or flagged against the new text.")) return;
+  try {
+    await api(`api/nodes/${nodeIndex}/reset`, { method: "POST" });
+    toast("Reset to the current parse.");
+    // The text itself changes, so the unit is reloaded rather than
+    // patched -- but nothing outside it moved.
+    const result = await api(`api/units/${currentUnitNo}`);
+    currentUnit = result;
+    renderUnit();
+    updateUnitRowStatus(currentUnitNo, currentUnit.status);
   } catch (e) { toast(e.message, true); }
 }
 

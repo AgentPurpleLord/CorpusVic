@@ -541,3 +541,24 @@ def test_ai_precondition_returns_the_finding_once_a_blind_review_exists(monkeypa
 
     finding = review._ai_suggestion_precondition(0)
     assert finding == {"severity": "warning", "message": "duplicate numbering"}
+
+
+def test_a_piece_reports_which_fields_no_longer_match_the_parse(monkeypatch):
+    """What is stored and what the parser says now can differ for two very
+    different reasons -- a human corrected it, or it was decided before a
+    parser fix and is a stale snapshot of one. Only a reviewer can tell
+    which, so the piece says what differs rather than choosing."""
+    import review
+
+    parsed = {"type": "note", "number": None, "heading": None,
+              "text": "A proceeding may also be commenced under section 83AL."}
+    monkeypatch.setattr(review, "_nodes", [parsed])
+
+    assert review._differs_from_parse(0, parsed) == []
+    stale = dict(parsed, text=parsed["text"] + " Part 2.2—Charge-sheet")
+    assert review._differs_from_parse(0, stale) == ["text"]
+    relabelled = dict(parsed, type="subsection", number="3")
+    assert review._differs_from_parse(0, relabelled) == ["type", "number"]
+    # An absent field and an empty one are the same thing here, so a
+    # heading that was never set doesn't read as a change.
+    assert review._differs_from_parse(0, {**parsed, "heading": ""}) == []
