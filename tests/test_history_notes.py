@@ -215,3 +215,35 @@ def test_a_parse_from_before_any_of_this_still_works():
 
     assert "rect" not in notes[0]
     assert notes[0]["section"] == "3"
+
+
+def test_parse_note_records_that_a_citation_names_a_note():
+    """"Note to s. 6(1)" is about the note printed under s 6(1), not
+    about s 6(1) -- tree.attach_history needs to be told the difference,
+    since the section and sub_path look identical either way."""
+    result = parse_note("Note to s. 6(1) substituted as Notes by No. 32/2024 s. 812.")
+    assert result["target_kind"] == "note"
+    assert result["target_id"] is None
+    assert result["section"] == "6"
+    assert result["sub_path"] == ["(1)"]
+
+
+def test_parse_note_records_a_notes_own_number():
+    result = parse_note("Note 1 to s. 55(4) amended by No. 38/2016 s. 9(2).")
+    assert (result["target_kind"], result["target_id"]) == ("note", "1")
+
+
+def test_parse_note_plural_notes_names_no_particular_one():
+    result = parse_note("Notes to s. 41 amended by No. 68/2009 s. 51(n).")
+    assert (result["target_kind"], result["target_id"]) == ("note", None)
+    assert result["section"] == "41"
+
+
+def test_parse_note_records_an_example_citation():
+    result = parse_note("Example to s. 43A(2) amended by No. 47/2016 s. 10.")
+    assert (result["target_kind"], result["target_id"]) == ("example", None)
+    assert result["sub_path"] == ["(2)"]
+
+
+def test_parse_note_ordinary_citation_names_no_annotation():
+    assert parse_note("S. 3(2)(a) amended by No. 52/2014 s. 11.")["target_kind"] is None

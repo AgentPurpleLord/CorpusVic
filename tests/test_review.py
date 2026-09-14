@@ -773,3 +773,22 @@ def test_a_section_level_continuation_clears_the_subsection_it_is_not_in():
 
     assert nodes[-1]["path"]["subsection"] is None
     assert nodes[-1]["path"]["section"] == "31"
+
+
+def test_a_reprints_profile_resolves_to_its_acts_own_profile():
+    """Reading a box needs the patterns the parse used, and a versioned
+    document records a versioned profile name: the Criminal Procedure
+    Act's parse says "criminal-procedure-act-v114" while the profile file
+    is "criminal-procedure-act.yaml", one profile serving every reprint.
+    Handing the recorded name straight to load_profile raised on the
+    largest document in the corpus, so every "read this piece from its
+    box" on it failed."""
+    from review import load_parse_profile
+
+    assert load_parse_profile("criminal-procedure-act-v114") == "criminal-procedure-act"
+
+
+def test_a_document_with_no_profile_at_all_is_not_invented_one():
+    from review import load_parse_profile
+
+    assert load_parse_profile("no-such-act-anywhere") is None

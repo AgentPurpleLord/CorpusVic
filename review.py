@@ -152,7 +152,7 @@ from corpus.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
 from corpus.extract import BodyLine, lines_in_rects
 from corpus.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
-from corpus.profiles import load_profile
+from corpus.profiles import load_profile, profile_for
 from corpus.rule_parser import read_box
 from corpus.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from corpus.link_targets import build_definition_index, resolve_link
@@ -229,14 +229,20 @@ def load_source_pdf_path(act: str) -> str | None:
 
 
 def load_parse_profile(act: str) -> "str | None":
-    """The pattern profile this document was parsed with, as recorded in
-    its parse. Reading a box needs the same patterns the parse used --
-    how an Act numbers its Parts is a fact about the Act, and a box read
-    against the wrong profile is read wrongly."""
-    path = Path("data/parsed") / f"{act}.json"
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8")).get("profile")
+    """The pattern profile this document was parsed with. Reading a box
+    needs the same patterns the parse used -- how an Act numbers its
+    Parts is a fact about the Act, and a box read against the wrong
+    profile is read wrongly.
+
+    profiles.profile_for, not the name the parse recorded, because a
+    versioned document records a versioned name: the Criminal Procedure
+    Act's parse says "criminal-procedure-act-v114" and the profile file
+    is "criminal-procedure-act.yaml", one profile serving every reprint.
+    Passing the recorded name straight to load_profile raised on the
+    largest document in the corpus, which is deliberately loud but here
+    it was raised at the wrong person -- profile_for already resolves a
+    reprint back to its Act."""
+    return profile_for(act)
 
 
 def load_printed_lines(act: str, pdf_path: "str | None") -> list:

@@ -95,6 +95,66 @@ def _find_by_number(candidates: list[dict], number: str, types: set[str]) -> dic
     return None
 
 
+# The levels a citation's bracketed tail can name, in order, so that
+# "(1)(c)" reads as subsection 1, paragraph c.
+_SUB_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
+
+
+def _inside(node: dict, sub_path: list[str]) -> bool:
+    """Whether this node sits at or below the provision a citation's
+    bracketed tail names.
+
+    At or below, not exactly at: a note printed under s 6(1) follows that
+    subsection's last paragraph, so the parser records it as sitting
+    inside paragraph (c). The citation says "s. 6(1)" and means that note
+    all the same, so the levels it does not mention must not be required
+    to be empty.
+
+    The brackets are matched in order but not by position, because which
+    level a bracket names depends on the provision rather than on where
+    it sits in the citation: s 6 numbers subsections and "(1)" is one,
+    while s 119 has no subsections at all and its "(c)" is a paragraph
+    hanging straight off the section. Reading the first bracket as a
+    subsection either way put every note in s 119 out of reach."""
+    path = node.get("path") or {}
+    remaining = [_normalize_number(path.get(level)) for level in _SUB_LEVELS if path.get(level)]
+    for number in sub_path:
+        wanted = _normalize_number(number)
+        if wanted not in remaining:
+            return False
+        remaining = remaining[remaining.index(wanted) + 1:]
+    return True
+
+
+def _find_annotation(candidates: list[dict], sub_path: list[str], kind: str, wanted_id) -> tuple:
+    """The note or example a citation like "Note to s. 6(1)" is about.
+
+    These citations are about the note printed under a provision, not
+    about the provision -- "Note to s. 6(1) substituted as Notes" records
+    a change to s 6(1)'s note, while s 6(1) itself says what it always
+    said. Attaching it to the subsection put the history of the note onto
+    the provision that carries it.
+
+    Where the citation numbers the note ("Note 1 to s. 55(4)") that is
+    the answer. Where it does not and the provision has just one, so is
+    that. Where it does not and the provision has several -- an
+    amendment that turned one note into two, or "Notes to s. 41 amended"
+    -- nothing in the citation says which, so the first is returned as a
+    guess.
+
+    Returns (node, certain). `certain` is False for that guess, so the
+    caller can mark it low-confidence and a reviewer can re-point it,
+    rather than it sitting among the matches that are actually known."""
+    found = [n for n in candidates if n.get("type") == kind and _inside(n, sub_path)]
+    if wanted_id:
+        numbered = [n for n in found if _normalize_number(n.get("number")) == _normalize_number(wanted_id)]
+        if numbered:
+            return numbered[0], True
+    if not found:
+        return None, False
+    return found[0], len(found) == 1
+
+
 def _find_definition(candidates: list[dict], def_name: str) -> dict | None:
     target = " ".join(def_name.lower().replace("-", " ").split())
     for node in candidates:
@@ -166,8 +226,22 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
         elif note["section"]:
             candidates = section_runs.get(note["section"], [])
             if candidates:
-                if note["def_name"]:
+                if note.get("target_kind"):
+                    # "Note to s. 6(1)", "Example to s. 43A(2)" -- about
+                    # what is printed under the provision, not about the
+                    # provision. A note the citation says was repealed is
+                    # no longer there to attach to, so this can come back
+                    # empty and fall through to the provision below.
+                    target, found_specific = _find_annotation(
+                        candidates, note["sub_path"], note["target_kind"], note.get("target_id")
+                    )
+                    # Naming the note is itself the specific thing asked
+                    # for, whether or not the citation also gave a
+                    # subsection.
+                    wanted_specific = True
+                if target is None and note["def_name"]:
                     target = _find_definition(candidates, note["def_name"])
+                    found_specific = target is not None
                 if target is None and note["sub_path"]:
                     sub_path = list(note["sub_path"])
                     while sub_path and target is None:
@@ -175,7 +249,7 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                             candidates, sub_path[-1], {"subsection", "paragraph", "subparagraph"}
                         )
                         sub_path.pop()
-                found_specific = target is not None
+                    found_specific = target is not None and not note.get("target_kind")
                 if target is None:
                     target = candidates[0]
         elif note["division"]:

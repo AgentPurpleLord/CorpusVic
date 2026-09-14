@@ -36,7 +36,7 @@ _NEW_PREFIX_RE = re.compile(r"^New\s+", re.IGNORECASE)
 
 _CITATION_RE = re.compile(
     r"^(?:Notes?\s*(?P<noteid>[\w]*)\s*to\s+s\.\s*(?P<nsection>\d+[A-Za-z]*)(?P<nsub>(?:\([^)]*\))*))"
-    r"|^(?:Examples?\s+to\s+s\.\s*(?P<esection>\d+[A-Za-z]*)(?P<esub>(?:\([^)]*\))*))"
+    r"|^(?:Examples?\s*(?P<exid>[\w]*)\s*to\s+s\.\s*(?P<esection>\d+[A-Za-z]*)(?P<esub>(?:\([^)]*\))*))"
     r"|^(?:Heading\s+preceding\s+s\.\s*(?P<hsection>\d+[A-Za-z]*))"
     # A Schedule, and optionally one clause of it: "Sch. 2 repealed by
     # ...", "Sch. 1 cl. 4A(1) amended by ...". Schedules number their own
@@ -124,6 +124,13 @@ def parse_note(raw: str) -> dict:
         "kind": "provenance" if _PROVENANCE_RE.match(text) else "amendment",
         "section": None,
         "sub_path": [],
+        # What the citation names *inside* the provision, when it names
+        # something other than the provision itself: "Note to s. 6(1)" is
+        # about the note printed under s 6(1), not about s 6(1). None for
+        # an ordinary citation. target_id is the note's own number where
+        # the citation gives one ("Note 1 to s. 55(4)").
+        "target_kind": None,
+        "target_id": None,
         "schedule": None,
         "chapter": None,
         "division": None,
@@ -136,9 +143,13 @@ def parse_note(raw: str) -> dict:
         if gd.get("nsection"):
             result["section"] = gd["nsection"]
             result["sub_path"] = _split_subpath(gd.get("nsub"))
+            result["target_kind"] = "note"
+            result["target_id"] = gd.get("noteid") or None
         elif gd.get("esection"):
             result["section"] = gd["esection"]
             result["sub_path"] = _split_subpath(gd.get("esub"))
+            result["target_kind"] = "example"
+            result["target_id"] = gd.get("exid") or None
         elif gd.get("schedule"):
             result["schedule"] = gd["schedule"]
             if gd.get("schclause"):
