@@ -71,5 +71,12 @@ It is copied into each build, because a Pages deployment serves exactly
 what the build uploaded.
 
 Publishing is a push: `.github/workflows/pages.yml` rebuilds the site
-whenever the parsed data or the review database changes on `main`. Only
-fully-reviewed documents are included.
+whenever the parsed data or the review database changes on `main`.
+
+Every parsed document is published in full. A provision a human has not
+yet checked against the PDF still carries its text, above a notice saying
+it has not been checked; the contents page says how many of the
+document's provisions that applies to. The alternative -- withholding the
+text until someone had confirmed it -- made an Act read as though it had
+holes in it, which for legislation is the dangerous misreading: a section
+merely unchecked looked exactly like a section that does not exist.

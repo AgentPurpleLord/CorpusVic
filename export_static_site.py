@@ -45,13 +45,18 @@ directly and writing the returned HTML to a file instead of an
 HTTPResponse is the whole job. tests/test_dashboard.py already imports
 dashboard.py the same way for the same reason.
 
-Publishes a work's newest parsed version, one approved provision at a
-time: a Section appears once a reviewer has accepted every piece of it
-(see approved_units), so an Act fills in as review proceeds rather than
-waiting to be finished. A provision still to come keeps its place in the
-contents, marked, with a page saying it hasn't been published yet -- a
-silently absent section would read as a section that doesn't exist. A
-document with nothing approved in it at all isn't published.
+Publishes a work's newest parsed version in full: every provision the
+parser found, with its text, whether or not a human has checked it yet.
+A provision nobody has checked carries a notice saying so, above its own
+heading (see _unverified_notice_html), and the contents page says how
+much of the document that applies to.
+
+Publishing only the checked provisions was the older rule, and it made
+the site read as an Act with holes in it -- for legislation the
+dangerous reading, since a section that is merely unchecked looked the
+same as a section that does not exist. Saying what has been checked, on
+the provisions it is true of, tells a reader more than withholding the
+text does, and tells it where they are actually reading.
 
 Hover-preview cards work here too, without a server: the card behind
 every link the site actually contains is rendered at build time and
@@ -84,10 +89,10 @@ from corpus.versions import split_document_slug
 
 def select_candidate_slugs(statuses: dict[str, dict]) -> list[str]:
     """Which documents are even eligible for the site: every parsed one,
-    including older versions of a work. Whether any of a candidate's text
-    has actually been approved is a separate question, answered per
-    provision by approved_page_slugs below -- and a version nobody has
-    reviewed yet publishes nothing and so costs nothing.
+    including older versions of a work. How much of a candidate a human
+    has checked is a separate question, answered per provision by
+    approved_page_slugs below, and it decides what each page says about
+    itself rather than whether it exists.
 
     Older reprints are published because a reader needs to be able to go
     and read one: "Compare with another version" on a provision offers
@@ -140,8 +145,8 @@ def approved_units(nodes: list, units: list[list[int]]) -> set[int]:
     none is flagged for follow-up. The two are deliberately exclusive in
     review.py: flagging a piece means "not sure, revisit this", and
     commit_unit leaves such a node unstamped on purpose. So a flagged
-    provision is not published, which is the whole point of the reviewer
-    having flagged it."""
+    provision counts as unchecked and says so on its own page, which is
+    the point of the reviewer having flagged it."""
     approved = set()
     for u, unit in enumerate(units):
         live = [nodes[i] for i in unit if nodes[i] is not None]
@@ -152,9 +157,10 @@ def approved_units(nodes: list, units: list[list[int]]) -> set[int]:
 
 def approved_page_slugs(nodes: list, units: list[list[int]], by_node_index: dict[int, str]) -> set[str]:
     """The page ids (build_page_index's own "s14", "s14_2", ...) whose
-    provision is approved and can carry real text. A page is one unit --
-    a Section and everything nested under it -- so it's approved exactly
-    when that unit is."""
+    provision a human has checked. A page is one unit -- a Section and
+    everything nested under it -- so it is checked exactly when that unit
+    is. Every page carries its text either way; this decides which of
+    them have to say they haven't been confirmed."""
     approved = approved_units(nodes, units)
     unit_of_root = {unit[0]: u for u, unit in enumerate(units)}
     return {
@@ -199,14 +205,12 @@ def _rewrite_urls(value, base_path: str, slugs: dict):
 
 
 def publishes_anything(slug: str) -> bool:
-    """Whether this document has even one approved provision, and so will
+    """Whether this document has even one provision, and so will
     produce pages at all. The same question _build_doc answers on its way
     past; asked separately because an Act's contents page has to link to
     its Bill and Explanatory Memorandum, and cannot know whether those
     exist until every document has been looked at."""
-    nodes, _unattached, _hierarchy = dashboard._current_nodes(slug)
-    page_index = dashboard._page_index(slug)
-    return bool(approved_page_slugs(nodes, group_into_units(nodes), page_index["by_node_index"]))
+    return bool(dashboard._page_index(slug)["by_node_index"])
 
 
 CNAME_FILE = Path(__file__).parent / "CNAME"
@@ -253,31 +257,44 @@ def _provision_label(node: dict) -> str:
     return " ".join(parts) or str(node.get("type", "Provision")).replace("_", " ").capitalize()
 
 
-def _unpublished_page_body(node: dict, base_url: str, act_title: str) -> str:
-    """What stands in for a provision nobody has approved yet. It exists
-    rather than 404ing so that a gap reads as "not published here yet"
-    and never as "no such provision" -- and so every link into it, from
-    the contents list, a neighbouring page or another Act, keeps
-    working."""
+def _unverified_notice_html() -> str:
+    """Set at the top of a provision nobody has checked yet, above its own
+    heading, because it qualifies every word below it.
+
+    The text underneath is real: it is what the parser read off the
+    official PDF, not a placeholder and not a guess at what the provision
+    might say. What it has not had is a human reading it against the page
+    to confirm the parser got it right -- which is a different and
+    smaller claim than "this may be wrong", and the notice says the
+    smaller one, because overstating the doubt would be as misleading as
+    hiding it."""
     return (
-        f"<h1>{html.escape(_provision_label(node))}</h1>"
         '<div class="disclaimer">'
-        "<strong>This provision hasn’t been published here yet.</strong> "
-        "It has been parsed but not yet checked by a human, and this site only publishes "
-        "provisions that have been. It says nothing about whether the provision is in force "
-        f"— for the authorised text, see <a href=\"{OFFICIAL_SOURCE_URL}\" rel=\"noopener\">"
+        "<strong>This provision has not been checked by a human.</strong> "
+        "The text below was read automatically from the official PDF and has not yet been "
+        "verified against it, so it may differ from the provision as published — in its "
+        "wording, its numbering, or where one provision ends and the next begins. "
+        f'For the authorised text, see <a href="{OFFICIAL_SOURCE_URL}" rel="noopener">'
         f"{OFFICIAL_SOURCE_NAME}</a>."
         "</div>"
-        f'<div class="section-nav"><a href="{base_url}/">{html.escape(act_title)} contents</a></div>'
     )
 
 
-def _partial_notice_html(approved: int, total: int) -> str:
+def _partial_notice_html(checked: int, total: int) -> str:
+    """The same caveat on the contents page, where it is about the
+    document rather than about one provision.
+
+    Only where some of it is unchecked, and phrased as a count, because
+    the state a reader needs to know is not "this Act is under review"
+    but "how much of what you are about to read has been looked at".
+    Every provision is here either way; the ones that have not been
+    checked say so on themselves, which is where it matters."""
     return (
         '<div class="disclaimer">'
-        f"<strong>Only part of this document has been published: {approved} of {total} provisions.</strong> "
-        "The rest has been parsed but not yet checked by a human. Provisions still to come are listed "
-        "in the contents below and marked, so nothing here is silently missing."
+        f"<strong>{checked} of {total} provisions in this document have been checked by a human.</strong> "
+        "The rest were read automatically from the official PDF and have not yet been verified "
+        "against it. Every provision is published here; the ones still to be checked say so at "
+        "the top of their own page."
         "</div>"
     )
 
@@ -334,11 +351,10 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     browse_endnotes each build for one HTTP request, just written to
     files under out_dir/browse/<slug>/ instead.
 
-    A provision nobody has approved yet still gets a page, saying so
-    (see _unpublished_page_body) rather than its text. Returns the
-    summary used for the site's own landing page, or None for a document
-    with nothing approved in it at all -- which has nothing to show and
-    isn't published.
+    Every provision gets its real text. One nobody has checked yet
+    carries a notice saying so, above its own heading (see
+    _unverified_notice_html). Returns the summary used for the site's own
+    landing page, or None for a document with no provisions at all.
 
     The summary carries "pages" (the page ids this document released) and
     "links" (everything its pages point at), which between them are what
@@ -375,17 +391,19 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     # _current_nodes returns the stored verified row wherever there is
     # one, so verified_at/needs_followup are readable straight off these.
     units = group_into_units(nodes)
-    published_pages = approved_page_slugs(nodes, units, page_index["by_node_index"])
     all_pages = set(page_index["by_node_index"].values())
-    if not published_pages:
+    if not all_pages:
         return None
-    unpublished_pages = all_pages - published_pages
+    # Which provisions a human has confirmed. It no longer decides what
+    # is published -- everything is -- only which pages have to say they
+    # haven't been checked.
+    checked_pages = approved_page_slugs(nodes, units, page_index["by_node_index"])
 
     index_body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
          "version": version},
         title, base_url, superseded=site(dashboard._superseded(slug)),
-        unpublished_pages=unpublished_pages, show_review_badge=False,
+        show_review_badge=False,
         # Only documents this build actually published: a link from an
         # Act's contents to a Bill nobody has reviewed yet would be a
         # link to a page that isn't there.
@@ -396,17 +414,13 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             if d["slug"] in (published_slugs or ())
         ],
     )
-    if unpublished_pages:
-        index_body = _partial_notice_html(len(published_pages), len(all_pages)) + index_body
+    if checked_pages != all_pages:
+        index_body = _partial_notice_html(len(checked_pages), len(all_pages)) + index_body
     links |= _link_targets(index_body, base_path)
     _write(doc_dir / "index.html", _page(title, index_body, base_url, gate=gate), gate)
 
     for node_index, section_slug in page_index["by_node_index"].items():
         node = nodes[node_index]
-        if section_slug not in published_pages:
-            _write(doc_dir / "section" / section_slug / "index.html",
-                   _page(title, _unpublished_page_body(node, base_url, title), base_url, gate=gate), gate)
-            continue
         section_number = node.get("number")
         schedule = page_index["schedule_by_node_index"].get(node_index)
         node_type = node["type"]
@@ -422,8 +436,9 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             crossrefs=site(crossrefs), amendment_index=amendments["index"],
             timeline=entries, version_urls=site(version_urls),
             superseded=site(dashboard._superseded(slug)),
-            version_dates=version_dates, unpublished_pages=unpublished_pages,
+            version_dates=version_dates,
             show_review_badge=False, timeline_unavailable=timeline_unavailable,
+            notice=None if section_slug in checked_pages else _unverified_notice_html(),
         )
         if body is None:
             continue  # not expected -- page_index only ever names real sections
@@ -444,8 +459,10 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     return {
         "slug": slug, "site_slug": site_slug, "title": title, "kind": status["kind"],
         "as_at": status["version_as_at"], "pages": 1 + len(all_pages),
-        "published_provisions": len(published_pages), "total_provisions": len(all_pages),
-        "published_pages": published_pages, "links": links,
+        "checked_provisions": len(checked_pages), "total_provisions": len(all_pages),
+        # Every page this document published, which is all of them: what
+        # _write_previews needs to know a link has somewhere to land.
+        "published_pages": all_pages, "links": links,
     }
 
 
@@ -536,9 +553,9 @@ def _write_previews(out: Path, base_path: str, targets: set, published: dict,
     site_slugs), and the targets are read off links and so name the
     published one.
 
-    A link into a document that isn't published, or into a provision
-    nobody has approved yet, gets no preview file and so no card, which is
-    the same answer the page behind it would give."""
+    A link into a document that isn't published gets no preview file and
+    so no card, which is the same answer the page behind it would
+    give."""
     by_page = {}
     for site_slug, section, fragment in targets:
         entry = published.get(site_slug)
@@ -569,13 +586,18 @@ def _write_previews(out: Path, base_path: str, targets: set, published: dict,
 
 
 def _provision_count_html(doc: dict) -> str:
-    """"12 of 112 provisions" for a document still being worked through,
-    and nothing at all for a finished one -- a count beside every entry
-    would just be noise once the answer is always "all of them"."""
-    published, total = doc["published_provisions"], doc["total_provisions"]
-    if published >= total:
+    """"12 of 112 provisions checked" for a document still being worked
+    through, and nothing at all for one where every provision has been --
+    a count beside every entry would just be noise once the answer is
+    always "all of them".
+
+    Checked, not published: the whole document is published either way,
+    and what differs between these entries is how much of it a human has
+    confirmed against the PDF."""
+    checked, total = doc["checked_provisions"], doc["total_provisions"]
+    if checked >= total:
         return ""
-    return f" &middot; {published} of {total} provisions"
+    return f" &middot; {checked} of {total} provisions checked"
 
 
 def _landing_page_html(published: list[dict], base_path: str) -> str:
@@ -616,10 +638,11 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
         for doc in current
     )
     intro = (
-        "Automatically generated from this project’s review pipeline. Only provisions a "
-        "human has checked are published, so a document may appear here with part of its "
-        "text still to come \u2014 where it does, the count says how much."
-        if current else "Nothing has been checked and published yet."
+        "Automatically generated from this project’s review pipeline. Each document is "
+        "published in full, and every provision a human has not yet checked against the "
+        "official PDF says so at the top of its own page \u2014 the counts below say how "
+        "much of each document that is."
+        if current else "Nothing has been parsed and published yet."
     )
     body = (
         # First in the body, before the heading: a reader should meet the
@@ -703,11 +726,11 @@ def main():
     print(f"Published {len(published)} document(s) to {out}/ (base path: {base_path or '(none)'}):")
     for doc in published:
         at = "" if doc["site_slug"] == doc["slug"] else f" (at /browse/{doc['site_slug']}/)"
-        print(f"  {doc['slug']}{at} -- "
-              f"{doc['published_provisions']}/{doc['total_provisions']} provision(s) published")
+        print(f"  {doc['slug']}{at} -- {doc['total_provisions']} provision(s), "
+              f"{doc['checked_provisions']} checked by a human")
     print(f"{preview_files} page(s) carry hover-preview data for the links that reach them.")
     if skipped:
-        print(f"Skipped {len(skipped)} document(s) (not parsed, or nothing approved in them yet):")
+        print(f"Skipped {len(skipped)} document(s) (not parsed):")
         for slug in skipped:
             print(f"  {slug}")
     print(

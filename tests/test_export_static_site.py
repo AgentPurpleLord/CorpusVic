@@ -14,6 +14,7 @@ import pytest
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from corpus import html_view
 from corpus.html_view import _legislation_href, _site_prefix
 from corpus.site_crypto import SiteGate, derive_key
 from conftest import make_node
@@ -205,29 +206,31 @@ def test_legislation_href_carries_the_site_prefix_from_base_url():
 # dropped one would leave unofficial text looking authoritative.
 # ---------------------------------------------------------------------
 
-def _doc(published=3, total=3, slug="crimes-act", site_slug=None):
+def _doc(checked=3, total=3, slug="crimes-act", site_slug=None):
     return {
         "slug": slug, "site_slug": site_slug or slug,
         "title": "Crimes Act 1958", "kind": "act",
         "as_at": "1 May 2026", "pages": total + 1,
-        "published_provisions": published, "total_provisions": total,
+        "checked_provisions": checked, "total_provisions": total,
     }
 
 
 _DOC = _doc()
 
 
-def test_the_landing_page_says_how_much_of_a_part_published_act_is_there():
-    page = _landing_page_html([_doc(published=12, total=112)], "")
-    assert "12 of 112 provisions" in page
+def test_the_landing_page_says_how_much_of_an_act_has_been_checked():
+    """The whole Act is published either way -- what this counts is how
+    much of it a human has confirmed against the PDF."""
+    page = _landing_page_html([_doc(checked=12, total=112)], "")
+    assert "12 of 112 provisions checked" in page
 
 
-def test_a_fully_published_act_gets_no_provision_count():
+def test_a_fully_checked_act_gets_no_provision_count():
     """Once the answer is always "all of them", the count is noise.
     Asserted against the document's own list entry rather than the rest
     of the page, which carries scripts of its own that say "provisions"
     for unrelated reasons."""
-    page = _landing_page_html([_doc(published=112, total=112)], "")
+    page = _landing_page_html([_doc(checked=112, total=112)], "")
     entry = page.split('<ul class="section-list">')[1].split("</ul>")[0]
     assert "provisions" not in entry
 
@@ -426,10 +429,10 @@ def _preview_site(tmp_path, targets, published, gate=None):
     return written, tmp_path
 
 
-def test_a_preview_is_not_written_for_an_unpublished_provision(tmp_path, monkeypatch):
-    """A link can point at a provision nobody has approved yet. Its page
-    already says so instead of showing the text; a hover card that showed
-    it anyway would be a hole straight through that."""
+def test_a_preview_is_not_written_for_a_page_the_site_does_not_have(tmp_path, monkeypatch):
+    """A link can point somewhere this build didn't produce -- a document
+    that isn't published, or a page id it doesn't hold. A hover card for
+    it would show text behind a link that 404s."""
     import export_static_site as ess
 
     calls = []
@@ -441,7 +444,8 @@ def test_a_preview_is_not_written_for_an_unpublished_provision(tmp_path, monkeyp
     written, out = _preview_site(
         tmp_path,
         {("a", "s1", ""), ("a", "s2", ""), ("b", "s1", "")},
-        # s2 is not approved; document b is not published at all.
+        # The site has a/s1 only: s2 is not among its pages, and
+        # document b was not published at all.
         {"a": ("a-v3", {"s1"})},
     )
 
@@ -589,3 +593,131 @@ def test_the_repository_names_the_domain_the_site_is_published_at():
     to keep serving www.corpusvic.au, and what keeps every link on the
     site unprefixed."""
     assert export_static_site.custom_domain() == "www.corpusvic.au"
+
+
+# ---------------------------------------------------------------------
+# Publishing unchecked text
+# ---------------------------------------------------------------------
+# The site used to hold back any provision a human hadn't confirmed,
+# leaving a placeholder page in its place. It reads as an Act with holes
+# in it, and for legislation that is the dangerous reading: a section
+# that is merely unchecked looked exactly like a section that does not
+# exist. Everything is published now, and what has not been checked says
+# so on itself.
+
+def _fake_document(monkeypatch, verified: set):
+    """One tiny two-section Act, with `verified` naming the section
+    numbers a reviewer has confirmed. Every dashboard helper _build_doc
+    reaches for is answered here, so the test is about what gets written
+    rather than about the real corpus."""
+    import export_static_site as ess
+
+    def node(number, heading, text):
+        n = make_node("section", number, heading)
+        body = make_node("subsection", "1", None, text)
+        if number in verified:
+            n["verified_at"] = body["verified_at"] = "2026-01-01T00:00:00+00:00"
+        return [n, body]
+
+    nodes = node("1", "Short title", "This Act may be cited as the Test Act.") \
+        + node("2", "Commencement", "This Act comes into operation on 1 July.")
+
+    monkeypatch.setattr(ess.dashboard, "_current_nodes", lambda slug: (nodes, [], None))
+    monkeypatch.setattr(ess.dashboard, "_act_title", lambda slug: "Test Act")
+    monkeypatch.setattr(ess.dashboard, "_amendments",
+                        lambda slug: {"endnotes": None, "index": {}, "summary": {}})
+    monkeypatch.setattr(ess.dashboard, "_act_version", lambda slug: {})
+    monkeypatch.setattr(ess.dashboard, "_version_dates", lambda slug: {})
+    monkeypatch.setattr(ess.dashboard, "_timeline", lambda work: {})
+    monkeypatch.setattr(ess.dashboard, "_superseded", lambda slug: None)
+    monkeypatch.setattr(ess.dashboard, "related_documents", lambda slug: [])
+    monkeypatch.setattr(ess.dashboard, "_provision_timeline", lambda *a: ([], {}))
+    monkeypatch.setattr(ess.dashboard, "_section_crossrefs", lambda *a: [])
+    monkeypatch.setattr(ess.dashboard, "act_status",
+                        lambda slug: {"kind": "act", "version_as_at": "1 July 2026"})
+    monkeypatch.setattr(
+        ess.dashboard, "_page_index",
+        lambda slug: html_view.build_page_index({"nodes": nodes, "hierarchy": None}, "Test Act"))
+    return nodes
+
+
+def _built(tmp_path, monkeypatch, verified: set):
+    from export_static_site import _build_doc
+
+    _fake_document(monkeypatch, verified)
+    summary = _build_doc("test-act", tmp_path, "")
+    read = lambda p: (tmp_path / "browse/test-act" / p).read_text(encoding="utf-8")
+    return summary, read
+
+
+def test_an_unchecked_provision_is_published_with_its_own_text(tmp_path, monkeypatch):
+    """The whole point. Its text used to be withheld behind a page saying
+    it hadn't been published yet."""
+    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
+    page = read("section/s2/index.html")
+
+    assert "This Act comes into operation on 1 July." in page
+    assert "hasn’t been published here yet" not in page
+
+
+def test_an_unchecked_provision_says_it_has_not_been_checked(tmp_path, monkeypatch):
+    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
+    page = read("section/s2/index.html")
+
+    assert "This provision has not been checked by a human." in page
+    assert "legislation.vic.gov.au" in page, "and says where the authorised text is"
+
+
+def test_a_checked_provision_carries_no_such_notice(tmp_path, monkeypatch):
+    """The notice has to mean something, which it stops doing the moment
+    it is on every page."""
+    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
+    page = read("section/s1/index.html")
+
+    assert "This Act may be cited as the Test Act." in page
+    assert "has not been checked by a human" not in page
+
+
+def test_the_contents_page_tags_nothing(tmp_path, monkeypatch):
+    """Nothing is held back, so nothing is marked as held back."""
+    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
+    index = read("index.html")
+
+    assert "not yet published" not in index
+    assert "unpublished-tag" not in index
+    assert 'href="/browse/test-act/section/s2"' in index, "still listed and still linked"
+
+
+def test_the_contents_page_says_how_much_has_been_checked(tmp_path, monkeypatch):
+    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
+
+    assert "1 of 2 provisions in this document have been checked by a human." in read("index.html")
+
+
+def test_a_fully_checked_document_says_nothing_about_checking(tmp_path, monkeypatch):
+    _summary, read = _built(tmp_path, monkeypatch, verified={"1", "2"})
+    index = read("index.html")
+
+    assert "have been checked by a human" not in index
+    assert "has not been checked by a human" not in read("section/s2/index.html")
+
+
+def test_a_document_nobody_has_checked_at_all_is_still_published(tmp_path, monkeypatch):
+    """It used to publish nothing, so an Act awaiting review was absent
+    from the site entirely."""
+    summary, read = _built(tmp_path, monkeypatch, verified=set())
+
+    assert summary is not None
+    assert summary["checked_provisions"] == 0
+    assert summary["total_provisions"] == 2
+    assert "This Act may be cited as the Test Act." in read("section/s1/index.html")
+    assert "0 of 2 provisions in this document have been checked" in read("index.html")
+
+
+def test_every_page_is_offered_for_preview(tmp_path, monkeypatch):
+    """A hover card used to be withheld from an unapproved provision
+    because its page withheld the text. The page shows it now, so the
+    card that stands for that page can too."""
+    summary, _read = _built(tmp_path, monkeypatch, verified={"1"})
+
+    assert summary["published_pages"] == {"s1", "s2"}

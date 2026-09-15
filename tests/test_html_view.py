@@ -885,20 +885,37 @@ def test_a_comment_in_the_page_itself_is_left_alone():
     assert "<!-- kept -->" in page_shell("T", "<p>a <!-- kept --> note</p>")
 
 
-def test_the_outline_marks_a_provision_that_is_not_published_yet():
-    """Same reason the contents page marks it: a line that looks like
-    every other one, and turns out to be a page saying the text isn't
-    there, is worse than one that says so first."""
-    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10",
-                          unpublished_pages={"s11"})
+def test_the_outline_reads_the_same_for_every_provision():
+    """Every provision the parser found is published with its text, so
+    nothing in the outline is held back and nothing is marked as held
+    back. What a reader needs to know -- whether a human has checked the
+    provision in front of them -- is a fact about that provision, said on
+    it (see render_section's `notice`), not a mark beside its neighbours
+    in a sidebar."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
     outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
 
-    assert '<a href="/browse/a/section/s11" class="unpublished">' in outline
-    # The words are there for a screen reader, which has no dot to see.
-    assert "(not yet published)" in outline
-    assert 'href="/browse/a/section/s11"' in outline, "still linked, not hidden"
-    # And a published neighbour is left alone.
+    assert '<a href="/browse/a/section/s11">' in outline
+    assert "not yet published" not in outline
+    # The page you are on is still the one marked, which is the only
+    # distinction the outline draws.
     assert 'section/s10" aria-current="page">' in outline
+
+
+def test_a_notice_is_set_above_the_provisions_own_heading():
+    """It qualifies every word below it, so it has to be read before
+    them rather than found after them."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10",
+                          notice='<div class="disclaimer">Not checked.</div>')
+    main = body.split('<div class="reader-main">')[1]
+
+    assert 'class="disclaimer">Not checked.' in main
+    assert main.index("Not checked.") < main.index("<h1>")
+
+
+def test_no_notice_leaves_the_page_alone():
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
+    assert "disclaimer" not in body
 
 
 # ---------------------------------------------------------------------------
@@ -1038,3 +1055,72 @@ def test_a_tables_cells_are_linkified_like_any_other_text():
     assert re.search(r"<td>[^<]*<a[^>]*>accused</a>[^<]*</td>", body), (
         "a defined term inside a cell should link the same way it does in prose"
     )
+
+
+# ---------------------------------------------------------------------------
+# The document-context cache
+# ---------------------------------------------------------------------------
+# Every page and every hover card of a document needs the same derived
+# structure, and building it is most of what rendering a site costs. It
+# is cached on the identity of the node list, which is fast and which
+# fails in exactly one way worth pinning down: handing back one
+# document's structure for another.
+
+def test_two_documents_do_not_share_a_context():
+    """The cache is keyed on identity, so the failure to rule out is a
+    page of one Act rendered from another Act's tree."""
+    from corpus.html_view import _build_context
+
+    a = {"nodes": [make_node("section", "1", "Alpha", "text of alpha")], "hierarchy": None}
+    b = {"nodes": [make_node("section", "1", "Beta", "text of beta")], "hierarchy": None}
+
+    ctx_a = _build_context(a, "Act A")
+    ctx_b = _build_context(b, "Act B")
+
+    assert ctx_a is not ctx_b
+    assert ctx_a["sections"][0][0]["node"]["heading"] == "Alpha"
+    assert ctx_b["sections"][0][0]["node"]["heading"] == "Beta"
+    # And the first is still itself, not overwritten by the second.
+    assert _build_context(a, "Act A")["sections"][0][0]["node"]["heading"] == "Alpha"
+
+
+def test_the_same_document_is_built_once():
+    from corpus.html_view import _build_context
+
+    parsed = {"nodes": [make_node("section", "1", "Alpha", "text")], "hierarchy": None}
+
+    assert _build_context(parsed, "Act A") is _build_context(parsed, "Act A")
+
+
+def test_the_same_nodes_under_a_different_title_are_built_again():
+    """The title is part of what the context derives (index anchors are
+    computed against it), so it has to be part of the key."""
+    from corpus.html_view import _build_context
+
+    parsed = {"nodes": [make_node("section", "1", "Alpha", "text")], "hierarchy": None}
+
+    assert _build_context(parsed, "Act A") is not _build_context(parsed, "Act B")
+
+
+def test_the_cache_does_not_grow_without_bound():
+    """It holds whole document trees, and a site build walks fifteen of
+    them. An unbounded cache would keep every one alive at once."""
+    from corpus import html_view
+
+    kept = [{"nodes": [make_node("section", "1", f"Doc {i}", "text")], "hierarchy": None}
+            for i in range(html_view._CONTEXT_CACHE_MAX + 3)]
+    for i, parsed in enumerate(kept):
+        html_view._build_context(parsed, f"Act {i}")
+
+    assert len(html_view._CONTEXT_CACHE) <= html_view._CONTEXT_CACHE_MAX
+
+
+def test_a_rendered_page_is_the_same_whether_or_not_the_cache_was_warm():
+    from corpus import html_view
+
+    parsed = _parsed(_three_part_act())
+    html_view._CONTEXT_CACHE.clear()
+    cold = render_section(parsed, "Test Act", "/browse/a", "s10")
+    warm = render_section(parsed, "Test Act", "/browse/a", "s10")
+
+    assert cold == warm

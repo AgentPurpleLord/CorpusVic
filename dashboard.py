@@ -1464,7 +1464,7 @@ def _preview_bar(slug: str) -> str:
     kind = _KIND_LABELS.get(_document_kind(slug), "Act")
     return (
         '<div class="previewbar">'
-        f"Live preview of this {kind} &mdash; reflects your saved review progress, not just what's fully reviewed &middot; "
+        f"Live preview of this {kind} &mdash; reflects your saved review progress &middot; "
         f'<a href="/">Dashboard</a> &middot; <a href="/review/{slug}/">Review</a>'
         "</div>"
     )

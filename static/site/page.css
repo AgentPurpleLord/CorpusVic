@@ -312,15 +312,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 .copy-section:hover { border-color: var(--accent); color: var(--accent); }
 
-/* A provision listed in the contents but not released to readers yet --
-   see render_index's own unpublished_pages note. Quiet: it marks an
-   absence, and shouldn't shout over the provisions that are there. */
-.unpublished-tag {
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--muted); border: 1px solid var(--border); padding: 0 5px; margin-left: 6px;
-  white-space: nowrap;
-}
-
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
    coordinates (not fixed) so it scrolls with the link it belongs to. */

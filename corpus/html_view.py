@@ -107,7 +107,41 @@ def _strip_md(filename: str) -> str:
     return filename[:-3] if filename.endswith(".md") else filename
 
 
+# One document's derived structure -- its tree, its page filenames, its
+# definitions -- costs about 80ms to build on an Act the size of the
+# Criminal Procedure Act, and every page and every hover card of that Act
+# needs the same one. Built afresh each time, a full site build spent
+# almost all of its time here: 6000 pages and 6000 previews, each
+# rebuilding a tree over several thousand nodes.
+#
+# Keyed on the identity of the node list rather than its contents, since
+# hashing several thousand dicts to avoid rebuilding a structure derived
+# from them would cost what it saves. The list itself is held in the key
+# so that it cannot be collected and its id() handed to something else --
+# the standard hazard of an identity key, and a silent one, since the
+# wrong context would render a real page for the wrong document. Callers
+# only ever read the result (nothing here assigns into it), so one shared
+# copy is safe.
+_CONTEXT_CACHE: dict = {}
+_CONTEXT_CACHE_MAX = 4
+
+
 def _build_context(parsed: dict, act_title: str) -> dict:
+    nodes = parsed["nodes"]
+    key = (id(nodes), id(parsed.get("hierarchy")), act_title)
+    hit = _CONTEXT_CACHE.get(key)
+    if hit is not None:
+        return hit[1]
+    context = _build_context_uncached(parsed, act_title)
+    if len(_CONTEXT_CACHE) >= _CONTEXT_CACHE_MAX:
+        _CONTEXT_CACHE.pop(next(iter(_CONTEXT_CACHE)))
+    # The node list and the hierarchy travel with the entry, keeping both
+    # alive for exactly as long as their ids are used as a key.
+    _CONTEXT_CACHE[key] = ((nodes, parsed.get("hierarchy")), context)
+    return context
+
+
+def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     nodes = parsed["nodes"]
     hierarchy_order = parsed.get("hierarchy") or HIERARCHY_ORDER
     structural_types = _structural_types(hierarchy_order)
@@ -499,7 +533,7 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 
 
 def render_index(parsed: dict, act_title: str, base_url: str,
-                 superseded: dict | None = None, unpublished_pages: "set[str] | None" = None,
+                 superseded: dict | None = None,
                  show_review_badge: bool = True, related: "list[dict] | None" = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section
@@ -508,16 +542,6 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     superseded, if given, is {"version", "current", "current_url",
     "as_at_printed"} -- see render_superseded_banner.
 
-    unpublished_pages, if given, is the page ids whose provision hasn't
-    been released to readers yet (see export_static_site.py, which
-    publishes an Act a reviewed provision at a time). They stay in the
-    contents list, still linked, and are marked -- the page they lead to
-    says the same thing. Leaving them out instead would make a
-    part-published Act look complete, which for legislation is the
-    dangerous reading: a missing section must never look like a section
-    that doesn't exist. None (the live dashboard, which shows
-    everything) marks nothing.
-
     related, if given, is the Bill this Act was enacted from and that
     Bill's Explanatory Memorandum, as [{"title", "href", "kind"}]. They
     belong to the Act rather than standing beside it -- an Explanatory
@@ -525,11 +549,13 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     so they are offered here, from the Act's own contents, rather than on
     the site's front page as if the three were separate publications.
 
-    show_review_badge is how much of the Act a human has checked, which
-    is what a reviewer wants to know and the wrong thing to tell a
-    reader: on a site that only publishes checked provisions, "partially
-    reviewed" reads as doubt about the text actually on screen. Off
-    there; on for the dashboard, whose whole job is tracking it."""
+    show_review_badge is how much of the Act a human has checked. That is
+    what a reviewer wants to know, and the wrong shape for a reader: it
+    is one verdict on a whole Act, where whether a human has read the
+    provision in front of you is a fact about that provision. The site
+    says it per provision instead, on the provision (see
+    export_static_site.py); the dashboard, whose whole job is tracking
+    the Act's progress, keeps the badge."""
     ctx = _build_context(parsed, act_title)
     tree_roots = ctx["tree_roots"]
     structural_types = ctx["structural_types"]
@@ -596,12 +622,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             if not list_open:
                 out.append('<ul class="section-list">')
                 list_open = True
-            page_id = _strip_md(filenames_by_eid[tree_node["eid"]])
-            mark = (
-                ' <span class="unpublished-tag">not yet published</span>'
-                if unpublished_pages and page_id in unpublished_pages else ""
-            )
-            out.append(f'<li><a href="{href}">{_esc(label)}</a>{mark}</li>')
+            out.append(f'<li><a href="{href}">{_esc(label)}</a></li>')
             return
         if t in (*structural_types, "heading_group"):
             close_list()
@@ -788,39 +809,25 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
 
 
 def _outline_entry(tree_node: dict, base_url: str, filenames_by_eid: dict[str, str],
-                   target_filename: str, unpublished_pages: "set[str] | None") -> str:
+                   target_filename: str) -> str:
     """One section in the outline, marked when it is the page you're on --
     aria-current, so it reads as "you are here" to a screen reader and not
-    merely as a different colour.
-
-    A section whose provision hasn't been released to readers yet is
-    marked too, the way the contents page marks it (see render_index): a
-    line that looks like every other one, and turns out to be a page
-    saying the text isn't there, is worse than one that says so first. The
-    mark is a dot rather than the contents page's "not yet published",
-    which at this width would set most of the sidebar in two-line
-    entries -- with the words themselves kept for a screen reader, which
-    has no dot to see."""
+    merely as a different colour."""
     filename = filenames_by_eid[tree_node["eid"]]
     node = tree_node["node"]
     label = (
         _display_title(node["type"], node.get("number"), node.get("heading"))
         if node["type"] == "schedule" else index_label(node)
     )
-    page_id = _strip_md(filename)
     current = ' aria-current="page"' if filename == target_filename else ""
-    held_back = bool(unpublished_pages) and page_id in unpublished_pages
-    mark = '<span class="outline-unpub"> (not yet published)</span>' if held_back else ""
-    css = ' class="unpublished"' if held_back else ""
     return (
-        f'<li class="outline-leaf"><a href="{base_url}/section/{page_id}"{current}{css}>'
-        f"{_esc(label)}{mark}</a></li>"
+        f'<li class="outline-leaf"><a href="{base_url}/section/{_strip_md(filename)}"{current}>'
+        f"{_esc(label)}</a></li>"
     )
 
 
 def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_filename: str,
-                  base_url: str, has_endnotes: bool = False,
-                  unpublished_pages: "set[str] | None" = None) -> str:
+                  base_url: str, has_endnotes: bool = False) -> str:
     """The provisions around the one you're reading -- and only those.
 
     Just the branch this page sits on: the Part it is in, the Division
@@ -848,8 +855,7 @@ def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_file
             node = child["node"]
             t = node["type"]
             if t in SECTION_LEVEL_TYPES or (t == "schedule" and schedule_is_pageable(child)):
-                items.append(_outline_entry(child, base_url, filenames_by_eid,
-                                            target_filename, unpublished_pages))
+                items.append(_outline_entry(child, base_url, filenames_by_eid, target_filename))
                 continue
             # A Part or Division that isn't on the way to this page is not
             # the immediate context, so it isn't listed at all.
@@ -978,8 +984,8 @@ def render_section(
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
     timeline: list[dict] | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
-    unpublished_pages: "set[str] | None" = None, show_review_badge: bool = True,
-    timeline_unavailable: bool = False,
+    show_review_badge: bool = True, timeline_unavailable: bool = False,
+    notice: "str | None" = None,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -1003,15 +1009,18 @@ def render_section(
     parsed["version"], if present, is this reprint's own front matter --
     what the "Text as at" line states.
 
-    unpublished_pages is the page ids whose provision hasn't been released
-    to readers yet, marked in the outline the same way render_index marks
-    them in the contents.
+    notice, if given, is HTML set at the top of the reading column, above
+    the provision's own heading -- what the reader has to know before the
+    words below them mean anything. The published site uses it to say
+    that a provision has not been checked by a human (see
+    export_static_site.py); it is raw HTML because what needs saying is a
+    sentence with a link in it, not a string.
 
     show_review_badge is how much of this provision a human has checked --
-    on for the dashboard, whose job is tracking that, and off on a site
-    that only publishes checked provisions, where the badge would read
-    "Fully reviewed" on every page and so say nothing (see render_index,
-    which turns it off for the same reason)."""
+    on for the dashboard, whose job is tracking that. The site says the
+    same thing through `notice`, on the provisions it is actually true
+    of, rather than as a badge on every page (see render_index, which
+    turns it off for the same reason)."""
     ctx = _build_context(parsed, act_title)
     sections = ctx["sections"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -1035,9 +1044,11 @@ def render_section(
         _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
         '<div class="reader-cols">',
         _outline_html(ctx, act_title, breadcrumb, target_filename, base_url,
-                      bool(parsed.get("endnotes")), unpublished_pages),
+                      bool(parsed.get("endnotes"))),
         '<div class="reader-main">',
     ]
+    if notice:
+        out.append(notice)
     crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
     crumb_bits.extend(_esc(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading"))) for b in breadcrumb)
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')

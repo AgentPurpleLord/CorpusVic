@@ -34,7 +34,7 @@ jobs:
       # it's being tested: set it as a repository secret to turn the gate
       # on, delete the secret to publish openly. Unset here means an empty
       # string, which export_static_site.py reads as "no gate".
-      - name: Build the static site (only fully-reviewed documents)
+      - name: Build the static site
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
         run: python export_static_site.py --out _site
