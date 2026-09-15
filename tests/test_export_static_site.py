@@ -184,7 +184,7 @@ def test_site_prefix_is_empty_for_the_live_dashboards_own_base_url():
 
 
 def test_site_prefix_is_the_part_before_browse_for_a_project_pages_site():
-    assert _site_prefix("/vic-legislation-parser/browse/crimes-act") == "/vic-legislation-parser"
+    assert _site_prefix("/corpusvic/browse/crimes-act") == "/corpusvic"
 
 
 def test_legislation_href_has_no_prefix_by_default():
@@ -196,8 +196,8 @@ def test_legislation_href_omits_the_year_when_not_known():
 
 
 def test_legislation_href_carries_the_site_prefix_from_base_url():
-    href = _legislation_href({"act_no": "68", "year": 2009}, "/vic-legislation-parser/browse/crimes-act")
-    assert href == "/vic-legislation-parser/legislation/68-2009"
+    href = _legislation_href({"act_no": "68", "year": 2009}, "/corpusvic/browse/crimes-act")
+    assert href == "/corpusvic/legislation/68-2009"
 
 
 # ---------------------------------------------------------------------
@@ -416,9 +416,9 @@ def test_links_outside_the_site_are_not_preview_targets():
 def test_targets_are_read_against_the_sites_own_prefix():
     """On a GitHub Pages project site every link carries /<repo>/, and a
     collector that ignored that would treat the repo name as the slug."""
-    html = '<a href="/vic-legislation-parser/browse/a/section/s5#s5-1">s 5(1)</a>'
+    html = '<a href="/corpusvic/browse/a/section/s5#s5-1">s 5(1)</a>'
 
-    assert _targets(html, "/vic-legislation-parser") == {("a", "s5", "s5-1")}
+    assert _targets(html, "/corpusvic") == {("a", "s5", "s5-1")}
     assert _targets(html, "") == set()
 
 
@@ -555,11 +555,11 @@ def test_a_bill_no_published_act_claims_is_still_listed():
 def test_a_custom_domain_means_no_path_prefix(tmp_path, monkeypatch):
     """A custom domain is mapped at its own root. With the "/repo"
     prefix a project site needs, every link on the site resolved to
-    https://www.corpusvic.au/vic-legislation-parser/browse/..., which is
+    https://www.corpusvic.au/corpusvic/browse/..., which is
     nowhere."""
     monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
     (tmp_path / "CNAME").write_text("www.corpusvic.au\n", encoding="utf-8")
-    monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/vic-legislation-parser")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/corpusvic")
 
     assert export_static_site.custom_domain() == "www.corpusvic.au"
     assert export_static_site._default_base_path() == ""
@@ -567,10 +567,10 @@ def test_a_custom_domain_means_no_path_prefix(tmp_path, monkeypatch):
 
 def test_without_a_custom_domain_a_project_site_keeps_its_prefix(tmp_path, monkeypatch):
     monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
-    monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/vic-legislation-parser")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/corpusvic")
 
     assert export_static_site.custom_domain() is None
-    assert export_static_site._default_base_path() == "/vic-legislation-parser"
+    assert export_static_site._default_base_path() == "/corpusvic"
 
 
 def test_a_local_preview_has_no_prefix_either(tmp_path, monkeypatch):

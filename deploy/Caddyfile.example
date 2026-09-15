@@ -22,7 +22,7 @@ corpusvic.au, www.corpusvic.au {
     # builds. Swap this block for a reverse_proxy to a second, read-only
     # process if you move the public side off static files too.
     handle {
-        root * /opt/vic-legislation-parser/_site
+        root * /opt/corpusvic/_site
         try_files {path} {path}/ {path}/index.html
         file_server
     }

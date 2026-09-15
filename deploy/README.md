@@ -20,9 +20,9 @@ certificate, and it needs to already be resolving before you start Caddy.
 ## 1. Get the code onto the server
 
 ```bash
-sudo mkdir -p /opt/vic-legislation-parser
-sudo git clone <your-repo-url> /opt/vic-legislation-parser
-cd /opt/vic-legislation-parser
+sudo mkdir -p /opt/corpusvic
+sudo git clone https://github.com/AgentPurpleLord/CorpusVic.git /opt/corpusvic
+cd /opt/corpusvic
 ```
 
 (Or `git pull` there if it's already cloned.)
@@ -32,7 +32,7 @@ cd /opt/vic-legislation-parser
 ```bash
 sudo apt update
 sudo apt install -y python3-venv
-cd /opt/vic-legislation-parser
+cd /opt/corpusvic
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -r requirements-site.txt
 ```
@@ -48,8 +48,8 @@ is fine; on an older release install `python3.11` first.
 ## 3. A dedicated, unprivileged user to run it as
 
 ```bash
-sudo useradd --system --home /opt/vic-legislation-parser --shell /usr/sbin/nologin dashboard
-sudo chown -R dashboard:dashboard /opt/vic-legislation-parser
+sudo useradd --system --home /opt/corpusvic --shell /usr/sbin/nologin dashboard
+sudo chown -R dashboard:dashboard /opt/corpusvic
 ```
 
 ## 4. The admin password
@@ -115,7 +115,7 @@ than source: it is gitignored, so a fresh clone does not have it and the
 domain root would 404 until you make it.
 
 ```bash
-cd /opt/vic-legislation-parser
+cd /opt/corpusvic
 sudo -u dashboard .venv/bin/python export_static_site.py --out _site
 ```
 
@@ -136,8 +136,8 @@ Description=Rebuild the published Corpus site
 [Service]
 Type=oneshot
 User=dashboard
-WorkingDirectory=/opt/vic-legislation-parser
-ExecStart=/opt/vic-legislation-parser/.venv/bin/python export_static_site.py --out _site
+WorkingDirectory=/opt/corpusvic
+ExecStart=/opt/corpusvic/.venv/bin/python export_static_site.py --out _site
 UNIT
 
 sudo tee /etc/systemd/system/corpus-site.timer >/dev/null <<'UNIT'
@@ -166,11 +166,11 @@ database is the review work. Until it is pushed it exists on one disk.
 Give the server its own deploy key with write access:
 
 ```bash
-sudo -u dashboard mkdir -p /opt/vic-legislation-parser/.ssh
-sudo -u dashboard chmod 700 /opt/vic-legislation-parser/.ssh
+sudo -u dashboard mkdir -p /opt/corpusvic/.ssh
+sudo -u dashboard chmod 700 /opt/corpusvic/.ssh
 sudo -u dashboard ssh-keygen -t ed25519 -C "corpus-vps" \
-  -f /opt/vic-legislation-parser/.ssh/id_ed25519 -N ""
-sudo cat /opt/vic-legislation-parser/.ssh/id_ed25519.pub
+  -f /opt/corpusvic/.ssh/id_ed25519 -N ""
+sudo cat /opt/corpusvic/.ssh/id_ed25519.pub
 ```
 
 Add that public key to the repository on GitHub under Settings → Deploy
@@ -178,8 +178,8 @@ keys, **with "Allow write access" ticked**. Then point the checkout at
 SSH and tell git who it is:
 
 ```bash
-cd /opt/vic-legislation-parser
-sudo -u dashboard git remote set-url origin git@github.com:AgentPurpleLord/vic-legislation-parser.git
+cd /opt/corpusvic
+sudo -u dashboard git remote set-url origin git@github.com:AgentPurpleLord/CorpusVic.git
 sudo -u dashboard git config user.name "Corpus VPS"
 sudo -u dashboard git config user.email "you@example.com"
 # The database is opened in WAL mode, so a recent write can still be
@@ -193,7 +193,7 @@ sudo -u dashboard chmod +x .git/hooks/pre-commit
 After a review session:
 
 ```bash
-cd /opt/vic-legislation-parser
+cd /opt/corpusvic
 sudo -u dashboard git add data/
 sudo -u dashboard git commit -m "Review progress"
 sudo -u dashboard git push
@@ -245,7 +245,7 @@ curl -si https://corpusvic.au/admin/api/login \
 ## Updating later
 
 ```bash
-cd /opt/vic-legislation-parser
+cd /opt/corpusvic
 # As the owner of the checkout, so nothing ends up root-owned and
 # unwritable by the service afterwards.
 sudo -u dashboard git pull
@@ -273,7 +273,7 @@ version bump), back the live file up directly too:
 
 ```bash
 # A safe way to copy a live SQLite file without risking a torn read
-sqlite3 /opt/vic-legislation-parser/data/legislation.db ".backup /path/to/backup/legislation-$(date +%F).db"
+sqlite3 /opt/corpusvic/data/legislation.db ".backup /path/to/backup/legislation-$(date +%F).db"
 ```
 
 ## Working from a remote dev environment
@@ -289,8 +289,8 @@ VS Code remote container, a throwaway VM), say -- can start reviewing
 immediately:
 
 ```bash
-git clone <repo-url>
-cd vic-legislation-parser
+git clone https://github.com/AgentPurpleLord/CorpusVic.git
+cd CorpusVic
 pip install -r requirements-gui.txt
 python review.py criminal-procedure-act   # your review progress is already there
 ```

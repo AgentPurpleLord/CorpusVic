@@ -6,16 +6,16 @@ After=network.target
 Type=simple
 User=dashboard
 Group=dashboard
-WorkingDirectory=/opt/vic-legislation-parser
+WorkingDirectory=/opt/corpusvic
 # The "-" makes a missing file non-fatal: dashboard.py's own forced
 # first-login password change (see dashboard.py's module docstring) means
 # this service still comes up safely without it, it just starts on the
 # built-in placeholder credentials instead of whatever you'd put here.
-EnvironmentFile=-/opt/vic-legislation-parser/deploy/dashboard.env
+EnvironmentFile=-/opt/corpusvic/deploy/dashboard.env
 # --base-path must match the path Caddy proxies (see
 # deploy/Caddyfile.example): the dashboard builds every link it hands
 # a browser from it. Drop it to serve at the domain root instead.
-ExecStart=/opt/vic-legislation-parser/.venv/bin/python3 dashboard.py --host 127.0.0.1 --port 8000 --base-path /admin
+ExecStart=/opt/corpusvic/.venv/bin/python3 dashboard.py --host 127.0.0.1 --port 8000 --base-path /admin
 Restart=on-failure
 RestartSec=5
 
@@ -24,7 +24,7 @@ RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/opt/vic-legislation-parser
+ReadWritePaths=/opt/corpusvic
 
 [Install]
 WantedBy=multi-user.target

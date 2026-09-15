@@ -236,8 +236,7 @@ def _default_base_path() -> str:
     own root, so a link needs no prefix at all. This is what the CNAME
     file decides, and getting it wrong is not subtle -- with a "/repo"
     prefix against a custom domain, every link on the site resolved to
-    https://www.corpusvic.au/vic-legislation-parser/browse/..., which is
-    nowhere.
+    https://www.corpusvic.au/<repo-name>/browse/..., which is nowhere.
 
     Otherwise "/repo-name" when $GITHUB_REPOSITORY (owner/repo, set by
     every GitHub Actions job) is present, matching the default URL of a

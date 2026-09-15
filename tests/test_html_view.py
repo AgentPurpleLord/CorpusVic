@@ -704,10 +704,10 @@ def test_no_placeholder_survives_into_a_rendered_page():
 def test_asset_urls_stay_inside_a_project_site():
     """On GitHub Pages the site is served under /<repo>/, so an asset URL
     that assumed the domain root would reach for the real root instead."""
-    page = _shell(base_url="/vic-legislation-parser/browse/a")
+    page = _shell(base_url="/corpusvic/browse/a")
 
-    assert '<link rel="stylesheet" href="/vic-legislation-parser/assets/tokens.css">' in page
-    assert '<script src="/vic-legislation-parser/assets/reader.js"></script>' in page
+    assert '<link rel="stylesheet" href="/corpusvic/assets/tokens.css">' in page
+    assert '<script src="/corpusvic/assets/reader.js"></script>' in page
     # Junicode is reached relative to tokens.css, so no prefix belongs in
     # the stylesheet itself -- that is what makes one file serve both.
     from corpus.html_view import template_text
