@@ -242,6 +242,74 @@ curl -si https://corpusvic.au/admin/api/login \
   -d '{"username":"...","password":"..."}' | grep -i set-cookie   # expect Path=/admin; Secure
 ```
 
+## If you already deployed under the old path
+
+A server set up before the repository was renamed has everything under
+`/opt/vic-legislation-parser`. Moving it is a few minutes; rebuilding the
+box is not worth it, and carries one risk that rebuilding usually hides:
+Let's Encrypt allows only a handful of certificates per week for the same
+set of domain names, so a fresh server that re-requests one can find
+itself rate-limited and left without HTTPS for days. Nothing about the
+move touches the certificate Caddy already holds.
+
+```bash
+# The service's WorkingDirectory is the old path, so stop it first.
+sudo systemctl stop dashboard
+
+# Move the checkout, and the service user's home along with it -- its
+# home is the checkout, and that is where the deploy key lives.
+sudo mv /opt/vic-legislation-parser /opt/corpusvic
+sudo usermod -d /opt/corpusvic dashboard
+
+# Point git at the renamed repository. GitHub redirects the old name
+# indefinitely, so this is tidiness rather than repair -- but a remote
+# that names the repository is one less thing resting on a redirect.
+cd /opt/corpusvic
+sudo -u dashboard git remote set-url origin git@github.com:AgentPurpleLord/CorpusVic.git
+sudo -u dashboard git pull
+
+# Rebuild the virtualenv. A venv is not relocatable: every console script
+# in .venv/bin carries the old absolute path in its shebang, so pip stops
+# working the moment the directory moves. The service itself would
+# survive -- it runs .venv/bin/python3, which is a symlink -- which is
+# exactly what makes this worth doing deliberately rather than
+# discovering later, at the next upgrade.
+sudo rm -rf .venv
+sudo python3 -m venv .venv
+sudo .venv/bin/pip install -r requirements-site.txt
+sudo chown -R dashboard:dashboard /opt/corpusvic
+
+# Re-point the unit files in place, rather than copying the repo's over
+# them: yours may carry an IP allowlist or anything else you added.
+sudo sed -i 's|/opt/vic-legislation-parser|/opt/corpusvic|g' \
+    /etc/systemd/system/dashboard.service \
+    /etc/caddy/Caddyfile
+# And the nightly site rebuild, if you made one.
+sudo sed -i 's|/opt/vic-legislation-parser|/opt/corpusvic|g' \
+    /etc/systemd/system/corpus-site.service 2>/dev/null || true
+
+sudo systemctl daemon-reload
+sudo systemctl start dashboard
+sudo systemctl reload caddy
+```
+
+Then check, in this order -- the first failure tells you which step to
+look at:
+
+```bash
+sudo systemctl status dashboard          # active (running)
+grep -r /opt/vic-legislation-parser /etc/systemd/system /etc/caddy   # expect nothing
+curl -sI https://corpusvic.au/admin | head -1                        # 308 to /admin/
+curl -sI https://corpusvic.au/ | head -1                             # 200, the published site
+sudo -u dashboard git -C /opt/corpusvic push --dry-run               # the deploy key still works
+```
+
+Starting fresh instead is the better call only if the box has drifted --
+changes you made while getting it working and can no longer enumerate.
+Nothing on it is irreplaceable as long as `data/legislation.db` has been
+pushed: the site rebuilds in about three minutes, the password is one
+file, and the deploy key takes a minute to reissue.
+
 ## Updating later
 
 ```bash
