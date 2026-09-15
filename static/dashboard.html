@@ -423,8 +423,8 @@ function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
 
 async function logout() {
-  await fetch("/api/logout", { method: "POST" });
-  location.href = "/login";
+  await fetch("api/logout", { method: "POST" });
+  location.href = "login";
 }
 
 function toast(msg, isError) {
@@ -468,15 +468,15 @@ function actCardHtml(s) {
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
   const reviewBtn = s.parsed
-    ? `<a class="btn small" href="/review/${s.slug}/" target="_blank">Review</a>`
+    ? `<a class="btn small" href="review/${s.slug}/" target="_blank">Review</a>`
     : `<button class="btn small" disabled title="Parse it first">Review</button>`;
   const browseBtn = s.parsed
-    ? `<a class="btn small" href="/browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
+    ? `<a class="btn small" href="browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
     : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
   const dlAkn = s.akn_exported
-    ? `<a class="btn small" href="/api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
+    ? `<a class="btn small" href="api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
   const dlMd = s.markdown_exported
-    ? `<a class="btn small" href="/api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
+    ? `<a class="btn small" href="api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
 
   const parseBtnLabel = s.parsed ? "Re-parse…" : "Parse…";
   const parseBtn = s.has_pdf
@@ -579,7 +579,7 @@ function renderActs() {
 }
 
 async function loadActs() {
-  const [actsRes, linksRes] = await Promise.all([fetch("/api/acts"), fetch("/api/bill-links")]);
+  const [actsRes, linksRes] = await Promise.all([fetch("api/acts"), fetch("api/bill-links")]);
   ACTS = await actsRes.json();
   BILL_LINKS = await linksRes.json();
   renderActs();
@@ -590,7 +590,7 @@ async function runExport(slug, kind, btn) {
   const original = btn.textContent;
   btn.textContent = "Running...";
   try {
-    const res = await fetch(`/api/acts/${slug}/export/${kind}`, { method: "POST" });
+    const res = await fetch(`api/acts/${slug}/export/${kind}`, { method: "POST" });
     const data = await res.json();
     if (data.ok) {
       toast(`${kind} export finished for ${slug}`);
@@ -677,7 +677,7 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
     const fd = new FormData(form);
     fd.set("confirm", document.getElementById("parse-confirm-checkbox").checked ? "true" : "false");
     fd.set("discard", document.getElementById("parse-discard-checkbox").checked ? "true" : "false");
-    const res = await fetch(`/api/acts/${slug}/reparse`, { method: "POST", body: fd });
+    const res = await fetch(`api/acts/${slug}/reparse`, { method: "POST", body: fd });
     const data = await res.json();
     if (res.status === 409) {
       logWrap.style.display = "none";
@@ -721,7 +721,7 @@ document.getElementById("add-form").addEventListener("submit", async (e) => {
   logWrap.style.display = "block";
   logEl.textContent = "Running -- this can take a little while for a large PDF...";
   try {
-    const res = await fetch("/api/acts/new", { method: "POST", body: new FormData(form) });
+    const res = await fetch("api/acts/new", { method: "POST", body: new FormData(form) });
     const data = await res.json();
     logEl.textContent = data.log || "(no output)";
     if (data.ok) {
@@ -751,7 +751,7 @@ document.getElementById("link-form").addEventListener("submit", async (e) => {
   logWrap.style.display = "block";
   logEl.textContent = "Running...";
   try {
-    const res = await fetch("/api/bill-link", { method: "POST", body: new FormData(form) });
+    const res = await fetch("api/bill-link", { method: "POST", body: new FormData(form) });
     const data = await res.json();
     logEl.textContent = data.log || "(no output)";
     toast(data.ok ? "Bill linking finished" : "Bill linking failed -- see log below", !data.ok);
@@ -799,7 +799,7 @@ async function loadAiStatus() {
   el.textContent = "Checking...";
   installBtn.style.display = "none";
   try {
-    const status = await (await fetch("/api/ai/status")).json();
+    const status = await (await fetch("api/ai/status")).json();
     const { text, canInstall } = describeAiStatus(status);
     el.textContent = text;
     installBtn.style.display = canInstall ? "" : "none";
@@ -816,7 +816,7 @@ async function installAiModel() {
   logWrap.style.display = "block";
   logEl.textContent = "Downloading -- this can take a while the first time...";
   try {
-    const res = await fetch("/api/ai/install-model", { method: "POST" });
+    const res = await fetch("api/ai/install-model", { method: "POST" });
     const data = await res.json();
     logEl.textContent = data.log || "(no output)";
     toast(data.ok ? "Model ready." : "Download failed -- see log below", !data.ok);
@@ -867,7 +867,7 @@ async function loadAiScanProgress() {
   const logWrap = document.getElementById("ai-scan-log-wrap");
   const logEl = document.getElementById("ai-scan-log");
   try {
-    const p = await (await fetch(`/api/ai-scan/${aiScanSlug}/progress`)).json();
+    const p = await (await fetch(`api/ai-scan/${aiScanSlug}/progress`)).json();
     el.textContent = describeAiScanProgress(p);
     if (p.log) {
       logWrap.style.display = "block";
@@ -887,7 +887,7 @@ async function loadAiScanProgress() {
 
 async function startAiScan(restart) {
   try {
-    const res = await fetch(`/api/ai-scan/${aiScanSlug}/start?restart=${restart}`, { method: "POST" });
+    const res = await fetch(`api/ai-scan/${aiScanSlug}/start?restart=${restart}`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       toast(data.detail || `Couldn't start the scan for ${aiScanSlug}`, true);
@@ -902,7 +902,7 @@ async function startAiScan(restart) {
 
 async function stopAiScan() {
   try {
-    await fetch(`/api/ai-scan/${aiScanSlug}/stop`, { method: "POST" });
+    await fetch(`api/ai-scan/${aiScanSlug}/stop`, { method: "POST" });
     await loadAiScanProgress();
   } catch (e) {
     toast(String(e), true);

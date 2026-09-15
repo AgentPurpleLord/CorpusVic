@@ -9,6 +9,15 @@ Usage:
     python dashboard.py
     python dashboard.py --host 0.0.0.0 --port 8000
     python dashboard.py --host 0.0.0.0 --port 8000 --username alice --password <a-real-password>
+    python dashboard.py --base-path /admin        # behind a proxy, at corpusvic.au/admin
+
+--base-path is the path this is served under when it shares a domain
+with something else -- the published site at corpusvic.au, with this at
+corpusvic.au/admin. The app is mounted there (see serving_app), so no
+route below mentions the prefix; what carries it is every URL handed
+back to a browser, each of which goes through _url. The login password
+for this is its own, and deliberately not the passphrase that gates the
+published site -- see deploy/README.md.
 
 --host 0.0.0.0 is what makes this reachable from outside the machine it
 runs on (the default, 127.0.0.1, is loopback-only). Anything bound to
@@ -69,6 +78,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 from corpus import commentary, db, diffing, html_view
 from corpus.act_registry import load_act_registry
@@ -301,6 +312,54 @@ def _shutdown_ai_scan_processes() -> None:
 
 app = FastAPI(title="Legislation pipeline dashboard")
 
+# Where this app is mounted, when it is not at the domain root --
+# "/admin" for corpusvic.au/admin, "" for a bare host or a subdomain of
+# its own. Set once at startup by _configure_base_path.
+#
+# Routes themselves never mention it: the app is mounted under it (see
+# serving_app), and Starlette strips the prefix before a route sees the
+# path. What does need it is every URL this app *emits* -- a redirect, a
+# link in a page it renders -- because those go back to a browser that
+# knows only the outside address. Each one goes through _url.
+#
+# The browser-side half is the other way round: static/dashboard.html and
+# static/review.html ask for "api/..." rather than "/api/...", so the
+# page's own address supplies the prefix and neither file has to be told
+# what it is.
+_BASE_PATH = ""
+
+
+def _configure_base_path(base_path: str) -> str:
+    """Normalises and records the path this app is served under. Returns
+    it. "/admin/", "admin" and "/admin" all mean the same thing; "" and
+    "/" both mean the domain root."""
+    global _BASE_PATH
+    cleaned = "/" + (base_path or "").strip().strip("/")
+    _BASE_PATH = "" if cleaned == "/" else cleaned
+    return _BASE_PATH
+
+
+def _url(path: str) -> str:
+    """An address this app hands to a browser, as the browser will see
+    it. Always call this rather than writing "/login" directly: under a
+    base path a bare "/login" escapes the mount and lands on whatever
+    else is served at the domain root."""
+    return f"{_BASE_PATH}{path}"
+
+
+def serving_app():
+    """What uvicorn is given: this app at the domain root, or mounted
+    under its base path.
+
+    A Starlette mount strips the prefix from the incoming path before
+    routing, so every route below is written as though it were at the
+    root either way -- and the review proxy, which forwards whatever path
+    it is handed to a child review.py process, keeps working unchanged."""
+    if not _BASE_PATH:
+        return app
+    outer = Starlette(routes=[Mount(_BASE_PATH, app=app)])
+    return outer
+
 # static/site/ is the published site's template -- the page shell, its
 # stylesheets, its browser-side scripts and Junicode (see
 # corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
@@ -466,14 +525,14 @@ try { if (localStorage.getItem("reviewTheme") === "dark") document.documentEleme
 <script>
 document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const res = await fetch("/api/login", {
+  const res = await fetch("api/login", {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       username: document.getElementById("username").value,
       password: document.getElementById("password").value,
     }),
   });
-  if (res.ok) { location.href = "/"; return; }
+  if (res.ok) { location.href = "./"; return; }
   const err = document.getElementById("err");
   err.textContent = res.status === 429
     ? "Too many failed attempts -- try again later."
@@ -512,11 +571,11 @@ document.getElementById("f").addEventListener("submit", async (e) => {
   const new1 = document.getElementById("new1").value;
   const new2 = document.getElementById("new2").value;
   if (new1 !== new2) { err.textContent = "New passwords don't match."; return; }
-  const res = await fetch("/api/change-password", {
+  const res = await fetch("api/change-password", {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({current_password: document.getElementById("current").value, new_password: new1}),
   });
-  if (res.ok) { location.href = "/"; return; }
+  if (res.ok) { location.href = "./"; return; }
   const data = await res.json().catch(() => ({}));
   err.textContent = data.detail || "Couldn't change password.";
 });
@@ -529,19 +588,24 @@ async def auth_gate(request: Request, call_next):
     if _DASHBOARD_USERNAME is None:
         return await call_next(request)
 
-    path = request.url.path
+    # Without the base path this app is mounted under. request.url.path
+    # is the address the browser asked for, prefix and all, while every
+    # comparison below is written in this app's own terms -- so under
+    # /admin the login page did not match "/login", was treated as
+    # protected, and redirected to itself for ever.
+    path = _app_path(request)
     if path in ("/login", "/api/login"):
         return await call_next(request)
 
     if not _session_is_valid(request.cookies.get(_COOKIE_NAME)):
         if path.startswith("/api/") or path.startswith("/review/"):
             return JSONResponse({"detail": "unauthorized"}, status_code=401)
-        return RedirectResponse("/login")
+        return RedirectResponse(_url("/login"))
 
     if _MUST_CHANGE_PASSWORD and path not in ("/change-password", "/api/change-password", "/api/logout"):
         if path.startswith("/api/") or path.startswith("/review/"):
             return JSONResponse({"detail": "password change required"}, status_code=403)
-        return RedirectResponse("/change-password")
+        return RedirectResponse(_url("/change-password"))
 
     return await call_next(request)
 
@@ -566,6 +630,43 @@ def change_password_page():
     return HTMLResponse(_CHANGE_PASSWORD_HTML)
 
 
+def _app_path(request: Request) -> str:
+    """The request path as this app's own routes see it: whatever the
+    browser asked for, with the base path taken off the front."""
+    path = request.url.path
+    if _BASE_PATH and (path == _BASE_PATH or path.startswith(_BASE_PATH + "/")):
+        return path[len(_BASE_PATH):] or "/"
+    return path
+
+
+def _cookie_path() -> str:
+    """The session cookie's own path: the base path this app is served
+    under, so that on a domain shared with the public site the admin
+    cookie is simply never sent with a request for a published page."""
+    return _BASE_PATH or "/"
+
+
+def _served_over_https(request: Request) -> bool:
+    """Whether the browser reached us over HTTPS, which behind a reverse
+    proxy is what the proxy says rather than what this process sees --
+    Caddy terminates TLS and forwards plain HTTP to loopback, so
+    request.url.scheme is "http" on a site that is HTTPS-only."""
+    forwarded = request.headers.get("x-forwarded-proto", "")
+    return (forwarded.split(",")[0].strip() or request.url.scheme) == "https"
+
+
+def _set_session_cookie(resp, request: Request) -> None:
+    resp.set_cookie(
+        _COOKIE_NAME, _new_session(), httponly=True, samesite="lax",
+        max_age=_SESSION_LIFETIME_SECONDS,
+        path=_cookie_path(),
+        # Never sent in the clear where the connection was not: a plain
+        # http:// run (a loopback dev session) still has to work, so this
+        # follows the connection rather than being hard-coded on.
+        secure=_served_over_https(request),
+    )
+
+
 @app.post("/api/login")
 def do_login(req: LoginRequest, request: Request):
     ip = _client_ip(request)
@@ -575,7 +676,7 @@ def do_login(req: LoginRequest, request: Request):
         _record_failed_login(ip)
         raise HTTPException(401, "Invalid username or password")
     resp = JSONResponse({"ok": True})
-    resp.set_cookie(_COOKIE_NAME, _new_session(), httponly=True, samesite="lax", max_age=_SESSION_LIFETIME_SECONDS)
+    _set_session_cookie(resp, request)
     return resp
 
 
@@ -598,7 +699,7 @@ def do_logout(request: Request):
     if token:
         _SESSIONS.pop(token, None)
     resp = JSONResponse({"ok": True})
-    resp.delete_cookie(_COOKIE_NAME)
+    resp.delete_cookie(_COOKIE_NAME, path=_cookie_path())
     return resp
 
 
@@ -1341,7 +1442,7 @@ def _provision_page_url(slug: str, page_index: dict, entry: dict) -> "str | None
     (see hierarchy.schedule_is_pageable) does.
     """
     page = page_index["by_key"].get(diffing.provision_identity(entry["type"], entry.get("schedule"), entry["number"]))
-    return f"/browse/{slug}/section/{page}" if page else None
+    return _url(f"/browse/{slug}/section/{page}") if page else None
 
 
 def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
@@ -1465,7 +1566,8 @@ def _preview_bar(slug: str) -> str:
     return (
         '<div class="previewbar">'
         f"Live preview of this {kind} &mdash; reflects your saved review progress &middot; "
-        f'<a href="/">Dashboard</a> &middot; <a href="/review/{slug}/">Review</a>'
+        f'<a href="{_url("/")}">Dashboard</a> &middot; '
+        f'<a href="{_url(f"/review/{slug}/")}">Review</a>'
         "</div>"
     )
 
@@ -1529,7 +1631,7 @@ def legislation_resolver(citation: str):
     page."""
     info = _resolve_legislation_citation(citation)
     if info["slug"] and (BASE_DIR / "data" / "parsed" / f"{info['slug']}.json").exists():
-        return RedirectResponse(f"/browse/{info['slug']}/")
+        return RedirectResponse(_url(f"/browse/{info['slug']}/"))
 
     if info["title"]:
         cite = f"No. {info['act_no']} of {info['year']}" if info["year"] else f"No. {info['act_no']}"
@@ -1550,7 +1652,7 @@ def legislation_resolver(citation: str):
 @app.get("/browse/{slug}")
 def browse_redirect(slug: str):
     _validate_slug(slug)
-    return RedirectResponse(f"/browse/{slug}/")
+    return RedirectResponse(_url(f"/browse/{slug}/"))
 
 
 @app.get("/browse/{slug}/", response_class=HTMLResponse)
@@ -1563,14 +1665,14 @@ def browse_index(slug: str):
     body = html_view.render_index(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"],
          "version": _act_version(slug)},
-        title, f"/browse/{slug}", superseded=_superseded(slug),
+        title, _url(f"/browse/{slug}"), superseded=_superseded(slug),
         related=[
             {"slug": d["slug"], "kind": d["kind"], "title": _act_title(d["slug"]),
              "href": f"/browse/{d['slug']}/"}
             for d in related_documents(slug)
         ],
     )
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}")))
 
 
 @app.get("/browse/{slug}/section/{section_slug}", response_class=HTMLResponse)
@@ -1616,7 +1718,7 @@ def browse_section(slug: str, section_slug: str):
         # and the outline's Endnotes link are built from.
         {"nodes": nodes, "hierarchy": hierarchy, "version": _act_version(slug),
          "endnotes": amendments["endnotes"]},
-        title, f"/browse/{slug}", section_slug,
+        title, _url(f"/browse/{slug}"), section_slug,
         crossrefs=crossrefs,
         amendment_index=amendments["index"],
         timeline=entries, version_urls=version_urls, superseded=_superseded(slug),
@@ -1626,7 +1728,7 @@ def browse_section(slug: str, section_slug: str):
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
     return HTMLResponse(html_view.page_shell(
-        title, body, _preview_bar(slug), base_url=f"/browse/{slug}", reader=True))
+        title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}"), reader=True))
 
 
 @app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)
@@ -1643,11 +1745,11 @@ def browse_endnotes(slug: str):
     title = _act_title(slug)
     body = html_view.render_endnotes(
         {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
-        title, f"/browse/{slug}", amendments["summary"],
+        title, _url(f"/browse/{slug}"), amendments["summary"],
     )
     if body is None:
         raise HTTPException(404, f"{slug!r} has no endnotes -- re-parse it if it's an Act.")
-    return HTMLResponse(html_view.page_shell(f"{title} \u2014 Endnotes", body, _preview_bar(slug), base_url=f"/browse/{slug}"))
+    return HTMLResponse(html_view.page_shell(f"{title} \u2014 Endnotes", body, _preview_bar(slug), base_url=_url(f"/browse/{slug}")))
 
 
 @app.get("/api/browse/{slug}/preview")
@@ -1671,7 +1773,7 @@ def browse_preview(slug: str, section: str | None = None, fragment: str | None =
 @app.get("/review/{slug}")
 def review_redirect(slug: str):
     _validate_slug(slug)
-    return RedirectResponse(f"/review/{slug}/")
+    return RedirectResponse(_url(f"/review/{slug}/"))
 
 
 @app.api_route("/review/{slug}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
@@ -1738,7 +1840,13 @@ def main():
     ap.add_argument("--username", default=None, help="login username; also read from DASHBOARD_USERNAME; defaults to a placeholder that must be changed on first login")
     ap.add_argument("--password", default=None, help="login password; also read from DASHBOARD_PASSWORD; defaults to a placeholder that must be changed on first login")
     ap.add_argument("--no-auth", action="store_true", help="disable the login gate entirely -- only ever use this on a strictly loopback-only run")
+    ap.add_argument("--base-path", default=os.environ.get("DASHBOARD_BASE_PATH", ""),
+                    help="path this is served under when it shares a domain with something else, "
+                         "e.g. /admin for corpusvic.au/admin; also read from DASHBOARD_BASE_PATH "
+                         "(default: the domain root)")
     args = ap.parse_args()
+
+    base_path = _configure_base_path(args.base_path)
 
     if args.no_auth:
         print("WARNING: --no-auth set -- this dashboard has no login gate. Do not bind it to a non-loopback host like this.", file=sys.stderr)
@@ -1756,9 +1864,10 @@ def main():
     import uvicorn
 
     print(f"{len(discover_slugs())} Act(s)/Bill(s)/EM(s) known.")
-    print(f"Open http://{args.host if args.host != '0.0.0.0' else '<this-machine-address>'}:{args.port}/ in a browser.")
+    where = args.host if args.host != "0.0.0.0" else "<this-machine-address>"
+    print(f"Open http://{where}:{args.port}{base_path}/ in a browser.")
     try:
-        uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+        uvicorn.run(serving_app(), host=args.host, port=args.port, log_level="warning")
     finally:
         _shutdown_review_processes()
         _shutdown_ai_scan_processes()

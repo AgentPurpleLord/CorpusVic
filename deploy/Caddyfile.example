@@ -1,5 +1,5 @@
 # Copy this to /etc/caddy/Caddyfile on the VPS (not inside this repo
-# checkout) and replace the domain below with your own. Caddy obtains and
+# checkout) and replace the domain with your own. Caddy obtains and
 # renews a Let's Encrypt certificate for it automatically -- no manual
 # certbot/openssl steps -- as long as:
 #   - the domain's DNS A (and/or AAAA) record points at this server's
@@ -7,6 +7,39 @@
 #   - ports 80 and 443 are open inbound (see deploy/README.md's firewall
 #     step) -- 80 is needed for the ACME HTTP challenge even though
 #     everything ends up served over HTTPS.
-your-domain.example.com {
-    reverse_proxy 127.0.0.1:8000
+
+corpusvic.au, www.corpusvic.au {
+    # The admin tool, at /admin. handle (not handle_path) so the prefix
+    # is passed through rather than stripped: the dashboard is told the
+    # same prefix with --base-path and builds its own links from it, so
+    # stripping here would leave every link it emits pointing one level
+    # too high.
+    handle /admin* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    # Everything else is the published site: the files export_static_site.py
+    # builds. Swap this block for a reverse_proxy to a second, read-only
+    # process if you move the public side off static files too.
+    handle {
+        root * /opt/vic-legislation-parser/_site
+        try_files {path} {path}/ {path}/index.html
+        file_server
+    }
 }
+
+# Worth considering, because /admin is a tool that can upload PDFs and
+# run the pipeline, on the same hostname as a public site. Any of these
+# on their own puts a second lock in front of it:
+#
+#   - restrict it to addresses you control:
+#       handle /admin* {
+#           @notmine not remote_ip 203.0.113.4 198.51.100.0/24
+#           respond @notmine 404
+#           reverse_proxy 127.0.0.1:8000
+#       }
+#
+#   - or don't publish it at all: drop the /admin block, leave the
+#     dashboard bound to loopback, and reach it over an SSH tunnel
+#     (ssh -L 8000:127.0.0.1:8000 you@server) at http://127.0.0.1:8000/
+#     with no --base-path.

@@ -490,3 +490,151 @@ def test_provision_page_url_is_none_where_that_version_has_no_page_for_it():
     entry = {"type": "schedule", "schedule": None, "number": "9"}
 
     assert dashboard._provision_page_url("cpa-v110", page_index, entry) is None
+
+
+# ---------------------------------------------------------------------
+# Serving under a base path (corpusvic.au/admin)
+# ---------------------------------------------------------------------
+# The app is mounted under the prefix, so its routes never mention it.
+# What does need it is the two directions traffic crosses the boundary:
+# a path coming in (which the auth gate compares against its own route
+# names) and a URL going out (a redirect, a link in a rendered page).
+# Both got this wrong first time, and both ways were silent-ish: the
+# login page redirected to itself for ever, and logging in landed on the
+# domain root instead of the admin tool.
+
+@pytest.fixture
+def _at_admin():
+    """dashboard mounted at /admin for the duration of one test."""
+    previous = dashboard._BASE_PATH
+    dashboard._configure_base_path("/admin")
+    yield
+    dashboard._configure_base_path(previous)
+
+
+@pytest.mark.parametrize("given, expected", [
+    ("/admin", "/admin"), ("admin", "/admin"), ("/admin/", "/admin"), ("admin/", "/admin"),
+    ("", ""), ("/", ""), ("   ", ""),
+])
+def test_a_base_path_is_normalised(given, expected):
+    previous = dashboard._BASE_PATH
+    try:
+        assert dashboard._configure_base_path(given) == expected
+    finally:
+        dashboard._configure_base_path(previous)
+
+
+def test_an_emitted_url_carries_the_base_path(_at_admin):
+    """Every address handed to a browser has to be the one the browser
+    will see. A bare "/login" would leave the mount and land on whatever
+    is served at the domain root -- the public site."""
+    assert dashboard._url("/login") == "/admin/login"
+    assert dashboard._url("/browse/crimes-act") == "/admin/browse/crimes-act"
+
+
+def test_an_emitted_url_at_the_root_is_unchanged():
+    assert dashboard._url("/login") == "/login"
+
+
+def test_an_incoming_path_is_read_without_the_base_path(_at_admin):
+    """The other direction: the auth gate names its own routes, and the
+    browser asks for them with the prefix on. Comparing the two without
+    stripping it made /admin/login look protected, so it redirected to
+    /admin/login -- for ever."""
+    class _Req:
+        def __init__(self, path):
+            self.url = type("U", (), {"path": path})()
+
+    assert dashboard._app_path(_Req("/admin/login")) == "/login"
+    assert dashboard._app_path(_Req("/admin/")) == "/"
+    assert dashboard._app_path(_Req("/admin")) == "/"
+    assert dashboard._app_path(_Req("/admin/api/acts")) == "/api/acts"
+
+
+def test_a_path_that_only_looks_like_the_base_path_is_left_alone(_at_admin):
+    """"/administration" starts with "/admin" as a string and is not
+    inside it as a path."""
+    class _Req:
+        def __init__(self, path):
+            self.url = type("U", (), {"path": path})()
+
+    assert dashboard._app_path(_Req("/administration")) == "/administration"
+
+
+def test_the_session_cookie_is_confined_to_the_admin_path(_at_admin):
+    """On a domain shared with the public site, the admin session simply
+    is not sent with a request for a published page."""
+    assert dashboard._cookie_path() == "/admin"
+
+
+def test_the_session_cookie_covers_the_site_when_there_is_no_base_path():
+    assert dashboard._cookie_path() == "/"
+
+
+@pytest.mark.parametrize("headers, scheme, expected", [
+    ({"x-forwarded-proto": "https"}, "http", True),
+    ({"x-forwarded-proto": "https, http"}, "http", True),
+    ({"x-forwarded-proto": "http"}, "http", False),
+    ({}, "https", True),
+    ({}, "http", False),
+])
+def test_https_is_read_from_the_proxy_not_the_socket(headers, scheme, expected):
+    """Caddy terminates TLS and forwards plain HTTP to loopback, so this
+    process sees "http" on a site that is HTTPS-only. Trusting the socket
+    would leave the session cookie without Secure on exactly the
+    deployment that needs it."""
+    class _Req:
+        def __init__(self):
+            self.headers = headers
+            self.url = type("U", (), {"scheme": scheme})()
+
+    assert dashboard._served_over_https(_Req()) is expected
+
+
+def test_the_served_app_is_the_app_itself_at_the_root():
+    assert dashboard.serving_app() is dashboard.app
+
+
+def test_the_served_app_is_mounted_under_a_base_path(_at_admin):
+    served = dashboard.serving_app()
+
+    assert served is not dashboard.app
+    assert [r.path for r in served.routes] == ["/admin"]
+
+
+def test_the_login_page_under_a_base_path_does_not_redirect_to_itself(_at_admin):
+    """The whole flow through the real middleware, because the bug this
+    pins down was invisible to every unit above: each piece was right and
+    the two were compared in different terms."""
+    from fastapi.testclient import TestClient
+
+    dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
+    client = TestClient(dashboard.serving_app(), follow_redirects=False)
+
+    assert client.get("/admin").status_code in (307, 308)
+    assert client.get("/admin").headers["location"].endswith("/admin/")
+    # Unauthenticated, the app's own root sends you to its own login page...
+    assert client.get("/admin/").headers["location"] == "/admin/login"
+    # ...which serves, rather than sending you back to itself.
+    assert client.get("/admin/login").status_code == 200
+    # And nothing answers outside the mount: that is the public site's.
+    assert client.get("/login").status_code == 404
+    assert client.get("/").status_code == 404
+
+
+def test_logging_in_under_a_base_path_sets_a_cookie_scoped_to_it(_at_admin):
+    from fastapi.testclient import TestClient
+
+    dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
+    client = TestClient(dashboard.serving_app(), follow_redirects=False)
+
+    bad = client.post("/admin/api/login", json={"username": "admin", "password": "wrong"})
+    assert bad.status_code == 401
+
+    ok = client.post("/admin/api/login",
+                     json={"username": "admin", "password": "a-real-admin-password"})
+    assert ok.status_code == 200
+    assert 'Path=/admin' in ok.headers["set-cookie"]
+    assert "HttpOnly" in ok.headers["set-cookie"]
+    # The session now opens the app's own pages.
+    assert client.get("/admin/").status_code == 200

@@ -1,4 +1,7 @@
-# Deploying the dashboard to a VPS, with HTTPS
+# Deploying the admin tool to a VPS, with HTTPS
+
+Puts the dashboard and the review GUI at **corpusvic.au/admin**, behind a
+login, with the published site served from the same hostname's root.
 
 This runs `dashboard.py` as a systemd service bound to `127.0.0.1` only,
 with [Caddy](https://caddyserver.com/) as the internet-facing reverse
@@ -41,7 +44,14 @@ sudo useradd --system --home /opt/vic-legislation-parser --shell /usr/sbin/nolog
 sudo chown -R dashboard:dashboard /opt/vic-legislation-parser
 ```
 
-## 4. Credentials (optional -- skip this to use the forced first-login change)
+## 4. The admin password
+
+This is **its own password**, set by you and used nowhere else. In
+particular it is not `SITE_PASSWORD`, the repository secret that gates
+the published site behind an unlock page: that one is shared with anyone
+you give reading access to, and this one opens a tool that can upload
+PDFs and run the pipeline. Never make them the same.
+
 
 ```bash
 sudo cp deploy/dashboard.env.example deploy/dashboard.env
@@ -53,7 +63,8 @@ sudo chown dashboard:dashboard deploy/dashboard.env
 If you skip this step entirely, the dashboard starts on its built-in
 placeholder login and forces a password change on first login instead --
 see `dashboard.py`'s module docstring. Either way, whatever password ends
-up in effect is never stored in this repo.
+up in effect is never stored in this repo: what is stored on the server
+is a PBKDF2 hash of it, in `.dashboard_auth.json`.
 
 ## 5. systemd service
 
@@ -106,10 +117,25 @@ sudo ufw enable
 
 ## 8. Verify
 
-Visit `https://your-domain.example.com/` from any browser. You should
-land on the login page over a valid HTTPS connection. Log in with
-whatever credentials you set in step 4 (or the placeholder, which then
-forces you to set a real one immediately).
+Visit `https://corpusvic.au/admin` from any browser. You should land on
+the login page over a valid HTTPS connection, at `/admin/login`. Log in
+with the credentials you set in step 4 (or the placeholder, which then
+forces you to set a real one immediately), and you arrive at the
+dashboard; "Review" on any document opens the review GUI at
+`/admin/review/<document>/`.
+
+Worth confirming while you are there, because both are what keep the
+admin tool from leaking onto the public side:
+
+```bash
+# The app answers only under /admin -- nothing of it at the domain root.
+curl -sI https://corpusvic.au/login | head -1        # expect 404
+# And its session cookie is scoped to /admin, so it is never sent with a
+# request for a published page.
+curl -si https://corpusvic.au/admin/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"...","password":"..."}' | grep -i set-cookie   # expect Path=/admin; Secure
+```
 
 ## Updating later
 
