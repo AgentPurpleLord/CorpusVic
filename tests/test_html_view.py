@@ -1124,3 +1124,66 @@ def test_a_rendered_page_is_the_same_whether_or_not_the_cache_was_warm():
     warm = render_section(parsed, "Test Act", "/browse/a", "s10")
 
     assert cold == warm
+
+
+# ---------------------------------------------------------------------------
+# A Schedule in the outline
+# ---------------------------------------------------------------------------
+# A Schedule whose content is prose rather than numbered clauses is a
+# page in its own right (hierarchy.schedule_is_pageable), and it sits at
+# the top level of the tree beside the Parts. The outline matched it as a
+# leaf with no check that it was anywhere near the page being read, so it
+# appeared in the sidebar of every section page of the document -- all
+# 620 of the Criminal Procedure Act's. Deeper leaves were never wrong:
+# they are only reached by recursing into an open Part or Division, and
+# the top level had no such gate.
+
+def _act_with_a_prose_schedule() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("section", "2", "Commencement", "This Act comes into operation—"),
+        make_node("schedule", "3", "Persons who may witness statements"),
+        make_node("repealed", None, None, "* * * * *"),
+    ]
+
+
+def _schedule_outline_of(section_slug: str) -> str:
+    body = render_section(_parsed(_act_with_a_prose_schedule()), "Test Act", "/browse/a", section_slug)
+    return body.split('<nav class="outline"')[1].split("</nav>")[0]
+
+
+def test_a_schedule_is_not_in_the_outline_of_a_section_page():
+    outline = _schedule_outline_of("s1")
+
+    assert "Purposes" in outline, "its own neighbourhood is still there"
+    assert "Persons who may witness" not in outline
+
+
+def test_a_schedule_is_in_the_outline_of_its_own_page():
+    """It is the page you are on, so it is the one thing the outline has
+    to show -- and it has no siblings to show beside it."""
+    from corpus.html_view import build_page_index
+
+    index = build_page_index(_parsed(_act_with_a_prose_schedule()), "Test Act")
+    page = next(p for i, p in index["by_node_index"].items()
+                if _act_with_a_prose_schedule()[i]["type"] == "schedule")
+    outline = _schedule_outline_of(page)
+
+    assert "Persons who may witness" in outline
+    assert 'aria-current="page"' in outline
+
+
+def test_a_top_level_section_still_sees_its_siblings():
+    """The gate is on whether the top level is your neighbourhood, not on
+    the top level as such: an Act whose sections hang straight off the
+    root must still list them."""
+    nodes = [
+        make_node("section", "1", "Purposes", "The purposes of this Act are—"),
+        make_node("section", "2", "Commencement", "This Act comes into operation—"),
+    ]
+    body = render_section(_parsed(nodes), "Flat Act", "/browse/a", "s1")
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+
+    assert "1 Purposes" in outline
+    assert "2 Commencement" in outline

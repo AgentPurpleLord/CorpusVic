@@ -849,13 +849,24 @@ def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_file
     index_slugs = ctx["index_slugs"]
     open_eids = {b["eid"] for b in breadcrumb}
 
-    def children_html(tree_node: dict) -> str:
+    def children_html(tree_node: dict, siblings_of_this_page: bool) -> str:
         items = []
         for child in tree_node["children"]:
             node = child["node"]
             t = node["type"]
             if t in SECTION_LEVEL_TYPES or (t == "schedule" and schedule_is_pageable(child)):
-                items.append(_outline_entry(child, base_url, filenames_by_eid, target_filename))
+                # Only where these are the provisions beside the one being
+                # read. Listed unconditionally, a Schedule that is a page
+                # in its own right (schedule_is_pageable -- the Criminal
+                # Procedure Act's Schedule 3, whose content is prose
+                # rather than numbered clauses) sits at the top level of
+                # the tree next to the Chapters, matched here, and so
+                # appeared in the sidebar of all 620 of that Act's section
+                # pages. Deeper leaves were never wrong, because they are
+                # only reached by recursing into an open Part or Division;
+                # the top level has no such gate and needed one.
+                if siblings_of_this_page:
+                    items.append(_outline_entry(child, base_url, filenames_by_eid, target_filename))
                 continue
             # A Part or Division that isn't on the way to this page is not
             # the immediate context, so it isn't listed at all.
@@ -866,12 +877,17 @@ def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_file
             href = f"{base_url}/#{_esc(slug)}" if slug else f"{base_url}/"
             items.append(
                 f'<li class="outline-struct"><a href="{href}">{_esc(title)}</a>'
-                f"{children_html(child)}</li>"
+                # Reached only because this child is open, so its own
+                # leaves are the ones beside the page being read.
+                f"{children_html(child, True)}</li>"
             )
         return f'<ul class="outline-list">{"".join(items)}</ul>' if items else ""
 
+    # A page with no structural ancestors is itself a top-level provision
+    # (a flat Act's sections, or a Schedule that is its own page), and
+    # then the top level is its neighbourhood. Otherwise it is not.
     body = "".join(
-        children_html({"children": [root], "node": {"type": ""}, "eid": ""})
+        children_html({"children": [root], "node": {"type": ""}, "eid": ""}, not breadcrumb)
         for root in ctx["tree_roots"]
     )
     endnotes = (

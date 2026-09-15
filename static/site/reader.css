@@ -85,7 +85,9 @@
 .outline-contents, .outline-endnotes { display: block; font-size: 12px; color: var(--muted); }
 .outline-endnotes { margin-bottom: 12px; }
 .outline-contents:hover, .outline-endnotes:hover { color: var(--accent); }
-.outline-list { list-style: none; margin: 0; padding: 0; }
+/* The left padding is the gutter the current-entry marker is drawn in
+   (see below). A nested list has its own, wider, and keeps it. */
+.outline-list { list-style: none; margin: 0; padding: 0 0 0 9px; }
 .outline-list .outline-list {
   /* The opened branch, set in from its heading and ruled, so how deep a
      provision sits is visible rather than inferred. */
@@ -98,10 +100,20 @@
 .outline-struct > a { color: var(--accent); font-weight: 600; font-size: 12.5px; }
 /* The provision you are on: the one line in the outline that has to be
    findable at a glance. Weight and a rule rather than a block of colour,
-   which at this size reads as a highlight over the text. */
-.outline-leaf a[aria-current="page"] {
-  color: var(--fg); font-weight: 600;
-  box-shadow: -11px 0 0 -9px var(--accent);
+   which at this size reads as a highlight over the text.
+
+   The rule is its own element rather than a box-shadow. Drawn as one
+   (`-11px 0 0 -9px`), the negative spread shrank the shadow 9px on every
+   side before the offset moved it, which left a 2px sliver hard against
+   the first letter -- and made its height depend on how many lines the
+   label wrapped to: about 6px on a one-line entry, five times that on a
+   three-line one. Positioned, it sits in the gutter and is the height of
+   the entry, whatever the entry is. */
+.outline-leaf { position: relative; }
+.outline-leaf a[aria-current="page"] { color: var(--fg); font-weight: 600; }
+.outline-leaf a[aria-current="page"]::before {
+  content: ""; position: absolute; left: -7px; top: 3px; bottom: 3px;
+  width: 2px; background: var(--accent);
 }
 
 /* --- the provisions either side ------------------------------------- */
