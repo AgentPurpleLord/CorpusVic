@@ -163,19 +163,58 @@ fallback, or turn it off in the repository's Actions settings.
 Reviewing on the server writes to `data/legislation.db` there, and that
 database is the review work. Until it is pushed it exists on one disk.
 
-Give the server its own deploy key with write access:
+Give the server its own deploy key with write access. Generate it **on
+the server**: the private half should never exist anywhere else, which
+means never pasting it into a chat, a password manager shared with
+anything, or the repository itself.
 
 ```bash
 sudo -u dashboard mkdir -p /opt/corpusvic/.ssh
 sudo -u dashboard chmod 700 /opt/corpusvic/.ssh
-sudo -u dashboard ssh-keygen -t ed25519 -C "corpus-vps" \
+sudo -u dashboard ssh-keygen -t ed25519 -C "corpusvic-vps" \
   -f /opt/corpusvic/.ssh/id_ed25519 -N ""
+```
+
+No passphrase (`-N ""`), because nothing can type one: the pushes are
+made by a service account with no shell. What stands in for it is that
+the key is useless without the server, is scoped to this one repository,
+and can be revoked from GitHub in a click.
+
+Teach the server who GitHub is, or the first push fails on host
+verification with no one there to answer the prompt:
+
+```bash
+sudo -u dashboard sh -c 'ssh-keyscan github.com >> /opt/corpusvic/.ssh/known_hosts'
+sudo -u dashboard ssh-keygen -lf /opt/corpusvic/.ssh/known_hosts
+```
+
+That second line prints the fingerprints just written. Check them against
+GitHub's own published list (docs.github.com, "GitHub's SSH key
+fingerprints") before going further -- ssh-keyscan trusts whatever
+answers, so this is the step that makes it trust the right thing.
+
+Now the public half, which is the part that leaves the machine:
+
+```bash
 sudo cat /opt/corpusvic/.ssh/id_ed25519.pub
 ```
 
-Add that public key to the repository on GitHub under Settings → Deploy
-keys, **with "Allow write access" ticked**. Then point the checkout at
-SSH and tell git who it is:
+Add it to the repository on GitHub under **Settings → Deploy keys → Add
+deploy key**, with **"Allow write access" ticked**. A deploy key belongs
+to exactly one repository -- GitHub refuses a public key already used as
+a deploy key on another -- so if it is rejected as already in use, that
+is what happened.
+
+Check it before relying on it:
+
+```bash
+sudo -u dashboard ssh -T git@github.com
+# "Hi AgentPurpleLord/CorpusVic! You've successfully authenticated, but
+#  GitHub does not provide shell access." -- the named repository, and
+#  the refusal of shell access, are both correct.
+```
+
+Then point the checkout at SSH and tell git who it is:
 
 ```bash
 cd /opt/corpusvic
@@ -190,6 +229,12 @@ sudo -u dashboard cp deploy/pre-commit.hook.example .git/hooks/pre-commit
 sudo -u dashboard chmod +x .git/hooks/pre-commit
 ```
 
+Confirm the whole path works while nothing is at stake:
+
+```bash
+sudo -u dashboard git -C /opt/corpusvic push --dry-run
+```
+
 After a review session:
 
 ```bash
@@ -198,6 +243,10 @@ sudo -u dashboard git add data/
 sudo -u dashboard git commit -m "Review progress"
 sudo -u dashboard git push
 ```
+
+To revoke the key later -- a rebuilt server, a suspicion, or just
+tidying -- delete it under Settings → Deploy keys. That is the whole
+revocation: nothing else on GitHub trusts it.
 
 One warning, and it is the same one as anywhere else in this project:
 `data/legislation.db` is synced as a whole file, not merged. If you
