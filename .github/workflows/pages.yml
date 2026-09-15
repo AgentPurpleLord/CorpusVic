@@ -3,9 +3,20 @@ name: Publish site
 on:
   push:
     branches: [main]
+    # What the published site is built from -- its content and the code
+    # that renders it. Listing only the data meant a change to how a page
+    # is built never reached the site: it waited for a re-parse or a
+    # review to happen to touch the data, and until then the live site
+    # was built by code no longer in the repository.
     paths:
       - "data/parsed/**"
       - "data/legislation.db"
+      - "export_static_site.py"
+      - "dashboard.py"
+      - "corpus/**"
+      - "static/site/**"
+      - "CNAME"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
