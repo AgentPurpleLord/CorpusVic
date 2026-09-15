@@ -34,8 +34,16 @@ sudo apt update
 sudo apt install -y python3-venv
 cd /opt/vic-legislation-parser
 sudo python3 -m venv .venv
-sudo .venv/bin/pip install -r requirements-gui.txt
+sudo .venv/bin/pip install -r requirements-site.txt
 ```
+
+`requirements-site.txt` rather than `requirements-gui.txt`: this server
+both runs the admin tool and builds the published site, and the site
+build needs one library more (see the file's own comment). It includes
+the GUI requirements, so this one command covers both.
+
+Python 3.11 or newer. `python3 --version` on Ubuntu 24.04 is 3.12, which
+is fine; on an older release install `python3.11` first.
 
 ## 3. A dedicated, unprivileged user to run it as
 
@@ -100,7 +108,104 @@ for the two-line contents) to point at your actual domain, then:
 sudo systemctl reload caddy
 ```
 
-## 7. Firewall
+## 7. Build the published site
+
+Caddy serves the public side from `_site/`, which is build output rather
+than source: it is gitignored, so a fresh clone does not have it and the
+domain root would 404 until you make it.
+
+```bash
+cd /opt/vic-legislation-parser
+sudo -u dashboard .venv/bin/python export_static_site.py --out _site
+```
+
+About three minutes for the whole corpus. Nothing needs restarting
+afterwards -- Caddy serves whatever files are there at the moment of the
+request, so the new pages are live the instant the build finishes.
+
+Rebuild it whenever you have reviewed something and want the public side
+to show it. That is the one manual step in the loop for now; the admin
+tool's own pages always show the current state without any build.
+
+If you would rather not remember, a timer will do it overnight:
+
+```bash
+sudo tee /etc/systemd/system/corpus-site.service >/dev/null <<'UNIT'
+[Unit]
+Description=Rebuild the published Corpus site
+[Service]
+Type=oneshot
+User=dashboard
+WorkingDirectory=/opt/vic-legislation-parser
+ExecStart=/opt/vic-legislation-parser/.venv/bin/python export_static_site.py --out _site
+UNIT
+
+sudo tee /etc/systemd/system/corpus-site.timer >/dev/null <<'UNIT'
+[Unit]
+Description=Rebuild the published Corpus site daily
+[Timer]
+OnCalendar=daily
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now corpus-site.timer
+```
+
+Once the VPS is serving the public site, the GitHub Pages workflow is
+building a second copy of it that nobody reads. Leave it if you want the
+fallback, or turn it off in the repository's Actions settings.
+
+## 8. Let the server push your review work back to GitHub
+
+Reviewing on the server writes to `data/legislation.db` there, and that
+database is the review work. Until it is pushed it exists on one disk.
+
+Give the server its own deploy key with write access:
+
+```bash
+sudo -u dashboard mkdir -p /opt/vic-legislation-parser/.ssh
+sudo -u dashboard chmod 700 /opt/vic-legislation-parser/.ssh
+sudo -u dashboard ssh-keygen -t ed25519 -C "corpus-vps" \
+  -f /opt/vic-legislation-parser/.ssh/id_ed25519 -N ""
+sudo cat /opt/vic-legislation-parser/.ssh/id_ed25519.pub
+```
+
+Add that public key to the repository on GitHub under Settings → Deploy
+keys, **with "Allow write access" ticked**. Then point the checkout at
+SSH and tell git who it is:
+
+```bash
+cd /opt/vic-legislation-parser
+sudo -u dashboard git remote set-url origin git@github.com:AgentPurpleLord/vic-legislation-parser.git
+sudo -u dashboard git config user.name "Corpus VPS"
+sudo -u dashboard git config user.email "you@example.com"
+# The database is opened in WAL mode, so a recent write can still be
+# sitting in the -wal file rather than the committed one. This hook
+# checkpoints it on every commit so you never push a half-written
+# database.
+sudo -u dashboard cp deploy/pre-commit.hook.example .git/hooks/pre-commit
+sudo -u dashboard chmod +x .git/hooks/pre-commit
+```
+
+After a review session:
+
+```bash
+cd /opt/vic-legislation-parser
+sudo -u dashboard git add data/
+sudo -u dashboard git commit -m "Review progress"
+sudo -u dashboard git push
+```
+
+One warning, and it is the same one as anywhere else in this project:
+`data/legislation.db` is synced as a whole file, not merged. If you
+review on the server and also on your laptop without pulling in between,
+whichever pushes last wins and the other's work is gone. Once the server
+is where you review, review only there.
+
+## 9. Firewall
 
 Only 80 (ACME challenge + HTTP->HTTPS redirect, which Caddy does
 automatically) and 443 (HTTPS) need to be open to the internet. Port 8000
@@ -115,7 +220,7 @@ sudo ufw allow OpenSSH   # don't lock yourself out over SSH
 sudo ufw enable
 ```
 
-## 8. Verify
+## 10. Verify
 
 Visit `https://corpusvic.au/admin` from any browser. You should land on
 the login page over a valid HTTPS connection, at `/admin/login`. Log in
@@ -141,14 +246,19 @@ curl -si https://corpusvic.au/admin/api/login \
 
 ```bash
 cd /opt/vic-legislation-parser
-sudo git pull
-sudo .venv/bin/pip install -r requirements-gui.txt   # in case dependencies changed
+# As the owner of the checkout, so nothing ends up root-owned and
+# unwritable by the service afterwards.
+sudo -u dashboard git pull
+sudo .venv/bin/pip install -r requirements-site.txt   # in case dependencies changed
 sudo systemctl restart dashboard
+# Only if the pull changed how a page is built (corpus/, static/site/,
+# export_static_site.py) or the data behind it.
+sudo -u dashboard .venv/bin/python export_static_site.py --out _site
 ```
 
 Restarting the service does not lose review progress or the login
 credential you've set -- both live in `data/` and `.dashboard_auth.json`
-respectively, neither of which this restarts touches.
+respectively, neither of which this restart touches.
 
 ## Backing up your review progress
 
