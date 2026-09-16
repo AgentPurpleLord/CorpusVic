@@ -21,8 +21,12 @@ in one process the public traffic and the reviewer's would evict each
 other from html_view's context cache, turning millisecond pages into
 hundred-millisecond ones for both.
 
-It writes nothing. `deploy/public.service` runs it with no writable
-paths at all, so that is enforced by systemd rather than by review.
+It writes nothing, and the route table is where that is guaranteed: every
+route is a GET but the one post that checks the passphrase, and a test
+fails if that changes. `deploy/public.service` narrows what it *could*
+touch to `data/` -- not less, because the review database is in WAL mode
+and sqlite cannot open one of those at all, read-only or otherwise,
+without creating its -shm and -wal beside it.
 
 The passphrase is checked here rather than encrypted into the pages, as
 the archive build still does. That is a plainer design -- no key

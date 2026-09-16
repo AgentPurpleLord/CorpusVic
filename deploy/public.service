@@ -23,10 +23,22 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-# Deliberately no ReadWritePaths. This process reads the database, the
-# parses and the search index and writes nothing at all -- so the one
-# guarantee worth having is the one the kernel enforces rather than the
-# one a code review has to keep re-establishing.
+# data/ has to be writable, and not because this process writes anything.
+# data/legislation.db is in WAL mode, and sqlite cannot open a WAL
+# database at all -- not even read-only -- without being able to create
+# the -shm and -wal files beside it. With no ReadWritePaths the service
+# does not start: it fails with "attempt to write a readonly database"
+# and, with Restart=always, does so repeatedly.
+#
+# So the kernel's guarantee here is narrower than "writes nothing": it is
+# that nothing outside data/ can be touched. What keeps this app
+# read-only in the sense that matters is its route table, where every
+# route is a GET and a test fails if that stops being true.
+#
+# The search index needs none of this (it is in the ordinary rollback
+# journal mode and reads happily from a read-only directory); it is only
+# in data/ because that is where it lives.
+ReadWritePaths=/opt/corpusvic/data
 
 [Install]
 WantedBy=multi-user.target

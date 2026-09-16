@@ -304,3 +304,60 @@ class _StubIndex:
                 "href": "/browse/criminal-procedure-act/section/s242#s242-1",
             }],
         }
+
+
+# ---------------------------------------------------------------------
+# The unit that runs it
+# ---------------------------------------------------------------------
+
+
+def _unit_text():
+    from pathlib import Path
+
+    return (Path(__file__).resolve().parent.parent / "deploy" / "public.service").read_text()
+
+
+def test_the_service_can_open_a_wal_database():
+    """data/ must be writable, and not because this app writes anything.
+
+    data/legislation.db is in WAL mode, and sqlite cannot open a WAL
+    database at all -- not even read-only -- without creating the -shm
+    and -wal files beside it. With ProtectSystem=strict and no
+    ReadWritePaths the service does not start: it fails with "attempt to
+    write a readonly database", and Restart=always makes it do so over
+    and over. This shipped that way once."""
+    unit = _unit_text()
+
+    assert "ProtectSystem=strict" in unit
+    assert "ReadWritePaths=/opt/corpusvic/data" in unit
+
+
+def test_the_service_grants_nothing_wider_than_the_data_directory():
+    """The guarantee is narrower than "writes nothing" but it is still a
+    guarantee: nothing outside data/ can be touched."""
+    granted = [line.split("=", 1)[1].strip()
+               for line in _unit_text().splitlines()
+               if line.startswith("ReadWritePaths=")]
+
+    assert granted == ["/opt/corpusvic/data"]
+
+
+def test_a_wal_database_really_does_need_the_directory(tmp_path):
+    """The claim above, checked against sqlite rather than taken on
+    trust -- a read of a WAL database writes, and a read of an ordinary
+    one does not."""
+    import sqlite3
+
+    wal = tmp_path / "wal.db"
+    conn = sqlite3.connect(wal)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("CREATE TABLE t (x)")
+    conn.commit()
+    conn.close()
+
+    # Reading it leaves the sidecars sqlite needs to have written.
+    conn = sqlite3.connect(f"file:{wal}?mode=ro", uri=True)
+    conn.execute("SELECT count(*) FROM t").fetchone()
+    conn.close()
+
+    assert (tmp_path / "wal.db-shm").exists() or (tmp_path / "wal.db-wal").exists()
