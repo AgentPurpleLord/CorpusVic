@@ -302,8 +302,10 @@
   <div id="tools-row">
     <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
     <button class="btn" onclick="rebuildSite()" id="site-rebuild">Rebuild the public site</button>
+    <button class="btn" onclick="rebuildSearch()" id="search-rebuild">Rebuild search index</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
     <span class="site-state" id="site-state"></span>
+    <span class="site-state" id="search-state"></span>
   </div>
   <div id="acts"></div>
   <div id="empty" style="display:none">No Acts yet -- click "+ Add Act / Bill / EM" to parse your first one.</div>
@@ -995,6 +997,57 @@ async function waitForRestart(attempt = 0) {
 }
 
 // ---------------------------------------------------------------------
+// The search index
+// ---------------------------------------------------------------------
+// It holds what the public site serves, so it goes stale when a parse,
+// a review decision or a publication toggle changes what that is. A
+// stale index is the quiet kind of wrong -- it answers, just not about
+// the corpus as it now stands -- so the state is on the page rather than
+// left to be noticed.
+
+async function loadSearchState() {
+  const state = document.getElementById("search-state");
+  const button = document.getElementById("search-rebuild");
+  try {
+    const res = await fetch("api/search/status");
+    if (!res.ok) return;
+    const data = await res.json();
+    button.disabled = !!data.running;
+    if (data.running) {
+      state.textContent = "Building the search index\u2026";
+      setTimeout(loadSearchState, 2000);
+    } else if (data.error) {
+      state.textContent = "The search index failed to build.";
+    } else if (!data.built) {
+      state.textContent = "No search index yet.";
+    } else if (data.stale) {
+      state.textContent = "Search index is out of date.";
+    } else {
+      state.textContent = "Search index is up to date.";
+    }
+  } catch (e) { /* the row is a convenience; a failed poll is not worth a toast */ }
+}
+
+async function rebuildSearch() {
+  const button = document.getElementById("search-rebuild");
+  const was = button.textContent;
+  button.disabled = true;
+  button.textContent = "Indexing\u2026";
+  try {
+    const res = await fetch("api/search/rebuild", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't build the index.");
+    toast(data.message || "Search index rebuilt.");
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    button.textContent = was;
+    button.disabled = false;
+    loadSearchState();
+  }
+}
+
+// ---------------------------------------------------------------------
 // Rebuilding the published site
 // ---------------------------------------------------------------------
 // The public site is a static export. Nothing about adding an Act or
@@ -1072,6 +1125,9 @@ async function togglePublication(work, publish, btn) {
     if (!res.ok) throw new Error(data.detail || "Couldn't change it.");
     toast(publish ? `${work} is on the public site.` : `${work} is no longer published.`);
     await loadActs();
+    // The index holds what the site serves, so the server has just
+    // started rebuilding it.
+    loadSearchState();
     // The decision lives in the review database, so it is now something
     // waiting to be pushed like everything else.
     loadSync();
@@ -1408,6 +1464,7 @@ async function stopAiScan() {
 loadActs();
 loadSync();
 loadProfiles();
+loadSearchState();
 // Quietly: on arrival this only reports when the site was last built,
 // and a rebuild somebody else started is worth seeing as it runs.
 pollSite(false);

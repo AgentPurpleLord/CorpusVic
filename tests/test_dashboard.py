@@ -1168,3 +1168,54 @@ def test_seeding_leaves_a_later_document_off(tmp_path, monkeypatch):
 
     assert dashboard.db.published_works(tmp_path) == {"crimes-act"}
     assert dashboard.act_status("evidence-act")["published"] is False
+
+
+# ---------------------------------------------------------------------
+# The search index
+# ---------------------------------------------------------------------
+
+
+def test_the_index_status_says_there_is_none_yet(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+
+    body = client.get("/api/search/status").json()
+
+    assert body["built"] is False
+    assert body["running"] is False
+
+
+def test_publishing_a_work_starts_a_rebuild(tmp_path, monkeypatch):
+    """The index holds what the site serves, so a publication change has
+    just changed it. Left alone, search would answer about a corpus that
+    no longer matches the site."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    started = []
+    monkeypatch.setattr(dashboard, "_rebuild_search_index_soon", lambda: started.append(True))
+
+    client.post("/api/publication", json={"work": "crimes-act", "published": True})
+
+    assert started == [True]
+
+
+def test_a_failed_rebuild_is_reported_rather_than_swallowed(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard.search, "rebuild",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("no space left on device")))
+    dashboard._search_state.update({"running": False, "error": None, "stats": None})
+
+    res = client.post("/api/search/rebuild")
+
+    assert res.status_code == 500
+    assert "no space left" in res.json()["detail"]
+    dashboard._search_state.update({"error": None})
+
+
+def test_the_index_endpoints_are_behind_the_login(_at_admin):
+    from fastapi.testclient import TestClient
+
+    dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
+    client = TestClient(dashboard.serving_app(), follow_redirects=False)
+
+    assert client.get("/admin/api/search/status").status_code == 401
+    assert client.post("/admin/api/search/rebuild").status_code == 401
+    assert client.post("/admin/api/publication", json={}).status_code == 401

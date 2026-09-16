@@ -67,6 +67,7 @@ import os
 import re
 import secrets
 import shutil
+import sqlite3
 import socket
 import subprocess
 from datetime import datetime, timezone
@@ -83,7 +84,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus import commentary, db, diffing, html_view, reader, sync
+from corpus import commentary, db, diffing, html_view, reader, search, sync
 from corpus.act_registry import load_act_registry
 from corpus.amendments import build_amendment_index, summarise_by_act
 from corpus.commentary import build_commentary_index
@@ -734,6 +735,89 @@ class PushRequest(BaseModel):
     message: "str | None" = None
 
 
+# ---------------------------------------------------------------------------
+# The search index
+# ---------------------------------------------------------------------------
+#
+# Built here because this is the process that writes: the public site
+# reads the index and has no business creating one. A full rebuild takes
+# a few seconds over the whole corpus, so there is no incremental path --
+# it is thrown away and built again whenever what it is built from moves.
+
+_search_lock = threading.Lock()
+_search_state: dict = {"running": False, "built_at": None, "error": None, "stats": None}
+
+
+def _rebuild_search_index() -> None:
+    """Rebuilds the index, one at a time.
+
+    The lock is not for safety -- the build writes to one side and moves
+    the finished file into place, so a half-built index is never readable
+    either way -- but to stop three clicks from doing the same work three
+    times."""
+    if not _search_lock.acquire(blocking=False):
+        return
+    _search_state.update({"running": True, "error": None})
+    try:
+        stats = search.rebuild(BASE_DIR, source=sys.modules[__name__])
+        _search_state.update({"stats": stats, "built_at": datetime.now(timezone.utc).isoformat()})
+    except Exception as e:  # noqa: BLE001 -- reported on the page, not swallowed
+        _search_state["error"] = f"{type(e).__name__}: {e}"
+    finally:
+        _search_state["running"] = False
+        _search_lock.release()
+
+
+def _rebuild_search_index_soon() -> None:
+    """In the background, for the things that change what is indexed as a
+    side effect of doing something else -- publishing a work, pulling
+    somebody else's review work. Nobody should wait on it."""
+    threading.Thread(target=_rebuild_search_index, daemon=True).start()
+
+
+@app.get("/api/search/status")
+def search_status():
+    """Whether there is an index, and whether it still matches the data.
+
+    Staleness is compared rather than guessed: the signature covers every
+    parse file, the review database and which works are published."""
+    path = search.index_path(BASE_DIR)
+    built = path.exists()
+    stale = None
+    if built:
+        try:
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            stored = conn.execute("SELECT value FROM meta WHERE key = 'signature'").fetchone()
+            conn.close()
+            stale = bool(stored) and stored[0] != search.signature(BASE_DIR)
+        except sqlite3.Error as e:
+            stale = None
+            _search_state["error"] = f"Couldn't read the index: {e}"
+    return {
+        "built": built,
+        "stale": stale,
+        "running": _search_state["running"],
+        "built_at": _search_state["built_at"],
+        "error": _search_state["error"],
+        "stats": _search_state["stats"],
+    }
+
+
+@app.post("/api/search/rebuild")
+def search_rebuild():
+    """Builds the index now. A few seconds over the whole corpus, so it
+    is worth waiting for rather than polling."""
+    if _search_state["running"]:
+        raise HTTPException(409, "A rebuild is already running.")
+    _rebuild_search_index()
+    if _search_state["error"]:
+        raise HTTPException(500, _search_state["error"])
+    stats = _search_state["stats"] or {}
+    return {"ok": True, "message": (f"Indexed {stats.get('provisions', 0)} provisions from "
+                                    f"{stats.get('documents', 0)} document(s)."),
+            "stats": stats}
+
+
 @app.get("/api/sync/status")
 def sync_status():
     """Where this checkout stands against GitHub, so the page can say
@@ -1023,6 +1107,8 @@ def set_publication(req: PublicationRequest):
     if not req.work.strip():
         raise HTTPException(400, "Which work?")
     db.set_publication(req.work.strip(), req.published, BASE_DIR)
+    # The index holds what the site serves, so this just changed it.
+    _rebuild_search_index_soon()
     publication = db.load_publication(BASE_DIR)
     return {
         "ok": True,

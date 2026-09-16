@@ -19,6 +19,14 @@ data/ai_scan_logs/
 # ignored because data/ is what the dashboard's Push button commits -- a
 # build log riding along in every push would be noise in the history.
 data/site_build.log
+# The search index (corpus/search.py). Derived from a merge of two things
+# that ARE committed -- the parses and the review database -- so a copy in
+# here would be a third that can disagree with them, and sync.pull
+# replaces the database wholesale, so the copy that arrived would be
+# whichever machine built it last, looking authoritative. It rebuilds from
+# scratch in a few seconds.
+data/search.db
+data/search.building
 
 # data/parsed/<act>.json (the raw parse) and data/legislation.db (the
 # durable, human-created review state overlaid on it -- verified rows,
