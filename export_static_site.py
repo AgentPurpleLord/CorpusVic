@@ -248,6 +248,65 @@ def _default_base_path() -> str:
     return f"/{repo.split('/')[-1]}" if repo else ""
 
 
+# Where the server keeps the passphrase, so that it belongs to the
+# machine rather than to whoever happens to be typing the build command.
+# Gitignored; deploy/site.env.example is the tracked template.
+SITE_ENV_FILE = Path(__file__).parent / "deploy" / "site.env"
+
+# What a gated page carries and an open one cannot: the encrypted payload
+# the unlock script reads (see corpus/site_crypto.py's _GATE_TEMPLATE).
+_GATED_MARKER = 'id="payload"'
+
+
+def password_from_env_file(path: "Path | None" = None) -> "str | None":
+    """SITE_PASSWORD as recorded on this machine.
+
+    A shell variable lives as long as the shell, which is how the gate
+    came off the published site: the build was carried over to the server
+    but the passphrase was not, and an ungated build is not an error --
+    it is a supported configuration, so nothing complained."""
+    path = Path(path) if path else SITE_ENV_FILE
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        name, _, value = line.partition("=")
+        if name.strip() == "SITE_PASSWORD":
+            return value.strip().strip("'\"") or None
+    return None
+
+
+def already_gated(out: Path) -> bool:
+    """Whether the build already at `out` is behind a passphrase."""
+    landing = Path(out) / "index.html"
+    try:
+        return _GATED_MARKER in landing.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+
+def resolve_password(cli_password: "str | None", no_password: bool, out: Path) -> "str | None":
+    """The passphrase this build should use, and a refusal where using
+    none would quietly publish what was behind one.
+
+    Taking the gate off is a real choice and stays available, but it has
+    to be made rather than arrived at: pages served once in the clear are
+    served, and no later rebuild takes that back."""
+    if no_password:
+        return None
+    # A passphrase on the command line is visible to anything that can
+    # list processes, so it is the last resort rather than the first.
+    password = os.environ.get("SITE_PASSWORD") or password_from_env_file() or cli_password
+    if not password and already_gated(out):
+        raise SystemExit(
+            f"Refusing to rebuild {out}/ without a passphrase: what is there now is gated, and "
+            "this build would replace it with pages anyone can read.\n"
+            f"  - to keep the gate: put SITE_PASSWORD in {SITE_ENV_FILE} (see "
+            "deploy/site.env.example), or set it in the environment\n"
+            "  - to open the site deliberately: pass --no-password"
+        )
+    return password
+
+
 def _provision_label(node: dict) -> str:
     """"14 Determination of limits" -- enough to name a provision on its
     own placeholder page, so a reader who followed a link knows which one
@@ -707,15 +766,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default="_site", help="output directory (default: _site)")
     ap.add_argument("--base-path", default=None, help="URL path prefix the site will be served under (default: empty when a CNAME sets a custom domain, else derived from $GITHUB_REPOSITORY, else empty)")
-    ap.add_argument("--password", default=None, help="passphrase to encrypt every page behind (default: $SITE_PASSWORD; unset means an open, ungated site)")
+    ap.add_argument("--password", default=None, help="passphrase to encrypt every page behind (default: $SITE_PASSWORD, else deploy/site.env)")
+    ap.add_argument("--no-password", action="store_true",
+                    help="publish an open, ungated site, even where the build being replaced was gated")
     args = ap.parse_args()
 
     base_path = args.base_path if args.base_path is not None else _default_base_path()
-    # Preferred over --password: a passphrase on the command line is
-    # visible to anything that can list processes, and in CI it comes
-    # from a repository secret rather than from the workflow file.
-    password = args.password or os.environ.get("SITE_PASSWORD") or None
     out = Path(args.out)
+    password = resolve_password(args.password, args.no_password, out)
 
     all_slugs = dashboard.discover_slugs()
     published, preview_files = build_site(out, base_path, password)

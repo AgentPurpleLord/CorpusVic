@@ -114,6 +114,20 @@ Caddy serves the public side from `_site/`, which is build output rather
 than source: it is gitignored, so a fresh clone does not have it and the
 domain root would 404 until you make it.
 
+If the site is meant to sit behind a passphrase, put it in place first --
+the build reads it from there, so a rebuild cannot quietly drop it:
+
+```bash
+sudo cp deploy/site.env.example deploy/site.env
+sudo nano deploy/site.env            # SITE_PASSWORD=...
+sudo chmod 600 deploy/site.env
+sudo chown dashboard:dashboard deploy/site.env
+```
+
+This is a third password, separate from the other two: `SITE_PASSWORD`
+gates reading the published site, `DASHBOARD_PASSWORD` opens the admin
+tool, and the deploy key pushes to GitHub. Do not reuse one for another.
+
 ```bash
 cd /opt/corpusvic
 sudo -u dashboard .venv/bin/python export_static_site.py --out _site
@@ -412,6 +426,9 @@ Then check, in this order -- the first failure tells you which step to
 look at:
 
 ```bash
+# If the site is gated, its front page is the unlock page rather than the
+# index -- this is the one that catches a passphrase having gone missing.
+curl -s https://corpusvic.au/ | grep -c 'id="payload"'   # 1 when gated, 0 when open
 sudo systemctl status dashboard          # active (running)
 grep -r /opt/vic-legislation-parser /etc/systemd/system /etc/caddy   # expect nothing
 curl -sI https://corpusvic.au/admin | head -1                        # 308 to /admin/

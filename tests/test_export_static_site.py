@@ -721,3 +721,117 @@ def test_every_page_is_offered_for_preview(tmp_path, monkeypatch):
     summary, _read = _built(tmp_path, monkeypatch, verified={"1"})
 
     assert summary["published_pages"] == {"s1", "s2"}
+
+
+# ---------------------------------------------------------------------
+# Keeping the published site's passphrase
+# ---------------------------------------------------------------------
+# The gate came off the live site for a dull reason: the build was moved
+# to a server, the passphrase was a shell variable that did not come with
+# it, and an ungated build is a supported configuration rather than an
+# error -- so nothing said anything. Pages served once in the clear stay
+# served, so that has to be a choice rather than something arrived at.
+
+def _gated_site(tmp_path):
+    from corpus.site_crypto import SiteGate
+
+    (tmp_path / "index.html").write_text(SiteGate("a passphrase").wrap("<h1>Hi</h1>"), encoding="utf-8")
+    return tmp_path
+
+
+def test_a_gated_build_is_recognised(tmp_path):
+    from export_static_site import already_gated
+
+    assert already_gated(_gated_site(tmp_path)) is True
+
+
+def test_an_open_build_is_not_mistaken_for_a_gated_one(tmp_path):
+    from export_static_site import already_gated
+
+    (tmp_path / "index.html").write_text("<h1>Published legislation</h1>", encoding="utf-8")
+
+    assert already_gated(tmp_path) is False
+
+
+def test_nothing_built_yet_is_not_gated(tmp_path):
+    from export_static_site import already_gated
+
+    assert already_gated(tmp_path / "never-built") is False
+
+
+@pytest.mark.parametrize("contents, expected", [
+    ("SITE_PASSWORD=plain value\n", "plain value"),
+    ("# a comment\nSITE_PASSWORD='quoted value'\n", "quoted value"),
+    ('SITE_PASSWORD="double quoted"\n', "double quoted"),
+    ("SITE_PASSWORD=\n", None),
+    ("SOMETHING_ELSE=x\n", None),
+])
+def test_the_passphrase_is_read_from_the_servers_own_file(tmp_path, contents, expected):
+    from export_static_site import password_from_env_file
+
+    path = tmp_path / "site.env"
+    path.write_text(contents, encoding="utf-8")
+
+    assert password_from_env_file(path) == expected
+
+
+def test_no_file_means_no_passphrase(tmp_path):
+    from export_static_site import password_from_env_file
+
+    assert password_from_env_file(tmp_path / "absent.env") is None
+
+
+def test_rebuilding_a_gated_site_with_no_passphrase_is_refused(tmp_path, monkeypatch):
+    """The exact thing that happened. It has to stop rather than publish,
+    and stop with a non-zero exit, because the build that would do this
+    unattended is a nightly timer with nobody reading its output."""
+    from export_static_site import resolve_password
+
+    monkeypatch.delenv("SITE_PASSWORD", raising=False)
+    monkeypatch.setattr("export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
+
+    with pytest.raises(SystemExit) as refused:
+        resolve_password(None, False, _gated_site(tmp_path))
+
+    assert "--no-password" in str(refused.value), "and says how to do it deliberately"
+
+
+def test_opening_a_gated_site_deliberately_is_allowed(tmp_path, monkeypatch):
+    from export_static_site import resolve_password
+
+    monkeypatch.delenv("SITE_PASSWORD", raising=False)
+
+    assert resolve_password(None, True, _gated_site(tmp_path)) is None
+
+
+def test_an_ungated_site_rebuilds_ungated_without_complaint(tmp_path, monkeypatch):
+    """Only a gate that already exists is protected. A site that was
+    never behind one is not suddenly required to be."""
+    from export_static_site import resolve_password
+
+    monkeypatch.delenv("SITE_PASSWORD", raising=False)
+    monkeypatch.setattr("export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
+    (tmp_path / "index.html").write_text("<h1>Open</h1>", encoding="utf-8")
+
+    assert resolve_password(None, False, tmp_path) is None
+
+
+def test_the_environment_is_preferred_to_the_command_line(tmp_path, monkeypatch):
+    """A passphrase on the command line is visible to anything that can
+    list processes, so it is the last resort rather than the first."""
+    from export_static_site import resolve_password
+
+    monkeypatch.setenv("SITE_PASSWORD", "from the environment")
+
+    assert resolve_password("typed on the line", False, tmp_path) == "from the environment"
+
+
+def test_the_servers_file_is_preferred_to_the_command_line(tmp_path, monkeypatch):
+    from export_static_site import resolve_password
+
+    monkeypatch.delenv("SITE_PASSWORD", raising=False)
+    path = tmp_path / "site.env"
+    path.write_text("SITE_PASSWORD=from the file\n", encoding="utf-8")
+    monkeypatch.setattr("export_static_site.SITE_ENV_FILE", path)
+
+    assert resolve_password("typed on the line", False, tmp_path) == "from the file"

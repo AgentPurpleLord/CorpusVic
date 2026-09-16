@@ -53,3 +53,5 @@ __pycache__/
 # deploy/dashboard.env.example is tracked as a template; the real copy
 # (deploy/README.md step 4) holds actual credentials and must not be.
 deploy/dashboard.env
+# Same again for the published site's own passphrase.
+deploy/site.env
