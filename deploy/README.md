@@ -348,6 +348,70 @@ dig +short corpusvic.au        # expect the VPS's own IP
 If it returns something else, that is the answer, and nothing on the
 server can fix it.
 
+### Getting the public key out of a web console
+
+A provider's browser console usually will not let you copy text out of
+it, which makes an 80-character public key hard to get to GitHub. You do
+not have to retype it: the server is already serving files over HTTP, so
+let it serve this one for a minute.
+
+```bash
+sudo cp /opt/corpusvic/.ssh/id_ed25519.pub /opt/corpusvic/_site/key.txt
+```
+
+Open `https://corpusvic.au/key.txt` in an ordinary browser, copy it from
+there into GitHub's Deploy keys page, then put it back:
+
+```bash
+sudo rm /opt/corpusvic/_site/key.txt
+```
+
+A public key is public, so this gives nothing away -- but remove it
+anyway, because a file nobody meant to publish is worth not leaving
+published. Only ever the `.pub`. The private half never leaves the
+server.
+
+If the site is behind its passphrase, this still works: the gate encrypts
+the pages the build writes, and a file copied in beside them is served as
+it is.
+
+### If you cannot SSH to the server at all
+
+Worth fixing before anything else -- every operation here is easier over
+SSH than through a console, and this guide assumes one. Add your own
+machine's public key to the instance, either through the provider's
+control panel or, from the console:
+
+```bash
+sudo mkdir -p /root/.ssh && sudo chmod 700 /root/.ssh
+sudo nano /root/.ssh/authorized_keys     # paste your laptop's id_*.pub
+sudo chmod 600 /root/.ssh/authorized_keys
+```
+
+Pasting *into* a web console usually works even where copying out does
+not, which is the direction that matters here.
+
+### "The authenticity of host 'github.com' can't be established"
+
+Not about your deploy key. ssh is asking whether the host answering is
+really GitHub, which it asks once per machine and would ask with the key
+perfectly installed.
+
+Answering it deliberately means comparing the fingerprint it prints
+against the list GitHub publishes (docs.github.com, "GitHub's SSH key
+fingerprints") and typing `yes`. That is the honest way, and worth the
+minute.
+
+Accepting it on first sight instead is what `ssh-keyscan` does, and what
+the dashboard's own git calls do (`StrictHostKeyChecking=accept-new` --
+see corpus/sync.py). It trusts whatever answers the first time and
+refuses any change afterwards, which is weaker than checking but far
+stronger than turning the check off:
+
+```bash
+sudo -u dashboard sh -c 'ssh-keyscan github.com >> /opt/corpusvic/.ssh/known_hosts'
+```
+
 ### "fatal: detected dubious ownership"
 
 git refusing to work in a repository owned by somebody other than the
