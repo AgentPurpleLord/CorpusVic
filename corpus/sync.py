@@ -27,6 +27,7 @@ remember:
     do from this checkout, which on the server is the deploy key. If that
     is not set up, the failure says so instead of appearing to work.
 """
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -35,7 +36,26 @@ from pathlib import Path
 # tree is left exactly as it is.
 TRACKED_PATHS = ("data",)
 
-_TIMEOUT_SECONDS = 180
+# Two budgets, because they fail for different reasons. Reading this
+# checkout is local and near-instant, so a long wait there means
+# something is wrong rather than slow. Anything touching the network is
+# bounded much more tightly than it would be from a terminal: this runs
+# while somebody is looking at a page, and a status line is worth a few
+# seconds and not a few minutes.
+_TIMEOUT_SECONDS = 30
+_NETWORK_TIMEOUT_SECONDS = 15
+
+# git must never wait for a human here. There is nobody at this end of
+# it: an ssh asking whether to trust a new host, or a helper asking for a
+# password, would sit until the timeout and report as "slow" rather than
+# as the thing it is. BatchMode turns those prompts into immediate
+# failures with a message worth reading.
+_NON_INTERACTIVE = {
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_SSH_COMMAND": "ssh -oBatchMode=yes -oStrictHostKeyChecking=accept-new",
+    "GIT_ASKPASS": "",
+    "SSH_ASKPASS": "",
+}
 
 # A remote can carry a token ("https://x-access-token:ghp_...@github.com/..."),
 # and this address is shown in a web page. Whatever is between the scheme
@@ -47,11 +67,26 @@ class SyncError(RuntimeError):
     """Something git said no to, phrased for whoever pressed the button."""
 
 
-def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", *args], cwd=str(repo),
-        capture_output=True, text=True, timeout=_TIMEOUT_SECONDS,
-    )
+def _git(repo: Path, *args: str, network: bool = False) -> subprocess.CompletedProcess:
+    """One git command. Never raises for a command that merely failed --
+    that is the caller's to read off the result -- but a timeout or a
+    missing git is turned into a SyncError here, so that every caller
+    gets one kind of thing to handle rather than three."""
+    try:
+        return subprocess.run(
+            ["git", *args], cwd=str(repo),
+            capture_output=True, text=True,
+            timeout=_NETWORK_TIMEOUT_SECONDS if network else _TIMEOUT_SECONDS,
+            env={**os.environ, **_NON_INTERACTIVE},
+        )
+    except subprocess.TimeoutExpired as e:
+        raise SyncError(
+            f"git {args[0]} gave up after {e.timeout:.0f}s. "
+            + ("The remote didn't answer in time." if network
+               else "Something is holding this checkout open.")
+        ) from e
+    except FileNotFoundError as e:
+        raise SyncError("git isn't installed, or isn't on this process's PATH.") from e
 
 
 def _git_ok(repo: Path, *args: str) -> str:
@@ -100,34 +135,38 @@ def status(repo: Path) -> dict:
         "branch": None, "remote": None, "pending": [], "ahead": 0, "behind": 0,
         "last_commit": None, "reachable": False, "error": None,
     }
+    # Everything, not just the first few calls. A page has to render
+    # whatever git does, and the ways it can fail here -- no git on PATH,
+    # a checkout that is not one, a remote that never answers -- all have
+    # to arrive as a sentence in `error` rather than as a 500 that the
+    # page then reports as a type error on a field that isn't there.
     try:
         info["branch"] = _git_ok(repo, "rev-parse", "--abbrev-ref", "HEAD")
         info["pending"] = pending_changes(repo)
         subject = _git_ok(repo, "log", "-1", "--pretty=%h\x1f%s\x1f%cI")
         sha, message, when = subject.split("\x1f")
         info["last_commit"] = {"sha": sha, "subject": message, "when": when}
+
+        remote = _git(repo, "remote", "get-url", "origin")
+        if remote.returncode != 0:
+            info["error"] = "This checkout has no 'origin' remote, so there is nowhere to push."
+            return info
+        info["remote"] = safe_remote_url(remote.stdout.strip())
+
+        # Counted against the remote as it actually is, not against
+        # whatever this checkout last heard: without the fetch, "0 behind"
+        # would mean "nothing had arrived by the last time anyone looked".
+        fetched = _git(repo, "fetch", "origin", info["branch"], network=True)
+        if fetched.returncode != 0:
+            info["error"] = f"Couldn't reach the remote: {(fetched.stderr or '').strip()}"
+            return info
+        info["reachable"] = True
+        counts = _git(repo, "rev-list", "--left-right", "--count", f"origin/{info['branch']}...HEAD")
+        if counts.returncode == 0 and counts.stdout.split():
+            behind, ahead = counts.stdout.split()
+            info["ahead"], info["behind"] = int(ahead), int(behind)
     except (SyncError, OSError, ValueError) as e:
         info["error"] = str(e)
-        return info
-
-    remote = _git(repo, "remote", "get-url", "origin")
-    if remote.returncode != 0:
-        info["error"] = "This checkout has no 'origin' remote, so there is nowhere to push."
-        return info
-    info["remote"] = safe_remote_url(remote.stdout.strip())
-
-    # Counted against the remote as it actually is, not against whatever
-    # this checkout last heard: without the fetch, "0 behind" would mean
-    # "nothing had arrived by the last time anyone looked".
-    fetched = _git(repo, "fetch", "origin", info["branch"])
-    if fetched.returncode != 0:
-        info["error"] = f"Couldn't reach the remote: {(fetched.stderr or '').strip()}"
-        return info
-    info["reachable"] = True
-    counts = _git(repo, "rev-list", "--left-right", "--count", f"origin/{info['branch']}...HEAD")
-    if counts.returncode == 0 and counts.stdout.split():
-        behind, ahead = counts.stdout.split()
-        info["ahead"], info["behind"] = int(ahead), int(behind)
     return info
 
 

@@ -755,7 +755,7 @@ function renderSync(s) {
     button.disabled = true;
     return;
   }
-  const waiting = s.pending.length;
+  const waiting = (s.pending || []).length;
   if (!waiting && !s.ahead) {
     strip.dataset.state = "clean";
     headline.textContent = "Everything is pushed";
@@ -772,15 +772,31 @@ function renderSync(s) {
   button.disabled = false;
 }
 
+function syncFailed(headline, detail) {
+  const strip = document.getElementById("sync");
+  strip.hidden = false;
+  strip.dataset.state = "blocked";
+  document.getElementById("sync-headline").textContent = headline;
+  document.getElementById("sync-detail").textContent = detail;
+  document.getElementById("sync-push").disabled = true;
+}
+
 async function loadSync() {
   try {
-    renderSync(await (await fetch("api/sync/status")).json());
+    const res = await fetch("api/sync/status");
+    const data = await res.json().catch(() => ({}));
+    // Checked, because an error response is still JSON: without this a
+    // 401 or a 500 fell through to renderSync, which read .pending off
+    // {detail: "..."} and reported the server's problem as a type error
+    // in the browser.
+    if (!res.ok) {
+      syncFailed(res.status === 401 ? "Your session has expired" : "Couldn't read the sync state",
+                 data.detail || `The server answered ${res.status}.`);
+      return;
+    }
+    renderSync(data);
   } catch (e) {
-    const strip = document.getElementById("sync");
-    strip.hidden = false;
-    strip.dataset.state = "blocked";
-    document.getElementById("sync-headline").textContent = "Couldn't read the sync state";
-    document.getElementById("sync-detail").textContent = String(e);
+    syncFailed("Couldn't read the sync state", String(e));
   }
 }
 
@@ -802,10 +818,7 @@ async function pushWork() {
     renderSync(data.status);
     document.getElementById("sync-detail").textContent = data.message;
   } catch (e) {
-    const strip = document.getElementById("sync");
-    strip.dataset.state = "blocked";
-    document.getElementById("sync-headline").textContent = "Push failed";
-    document.getElementById("sync-detail").textContent = e.message;
+    syncFailed("Push failed", e.message);
   } finally {
     button.textContent = was;
     // Whatever happened, the strip now reflects a fresh read rather than

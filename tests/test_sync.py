@@ -190,3 +190,96 @@ def test_a_token_in_the_remote_is_not_shown_on_the_page(url, expected):
     """The status is rendered into a web page, and a remote can carry a
     token."""
     assert sync.safe_remote_url(url) == expected
+
+
+# ---------------------------------------------------------------------
+# Failing in a way a page can render
+# ---------------------------------------------------------------------
+# The admin dashboard reported all of this as
+# "TypeError: Cannot read properties of undefined (reading 'length')",
+# because status() let some failures escape as a 500 and the page read
+# .pending off {"detail": ...}. Every way this can go wrong has to come
+# back as a sentence in `error`, with the rest of the shape intact.
+
+def test_somewhere_that_is_not_a_repository_is_reported(tmp_path):
+    state = sync.status(tmp_path)
+
+    assert "not a git repository" in state["error"]
+    assert state["pending"] == [] and state["reachable"] is False
+
+
+def test_a_timeout_is_reported_rather_than_raised(repo, monkeypatch):
+    """subprocess.TimeoutExpired is not an OSError, so it went straight
+    past the guard and out of the endpoint as a 500. A git fetch over SSH
+    to a host the server has never seen is exactly how that happened."""
+    import subprocess as sp
+
+    def times_out(*a, **k):
+        raise sp.TimeoutExpired(cmd="git fetch", timeout=15)
+
+    monkeypatch.setattr(sync.subprocess, "run", times_out)
+    state = sync.status(repo)
+
+    assert "gave up after" in state["error"]
+    assert state["pending"] == []
+
+
+def test_git_missing_entirely_is_reported(repo, monkeypatch):
+    def not_installed(*a, **k):
+        raise FileNotFoundError(2, "No such file or directory", "git")
+
+    monkeypatch.setattr(sync.subprocess, "run", not_installed)
+
+    assert "git isn't installed" in sync.status(repo)["error"]
+
+
+def test_a_network_call_waits_far_less_than_a_local_one(repo, monkeypatch):
+    """This runs while somebody is looking at a page. A status line is
+    worth a few seconds; the old single budget was three minutes, which
+    is how a dashboard came to sit there saying nothing."""
+    seen = {}
+    real = sync.subprocess.run
+
+    def record(cmd, **kwargs):
+        seen[cmd[1]] = kwargs.get("timeout")
+        return real(cmd, **kwargs)
+
+    monkeypatch.setattr(sync.subprocess, "run", record)
+    sync.status(repo)
+
+    assert seen["fetch"] == sync._NETWORK_TIMEOUT_SECONDS
+    assert seen["rev-parse"] == sync._TIMEOUT_SECONDS
+    assert sync._NETWORK_TIMEOUT_SECONDS < sync._TIMEOUT_SECONDS
+
+
+def test_git_is_never_left_waiting_for_a_person(repo, monkeypatch):
+    """There is nobody at this end. An ssh asking whether to trust a new
+    host would sit until the timeout and then report as slow, rather than
+    as the thing it is."""
+    seen = {}
+    real = sync.subprocess.run
+
+    def record(cmd, **kwargs):
+        seen.update(kwargs.get("env") or {})
+        return real(cmd, **kwargs)
+
+    monkeypatch.setattr(sync.subprocess, "run", record)
+    sync.status(repo)
+
+    assert seen["GIT_TERMINAL_PROMPT"] == "0"
+    assert "BatchMode=yes" in seen["GIT_SSH_COMMAND"]
+
+
+def test_the_shape_survives_every_failure(tmp_path, repo, monkeypatch):
+    """Whatever went wrong, the page gets the same fields -- which is
+    what stops a failure being reported as a missing property."""
+    import subprocess as sp
+
+    expected = {"branch", "remote", "pending", "ahead", "behind",
+                "last_commit", "reachable", "error"}
+    assert set(sync.status(repo)) == expected
+    assert set(sync.status(tmp_path)) == expected
+
+    monkeypatch.setattr(sync.subprocess, "run",
+                        lambda *a, **k: (_ for _ in ()).throw(sp.TimeoutExpired("git", 15)))
+    assert set(sync.status(repo)) == expected
