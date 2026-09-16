@@ -36,7 +36,6 @@ import argparse
 import base64
 import hashlib
 import hmac
-import html as html_lib
 import sys
 import time
 from pathlib import Path
@@ -47,7 +46,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import dashboard
-from corpus import db, html_view, reader, search, site_env
+from corpus import db, html_view, reader, search, search_view, site_env
 from corpus.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL
 from corpus.versions import split_document_slug
 
@@ -419,90 +418,24 @@ def _unverified_notice(slug: str, section_slug: str) -> "str | None":
 def search_page(q: str = "", superseded: str = "", offset: int = 0):
     """A plain page for a plain GET form, so search works with
     JavaScript off -- which for a reference work about the law is worth
-    more than a type-ahead."""
-    include = superseded in ("1", "on", "true")
-    body = [_search_form_html(q, include)]
-    if q.strip():
-        try:
-            found = _INDEX.search(q, include_superseded=include, limit=20, offset=max(offset, 0))
-        except search.SearchUnavailable as e:
-            body.append(f"<p class='search-empty'>{html_lib.escape(str(e))}</p>")
-        else:
-            body.append(_results_html(found, q, include, max(offset, 0)))
-    return _page("Search", "".join(body), query=q)
+    more than a type-ahead.
+
+    The body is built by corpus/search_view.py, which the dashboard's own
+    search page uses too. No base prefix here: this site is served at the
+    domain root, which is the form the index already stores."""
+    body = search_view.page_body(
+        _INDEX, q, search_view.wants_superseded(superseded), offset,
+        action="/search", unavailable=search.SearchUnavailable)
+    return _page("Search", body, query=q)
 
 
 @app.get("/api/search")
 def search_api(q: str = "", superseded: str = "", offset: int = 0, limit: int = 20):
-    include = superseded in ("1", "on", "true")
     try:
-        return _INDEX.search(q, include_superseded=include,
+        return _INDEX.search(q, include_superseded=search_view.wants_superseded(superseded),
                              limit=min(max(limit, 1), 100), offset=max(offset, 0))
     except search.SearchUnavailable as e:
         raise HTTPException(503, str(e)) from e
-
-
-def _search_form_html(query: str, include: bool) -> str:
-    checked = " checked" if include else ""
-    return (
-        "<h1>Search</h1>"
-        "<form class='search-page-form' action='/search' method='get' role='search'>"
-        f"<input type='search' name='q' value='{html_lib.escape(query, quote=True)}' "
-        "placeholder='Search the corpus' autofocus>"
-        f"<label><input type='checkbox' name='superseded' value='1'{checked}> "
-        "Include superseded reprints</label>"
-        "<button type='submit'>Search</button>"
-        "</form>"
-    )
-
-
-def _results_html(found: dict, query: str, include: bool, offset: int) -> str:
-    if found.get("error"):
-        return "<p class='search-empty'>That search could not be read. Try plainer words.</p>"
-    if not found["total"]:
-        return (f"<p class='search-empty'>Nothing matches "
-                f"<strong>{html_lib.escape(query)}</strong>.</p>")
-    out = [f"<p class='search-count'><strong>{found['total']}</strong> provision(s) match "
-           f"<strong>{html_lib.escape(query)}</strong>.</p>",
-           "<ol class='search-results'>"]
-    for hit in found["results"]:
-        version = ""
-        if not hit["is_current"]:
-            version = " <span class='search-superseded'>superseded</span>"
-        as_at = f" &middot; as at {html_lib.escape(hit['as_at'])}" if hit["as_at"] else ""
-        crumb = (f"<div class='search-crumb'>{html_lib.escape(hit['breadcrumb'])}</div>"
-                 if hit["breadcrumb"] else "")
-        out.append(
-            f"<li><a href='{html_lib.escape(hit['href'], quote=True)}'>"
-            f"{html_lib.escape(hit['label'])}</a>"
-            f"<div class='search-doc'>{html_lib.escape(hit['title'])}{as_at}{version}</div>"
-            f"{crumb}"
-            + (f"<div class='search-snippet'>{hit['snippet_html']}</div>"
-               if hit["snippet_html"] else "")
-            + "</li>"
-        )
-    out.append("</ol>")
-    out.append(_pager_html(found, query, include, offset))
-    return "".join(out)
-
-
-def _pager_html(found: dict, query: str, include: bool, offset: int) -> str:
-    """Plain links, because a page of search results is a page and the
-    back button should mean what it says."""
-    from urllib.parse import urlencode
-
-    links = []
-    if offset > 0:
-        previous = {"q": query, "offset": max(offset - 20, 0)}
-        if include:
-            previous["superseded"] = "1"
-        links.append(f"<a href='/search?{urlencode(previous)}'>&larr; Previous</a>")
-    if found["truncated"]:
-        following = {"q": query, "offset": offset + 20}
-        if include:
-            following["superseded"] = "1"
-        links.append(f"<a href='/search?{urlencode(following)}'>Next &rarr;</a>")
-    return f"<nav class='search-pager'>{' '.join(links)}</nav>" if links else ""
 
 
 @app.get("/robots.txt")

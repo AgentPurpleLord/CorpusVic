@@ -297,6 +297,10 @@ class _StubIndex:
                 "label": "Section 242 Committal proceeding",
                 "breadcrumb": "Chapter 4 › Part 4.9",
                 "snippet_html": "an <mark>indictable</mark> offence",
+                "slug": "criminal-procedure-act-v114",
+                "site_slug": "criminal-procedure-act",
+                "page": "s242",
+                "fragment": "s242-1",
                 "href": "/browse/criminal-procedure-act/section/s242#s242-1",
             }],
         }

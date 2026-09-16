@@ -84,7 +84,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus import commentary, db, diffing, html_view, reader, search, sync
+from corpus import commentary, db, diffing, html_view, reader, search, search_view, sync
 from corpus.act_registry import load_act_registry
 from corpus.amendments import build_amendment_index, summarise_by_act
 from corpus.commentary import build_commentary_index
@@ -2119,6 +2119,62 @@ def legislation_resolver(citation: str):
 # that reader.py has no opinion about who is asking.
 _SOURCE = sys.modules[__name__]
 
+# The same read-only handle on the index the public site uses, which
+# reopens when a rebuild replaces the file underneath it. It matters more
+# here than there: this is the process that does the replacing.
+_SEARCH = search.Index(BASE_DIR)
+
+
+def _index() -> "search.Index":
+    """The handle, against whatever BASE_DIR is now.
+
+    Made afresh when that moves, because one built at import time goes on
+    reading the directory it was born in -- which is the real one, from a
+    test that carefully pointed everything else at a temporary copy."""
+    global _SEARCH
+    if _SEARCH.path != search.index_path(BASE_DIR):
+        _SEARCH = search.Index(BASE_DIR)
+    return _SEARCH
+
+
+def _search_box_url() -> str:
+    """Where the search box in a browse page's header submits to, or None
+    when there is no index for it to reach.
+
+    Offered only once there is something to find, because a box that
+    always answers "nothing matches" is indistinguishable from a search
+    that does not work."""
+    return _url("/search") if _index().available() else None
+
+
+@app.get("/search", response_class=HTMLResponse)
+def search_page(q: str = "", superseded: str = "", offset: int = 0):
+    """The same search the public site offers, over the same index.
+
+    Here so that a reviewer can find a provision by its words without
+    leaving the tool -- and so the feature is usable before the public
+    site is deployed at all.
+
+    Note it searches what is *published*: the index holds only works that
+    are on the public site (see corpus/search.py), so a work still being
+    worked on will not be found here. Worth knowing before concluding a
+    provision is missing."""
+    body = search_view.page_body(
+        _index(), q, search_view.wants_superseded(superseded), offset,
+        action=_url("/search"),
+        # Two things the index cannot know. Every address in it is
+        # written for a site served at the domain root, and this one is
+        # not; and it names each document the way the public site does --
+        # an Act's newest reprint at the work's own name -- while this
+        # tool serves every parse under its own, so a link built the
+        # public way lands on a document that is not there.
+        base=_BASE_PATH,
+        slug_key="slug",
+        unavailable=search.SearchUnavailable)
+    return HTMLResponse(html_view.page_shell(
+        "Search", body, base_url=None, site_prefix=_BASE_PATH,
+        search_url=_search_box_url(), search_query=q))
+
 
 @app.get("/browse/{slug}")
 def browse_redirect(slug: str):
@@ -2140,7 +2196,9 @@ def browse_index(slug: str):
             for d in related_documents(slug)
         ],
     )
-    return HTMLResponse(html_view.page_shell(title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}")))
+    return HTMLResponse(html_view.page_shell(
+        title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}"),
+        search_url=_search_box_url()))
 
 
 @app.get("/browse/{slug}/section/{section_slug}", response_class=HTMLResponse)
@@ -2159,7 +2217,8 @@ def browse_section(slug: str, section_slug: str):
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
     return HTMLResponse(html_view.page_shell(
-        title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}"), reader=True))
+        title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}"), reader=True,
+        search_url=_search_box_url()))
 
 
 @app.get("/browse/{slug}/endnotes", response_class=HTMLResponse)
@@ -2175,7 +2234,9 @@ def browse_endnotes(slug: str):
     body = reader.endnotes_page(_SOURCE, slug, _url(f"/browse/{slug}"))
     if body is None:
         raise HTTPException(404, f"{slug!r} has no endnotes -- re-parse it if it's an Act.")
-    return HTMLResponse(html_view.page_shell(f"{title} \u2014 Endnotes", body, _preview_bar(slug), base_url=_url(f"/browse/{slug}")))
+    return HTMLResponse(html_view.page_shell(
+        f"{title} \u2014 Endnotes", body, _preview_bar(slug),
+        base_url=_url(f"/browse/{slug}"), search_url=_search_box_url()))
 
 
 @app.get("/api/browse/{slug}/preview")

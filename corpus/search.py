@@ -382,6 +382,18 @@ class Index:
         return search(self.connection(), raw, include_superseded, limit, offset)
 
 
+def address_of(slug: str, page: str, fragment: str = "") -> str:
+    """Where a hit lives, as a path with no prefix on it.
+
+    One function so the two callers cannot compose it differently, and
+    `slug` is a parameter because they do not agree on which name for the
+    document to use: the public site serves an Act's newest reprint at
+    the work's own name, and the admin tool serves every parse under its
+    own."""
+    address = f"/browse/{slug}/section/{page}"
+    return f"{address}#{fragment}" if fragment else address
+
+
 def _snippet_html(marked: str) -> str:
     """The highlighted extract, as HTML.
 
@@ -413,7 +425,7 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
             f"SELECT count(*) FROM node_fts f JOIN doc d ON d.id = f.doc_id WHERE {where}",
             params).fetchone()[0]
         rows = conn.execute(
-            f"""SELECT d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
+            f"""SELECT d.slug, d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
                        f.page, f.fragment, f.label, f.breadcrumb, f.heading,
                        snippet(node_fts, 1, '{_MARK_OPEN}', '{_MARK_CLOSE}', '…', 18) AS body_snip,
                        bm25(node_fts, 8.0, 1.0) AS rank
@@ -431,9 +443,6 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
 
     results = []
     for row in rows:
-        address = f"/browse/{row['site_slug']}/section/{row['page']}"
-        if row["fragment"]:
-            address += f"#{row['fragment']}"
         results.append({
             "title": row["title"],
             "kind": row["kind"],
@@ -446,7 +455,18 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
             # label above already shows those words, and repeating them
             # underneath reads as a bug rather than as an extract.
             "snippet_html": _snippet_html(row["body_snip"] or ""),
-            "href": address,
+            # Both names for the document, because the two things that
+            # show these results address it differently. The public site
+            # serves an Act's newest reprint at the work's own name, so
+            # site_slug is its address; the admin tool serves every parse
+            # under its own name, so a link there built from site_slug
+            # points at a document that does not exist. Which to use is
+            # the caller's -- see corpus/search_view.py's `slug_key`.
+            "slug": row["slug"],
+            "site_slug": row["site_slug"],
+            "page": row["page"],
+            "fragment": row["fragment"],
+            "href": address_of(row["site_slug"], row["page"], row["fragment"]),
         })
     return {"query": raw, "parsed": query, "total": total, "results": results,
             "truncated": total > offset + len(results)}

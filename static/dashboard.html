@@ -300,9 +300,16 @@
   </section>
 
   <div id="tools-row">
+    <a class="btn" href="search">Search the corpus</a>
     <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
-    <button class="btn" onclick="rebuildSite()" id="site-rebuild">Rebuild the public site</button>
-    <button class="btn" onclick="rebuildSearch()" id="search-rebuild">Rebuild search index</button>
+    <!-- Named for what it does now. The public site reads the database
+         directly, so nothing here has to run for a review decision to
+         reach it -- and a button called "Rebuild the public site" is
+         exactly what would make somebody believe otherwise. -->
+    <button class="btn" onclick="rebuildSite()" id="site-rebuild"
+            title="The live site needs no rebuild. This writes the static copy in _site/ -- the archive, and the rollback.">Rebuild the offline archive</button>
+    <button class="btn" onclick="rebuildSearch()" id="search-rebuild"
+            title="Search reads this index. Rebuilt automatically when you publish or withdraw a work.">Rebuild search index</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
     <span class="site-state" id="site-state"></span>
     <span class="site-state" id="search-state"></span>
@@ -1048,11 +1055,13 @@ async function rebuildSearch() {
 }
 
 // ---------------------------------------------------------------------
-// Rebuilding the published site
+// Rebuilding the offline archive
 // ---------------------------------------------------------------------
-// The public site is a static export. Nothing about adding an Act or
-// reviewing one reaches it until this runs, which is why a new Act can
-// be sitting in the dashboard and nowhere on corpusvic.au.
+// This used to be how the public site got its content. It is not any
+// more: the site reads the database directly, so a review decision is
+// live the moment it is saved. What this builds is the static copy in
+// _site/ -- an archive that survives this server, and the thing Caddy
+// falls back to if the live site ever has to be switched off.
 
 async function rebuildSite() {
   const button = document.getElementById("site-rebuild");
@@ -1061,7 +1070,7 @@ async function rebuildSite() {
     const res = await fetch("api/site/rebuild", { method: "POST" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || "Couldn't start the rebuild.");
-    toast(data.message || "Rebuilding.");
+    toast(data.message || "Rebuilding the archive.");
     pollSite();
   } catch (e) {
     button.disabled = false;
@@ -1078,23 +1087,23 @@ async function pollSite(announce = true) {
     const data = await res.json();
     button.disabled = data.running;
     if (data.running) {
-      state.textContent = "Rebuilding the site\u2026";
+      state.textContent = "Rebuilding the archive\u2026";
       setTimeout(() => pollSite(announce), 3000);
       return;
     }
     if (data.exit_code === 0) {
-      state.textContent = "Site rebuilt.";
-      if (announce) toast("The published site is up to date.");
+      state.textContent = "Archive rebuilt.";
+      if (announce) toast("The offline archive is up to date.");
     } else if (data.exit_code !== null && data.exit_code !== undefined) {
       // The reason is only ever on the build's own stdout -- a refusal
       // to replace a gated site with an open one, most likely.
-      state.textContent = "The last rebuild failed.";
+      state.textContent = "The last archive build failed.";
       if (announce) toast("Rebuild failed -- see console for what it said.", true);
       console.error(data.log);
     } else if (data.last_built) {
-      state.textContent = `Site last built ${new Date(data.last_built).toLocaleString()}`;
+      state.textContent = `Archive last built ${new Date(data.last_built).toLocaleString()}`;
     } else {
-      state.textContent = "The site hasn't been built on this server yet.";
+      state.textContent = "No offline archive built on this server yet.";
     }
   } catch (e) { /* the row is a convenience; a failed poll is not worth a toast */ }
 }

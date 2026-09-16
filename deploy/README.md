@@ -187,7 +187,18 @@ sudo -u dashboard .venv/bin/python -m corpus.search --build
 ```
 
 Until it exists the site works normally and the search page says the
-index has not been built yet.
+index has not been built yet. The search box appears once there is one:
+a box that can only ever answer "nothing matches" is indistinguishable
+from a search that does not work.
+
+**The admin tool searches too**, over the same index, from the box in the
+header of any Browse page or the "Search the corpus" button on the
+dashboard. So you can use search before the public site is deployed at
+all -- a pull, a restart and a build is the whole of it.
+
+It searches what is *published*, because that is all the index holds. A
+work you have not put on the site will not be found there, which is worth
+knowing before concluding a provision is missing.
 
 ### The offline archive
 
