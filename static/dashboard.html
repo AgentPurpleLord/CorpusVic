@@ -191,6 +191,16 @@
   .modal .row > * { flex: 1; }
   .modal .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .modal .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .link-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--border);
+  }
+  .link-row:last-of-type { border-bottom: 0; margin-bottom: 8px; }
+  .modal select {
+    width: 100%; font-family: inherit; font-size: 13px; padding: 6px 8px;
+    border: 1px solid var(--border); border-radius: 0;
+    background: var(--bg); color: var(--fg);
+  }
   .modal .warning {
     background: var(--warning-bg); color: var(--warning-fg); border: 1px solid var(--warning-border);
     border-radius: 0; padding: 8px 10px; font-size: 12.5px; margin-bottom: 6px;
@@ -225,6 +235,9 @@
 </head>
 <body>
 
+<!-- Filled from /api/profiles on load; see loadProfiles(). -->
+<datalist id="profile-options"></datalist>
+
 <header>
   <h1>Legislation pipeline dashboard</h1>
   <div class="stat" id="summary"></div>
@@ -251,7 +264,7 @@
   </section>
 
   <div id="tools-row">
-    <button class="btn" onclick="openModal('link-modal')">Link a Bill to its Act / EM</button>
+    <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
   </div>
   <div id="acts"></div>
@@ -274,8 +287,13 @@
       </select>
 
       <div id="act-bill-fields">
-        <label>Profile (optional -- matches corpus/profiles/&lt;name&gt;.yaml)</label>
-        <input type="text" name="profile" placeholder="e.g. criminal-procedure-act">
+        <label>Profile</label>
+        <!-- A list, not a text box: the names are few and getting one
+             wrong is not a small mistake. Still an input rather than a
+             select, so a profile added to the repo but not yet known to
+             this page can still be typed. -->
+        <input type="text" name="profile" list="profile-options" autocomplete="off"
+               placeholder="Leave blank to work it out from the document">
 
         <div class="row">
           <div>
@@ -315,8 +333,13 @@
       </select>
 
       <div id="parse-act-bill-fields">
-        <label>Profile (optional -- matches corpus/profiles/&lt;name&gt;.yaml)</label>
-        <input type="text" name="profile" placeholder="e.g. criminal-procedure-act">
+        <label>Profile</label>
+        <!-- A list, not a text box: the names are few and getting one
+             wrong is not a small mistake. Still an input rather than a
+             select, so a profile added to the repo but not yet known to
+             this page can still be typed. -->
+        <input type="text" name="profile" list="profile-options" autocomplete="off"
+               placeholder="Leave blank to work it out from the document">
 
         <div class="row">
           <div>
@@ -366,15 +389,22 @@
 <!-- Bill-link modal -->
 <div class="overlay" id="link-modal">
   <div class="modal">
-    <h2>Link a Bill to its Act (and EM, if parsed)</h2>
+    <h2>Associate a Bill, its Act, and its Explanatory Memorandum</h2>
+
+    <!-- What is already associated, and a way out of it. Linking by hand
+         means getting it wrong by hand, and the only way back used to be
+         deleting files on the server. -->
+    <div id="link-existing"></div>
+
     <form id="link-form">
-      <label>Bill slug</label>
-      <input type="text" name="bill_slug" placeholder="e.g. criminal-procedure-bill-2008" required>
-      <label>Act slug</label>
-      <input type="text" name="act_slug" placeholder="e.g. criminal-procedure-act" required>
-      <label>EM slug (optional)</label>
-      <input type="text" name="em_slug" placeholder="e.g. criminal-procedure-bill-2008-em">
-      <div class="hint">Slugs come from the Act cards below, or from a PDF's filename (lowercased, spaces/punctuation to hyphens).</div>
+      <label>Bill</label>
+      <select name="bill_slug" id="link-bill" required></select>
+      <label>Act it became</label>
+      <select name="act_slug" id="link-act" required></select>
+      <label>Explanatory Memorandum (optional)</label>
+      <select name="em_slug" id="link-em"></select>
+      <div class="hint">Only parsed documents can be associated -- linking matches their
+        provisions against each other, so both have to have been read first.</div>
       <div class="footer">
         <button type="button" class="btn" onclick="closeModal('link-modal')">Cancel</button>
         <button type="submit" class="btn primary">Link</button>
@@ -464,6 +494,78 @@ document.getElementById("theme-toggle-btn").onclick = () => {
 };
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
+
+// ---------------------------------------------------------------------
+// Associating a Bill, its Act, and its Explanatory Memorandum
+// ---------------------------------------------------------------------
+// Three slugs typed from memory, which is how they were asked for
+// before: a slug is an exact string nobody carries in their head, and a
+// near miss is silently a different document. The documents are already
+// on this page, so they are offered.
+
+function fillDocumentPicker(id, kind, blankLabel) {
+  const select = document.getElementById(id);
+  const chosen = select.value;
+  // Only parsed documents: linking matches provisions against each
+  // other, so an unparsed one has nothing to match.
+  const options = ACTS.filter((a) => a.kind === kind && a.parsed)
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+  select.innerHTML = (blankLabel ? `<option value="">${blankLabel}</option>` : "")
+    + options.map((a) => `<option value="${a.slug}">${a.slug}</option>`).join("");
+  if (chosen) select.value = chosen;
+  // A prompt is not a choice, so it must not satisfy `required`.
+  if (blankLabel) select.querySelector("option[value='']").disabled = (id !== "link-em");
+  if (!options.length) {
+    select.innerHTML = `<option value="">No parsed ${kind} to choose from</option>`;
+  }
+}
+
+function renderExistingLinks() {
+  const box = document.getElementById("link-existing");
+  const groups = (BILL_LINKS || []).filter((g) => g.bill_slug);
+  if (!groups.length) {
+    box.innerHTML = '<div class="hint">Nothing is associated yet.</div>';
+    return;
+  }
+  box.innerHTML = '<label>Already associated</label>' + groups.map((g) => `
+    <div class="link-row">
+      <span>${g.bill_slug}${g.act_work ? " &rarr; " + g.act_work : ""}${g.em_slug ? " &middot; " + g.em_slug : ""}</span>
+      <button type="button" class="btn small" onclick="removeLink('${g.bill_slug}')">Remove</button>
+    </div>`).join("");
+}
+
+async function openLinkModal() {
+  openModal("link-modal");
+  document.getElementById("link-log-wrap").style.display = "none";
+  // Each starts on a prompt rather than on whichever document sorts
+  // first. A pre-selected Act is a wrong answer that looks like an
+  // answer: press Link without touching it and the Bill is associated
+  // with whatever happened to be alphabetically first.
+  fillDocumentPicker("link-bill", "bill", "Choose a Bill\u2026");
+  fillDocumentPicker("link-act", "act", "Choose the Act it became\u2026");
+  fillDocumentPicker("link-em", "em", "None");
+  renderExistingLinks();
+}
+
+async function removeLink(billSlug) {
+  if (!confirm(`Forget what ${billSlug} is associated with?`)) return;
+  const body = new FormData();
+  body.append("bill_slug", billSlug);
+  const res = await fetch("api/bill-link/remove", { method: "POST", body });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { toast(data.detail || "Couldn't remove it.", true); return; }
+  toast("Association removed.");
+  await loadActs();
+  renderExistingLinks();
+}
+
+async function loadProfiles() {
+  try {
+    const { profiles } = await (await fetch("api/profiles")).json();
+    document.getElementById("profile-options").innerHTML =
+      profiles.map((p) => `<option value="${p}">`).join("");
+  } catch (e) { /* the field still takes a typed name */ }
+}
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
 
 async function logout() {
@@ -1045,6 +1147,7 @@ async function stopAiScan() {
 
 loadActs();
 loadSync();
+loadProfiles();
 </script>
 </body>
 </html>

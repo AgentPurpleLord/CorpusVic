@@ -231,6 +231,15 @@ def profile_for(act_slug: str, base_dir: "str | Path | None" = None) -> "str | N
     return None
 
 
+def available_profiles() -> list[str]:
+    """Every profile that exists, for offering rather than having to be
+    remembered. TEMPLATE is the documented blank to copy, not a profile
+    any document is parsed with."""
+    return sorted(
+        path.stem for path in PROFILES_DIR.glob("*.y*ml") if path.stem != "TEMPLATE"
+    )
+
+
 def profile_exists(name: str) -> bool:
     """Whether a profile file of this name exists. run_pipeline.py uses
     this to apply an Act's own profile automatically -- a file named

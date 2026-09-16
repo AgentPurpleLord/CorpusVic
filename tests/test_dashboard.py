@@ -702,3 +702,79 @@ def test_the_sync_endpoints_are_behind_the_login(_at_admin):
 
     assert client.get("/admin/api/sync/status").status_code == 401
     assert client.post("/admin/api/sync/push", json={}).status_code == 401
+
+
+# ---------------------------------------------------------------------
+# Uploading and associating documents from the dashboard
+# ---------------------------------------------------------------------
+
+def test_the_offered_profiles_leave_out_the_template():
+    """TEMPLATE.yaml is the documented blank to copy, not something any
+    document is parsed with -- offering it invites a parse against an
+    empty profile, which is worse than no profile because it looks
+    deliberate."""
+    from corpus.profiles import available_profiles
+
+    names = available_profiles()
+
+    assert "TEMPLATE" not in names
+    assert "criminal-procedure-act" in names
+
+
+def test_the_profiles_endpoint_answers_with_them(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    client = TestClient(dashboard.app)
+
+    assert "criminal-procedure-act" in client.get("/api/profiles").json()["profiles"]
+
+
+def _link_file(dir_path, name, **fields):
+    (dir_path / name).write_text(json.dumps({**fields, "links": []}), encoding="utf-8")
+
+
+def test_removing_an_association_takes_both_of_its_files(tmp_path, monkeypatch):
+    """A Bill's link to its Act and its link to its EM are written as
+    separate documents, so forgetting one and keeping the other leaves a
+    half-association -- which reads as a real one everywhere that looks."""
+    from fastapi.testclient import TestClient
+
+    links = tmp_path / "data" / "bill_links"
+    links.mkdir(parents=True)
+    _link_file(links, "bill-to-act.json", bill_slug="a-bill", act_slug="an-act")
+    _link_file(links, "bill-em.json", bill_slug="a-bill", em_slug="an-em")
+    _link_file(links, "other.json", bill_slug="other-bill", act_slug="other-act")
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    dashboard._DASHBOARD_USERNAME = None
+    client = TestClient(dashboard.app)
+
+    res = client.post("/api/bill-link/remove", data={"bill_slug": "a-bill"})
+
+    assert res.status_code == 200
+    assert sorted(res.json()["removed"]) == ["bill-em.json", "bill-to-act.json"]
+    assert [p.name for p in links.glob("*.json")] == ["other.json"], "another Bill's is untouched"
+
+
+def test_removing_an_association_that_is_not_there_says_so(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    (tmp_path / "data" / "bill_links").mkdir(parents=True)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    dashboard._DASHBOARD_USERNAME = None
+    client = TestClient(dashboard.app)
+
+    assert client.post("/api/bill-link/remove", data={"bill_slug": "never-linked"}).status_code == 404
+
+
+def test_removing_an_association_validates_the_slug(tmp_path, monkeypatch):
+    """It reaches the filesystem, so the name has to be a slug and not a
+    path."""
+    from fastapi.testclient import TestClient
+
+    (tmp_path / "data" / "bill_links").mkdir(parents=True)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    dashboard._DASHBOARD_USERNAME = None
+    client = TestClient(dashboard.app)
+
+    assert client.post("/api/bill-link/remove", data={"bill_slug": "../../etc"}).status_code == 400

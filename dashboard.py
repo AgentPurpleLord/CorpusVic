@@ -88,7 +88,7 @@ from corpus.amendments import build_amendment_index, summarise_by_act
 from corpus.commentary import build_commentary_index
 from corpus.extract import slugify
 from corpus.link_targets import load_known_acts
-from corpus.profiles import profile_for
+from corpus.profiles import available_profiles, profile_for
 from corpus.ai.backend import OllamaBackend, pull_model
 from corpus.versions import document_slug, read_front_matter, split_document_slug
 from review import _resume_point, build_current_nodes, group_into_units
@@ -748,6 +748,41 @@ def index():
 @app.get("/api/acts")
 def list_acts():
     return [act_status(slug) for slug in discover_slugs()]
+
+
+@app.get("/api/profiles")
+def list_profiles():
+    """The pattern profiles that exist, so the upload form can offer them
+    instead of asking for one to be typed from memory. A name that is
+    wrong is not a small mistake -- parsing the Criminal Procedure Act
+    without its profile stops "Part 2.1" matching as a Part at all."""
+    return {"profiles": available_profiles()}
+
+
+@app.post("/api/bill-link/remove")
+def bill_unlink(bill_slug: str = Form(...)):
+    """Forgets what a Bill was linked to.
+
+    Linking by hand means getting it wrong by hand, and the only way back
+    used to be deleting files on the server. Removes every link document
+    that names this Bill -- the Bill-to-Act one and the EM one are
+    written separately (see _load_bill_link_docs), and a half-removed
+    link is worse than either state."""
+    _validate_slug(bill_slug)
+    links_dir = BASE_DIR / "data" / "bill_links"
+    removed = []
+    for path in sorted(links_dir.glob("*.json")) if links_dir.is_dir() else []:
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(doc, dict) and doc.get("bill_slug") == bill_slug:
+            path.unlink()
+            removed.append(path.name)
+    if not removed:
+        raise HTTPException(404, f"No links recorded for {bill_slug!r}.")
+    return {"ok": True, "removed": removed,
+            "log": "Removed " + ", ".join(removed)}
 
 
 def _bill_link_groups() -> list[dict]:
