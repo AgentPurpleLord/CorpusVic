@@ -348,6 +348,39 @@ dig +short corpusvic.au        # expect the VPS's own IP
 If it returns something else, that is the answer, and nothing on the
 server can fix it.
 
+### "fatal: detected dubious ownership"
+
+git refusing to work in a repository owned by somebody other than the
+user running it. The checkout belongs to `dashboard` (step 3), so this is
+what you get running git as yourself or under plain `sudo`.
+
+Run it as the owner, which is what every git command in this guide does:
+
+```bash
+sudo -u dashboard git -C /opt/corpusvic fetch
+```
+
+**Do not take git's own advice here.** It suggests adding a
+`safe.directory` exception, which gets the command through and leaves
+every file it writes owned by whoever ran it -- a `.git/index` or a
+freshly fetched pack that the service can then no longer write. The
+failure surfaces later, somewhere else, as a dashboard that cannot commit.
+
+If that has already happened -- an earlier `sudo git pull`, say -- put the
+ownership back:
+
+```bash
+sudo chown -R dashboard:dashboard /opt/corpusvic
+sudo -u dashboard git -C /opt/corpusvic status      # expect it to just work
+```
+
+Worth checking for stragglers, since one root-owned file is enough to
+break a commit:
+
+```bash
+sudo find /opt/corpusvic ! -user dashboard -print -quit
+```
+
 ### Two traps worth knowing before you start
 
 **The bare IP will not load, even when everything is right.** The site

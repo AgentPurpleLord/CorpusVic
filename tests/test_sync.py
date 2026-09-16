@@ -283,3 +283,25 @@ def test_the_shape_survives_every_failure(tmp_path, repo, monkeypatch):
     monkeypatch.setattr(sync.subprocess, "run",
                         lambda *a, **k: (_ for _ in ()).throw(sp.TimeoutExpired("git", 15)))
     assert set(sync.status(repo)) == expected
+
+
+def test_dubious_ownership_is_explained_rather_than_passed_on(repo, monkeypatch):
+    """git's own advice here -- add a safe.directory exception -- gets
+    the command through and leaves the files it writes owned by whoever
+    ran it, which is how the service later finds a checkout it cannot
+    write to. The message says so."""
+    import subprocess as sp
+
+    def dubious(cmd, **kwargs):
+        return sp.CompletedProcess(cmd, 128, "", "fatal: detected dubious ownership in repository")
+
+    monkeypatch.setattr(sync.subprocess, "run", dubious)
+    state = sync.status(repo)
+
+    assert "dubious ownership" in state["error"], "git's own words are kept"
+    assert "owned by another user" in state["error"]
+    assert "chown -R dashboard" in state["error"], "and how to put it right"
+
+
+def test_an_ordinary_git_error_is_left_as_git_put_it():
+    assert sync.explain("fatal: couldn't find remote ref main") == "fatal: couldn't find remote ref main"

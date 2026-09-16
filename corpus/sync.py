@@ -89,10 +89,28 @@ def _git(repo: Path, *args: str, network: bool = False) -> subprocess.CompletedP
         raise SyncError("git isn't installed, or isn't on this process's PATH.") from e
 
 
+def explain(message: str) -> str:
+    """git's own words, plus what they mean here where that differs.
+
+    Only for the ones whose obvious reading sends you the wrong way. The
+    rest are left exactly as git put them."""
+    if "dubious ownership" in message:
+        return (
+            message
+            + "\n\nThis is git refusing to work in a repository owned by another user. The "
+            "advice it prints -- adding a safe.directory exception -- lets the command "
+            "through but leaves the files it writes owned by whoever ran it, which is how "
+            "the service later finds a checkout it cannot write to. Run git as the owner "
+            "instead (`sudo -u dashboard git ...`), and if the ownership is already mixed, "
+            "put it back with `sudo chown -R dashboard:dashboard /opt/corpusvic`."
+        )
+    return message
+
+
 def _git_ok(repo: Path, *args: str) -> str:
     result = _git(repo, *args)
     if result.returncode != 0:
-        raise SyncError((result.stderr or result.stdout).strip() or f"git {args[0]} failed")
+        raise SyncError(explain((result.stderr or result.stdout).strip()) or f"git {args[0]} failed")
     return result.stdout.strip()
 
 
@@ -111,7 +129,7 @@ def pending_changes(repo: Path) -> list[str]:
     every path after that loses its first letter."""
     result = _git(repo, "status", "--porcelain", "--", *TRACKED_PATHS)
     if result.returncode != 0:
-        raise SyncError((result.stderr or result.stdout).strip() or "git status failed")
+        raise SyncError(explain((result.stderr or result.stdout).strip()) or "git status failed")
     paths = []
     for line in result.stdout.splitlines():
         if not line.strip():
@@ -158,7 +176,7 @@ def status(repo: Path) -> dict:
         # would mean "nothing had arrived by the last time anyone looked".
         fetched = _git(repo, "fetch", "origin", info["branch"], network=True)
         if fetched.returncode != 0:
-            info["error"] = f"Couldn't reach the remote: {(fetched.stderr or '').strip()}"
+            info["error"] = f"Couldn't reach the remote: {explain((fetched.stderr or '').strip())}"
             return info
         info["reachable"] = True
         counts = _git(repo, "rev-list", "--left-right", "--count", f"origin/{info['branch']}...HEAD")
