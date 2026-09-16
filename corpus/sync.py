@@ -149,6 +149,76 @@ def pending_changes(repo: Path) -> list[str]:
     return paths
 
 
+def clear_stale_sidecars(repo: Path) -> list[str]:
+    """Removes a -wal and -shm left beside a database git has just
+    replaced.
+
+    Tidying, not the protection -- and worth being exact about which,
+    because the two are easy to confuse and only one of them works.
+
+    What protects a pull is the checkpoint at the top of it. Measured, on
+    a database another process was holding open while its file was
+    replaced: with no checkpoint the pulled data read back as the data
+    that was there before, whether or not these files had been deleted;
+    with the checkpoint it read back correctly, again either way. Deleting
+    the files cannot help on its own, because the holder's copy of the log
+    is mapped into its memory and gets written back when it closes.
+
+    What this does catch is a log orphaned by a process that died -- a
+    review child that was killed, a machine that lost power. Safe here
+    only because the checkpoint ran first and emptied the log: deleting a
+    write-ahead log that legitimately belongs to the current file would
+    throw away committed transactions, which is why this is called
+    nowhere else."""
+    removed = []
+    for name in ("legislation.db-wal", "legislation.db-shm"):
+        path = Path(repo) / "data" / name
+        try:
+            if path.exists():
+                path.unlink()
+                removed.append(name)
+        except OSError:
+            # Another process has it open on a platform that will not
+            # unlink it. Nothing to do but let the check below speak.
+            pass
+    return removed
+
+
+def database_is_sound(repo: Path) -> "str | None":
+    """None if the review database is intact, or what sqlite said.
+
+    Run after anything replaces it. It costs milliseconds on a file this
+    size, and it is the difference between a corrupt database noticed now
+    and one noticed a week later by a reviewer whose work will not
+    save."""
+    import sqlite3
+
+    path = Path(repo) / "data" / "legislation.db"
+    if not path.exists():
+        return None
+    # Only a file that really is a sqlite database. The damage this
+    # check exists to catch -- a stale write-ahead log replayed over a
+    # newly pulled file -- is page-level and always leaves the header
+    # intact, so anything without one was never a database and is a
+    # different problem with a different cause. Refusing a pull over it
+    # would be this function having an opinion about what the repository
+    # contains, which is not its job.
+    try:
+        if path.read_bytes()[:16] != b"SQLite format 3\x00":
+            return None
+    except OSError as e:
+        return str(e)
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            answer = conn.execute("PRAGMA integrity_check").fetchone()
+            return None if answer and answer[0] == "ok" else (answer[0] if answer else "no answer")
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError as e:
+        return str(e)
+
+
 def status(repo: Path) -> dict:
     """Where this checkout stands against its remote, for a page that has
     to say what a push would do before anyone presses it.
@@ -330,6 +400,17 @@ def pull(repo: Path) -> dict:
     merged = _git(repo, "merge", "--ff-only", f"origin/{state['branch']}")
     if merged.returncode != 0:
         raise SyncError(explain((merged.stderr or merged.stdout).strip()) or "git merge failed")
+    # git has just written a new database. Anything still beside it
+    # describes the one that was there before -- see clear_stale_sidecars.
+    clear_stale_sidecars(repo)
+    broken = database_is_sound(repo)
+    if broken:
+        raise SyncError(
+            "The pull completed, but the review database it brought will not open: "
+            f"{broken}\n\nNothing is lost -- what was pulled is in git. Restore it with "
+            "`git checkout -- data/legislation.db` after removing any "
+            "data/legislation.db-wal and -shm beside it."
+        )
 
     changed = []
     if was:
@@ -383,6 +464,10 @@ def discard(repo: Path) -> dict:
     restored = _git(repo, "checkout", "HEAD", "--", *TRACKED_PATHS)
     if restored.returncode != 0:
         raise SyncError(explain((restored.stderr or restored.stdout).strip()) or "git checkout failed")
+    clear_stale_sidecars(repo)
+    broken = database_is_sound(repo)
+    if broken:
+        raise SyncError(f"The database was restored but will not open: {broken}")
 
     kept = f" The previous database is in {BACKUP_DIR}/{backup.name}." if backup else ""
     return {

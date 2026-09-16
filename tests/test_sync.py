@@ -466,3 +466,165 @@ def test_head_is_the_current_commit(repo):
 
 def test_head_of_somewhere_that_is_not_a_repository_is_none(tmp_path):
     assert sync.head(tmp_path) is None
+
+
+# ---------------------------------------------------------------------------
+# The write-ahead log left beside a database git just replaced
+# ---------------------------------------------------------------------------
+
+
+def _wal_database(path, rows, table="t"):
+    """A database in WAL mode holding `rows` rows."""
+    import sqlite3
+
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {table} (x TEXT)")
+    conn.executemany(f"INSERT INTO {table} VALUES (?)", [(f"row {i}",) for i in range(rows)])
+    conn.commit()
+    return conn
+
+
+def test_a_stale_write_ahead_log_makes_a_pull_a_lie(tmp_path):
+    """The failure this guards against, demonstrated rather than
+    asserted about.
+
+    sqlite tidies the -wal away on the *last* close, and the dashboard is
+    not the only thing holding the database open. When something else
+    does, the log outlives the file it belongs to, git writes a new
+    database beside it, and sqlite replays the old log over the new
+    file -- so the pull reports success and the data does not change."""
+    import shutil
+    import sqlite3
+
+    data = tmp_path / "data"
+    data.mkdir()
+    live = data / "legislation.db"
+    writer = _wal_database(live, 500)
+    held = sqlite3.connect(live)          # something else has it open
+    held.execute("SELECT count(*) FROM t").fetchone()
+    writer.close()
+    assert (data / "legislation.db-wal").exists(), "the sidecar should have survived"
+
+    # What git does when it brings in a newer database.
+    incoming = tmp_path / "incoming.db"
+    _wal_database(incoming, 900).close()
+    shutil.copy(incoming, live)
+    held.close()
+
+    conn = sqlite3.connect(f"file:{live}?mode=ro", uri=True)
+    assert conn.execute("SELECT count(*) FROM t").fetchone()[0] == 500, (
+        "expected the stale log to hide the pulled data")
+    conn.close()
+
+
+def test_the_checkpoint_is_what_protects_a_pull(tmp_path):
+    """Which of the two guards actually works, measured rather than
+    assumed -- they are easy to confuse and only one of them does
+    anything.
+
+    The database is replaced while another process holds it open, which
+    is the real sequence: the public site and the review children run
+    straight through a pull. Without the checkpoint the pulled data is
+    lost whether or not the sidecars were deleted, because the holder's
+    copy of the log is in its memory. With it, the data survives."""
+    import shutil
+    import sqlite3
+
+    def attempt(checkpoint, clear):
+        root = tmp_path / f"c{int(checkpoint)}{int(clear)}"
+        (root / "data").mkdir(parents=True)
+        live = root / "data" / "legislation.db"
+        writer = _wal_database(live, 500)
+        held = sqlite3.connect(live)
+        held.execute("SELECT count(*) FROM t").fetchone()
+        writer.close()
+
+        if checkpoint:
+            conn = sqlite3.connect(live)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.close()
+
+        incoming = root / "incoming.db"
+        _wal_database(incoming, 900).close()
+        shutil.copy(incoming, live)          # what git does to the file
+        if clear:
+            sync.clear_stale_sidecars(root)
+        held.close()
+
+        conn = sqlite3.connect(f"file:{live}?mode=ro", uri=True)
+        try:
+            return conn.execute("SELECT count(*) FROM t").fetchone()[0]
+        finally:
+            conn.close()
+
+    assert attempt(checkpoint=False, clear=False) == 500, "the hazard"
+    assert attempt(checkpoint=False, clear=True) == 500, "deleting the files does not help"
+    assert attempt(checkpoint=True, clear=False) == 900, "the checkpoint is the protection"
+    assert attempt(checkpoint=True, clear=True) == 900
+
+
+def test_clearing_sidecars_that_are_not_there_is_not_an_error(tmp_path):
+    (tmp_path / "data").mkdir()
+    assert sync.clear_stale_sidecars(tmp_path) == []
+
+
+def test_a_sound_database_reports_nothing(tmp_path):
+    data = tmp_path / "data"
+    data.mkdir()
+    _wal_database(data / "legislation.db", 10).close()
+    assert sync.database_is_sound(tmp_path) is None
+
+
+def test_a_database_that_will_not_open_is_reported(tmp_path):
+    """Corruption noticed now rather than a week later by a reviewer
+    whose work will not save.
+
+    Damaged in the shape this actually happens in: a real database whose
+    pages have been scribbled on, header intact. That is what a replayed
+    stale log leaves behind."""
+    data = tmp_path / "data"
+    data.mkdir()
+    live = data / "legislation.db"
+    _wal_database(live, 2000).close()
+    raw = bytearray(live.read_bytes())
+    raw[4096:20000] = b"\xff" * (20000 - 4096)   # pages, not the header
+    live.write_bytes(bytes(raw))
+
+    assert sync.database_is_sound(tmp_path) is not None
+
+
+def test_something_that_was_never_a_database_is_not_this_checks_business(tmp_path):
+    """A replayed log is page-level damage and always leaves the header
+    intact. A file without one was never a database, which is a different
+    problem with a different cause -- and refusing a pull over it would
+    be this check having an opinion about what the repository holds."""
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "legislation.db").write_bytes(b"not a database at all")
+
+    assert sync.database_is_sound(tmp_path) is None
+
+
+def test_no_database_at_all_is_not_a_fault(tmp_path):
+    (tmp_path / "data").mkdir()
+    assert sync.database_is_sound(tmp_path) is None
+
+
+def test_a_pull_clears_the_sidecars_it_finds(repo, remote, tmp_path):
+    """End to end: the real pull, against a real remote, with a stale
+    log sitting beside the database it is about to replace."""
+    # Ignored the way the real repository ignores them, or they would be
+    # uncommitted changes under data/ and the pull would refuse.
+    (repo / ".gitignore").write_text("data/legislation.db-wal\ndata/legislation.db-shm\n")
+    _git(repo, "add", ".gitignore")
+    _git(repo, "commit", "-m", "Ignore the sidecars")
+    _git(repo, "push", "origin", "main")
+    (repo / "data" / "legislation.db-wal").write_bytes(b"stale log")
+    (repo / "data" / "legislation.db-shm").write_bytes(b"stale shm")
+    _commit_elsewhere(tmp_path, remote)
+
+    sync.pull(repo)
+
+    assert not (repo / "data" / "legislation.db-wal").exists()
+    assert not (repo / "data" / "legislation.db-shm").exists()

@@ -241,9 +241,24 @@ def _rows_for_document(source, slug: str, html_view):
         }
 
 
+def corpus_dir(source, fallback) -> Path:
+    """Where the documents are read from, which is not always where the
+    index is written to.
+
+    The source owns the corpus and knows where it keeps it. Assuming the
+    two directories are the same held for the dashboard, where they are,
+    and silently indexed nothing anywhere else -- a test building an
+    index into a temporary directory got an empty one, and an empty index
+    is indistinguishable from a search that finds nothing."""
+    return Path(getattr(source, "BASE_DIR", fallback))
+
+
 def rebuild(base_dir, source=None, published=None) -> dict:
     """Throws the index away and builds it again from what is on the
     site.
+
+    `base_dir` is where the index is written. The documents come from
+    `source`, wherever it keeps them.
 
     Written to a temporary file and moved into place, so a reader never
     opens a half-built index. Returns what it did, for whoever pressed
@@ -254,9 +269,10 @@ def rebuild(base_dir, source=None, published=None) -> dict:
         import dashboard as source  # the module that owns the document lookups
 
     base_dir = Path(base_dir)
-    works = db.published_works(base_dir) if published is None else set(published)
+    corpus = corpus_dir(source, base_dir)
+    works = db.published_works(corpus) if published is None else set(published)
     slugs = [slug for slug in source.discover_slugs()
-             if (base_dir / "data" / "parsed" / f"{slug}.json").exists()
+             if (corpus / "data" / "parsed" / f"{slug}.json").exists()
              and split_document_slug(slug)[0] in works]
 
     # Which of each work's reprints is the newest held. The site publishes
@@ -315,10 +331,13 @@ def rebuild(base_dir, source=None, published=None) -> dict:
 def signature(base_dir, source=None) -> str:
     """A cheap stamp of everything the index is built from, so staleness
     is a comparison rather than a guess: every parse file, the review
-    database and its write-ahead log, and which works are published."""
+    database and its write-ahead log, and which works are published.
+
+    Read from wherever the corpus lives, for the same reason rebuild
+    is -- a stamp of the wrong directory is a stamp of nothing."""
     from . import db
 
-    base_dir = Path(base_dir)
+    base_dir = corpus_dir(source, base_dir) if source is not None else Path(base_dir)
     parts = []
     parsed_dir = base_dir / "data" / "parsed"
     for path in sorted(parsed_dir.glob("*.json")) if parsed_dir.exists() else []:

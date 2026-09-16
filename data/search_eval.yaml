@@ -1,0 +1,96 @@
+# What search is supposed to find.
+#
+# Each entry is a query somebody might really type and the provision it
+# should lead them to. The point is not that every one reaches rank 1 --
+# some are genuinely hard -- but that the number is a number. Relevance
+# work is the kind you cannot feel your way through: every change here
+# helps some queries and hurts others, and without a set like this the
+# only evidence is whichever query you happened to try last.
+#
+# Scored by mean reciprocal rank (see tests/test_search_relevance.py):
+# rank 1 scores 1.0, rank 2 scores 0.5, rank 10 scores 0.1, and not in
+# the first 20 scores nothing.
+#
+# `doc` is the site slug and `page` the section page id, because those
+# are stable -- a heading can be re-parsed, and a rank should not change
+# because somebody fixed a typo in an Act.
+#
+# Add to this file whenever a search disappoints you. That is the whole
+# maintenance story, and it is worth more than any amount of tuning.
+
+- query: definition of family violence
+  doc: family-violence-protection-act-2008
+  page: s5
+  note: >
+    The query that prompted all of this. Section 5 is headed "Meaning of
+    family violence" and contains the word "definition" nowhere, so no
+    amount of ranking finds it -- only a vocabulary that knows the two
+    words mean the same thing here.
+
+- query: what is family violence
+  doc: family-violence-protection-act-2008
+  page: s5
+  note: >
+    The same question in the form most people actually type it. Needs
+    the intent to be read, not just the words matched.
+
+- query: what is a family member
+  doc: family-violence-protection-act-2008
+  page: s8
+
+- query: meaning of family violence
+  doc: family-violence-protection-act-2008
+  page: s5
+  note: >
+    The statute's own vocabulary. This already worked, and is here so
+    that making the hard queries work cannot quietly break the easy one.
+
+- query: meaning of relative
+  doc: family-violence-protection-act-2008
+  page: s10
+
+- query: when can police issue a safety notice
+  doc: family-violence-protection-act-2008
+  page: s26a
+  note: >
+    Returned nothing at all before, because FTS5 required every word and
+    "when", "can" and "a" are words.
+
+- query: who can appeal a family violence order
+  doc: family-violence-protection-act-2008
+  page: s114
+
+- query: hearsay rule
+  doc: evidence-act
+  page: s59
+
+- query: privilege against self incrimination
+  doc: evidence-act
+  page: s128
+  note: >
+    The Act says "Privilege in respect of self-incrimination"; a lawyer
+    says "privilege against self-incrimination". A preposition apart.
+
+- query: meaning of penalty units
+  doc: sentencing-act
+  page: s110
+
+- query: sentence indication
+  doc: criminal-procedure-act
+  page: s207
+
+# Typos. Always-on correction is only safe because it fires on words the
+# corpus does not contain -- so these must find their targets while the
+# queries above keep finding theirs.
+- query: famly violence definition
+  doc: family-violence-protection-act-2008
+  page: s5
+  note: A word the corpus does not contain, one letter from one it does.
+
+- query: hearsey rule
+  doc: evidence-act
+  page: s59
+
+- query: privilige against self incrimination
+  doc: evidence-act
+  page: s128
