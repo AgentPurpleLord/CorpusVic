@@ -300,6 +300,63 @@ curl -si https://corpusvic.au/admin/api/login \
   -d '{"username":"...","password":"..."}' | grep -i set-cookie   # expect Path=/admin; Secure
 ```
 
+## When it doesn't load
+
+Work down this list; each step tells you which layer to stop at.
+
+**Is anything listening?** On the server:
+
+```bash
+sudo ss -tlnp | grep -E ':(80|443|8000)\b'
+sudo systemctl status caddy dashboard --no-pager
+```
+
+**Does the site work, ignoring DNS entirely?** This is the decisive one:
+it asks the server for the site by name, over loopback, so nothing about
+the domain or the network is involved.
+
+```bash
+curl -sI -H 'Host: corpusvic.au' http://127.0.0.1/ | head -1
+curl -sI -H 'Host: corpusvic.au' http://127.0.0.1/admin | head -1
+```
+
+A 200 (or a 308 for `/admin`) means the server is fine and the problem is
+DNS, a firewall, or the certificate. A 404 for the first means `_site` was
+never built (step 7). A 502 for the second means Caddy is up but the
+dashboard is not.
+
+**Does the name point here?** From your own machine, not the server:
+
+```bash
+dig +short corpusvic.au        # expect the VPS's own IP
+```
+
+If it returns something else, that is the answer, and nothing on the
+server can fix it.
+
+### Two traps worth knowing before you start
+
+**The bare IP will not load, even when everything is right.** The site
+block matches on hostname, so a request carrying `Host: 203.0.113.10`
+matches nothing and Caddy answers 404. `deploy/Caddyfile.example` has an
+optional `:80` block for reaching it by IP while DNS is still settling --
+it serves the published site only, never `/admin`, because there is no
+certificate for an IP address and a login has no business crossing the
+network in the clear.
+
+**A proxying CDN in front of the domain stops the certificate issuing.**
+If the A record points at Cloudflare (or anything similar) rather than
+straight at the VPS, Let's Encrypt's HTTP challenge is answered by the CDN
+instead of by Caddy, and Caddy never gets a certificate -- so HTTPS fails
+in a way that looks like Caddy being broken. You can tell from `dig`: an
+address that is not your server's is a proxy in front of it.
+
+Either point the record straight at the VPS (in Cloudflare's terms,
+"DNS only" -- the grey cloud) and let Caddy hold the certificate, or keep
+the proxy and give Caddy a certificate some other way, which means an
+origin certificate from the CDN or a DNS-01 challenge. The first is
+simpler and is what the rest of this guide assumes.
+
 ## If you already deployed under the old path
 
 A server set up before the repository was renamed has everything under

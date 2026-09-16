@@ -28,6 +28,27 @@ corpusvic.au, www.corpusvic.au {
     }
 }
 
+# Reaching the server by its bare IP, before DNS points at it.
+#
+# The block above matches on hostname, so a request carrying
+# "Host: 203.0.113.10" matches nothing and Caddy answers 404. That is not
+# a fault -- it is what a hostname-matched site does -- but while you are
+# still setting DNS up it looks exactly like a server that is down.
+#
+# This answers on anything else, over plain HTTP, with the published site
+# and nothing more. It deliberately does not carry /admin: there is no
+# certificate for an IP address, so everything here crosses the network in
+# the clear, and that is no place for a login. Delete it once the domain
+# resolves.
+:80 {
+    root * /opt/corpusvic/_site
+    try_files {path} {path}/ {path}/index.html
+    file_server
+    handle /admin* {
+        respond "The admin tool is at https://corpusvic.au/admin -- not over plain HTTP." 421
+    }
+}
+
 # Worth considering, because /admin is a tool that can upload PDFs and
 # run the pipeline, on the same hostname as a public site. Any of these
 # on their own puts a second lock in front of it:
