@@ -1,0 +1,4896 @@
+{
+  "em_slug": "family-violence-protection-bill-2008-em",
+  "bill_slug": "family-violence-protection-bill-2008",
+  "act_slug": "family-violence-protection-act-2008",
+  "links": [
+    {
+      "em_node_index": 1,
+      "clause_number": null,
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 2,
+      "clause_number": "1",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "1",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 3,
+      "clause_number": "2",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "2",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 4,
+      "clause_number": "3",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 6,
+      "clause_number": null,
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 7,
+      "clause_number": "4",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "4",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 8,
+      "clause_number": "5",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "5",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 9,
+      "clause_number": "5(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 10,
+      "clause_number": "5(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 11,
+      "clause_number": "5(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 12,
+      "clause_number": "6",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Tasmanian Family Violence Act 2004",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 13,
+      "clause_number": "7",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "7",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 14,
+      "clause_number": "8",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "8",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 15,
+      "clause_number": "8(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 16,
+      "clause_number": "8(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 17,
+      "clause_number": "8(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Relationships Act 2008",
+        "section_ref": "35(2)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 18,
+      "clause_number": "8(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 19,
+      "clause_number": "9",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Relationships Act 2008",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 20,
+      "clause_number": "10",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "10",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 21,
+      "clause_number": "10(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 22,
+      "clause_number": "11",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "11",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 24,
+      "clause_number": null,
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 25,
+      "clause_number": "12",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "12",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 26,
+      "clause_number": "13",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "13",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 30,
+      "clause_number": "14",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "14",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 38,
+      "clause_number": "14(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 39,
+      "clause_number": "14(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 40,
+      "clause_number": "14(4)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "summary-offences-act",
+        "act_title": "Summary Offences Act 1966",
+        "section_ref": "49E",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 41,
+      "clause_number": "15",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "15",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 42,
+      "clause_number": "15(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 43,
+      "clause_number": "15(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Corrections Act 1986",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 44,
+      "clause_number": "15(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "crimes-act",
+        "act_title": "Crimes Act 1958",
+        "section_ref": "479C",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 45,
+      "clause_number": "16",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "16",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 46,
+      "clause_number": "16(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "crimes-act",
+        "act_title": "Crimes Act 1958",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 47,
+      "clause_number": "17",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "17",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 48,
+      "clause_number": "17(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 51,
+      "clause_number": "17(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 54,
+      "clause_number": "17(5)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 55,
+      "clause_number": "17(6)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 56,
+      "clause_number": "17(7)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 57,
+      "clause_number": "18",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "18",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 58,
+      "clause_number": "18(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 59,
+      "clause_number": "18(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 63,
+      "clause_number": "18(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 64,
+      "clause_number": "18(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 65,
+      "clause_number": "18(5)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 66,
+      "clause_number": "19",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "19",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 67,
+      "clause_number": "20",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "20",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 68,
+      "clause_number": "21",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "21",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 69,
+      "clause_number": "21(c)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 70,
+      "clause_number": "22",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "22",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 71,
+      "clause_number": "23",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "23",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 75,
+      "clause_number": "24",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "515(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 76,
+      "clause_number": "24(e)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 77,
+      "clause_number": "24(f)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 78,
+      "clause_number": "25",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "25",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 79,
+      "clause_number": "26",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "26",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 80,
+      "clause_number": "26(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 81,
+      "clause_number": "26(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 82,
+      "clause_number": "27",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "27",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 83,
+      "clause_number": "27(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 84,
+      "clause_number": "28",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "28",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 85,
+      "clause_number": "28(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 86,
+      "clause_number": "28(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 87,
+      "clause_number": "28(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 88,
+      "clause_number": "28(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 89,
+      "clause_number": "29",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "29",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 90,
+      "clause_number": "29(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 91,
+      "clause_number": "30",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "30",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 92,
+      "clause_number": "31",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "31",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 93,
+      "clause_number": "31(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 94,
+      "clause_number": "32",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "32",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 95,
+      "clause_number": "33",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "33",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 96,
+      "clause_number": "34",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "34",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 97,
+      "clause_number": "34(c)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 98,
+      "clause_number": "34(c)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 99,
+      "clause_number": "35",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "35",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 100,
+      "clause_number": "35(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 101,
+      "clause_number": "35(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 102,
+      "clause_number": "35(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 103,
+      "clause_number": "35(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 104,
+      "clause_number": "36",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "36",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 105,
+      "clause_number": "36(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 106,
+      "clause_number": "36(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 107,
+      "clause_number": "36(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 108,
+      "clause_number": "37",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "37",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 109,
+      "clause_number": "38",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "The Bail Act 1977",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 110,
+      "clause_number": "39",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "39",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 111,
+      "clause_number": "40",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "40",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 112,
+      "clause_number": "41",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "41",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 114,
+      "clause_number": null,
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 115,
+      "clause_number": "42",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 116,
+      "clause_number": "43",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "43",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 117,
+      "clause_number": "44",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "44",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 118,
+      "clause_number": "45",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "45",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 119,
+      "clause_number": "46",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "46",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 120,
+      "clause_number": "46(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 121,
+      "clause_number": "46(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 122,
+      "clause_number": "47",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "47",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 123,
+      "clause_number": "47(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 124,
+      "clause_number": "47(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 125,
+      "clause_number": "48",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "48",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 126,
+      "clause_number": "49",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "49",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 127,
+      "clause_number": "50",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "50",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 128,
+      "clause_number": "50(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 129,
+      "clause_number": "50(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 130,
+      "clause_number": "50(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 131,
+      "clause_number": "51",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "51",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 132,
+      "clause_number": "52",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Bail Act 1977",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 133,
+      "clause_number": "52(1)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Bail Act 1977",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 134,
+      "clause_number": "52(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 135,
+      "clause_number": "53",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "53",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 136,
+      "clause_number": "53(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 141,
+      "clause_number": "54",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "54",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 142,
+      "clause_number": "55",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "55",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 143,
+      "clause_number": "55(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 144,
+      "clause_number": "55(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 145,
+      "clause_number": "56",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "56",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 146,
+      "clause_number": "57",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "57",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 147,
+      "clause_number": "57(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 148,
+      "clause_number": "57(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 149,
+      "clause_number": "57(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 150,
+      "clause_number": "58",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "5(2)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 151,
+      "clause_number": "59",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "59",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 152,
+      "clause_number": "60",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "60",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 153,
+      "clause_number": "61",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "61",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 157,
+      "clause_number": "61(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 158,
+      "clause_number": "61(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 159,
+      "clause_number": "62",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "62",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 160,
+      "clause_number": "63",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "63",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 161,
+      "clause_number": "64",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "64",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 162,
+      "clause_number": "65",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "65",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 163,
+      "clause_number": "65(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 164,
+      "clause_number": "65(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Evidence Act 1958",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 165,
+      "clause_number": "65(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 166,
+      "clause_number": "66",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "66",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 167,
+      "clause_number": "67",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "67",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 168,
+      "clause_number": "68",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "126",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 169,
+      "clause_number": "69",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Evidence Act 1958",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 170,
+      "clause_number": "70",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "70",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 171,
+      "clause_number": "70(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 172,
+      "clause_number": "70(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 173,
+      "clause_number": "70(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 174,
+      "clause_number": "70(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 175,
+      "clause_number": "71",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "71",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 176,
+      "clause_number": "71(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 177,
+      "clause_number": "71(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Legal Aid Act 1978",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 178,
+      "clause_number": "71(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Legal Aid Act 1978",
+        "section_ref": "27",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 179,
+      "clause_number": "71(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 180,
+      "clause_number": "72",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "72",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 181,
+      "clause_number": "72(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 182,
+      "clause_number": "72(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 183,
+      "clause_number": "72(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Legal Aid Act 1978",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 184,
+      "clause_number": "72(4)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Legal Aid Act 1978",
+        "section_ref": "27",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 185,
+      "clause_number": "73",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "73",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 186,
+      "clause_number": "74",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "74",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 187,
+      "clause_number": "74(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 188,
+      "clause_number": "74(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 189,
+      "clause_number": "75",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "75",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 190,
+      "clause_number": "75(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 191,
+      "clause_number": "75(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 192,
+      "clause_number": "76",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "76",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 193,
+      "clause_number": "76(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 194,
+      "clause_number": "76(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 195,
+      "clause_number": "76(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 196,
+      "clause_number": "76(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 197,
+      "clause_number": "76(5)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 198,
+      "clause_number": "77",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "77",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 199,
+      "clause_number": "77(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 200,
+      "clause_number": "77(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 201,
+      "clause_number": "78",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "78",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 202,
+      "clause_number": "78(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 203,
+      "clause_number": "78(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 204,
+      "clause_number": "78(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 205,
+      "clause_number": "78(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 206,
+      "clause_number": "78(5)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 207,
+      "clause_number": "78(6)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 208,
+      "clause_number": "79",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "79",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 209,
+      "clause_number": "80",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "80",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 210,
+      "clause_number": "81",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "81",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 211,
+      "clause_number": "81(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 212,
+      "clause_number": "81(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 213,
+      "clause_number": "82",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "82",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 214,
+      "clause_number": "82(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 215,
+      "clause_number": "82(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 216,
+      "clause_number": "82(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 218,
+      "clause_number": "82(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 219,
+      "clause_number": "83",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "83",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 220,
+      "clause_number": "83(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 221,
+      "clause_number": "83(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 222,
+      "clause_number": "83(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 223,
+      "clause_number": "83(4)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "13",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 224,
+      "clause_number": "83(5)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 225,
+      "clause_number": "84",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "84",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 226,
+      "clause_number": "84(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "28",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 227,
+      "clause_number": "85",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "85",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 228,
+      "clause_number": "85(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 229,
+      "clause_number": "85(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 230,
+      "clause_number": "85(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 231,
+      "clause_number": "85(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 232,
+      "clause_number": "86",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "86",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 233,
+      "clause_number": "86(a)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 234,
+      "clause_number": "86(b)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 235,
+      "clause_number": "87",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "87",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 236,
+      "clause_number": "88",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "88",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 237,
+      "clause_number": "89",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "515(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 238,
+      "clause_number": "90",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "68R",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 239,
+      "clause_number": "91",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "91",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 240,
+      "clause_number": "91(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 241,
+      "clause_number": "92",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "92",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 242,
+      "clause_number": "93",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "93",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 243,
+      "clause_number": "94",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "94",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 244,
+      "clause_number": "95",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "95",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 245,
+      "clause_number": "96",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "96",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 246,
+      "clause_number": "96(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 247,
+      "clause_number": "96(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 248,
+      "clause_number": "96(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 249,
+      "clause_number": "96(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 250,
+      "clause_number": "97",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "97",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 251,
+      "clause_number": "97(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 252,
+      "clause_number": "97(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 253,
+      "clause_number": "98",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "98",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 254,
+      "clause_number": "99",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "99",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 255,
+      "clause_number": "100",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "100",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 256,
+      "clause_number": "100(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 257,
+      "clause_number": "100(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 258,
+      "clause_number": "100(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 259,
+      "clause_number": "101",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "101",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 260,
+      "clause_number": "102",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "102",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 261,
+      "clause_number": "102(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 262,
+      "clause_number": "102(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 263,
+      "clause_number": "103",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "103",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 264,
+      "clause_number": "104",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "104",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 265,
+      "clause_number": "105",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "105",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 266,
+      "clause_number": "106",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "106",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 267,
+      "clause_number": "106(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 268,
+      "clause_number": "106(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 269,
+      "clause_number": "106(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 270,
+      "clause_number": "107",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "107",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 271,
+      "clause_number": "107(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 272,
+      "clause_number": "107(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 273,
+      "clause_number": "107(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 274,
+      "clause_number": "108",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "108",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 275,
+      "clause_number": "109",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "109",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 276,
+      "clause_number": "109(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 277,
+      "clause_number": "109(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 278,
+      "clause_number": "110",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "110",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 279,
+      "clause_number": "110(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 280,
+      "clause_number": "110(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 281,
+      "clause_number": "110(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 282,
+      "clause_number": "110(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 283,
+      "clause_number": "111",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "111",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 284,
+      "clause_number": "112",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "112",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 285,
+      "clause_number": "113",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "113",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 286,
+      "clause_number": "114",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "114",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 287,
+      "clause_number": "114(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 292,
+      "clause_number": "115",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "115",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 293,
+      "clause_number": "116",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "116",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 294,
+      "clause_number": "117",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "117",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 295,
+      "clause_number": "117(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 296,
+      "clause_number": "117(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 297,
+      "clause_number": "118",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "118",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 298,
+      "clause_number": "119",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "119",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 299,
+      "clause_number": "120",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "120",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 300,
+      "clause_number": "121",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Bill, and the Magistrates' Court Act 1989",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 301,
+      "clause_number": "122",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "122",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 302,
+      "clause_number": "123",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "123",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 303,
+      "clause_number": "123(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 304,
+      "clause_number": "123(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 305,
+      "clause_number": "123(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 306,
+      "clause_number": "124",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "The Bail Act 1977",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 307,
+      "clause_number": "125",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "125",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 309,
+      "clause_number": "126",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "126",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 310,
+      "clause_number": "127",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "127",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 311,
+      "clause_number": "128",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "128",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 312,
+      "clause_number": "129",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "129",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 313,
+      "clause_number": "129(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 314,
+      "clause_number": "129(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 318,
+      "clause_number": "129(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 324,
+      "clause_number": "129(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 325,
+      "clause_number": "130",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "130",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 326,
+      "clause_number": "130(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 327,
+      "clause_number": "130(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 328,
+      "clause_number": "130(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 329,
+      "clause_number": "130(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 330,
+      "clause_number": "130(6)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 331,
+      "clause_number": "131",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "131",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 332,
+      "clause_number": "131(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 333,
+      "clause_number": "131(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 334,
+      "clause_number": "132",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "132",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 335,
+      "clause_number": "133",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "133",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 336,
+      "clause_number": "133(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 337,
+      "clause_number": "134",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "134",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 338,
+      "clause_number": "135",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "135",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 339,
+      "clause_number": "136",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "136",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 343,
+      "clause_number": "137",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "137",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 344,
+      "clause_number": "137(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 345,
+      "clause_number": "137(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 346,
+      "clause_number": "137(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 347,
+      "clause_number": "138",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "138",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 348,
+      "clause_number": "138(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 349,
+      "clause_number": "138(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 350,
+      "clause_number": "139",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "139",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 351,
+      "clause_number": "140",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "140",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 358,
+      "clause_number": "141",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "141",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 365,
+      "clause_number": "142",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "142",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 366,
+      "clause_number": "143",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Health Records Act 2001",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 367,
+      "clause_number": "144",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Public Administration Act 2004",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 369,
+      "clause_number": null,
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 370,
+      "clause_number": "145",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "145",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 371,
+      "clause_number": "146",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "146",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 372,
+      "clause_number": "146(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 373,
+      "clause_number": "146(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 374,
+      "clause_number": "147",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "147",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 375,
+      "clause_number": "147(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 376,
+      "clause_number": "147(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 377,
+      "clause_number": "147(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 378,
+      "clause_number": "148",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "148",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 379,
+      "clause_number": "148(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 380,
+      "clause_number": "148(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 381,
+      "clause_number": "149",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "149",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 382,
+      "clause_number": "149(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Public Administration Act 2004",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 383,
+      "clause_number": "150",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "150",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 384,
+      "clause_number": "150(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 385,
+      "clause_number": "150(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 386,
+      "clause_number": "150(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 387,
+      "clause_number": "151",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "151",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 388,
+      "clause_number": "152",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "152",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 389,
+      "clause_number": "153",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "153",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 390,
+      "clause_number": "154",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "154",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 391,
+      "clause_number": "154(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 392,
+      "clause_number": "154(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 393,
+      "clause_number": "154(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 394,
+      "clause_number": "154(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 395,
+      "clause_number": "154(5)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 396,
+      "clause_number": "155",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "155",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 397,
+      "clause_number": "156",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "156",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 399,
+      "clause_number": "157",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "crimes-act",
+        "act_title": "Crimes Act 1958",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 400,
+      "clause_number": "158",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "158",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 401,
+      "clause_number": "158(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 402,
+      "clause_number": "158(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 403,
+      "clause_number": "159",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "159",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 412,
+      "clause_number": "159(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 413,
+      "clause_number": "160",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "160",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 414,
+      "clause_number": "160(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 417,
+      "clause_number": "160(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 418,
+      "clause_number": "160(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 419,
+      "clause_number": "161",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "161",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 420,
+      "clause_number": "162",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "162",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 421,
+      "clause_number": "163",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "163",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 422,
+      "clause_number": "164",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "164",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 423,
+      "clause_number": "164(1)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "189",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 424,
+      "clause_number": "164(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 425,
+      "clause_number": "165",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "165",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 427,
+      "clause_number": "166",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "166",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 434,
+      "clause_number": "167",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "167",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 437,
+      "clause_number": "168",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "168",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 446,
+      "clause_number": "169",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "169",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 451,
+      "clause_number": "170",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Magistrates Court Act 1989",
+        "section_ref": "100(1)"
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 452,
+      "clause_number": "171",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "189",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 453,
+      "clause_number": "172",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 454,
+      "clause_number": "173",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 455,
+      "clause_number": "173(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 456,
+      "clause_number": "173(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 457,
+      "clause_number": "174",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 458,
+      "clause_number": "175",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "175",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 459,
+      "clause_number": "176",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "176",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 461,
+      "clause_number": "177",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "177",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 462,
+      "clause_number": "178",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "178",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 463,
+      "clause_number": "179",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "179",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 464,
+      "clause_number": "180",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "180",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 465,
+      "clause_number": "181",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "181",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 466,
+      "clause_number": "182",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "182",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 467,
+      "clause_number": "183",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "183",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 468,
+      "clause_number": "184",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "184",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 469,
+      "clause_number": "185",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "185",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 470,
+      "clause_number": "186",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "186",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 471,
+      "clause_number": "187",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "187",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 473,
+      "clause_number": "188",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "188",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 474,
+      "clause_number": "189",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 475,
+      "clause_number": "190",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "190",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 476,
+      "clause_number": "191",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "191",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 477,
+      "clause_number": "192",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "192",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 478,
+      "clause_number": "193",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "193",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 479,
+      "clause_number": "193(1)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Supreme Court Act 1986",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 480,
+      "clause_number": "193(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 481,
+      "clause_number": "193(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 482,
+      "clause_number": "193(4)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 483,
+      "clause_number": "194",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "194",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 484,
+      "clause_number": "195",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "195",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 485,
+      "clause_number": "196",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "196",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 486,
+      "clause_number": "197",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "197",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 487,
+      "clause_number": "198",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "198",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 488,
+      "clause_number": "199",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "199",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 489,
+      "clause_number": "200",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "200",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 491,
+      "clause_number": "201",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "201",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 492,
+      "clause_number": "202",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "202",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 493,
+      "clause_number": "203",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "203",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 494,
+      "clause_number": "203(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 495,
+      "clause_number": "204",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "204",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 496,
+      "clause_number": "205",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "205",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 497,
+      "clause_number": "206",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "206",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 498,
+      "clause_number": "207",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "207",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 499,
+      "clause_number": "207(1)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 500,
+      "clause_number": "207(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 501,
+      "clause_number": "207(3)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 503,
+      "clause_number": "208",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Constitution Act 1975",
+        "section_ref": "85",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 504,
+      "clause_number": "209",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "16A",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 505,
+      "clause_number": "209(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 506,
+      "clause_number": "210",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "592",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 507,
+      "clause_number": "210(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "592",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 508,
+      "clause_number": "211",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "211",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 509,
+      "clause_number": "211(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 511,
+      "clause_number": "212",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 512,
+      "clause_number": "213",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": "21A(5)",
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 513,
+      "clause_number": "214",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 514,
+      "clause_number": "215",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 515,
+      "clause_number": "215(1)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 516,
+      "clause_number": "215(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 517,
+      "clause_number": "216",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 518,
+      "clause_number": "217",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 519,
+      "clause_number": "218",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": "4",
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 520,
+      "clause_number": "219",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": "22",
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 521,
+      "clause_number": "220",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "220",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 522,
+      "clause_number": "221",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 523,
+      "clause_number": "222",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": "52",
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 524,
+      "clause_number": "223",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "223",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 525,
+      "clause_number": "224",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Crimes (Family Violence) Act 1987",
+        "section_ref": "18AA",
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 527,
+      "clause_number": null,
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Bill and the Magistrates' Court Act 1989",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 528,
+      "clause_number": "232",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "4I(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 530,
+      "clause_number": "233",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Bail Act 1977",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 531,
+      "clause_number": "234",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 532,
+      "clause_number": "235",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 533,
+      "clause_number": "236",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "515(2)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 534,
+      "clause_number": "237",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children, Youth and Families Act 2005",
+        "section_ref": "520C(3)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 535,
+      "clause_number": "238",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Corrections Act 1986",
+        "section_ref": "30A(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 536,
+      "clause_number": "239",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Corrections Act 1986",
+        "section_ref": "30C(3)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 537,
+      "clause_number": "240",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Corrections Act 1986",
+        "section_ref": "60A",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 542,
+      "clause_number": "241",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Corrections Act 1986",
+        "section_ref": "60E(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 543,
+      "clause_number": "242",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "crimes-act",
+        "act_title": "Crimes Act 1958",
+        "section_ref": "21A",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 544,
+      "clause_number": "243",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Evidence Act 1958",
+        "section_ref": "37C(2)"
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 545,
+      "clause_number": "244",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Evidence Act 1958",
+        "section_ref": "37CA(1)"
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 546,
+      "clause_number": "245",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 547,
+      "clause_number": "246",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "49",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 548,
+      "clause_number": "247",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "53(4)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 549,
+      "clause_number": "248",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "189(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 553,
+      "clause_number": "249",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Firearms Act 1996",
+        "section_ref": "211",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 554,
+      "clause_number": "250",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Health Records Act 2001",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 555,
+      "clause_number": "251",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "of",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 556,
+      "clause_number": "251(1)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 557,
+      "clause_number": "251(2)",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 558,
+      "clause_number": "252",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "4F(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 559,
+      "clause_number": "253",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "4I(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 560,
+      "clause_number": "254",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "4O(2)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 561,
+      "clause_number": "255",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "magistrates-court-act",
+        "act_title": "Magistrates' Court Act 1989",
+        "section_ref": "1A(4)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 562,
+      "clause_number": "256",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "First Schedule to the Police Regulation Act 1958",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 563,
+      "clause_number": "257",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 564,
+      "clause_number": "258",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "70(5)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 565,
+      "clause_number": "259",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "70A",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 566,
+      "clause_number": "260",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "86",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 567,
+      "clause_number": "261",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "88",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 568,
+      "clause_number": "262",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "233A, 233B, 233C and 233D",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 575,
+      "clause_number": "263",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "234",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 576,
+      "clause_number": "264",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Residential Tenancies Act 1997",
+        "section_ref": "506",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 577,
+      "clause_number": "265",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "sentencing-act",
+        "act_title": "Sentencing Act 1991",
+        "section_ref": "18ZV",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 578,
+      "clause_number": "266",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "sentencing-act",
+        "act_title": "Sentencing Act 1991",
+        "section_ref": "99G(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 579,
+      "clause_number": "267",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Victims' Charter Act 2006",
+        "section_ref": "of",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 580,
+      "clause_number": "267(1)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Victims' Charter Act 2006",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 581,
+      "clause_number": "267(2)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Victims' Charter Act 2006",
+        "section_ref": "3(1)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 582,
+      "clause_number": "267(3)",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Victims' Charter Act 2006",
+        "section_ref": "3(2)",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 583,
+      "clause_number": "268",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Victorian Civil and Administrative Tribunal Act 1998",
+        "section_ref": "62A",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 584,
+      "clause_number": "269",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Victorian Civil and Administrative Tribunal Act 1998",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 589,
+      "clause_number": "270",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Children Act 2005",
+        "section_ref": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 590,
+      "clause_number": "271",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Magistrates' Court (Family Violence) Act 2004",
+        "section_ref": null,
+        "in_force": false
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 591,
+      "clause_number": "272",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "family-violence-protection-act-2008",
+        "clause_number": "272",
+        "schedule": null
+      },
+      "verified_at": null
+    }
+  ]
+}
