@@ -1,0 +1,32 @@
+[Unit]
+Description=CorpusVic public site
+After=network.target
+
+[Service]
+Type=simple
+User=dashboard
+Group=dashboard
+WorkingDirectory=/opt/corpusvic
+# SITE_PASSWORD. Without it public.py refuses to start rather than
+# serving the corpus to anyone who asks -- pass --open below to publish
+# openly on purpose.
+EnvironmentFile=-/opt/corpusvic/deploy/site.env
+ExecStart=/opt/corpusvic/.venv/bin/python3 public.py --host 127.0.0.1 --port 8001
+# always, not on-failure: unlike the dashboard there is no restart button
+# here, and a public site should come back from a clean exit too.
+Restart=always
+RestartSec=2
+
+# Bound to loopback (see --host); Caddy is the only thing facing the
+# internet. See deploy/Caddyfile.example.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+# Deliberately no ReadWritePaths. This process reads the database, the
+# parses and the search index and writes nothing at all -- so the one
+# guarantee worth having is the one the kernel enforces rather than the
+# one a code review has to keep re-establishing.
+
+[Install]
+WantedBy=multi-user.target

@@ -108,14 +108,15 @@ for the two-line contents) to point at your actual domain, then:
 sudo systemctl reload caddy
 ```
 
-## 7. Build the published site
+## 7. Run the public site
 
-Caddy serves the public side from `_site/`, which is build output rather
-than source: it is gitignored, so a fresh clone does not have it and the
-domain root would 404 until you make it.
+The public side is an application, not a directory of files:
+`public.py` reads the same database the admin tool writes, so a review
+decision is on the site the moment it is saved. There is no build step
+between the two to have not run.
 
-If the site is meant to sit behind a passphrase, put it in place first --
-the build reads it from there, so a rebuild cannot quietly drop it:
+Put the passphrase in place first. Without it `public.py` refuses to
+start rather than serving the corpus to anyone who asks:
 
 ```bash
 sudo cp deploy/site.env.example deploy/site.env
@@ -125,28 +126,93 @@ sudo chown dashboard:dashboard deploy/site.env
 ```
 
 This is a third password, separate from the other two: `SITE_PASSWORD`
-gates reading the published site, `DASHBOARD_PASSWORD` opens the admin
-tool, and the deploy key pushes to GitHub. Do not reuse one for another.
+opens the public site, `DASHBOARD_PASSWORD` opens the admin tool, and the
+deploy key pushes to GitHub. Do not reuse one for another.
+
+It is worth knowing what it now buys you. The passphrase is what session
+cookies are signed with, so changing it and restarting the service ends
+every session that exists. If it ever leaks, that is a five-second
+problem rather than a thirty-day one -- which was not true of the old
+gate, where published pages and a leaked passphrase could never be
+recalled.
+
+```bash
+sudo cp deploy/public.service /etc/systemd/system/corpusvic-public.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now corpusvic-public
+sudo systemctl status corpusvic-public     # confirm it's "active (running)"
+```
+
+**Check it before Caddy points at it.** It is on loopback until you
+change the Caddyfile, so this is the moment to be sure it is not open:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8001/                       # 303 -> /login
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8001/browse/crimes-act/     # 303 -> /login
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8001/api/search?q=anything  # 401
+curl -s http://127.0.0.1:8001/robots.txt                                              # Disallow: /
+```
+
+A `200` on any of the first three means the site is open. Stop and find
+out why before going further.
+
+### Choosing what is on the public site
+
+Nothing is, until you say so. Each card on the dashboard carries a badge
+reading **On the public site** or **Not published**; click it to change
+it. The decision is per *work*, so an Act and all its reprints go
+together, and it lives in `data/legislation.db` -- so it travels to
+GitHub with your review work on the next push rather than living only on
+this machine.
+
+The first time the dashboard starts after this feature lands it records
+every document already parsed as published, so nothing that was on the
+site disappears. Anything parsed after that starts off until you publish
+it.
+
+### The search index
+
+Search reads `data/search.db`, which is built from the parses and the
+review database. It is gitignored and rebuilt from scratch in a few
+seconds, so it is never something to back up or push.
+
+The dashboard builds it: **Rebuild search index**, beside the archive
+button, and automatically whenever you publish or withdraw a work. The
+row beside the button says whether what is there still matches the data.
+Build it once now:
+
+```bash
+cd /opt/corpusvic
+sudo -u dashboard .venv/bin/python -m corpus.search --build
+```
+
+Until it exists the site works normally and the search page says the
+index has not been built yet.
+
+### The offline archive
+
+`export_static_site.py` still exists and still writes `_site/`. It is no
+longer how the site is served -- it is a snapshot that survives this
+server, and it is the rollback if the live site ever misbehaves (see the
+commented-out block in `deploy/Caddyfile.example`).
 
 ```bash
 cd /opt/corpusvic
 sudo -u dashboard .venv/bin/python export_static_site.py --out _site
 ```
 
-About three minutes for the whole corpus. Nothing needs restarting
-afterwards -- Caddy serves whatever files are there at the moment of the
-request, so the new pages are live the instant the build finishes.
+About three minutes for the whole corpus. It publishes the same works the
+live site does; `--include-unpublished` builds an archive of everything
+held instead. It keeps the old encryption gate, because a static host has
+no server to check a passphrase -- there, encrypting the pages is the
+only honest answer.
 
-Rebuild it whenever you have reviewed something and want the public side
-to show it. That is the one manual step in the loop for now; the admin
-tool's own pages always show the current state without any build.
-
-If you would rather not remember, a timer will do it overnight:
+Overnight, if you would rather not remember:
 
 ```bash
 sudo tee /etc/systemd/system/corpus-site.service >/dev/null <<'UNIT'
 [Unit]
-Description=Rebuild the published Corpus site
+Description=Rebuild the offline Corpus archive
 [Service]
 Type=oneshot
 User=dashboard
@@ -156,7 +222,7 @@ UNIT
 
 sudo tee /etc/systemd/system/corpus-site.timer >/dev/null <<'UNIT'
 [Unit]
-Description=Rebuild the published Corpus site daily
+Description=Rebuild the offline Corpus archive daily
 [Timer]
 OnCalendar=daily
 Persistent=true
@@ -168,9 +234,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now corpus-site.timer
 ```
 
-Once the VPS is serving the public site, the GitHub Pages workflow is
-building a second copy of it that nobody reads. Leave it if you want the
-fallback, or turn it off in the repository's Actions settings.
+The GitHub Pages workflow builds the same archive off this server
+entirely. Worth keeping for exactly that reason -- it is a copy of the
+corpus that does not depend on one VPS -- but it needs `SITE_PASSWORD` as
+a repository secret, or it publishes openly whatever it builds.
 
 ## 8. Let the server push your review work back to GitHub
 
@@ -304,20 +371,33 @@ and says why rather than stopping a service nothing would bring back.
 `deploy/dashboard.service` ships with `Restart=on-failure`, which is
 enough.
 
-### Rebuilding the published site
+**The button restarts the dashboard only.** There are two services now,
+and the public site imports the same `corpus/` code -- so a pull that
+touched it leaves the public side running the old version with nothing
+saying so. Restart both:
 
-The public site is a static export. Nothing about adding an Act,
-reviewing one, or pulling somebody else's work reaches
-`corpusvic.au` until `export_static_site.py` runs over the current data
--- which is how a new Act ends up sitting in the dashboard and nowhere
-on the site. **Rebuild the public site**, in the row under the sync
-strip, runs it in the background and reports what it said.
+```bash
+sudo systemctl restart dashboard corpusvic-public
+```
 
-It runs the script with no passphrase argument, which means the script
-takes `SITE_PASSWORD` from `deploy/site.env` and refuses outright to
-replace a gated build with an open one. Taking the gate off stays a
-deliberate command (`--no-password`) rather than something a button can
-do by accident.
+### Rebuilding the archive and the search index
+
+Neither of these is how the public site gets its content any more -- it
+reads the database directly, so a review decision is live the moment it
+is saved.
+
+**Rebuild the public site**, in the row under the sync strip, builds the
+offline archive into `_site/` (see "The offline archive" above). It runs
+the script with no passphrase argument, so the script takes
+`SITE_PASSWORD` from `deploy/site.env` and refuses outright to replace a
+gated build with an open one. Taking the gate off stays a deliberate
+command (`--no-password`) rather than something a button can do by
+accident.
+
+**Rebuild search index**, beside it, rebuilds `data/search.db`. That one
+does affect the live site: search cannot find what is not indexed. It
+happens automatically when you publish or withdraw a work, and the row
+beside the button says whether the index still matches the data.
 
 The equivalents by hand, if you would rather, or if a button is telling
 you something you want to look at directly:
@@ -365,6 +445,10 @@ with the credentials you set in step 4 (or the placeholder, which then
 forces you to set a real one immediately), and you arrive at the
 dashboard; "Review" on any document opens the review GUI at
 `/admin/review/<document>/`.
+
+Then `https://corpusvic.au/` itself: you should get the unlock page, and
+the passphrase from `deploy/site.env` should get you to the list of
+published works. Search from the box in the header of any page.
 
 Worth confirming while you are there, because both are what keep the
 admin tool from leaking onto the public side:
@@ -598,8 +682,21 @@ simpler and is what the rest of this guide assumes.
 
 ## If the site was open when it should not have been
 
-Rebuilding with the passphrase closes it to new readers. Two things it
-does not undo, and both are worth a few minutes:
+Much better than it used to be. Change `SITE_PASSWORD` in
+`deploy/site.env` and restart:
+
+```bash
+sudo systemctl restart corpusvic-public
+```
+
+That closes the site *and* ends every session that exists, because the
+signing key for session cookies is derived from the passphrase. Anyone
+who was already inside is outside again.
+
+If the *archive* was built and published open -- on GitHub Pages, say --
+that is the older, harder problem, and rebuilding it with the passphrase
+only closes it to new readers. Two things it does not undo, and both are
+worth a few minutes:
 
 **Anything already crawled.** An open build published thousands of
 provisions of mostly unchecked text. Check what is out there:
@@ -695,10 +792,10 @@ file, and the deploy key takes a minute to reissue.
 ## Updating later
 
 Most of this is now a button on `/admin` -- **Pull**, then **Restart the
-dashboard** if it brought new code, then **Rebuild the public site** (see
-"After that, git is a row of buttons" above). What is left for a terminal
-is a dependency change, which is the one line the dashboard has no
-business running as itself.
+dashboard** if it brought new code (see "After that, git is a row of
+buttons" above). What is left for a terminal is a dependency change and
+restarting the *public* service, neither of which the dashboard has any
+business doing as itself.
 
 ```bash
 cd /opt/corpusvic
@@ -706,9 +803,10 @@ cd /opt/corpusvic
 # unwritable by the service afterwards.
 sudo -u dashboard git pull
 sudo .venv/bin/pip install -r requirements-site.txt   # in case dependencies changed
-sudo systemctl restart dashboard
-# Only if the pull changed how a page is built (corpus/, static/site/,
-# export_static_site.py) or the data behind it.
+# Both services: the public site imports the same corpus/ code, so a pull
+# that touched it leaves that side running the old version.
+sudo systemctl restart dashboard corpusvic-public
+# Only for the offline archive -- the live site is already up to date.
 sudo -u dashboard .venv/bin/python export_static_site.py --out _site
 ```
 

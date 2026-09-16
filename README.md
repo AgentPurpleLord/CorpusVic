@@ -33,7 +33,9 @@ whole-document audit run offline. Nothing in there decides anything.
     run_pipeline.py       a PDF -> data/parsed/<act>.json
     review.py             the review GUI for one document
     dashboard.py          the hub, and the live browse view
-    export_static_site.py the public site (see above)
+    public.py             the public site (see above)
+    corpus/search.py      the full-text index behind it
+    export_static_site.py the same site as a static archive
     export_markdown.py, export_akn.py
 
 ## Reviewing against the page
@@ -58,20 +60,37 @@ from a paragraph, and a note without the "Notes" heading above it is
 just text: those are decided from the surroundings a box excludes by
 design. Adding and removing provisions stays a separate, deliberate act.
 
-The reviewed material is published at **[www.corpusvic.au](https://www.corpusvic.au)**.
+The reviewed material is published at **[www.corpusvic.au](https://www.corpusvic.au)**,
+served by `public.py` -- a read-only application reading the same
+database the review tool writes. There is no build step between a review
+decision and the page a reader sees.
 
-That address lives in one place: the `CNAME` file in this repository's
-root. GitHub Pages reads it to keep serving the domain, and
+**What is on it is a decision, not a consequence.** Each work carries a
+published flag, set from the dashboard and stored in
+`data/legislation.db` alongside the review work, so it travels with a
+push. Nothing reaches the site by having been parsed.
+
+**Search** is `corpus/search.py`: an FTS5 index over every provision of
+every published work, built from the merged text a reader actually sees
+rather than from the raw parse. It rebuilds from scratch in a few seconds
+-- which is why there is no incremental update path to get wrong -- and
+lives in a gitignored `data/search.db`, because a committed index is a
+third copy of something two committed files already say. It covers the
+current version of each work by default; superseded reprints are a
+checkbox, since five reprints of one Act would otherwise answer nearly
+every query five times over.
+
+`export_static_site.py` still builds the whole site as static files, but
+as an archive rather than as the site: a copy that survives the server,
+published off it by `.github/workflows/pages.yml`. It keeps the
+build-time encryption gate (`corpus/site_crypto.py`), because a static
+host has no server to check a passphrase.
+
+The domain lives in one place: the `CNAME` file in this repository's
+root. GitHub Pages reads it to serve the archive at a custom domain, and
 `export_static_site.py` reads it to decide that links need no path
 prefix -- a custom domain is mapped at its own root, so a page links to
-`/browse/<act>/` rather than `/<repo>/browse/<act>/`. Remove the file and
-the site goes back to being a project site at
-`https://<owner>.github.io/<repo>/`, with every link prefixed to match.
-It is copied into each build, because a Pages deployment serves exactly
-what the build uploaded.
-
-Publishing is a push: `.github/workflows/pages.yml` rebuilds the site
-whenever the parsed data or the review database changes on `main`.
+`/browse/<act>/` rather than `/<repo>/browse/<act>/`.
 
 Every parsed document is published in full. A provision a human has not
 yet checked against the PDF still carries its text, above a notice saying

@@ -18,13 +18,20 @@ corpusvic.au, www.corpusvic.au {
         reverse_proxy 127.0.0.1:8000
     }
 
-    # Everything else is the published site: the files export_static_site.py
-    # builds. Swap this block for a reverse_proxy to a second, read-only
-    # process if you move the public side off static files too.
+    # Everything else is the public site (public.py), served live from
+    # the database on its own port. A second, read-only process rather
+    # than part of the dashboard: the dashboard restarts itself after a
+    # pull, and sharing one process would take the corpus down with it.
+    #
+    # To go back to serving the static build instead -- which is the
+    # rollback, and it is one block:
+    #     handle {
+    #         root * /opt/corpusvic/_site
+    #         try_files {path} {path}/ {path}/index.html
+    #         file_server
+    #     }
     handle {
-        root * /opt/corpusvic/_site
-        try_files {path} {path}/ {path}/index.html
-        file_server
+        reverse_proxy 127.0.0.1:8001
     }
 }
 
@@ -35,18 +42,18 @@ corpusvic.au, www.corpusvic.au {
 # a fault -- it is what a hostname-matched site does -- but while you are
 # still setting DNS up it looks exactly like a server that is down.
 #
-# This answers on anything else, over plain HTTP, with the published site
-# and nothing more. It deliberately does not carry /admin: there is no
-# certificate for an IP address, so everything here crosses the network in
-# the clear, and that is no place for a login. Delete it once the domain
-# resolves.
+# This answers on anything else, over plain HTTP, and says where to go.
+# It serves nothing: there is no certificate for an IP address, so
+# everything here crosses the network in the clear, and both the site and
+# the dashboard now ask for a passphrase. Handing a login form to
+# somebody over plain HTTP invites them to type a passphrase into it.
+#
+# It used to serve the static build here, which was harmless while the
+# gate was encryption baked into pages that were already ciphertext. It
+# stopped being harmless the moment the passphrase was something a
+# visitor types. Delete this block once the domain resolves.
 :80 {
-    root * /opt/corpusvic/_site
-    try_files {path} {path}/ {path}/index.html
-    file_server
-    handle /admin* {
-        respond "The admin tool is at https://corpusvic.au/admin -- not over plain HTTP." 421
-    }
+    respond "CorpusVic is at https://corpusvic.au -- this address has no certificate, so nothing is served over it." 421
 }
 
 # Worth considering, because /admin is a tool that can upload PDFs and
