@@ -1468,10 +1468,27 @@ def template_text(name: str) -> str:
 _TEMPLATE_COMMENT_RE = re.compile(r"<!--.*?-->\n?", re.S)
 
 
+def _search_form_html(search_url: "str | None", query: str) -> str:
+    """The header's search box, or nothing at all.
+
+    A plain GET form: no script, no fetch, no JSON. A reference work
+    about the law should still be searchable in a browser with
+    JavaScript turned off, and making that the baseline costs nothing."""
+    if not search_url:
+        return ""
+    return (
+        f'<form class="sitesearch" action="{_esc(search_url)}" method="get" role="search">'
+        f'<input type="search" name="q" value="{_esc(query)}" '
+        'placeholder="Search" aria-label="Search the corpus">'
+        "</form>"
+    )
+
+
 def page_shell(title: str, body_html: str, previewbar_html: str = "",
                base_url: str | None = None, reader: bool = False,
                preview_source: str = "api", site_salt: str | None = None,
-               site_prefix: str | None = None) -> str:
+               site_prefix: str | None = None, search_url: str | None = None,
+               search_query: str = "") -> str:
     """One page, built into static/site/page.html -- see that file for
     what each placeholder is.
 
@@ -1492,6 +1509,12 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
     how preview.js finds the key the unlock page derived -- the preview
     data is encrypted with it like everything else.
 
+    search_url is where the header's search box submits to, and giving
+    none leaves the box out altogether -- which is what the archive build
+    wants, since a static host has nothing to answer it and a box that
+    404s is worse than no box. It is a plain GET form, so search works
+    with JavaScript off.
+
     site_prefix is what the asset URLs and the Home link are built from
     for a page that has no base_url to derive them from -- the published
     site's own landing page, which belongs to no document. Without it that
@@ -1510,6 +1533,7 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
         "{{BODY_ATTRS}}": body_attrs,
         "{{MAIN_CLASS}}": "page page-reader" if reader else "page",
         "{{PREVIEWBAR}}": previewbar_html,
+        "{{SEARCH}}": _search_form_html(search_url, search_query),
         # Last, so a stray "{{...}}" inside the page's own text -- a
         # provision quoting a template, say -- is never substituted.
         "{{BODY}}": body_html,

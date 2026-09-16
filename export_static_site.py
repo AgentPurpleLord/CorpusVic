@@ -81,7 +81,7 @@ import shutil
 from pathlib import Path
 
 import dashboard
-from corpus import db, html_view, reader
+from corpus import db, html_view, reader, site_env
 from corpus.hierarchy import group_into_units
 from corpus.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL, SiteGate
 from corpus.versions import split_document_slug
@@ -265,28 +265,17 @@ def _default_base_path() -> str:
 # Where the server keeps the passphrase, so that it belongs to the
 # machine rather than to whoever happens to be typing the build command.
 # Gitignored; deploy/site.env.example is the tracked template.
-SITE_ENV_FILE = Path(__file__).parent / "deploy" / "site.env"
+# Kept in corpus/site_env.py now, because the live site reads the same
+# file and must not import this module (which imports the dashboard) to
+# do it. Re-exported here under the names this module has always used.
+SITE_ENV_FILE = site_env.SITE_ENV_FILE
 
 # What a gated page carries and an open one cannot: the encrypted payload
 # the unlock script reads (see corpus/site_crypto.py's _GATE_TEMPLATE).
 _GATED_MARKER = 'id="payload"'
 
 
-def password_from_env_file(path: "Path | None" = None) -> "str | None":
-    """SITE_PASSWORD as recorded on this machine.
-
-    A shell variable lives as long as the shell, which is how the gate
-    came off the published site: the build was carried over to the server
-    but the passphrase was not, and an ungated build is not an error --
-    it is a supported configuration, so nothing complained."""
-    path = Path(path) if path else SITE_ENV_FILE
-    if not path.exists():
-        return None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        name, _, value = line.partition("=")
-        if name.strip() == "SITE_PASSWORD":
-            return value.strip().strip("'\"") or None
-    return None
+password_from_env_file = site_env.password_from_env_file
 
 
 def already_gated(out: Path) -> bool:
@@ -309,7 +298,10 @@ def resolve_password(cli_password: "str | None", no_password: bool, out: Path) -
         return None
     # A passphrase on the command line is visible to anything that can
     # list processes, so it is the last resort rather than the first.
-    password = os.environ.get("SITE_PASSWORD") or password_from_env_file() or cli_password
+    # SITE_ENV_FILE passed rather than left to default, so that this
+    # module's own name for the file is the one that decides -- it is
+    # what a caller (or a test) overrides.
+    password = os.environ.get("SITE_PASSWORD") or password_from_env_file(SITE_ENV_FILE) or cli_password
     if not password and already_gated(out):
         raise SystemExit(
             f"Refusing to rebuild {out}/ without a passphrase: what is there now is gated, and "
@@ -389,7 +381,8 @@ def _copy_template(out: Path) -> None:
     )
 
 def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = False,
-          gate: "SiteGate | None" = None, site_prefix: "str | None" = None) -> str:
+          gate: "SiteGate | None" = None, site_prefix: "str | None" = None,
+          search_url: "str | None" = None, preview_source: str = "static") -> str:
     """A finished page: the body, then the site footer. Every published
     page is built through here rather than calling page_shell directly,
     because the footer is the site's legal notice and the failure to
@@ -397,12 +390,18 @@ def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = F
 
     The live dashboard's own /browse pages don't get this -- they're an
     internal preview behind a login, already labelled as one, not a thing
-    the public reads."""
+    the public reads.
+
+    search_url and preview_source are what the live public site differs
+    by: it has a server, so it answers hover cards on demand and has
+    somewhere for a search box to submit to. The archive has neither,
+    which is why both default to the archive's answer."""
     return html_view.page_shell(
         title, body + _FOOTER_HTML, base_url=base_url, reader=reader,
-        # No server here to render a hover card on demand, so the cards
-        # are pre-built (see _write_previews) and the page says so.
-        preview_source="static",
+        # With no server to render a hover card on demand, the archive's
+        # cards are pre-built (see _write_previews) and the page says so.
+        preview_source=preview_source,
+        search_url=search_url,
         site_salt=base64.b64encode(gate.salt).decode("ascii") if gate else None,
         site_prefix=site_prefix,
     )
@@ -648,7 +647,9 @@ def _provision_count_html(doc: dict) -> str:
     return f" &middot; {checked} of {total} provisions checked"
 
 
-def _landing_page_html(published: list[dict], base_path: str) -> str:
+def _landing_page_html(published: list[dict], base_path: str,
+                       search_url: "str | None" = None,
+                       preview_source: str = "static") -> str:
     """The way in. Only current documents are listed: an older reprint is
     published and readable, but it is reached by asking for it -- from the
     provision you are on, where "Compare with another version" knows which
@@ -700,7 +701,8 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
         f"<p>{intro}</p>"
         + (f'<ul class="section-list">{rows}</ul>' if current else "")
     )
-    return _page("Published legislation", body, site_prefix=base_path)
+    return _page("Published legislation", body, site_prefix=base_path,
+                 search_url=search_url, preview_source=preview_source)
 
 
 def robots_txt_for(gated: bool, allow_indexing: bool) -> str:

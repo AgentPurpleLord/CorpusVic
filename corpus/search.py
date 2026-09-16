@@ -442,7 +442,10 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
             "version": row["version"],
             "label": row["label"],
             "breadcrumb": row["breadcrumb"],
-            "snippet_html": _snippet_html(row["body_snip"] or row["heading"] or ""),
+            # Empty for a provision matched on its heading alone -- the
+            # label above already shows those words, and repeating them
+            # underneath reads as a bug rather than as an extract.
+            "snippet_html": _snippet_html(row["body_snip"] or ""),
             "href": address,
         })
     return {"query": raw, "parsed": query, "total": total, "results": results,

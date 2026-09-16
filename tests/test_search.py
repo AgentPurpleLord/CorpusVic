@@ -60,6 +60,9 @@ def corpus(tmp_path):
             make_node("subsection", "1", None, "An indictable offence may be heard summarily."),
             make_node("section", "4", "Reasonable excuse",
                       "It is a reasonable excuse that the person was elsewhere."),
+            # A section that is a heading and nothing else -- common in
+            # real Acts, where the words are all in the subsections.
+            make_node("section", "9", "Short title", ""),
         )),
         "evidence-act-v1": ("Evidence Act 2008", "act", "1 January 2020", _act(
             make_node("section", "59", "The hearsay rule", "Old wording about hearsay."),
@@ -181,6 +184,28 @@ def test_the_newest_reprint_holds_the_works_address(corpus):
 # ---------------------------------------------------------------------
 # Snippets, and the escaping trap in them
 # ---------------------------------------------------------------------
+
+
+def test_a_heading_only_match_has_no_snippet(corpus):
+    """The label already shows those words. Repeating them underneath as
+    an "extract" reads as a bug rather than as an extract."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    hit = index.search('"short title"')["results"][0]
+    assert hit["label"] == "Section 9 Short title"
+    assert hit["snippet_html"] == ""
+
+
+def test_a_provisions_own_words_are_shown_where_it_has_some(corpus):
+    """A heading match on a section that does have text still shows that
+    text: it is context for the hit, not a repeat of the label."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    hit = index.search("Definitions")["results"][0]
+    assert hit["label"].startswith("Section 3")
+    assert "In this Act" in hit["snippet_html"]
 
 
 def test_the_snippet_marks_what_matched(corpus):
