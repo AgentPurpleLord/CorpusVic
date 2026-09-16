@@ -81,7 +81,7 @@ import shutil
 from pathlib import Path
 
 import dashboard
-from corpus import html_view
+from corpus import html_view, reader
 from corpus.hierarchy import group_into_units
 from corpus.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL, SiteGate
 from corpus.versions import split_document_slug
@@ -430,16 +430,13 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
 
     def site(value):
         return _rewrite_urls(value, base_path, slugs)
-    nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
+    # What this function still needs for itself. Everything a page is
+    # built from is corpus/reader.py's business now, and each of these
+    # lookups is cached against the data it reads (see dashboard.py's
+    # signature-keyed caches), so asking per page costs nothing.
+    nodes, _unattached, _hierarchy = dashboard._current_nodes(slug)
     title = dashboard._act_title(slug)
-    amendments = dashboard._amendments(slug)
     page_index = dashboard._page_index(slug)
-    # Read once for the whole document rather than per section page: both
-    # are the same answer on every page of it.
-    version = dashboard._act_version(slug)
-    version_dates = dashboard._version_dates(slug)
-    timeline_unavailable = dashboard._timeline(
-        split_document_slug(slug)[0]).get("mixed_parsers", False)
 
     # Units grouped over the same node list page_index was built from, so
     # the two agree on what a node index means. (build_effective_nodes_
@@ -457,11 +454,8 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     # haven't been checked.
     checked_pages = approved_page_slugs(nodes, units, page_index["by_node_index"])
 
-    index_body = html_view.render_index(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
-         "version": version},
-        title, base_url, superseded=site(dashboard._superseded(slug)),
-        show_review_badge=False,
+    index_body = reader.contents_page(
+        dashboard, slug, base_url, rewrite=site, show_review_badge=False,
         # Only documents this build actually published: a link from an
         # Act's contents to a Bill nobody has reviewed yet would be a
         # link to a page that isn't there.
@@ -471,31 +465,16 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             for d in dashboard.related_documents(slug)
             if d["slug"] in (published_slugs or ())
         ],
+        notice=(None if checked_pages == all_pages
+                else _partial_notice_html(len(checked_pages), len(all_pages))),
     )
-    if checked_pages != all_pages:
-        index_body = _partial_notice_html(len(checked_pages), len(all_pages)) + index_body
     links |= _link_targets(index_body, base_path)
     _write(doc_dir / "index.html", _page(title, index_body, base_url, gate=gate), gate)
 
-    for node_index, section_slug in page_index["by_node_index"].items():
-        node = nodes[node_index]
-        section_number = node.get("number")
-        schedule = page_index["schedule_by_node_index"].get(node_index)
-        node_type = node["type"]
-        entries, version_urls = dashboard._provision_timeline(slug, section_number, schedule, node_type)
-        crossrefs = (
-            dashboard._section_crossrefs(slug, section_number, schedule)
-            if node_type in ("section", "clause") else []
-        )
-        body = html_view.render_section(
-            {"nodes": nodes, "hierarchy": hierarchy, "version": version,
-             "endnotes": amendments["endnotes"]},
-            title, base_url, section_slug,
-            crossrefs=site(crossrefs), amendment_index=amendments["index"],
-            timeline=entries, version_urls=site(version_urls),
-            superseded=site(dashboard._superseded(slug)),
-            version_dates=version_dates,
-            show_review_badge=False, timeline_unavailable=timeline_unavailable,
+    for _node_index, section_slug in page_index["by_node_index"].items():
+        body = reader.section_page(
+            dashboard, slug, base_url, section_slug,
+            rewrite=site, show_review_badge=False,
             notice=None if section_slug in checked_pages else _unverified_notice_html(),
         )
         if body is None:
@@ -504,10 +483,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
         _write(doc_dir / "section" / section_slug / "index.html",
                _page(title, body, base_url, reader=True, gate=gate), gate)
 
-    endnotes_body = html_view.render_endnotes(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
-        title, base_url, amendments["summary"],
-    )
+    endnotes_body = reader.endnotes_page(dashboard, slug, base_url)
     if endnotes_body is not None:
         links |= _link_targets(endnotes_body, base_path)
         _write(doc_dir / "endnotes" / "index.html",

@@ -120,10 +120,22 @@
       .catch(function () { if (seq === requestSeq) hide(); });
   }
 
+  // The API lives under whatever path this app is served from, so the
+  // "/api" belongs after that prefix rather than in front of the whole
+  // address. Putting it in front asked /api/admin/browse/<slug>/preview
+  // for a page mounted at /admin, which 404s -- and did, silently, for
+  // as long as the dashboard has had a base path: a card that never
+  // appears is indistinguishable from a link that has no card.
+  function apiUrl(base, path) {
+    var cut = base.indexOf("/browse/");
+    var prefix = cut > 0 ? base.slice(0, cut) : "";
+    return prefix + "/api" + base.slice(prefix.length) + path;
+  }
+
   function apiCard(target) {
     var query = "section=" + encodeURIComponent(target.section) +
       "&fragment=" + encodeURIComponent(target.fragment);
-    return fetch("/api" + target.base + "/preview?" + query)
+    return fetch(apiUrl(target.base, "/preview?" + query))
       .then(function (res) { return res.ok ? res.json() : null; });
   }
 

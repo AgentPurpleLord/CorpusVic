@@ -1021,3 +1021,64 @@ def test_the_progress_endpoint_hands_back_what_the_build_said(monkeypatch, tmp_p
     assert body["exit_code"] == 1
     assert "without a passphrase" in body["log"]
     dashboard._site_build.clear()
+
+
+# ---------------------------------------------------------------------
+# Who a request is from, for the lockout to count
+# ---------------------------------------------------------------------
+
+
+def _request_from(peer, forwarded=None):
+    """A stand-in for the one thing _client_ip reads off a request."""
+    from starlette.datastructures import Headers
+
+    class _Client:
+        host = peer
+
+    class _Request:
+        client = _Client() if peer else None
+        headers = Headers({"x-forwarded-for": forwarded} if forwarded else {})
+
+    return _Request()
+
+
+def test_the_forwarded_address_is_read_when_the_peer_is_the_proxy():
+    """Caddy terminates TLS and proxies over loopback, so the peer is
+    always 127.0.0.1. Counting that made the login lockout global: five
+    wrong guesses from anyone locked out everyone."""
+    assert dashboard._client_ip(_request_from("127.0.0.1", "203.0.113.7")) == "203.0.113.7"
+    assert dashboard._client_ip(_request_from("::1", "203.0.113.7")) == "203.0.113.7"
+
+
+def test_the_last_forwarded_hop_is_the_one_believed():
+    """A client can seed X-Forwarded-For with anything. Each proxy
+    appends the peer it actually saw, so the last entry is the one the
+    proxy in front of us added and the only one not under the client's
+    control."""
+    forged = "1.2.3.4, 5.6.7.8"  # what a client sent, plus what Caddy appended
+    assert dashboard._client_ip(_request_from("127.0.0.1", forged)) == "5.6.7.8"
+
+
+def test_a_forwarded_header_from_a_stranger_is_ignored():
+    """Read only when the peer really is the proxy. Anywhere else the
+    header is just something somebody sent, and believing it would let
+    anyone pick which address their failures are counted against."""
+    assert dashboard._client_ip(_request_from("198.51.100.9", "127.0.0.1")) == "198.51.100.9"
+
+
+def test_a_peerless_request_still_has_an_answer():
+    assert dashboard._client_ip(_request_from(None)) == "unknown"
+
+
+def test_two_callers_behind_the_proxy_do_not_lock_each_other_out():
+    """The whole point of the fix: one person guessing wrong must not be
+    able to lock the door on everybody else."""
+    dashboard._FAILED_ATTEMPTS.clear()
+    guesser = _request_from("127.0.0.1", "203.0.113.7")
+    for _ in range(dashboard._LOCKOUT_THRESHOLD):
+        dashboard._record_failed_login(dashboard._client_ip(guesser))
+
+    assert dashboard._is_locked_out(dashboard._client_ip(guesser)) is True
+    everyone_else = _request_from("127.0.0.1", "198.51.100.4")
+    assert dashboard._is_locked_out(dashboard._client_ip(everyone_else)) is False
+    dashboard._FAILED_ATTEMPTS.clear()

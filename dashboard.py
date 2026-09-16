@@ -83,7 +83,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus import commentary, db, diffing, html_view, sync
+from corpus import commentary, db, diffing, html_view, reader, sync
 from corpus.act_registry import load_act_registry
 from corpus.amendments import build_amendment_index, summarise_by_act
 from corpus.commentary import build_commentary_index
@@ -463,8 +463,33 @@ def _check_credentials(username: str, password: str) -> bool:
     return username_ok and password_ok
 
 
+# The addresses a request arrives from when something on this machine is
+# forwarding it. Caddy terminates TLS and proxies over loopback, so every
+# request's immediate peer is one of these and none of them identifies
+# anybody.
+_LOOPBACK = {"127.0.0.1", "::1"}
+
+
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    """Who a request is actually from, for the login lockout to count.
+
+    Behind a reverse proxy the peer is always loopback, so counting that
+    made the lockout global: five wrong guesses from anyone on earth
+    locked out everyone for fifteen minutes. On a public site sharing one
+    passphrase that is a denial of service anybody can perform.
+
+    X-Forwarded-For is a list a client can seed with anything it likes,
+    but each proxy appends the peer it actually saw -- so the last entry
+    is the one Caddy added and the only one not under the client's
+    control. Read only when the peer really is loopback: anywhere else,
+    the header is just something a stranger sent."""
+    peer = request.client.host if request.client else None
+    if peer in _LOOPBACK:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        nearest = forwarded.rsplit(",", 1)[-1].strip()
+        if nearest:
+            return nearest
+    return peer or "unknown"
 
 
 def _is_locked_out(ip: str) -> bool:
@@ -1967,6 +1992,13 @@ def legislation_resolver(citation: str):
     return HTMLResponse(html_view.page_shell("Not parsed yet", body), status_code=404)
 
 
+# What corpus/reader.py reads the document data through: this module
+# itself, which owns those lookups and their caches. Named here rather
+# than repeated at each call site, and passed rather than imported so
+# that reader.py has no opinion about who is asking.
+_SOURCE = sys.modules[__name__]
+
+
 @app.get("/browse/{slug}")
 def browse_redirect(slug: str):
     _validate_slug(slug)
@@ -1978,12 +2010,9 @@ def browse_index(slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
-    body = html_view.render_index(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": _amendments(slug)["endnotes"],
-         "version": _act_version(slug)},
-        title, _url(f"/browse/{slug}"), superseded=_superseded(slug),
+    body = reader.contents_page(
+        _SOURCE, slug, _url(f"/browse/{slug}"),
         related=[
             {"slug": d["slug"], "kind": d["kind"], "title": _act_title(d["slug"]),
              "href": f"/browse/{d['slug']}/"}
@@ -2004,45 +2033,8 @@ def browse_section(slug: str, section_slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = _current_nodes(slug)
     title = _act_title(slug)
-    # Which provision this page is, so its Bill/EM commentary can be looked
-    # up by number (see corpus/commentary.py for why by number).
-    page_index = _page_index(slug)
-    node_index = next((i for i, page in page_index["by_node_index"].items() if page == section_slug), None)
-    section_number = nodes[node_index].get("number") if node_index is not None else None
-    # Which Schedule (if any) this page's own provision sits in -- see
-    # _section_crossrefs on why the number alone doesn't identify it.
-    schedule = page_index["schedule_by_node_index"].get(node_index)
-    # How this provision's wording has moved across the versions of the Act
-    # held here, and where to read each of them. A Schedule is its own
-    # provision rather than a clause of itself, so its node type decides
-    # which identity to look the timeline up under (see diffing).
-    node_type = nodes[node_index]["type"] if node_index is not None else "section"
-    entries, version_urls = _provision_timeline(slug, section_number, schedule, node_type)
-    # Bill/EM commentary is only ever matched against an ordinary numbered
-    # provision (see bill_linking.py) and never against a Schedule as a
-    # whole -- a pageable Schedule (hierarchy.schedule_is_pageable) is
-    # addressed by its own number with schedule=None, the same
-    # (schedule, number) pair a same-numbered body section would use, and
-    # _commentary_index's own key has no kind to tell them apart the way
-    # build_page_index's by_key now does. Skipping the lookup outright
-    # for anything that isn't a genuine Section/Clause page avoids
-    # borrowing that section's commentary onto the Schedule's page.
-    crossrefs = _section_crossrefs(slug, section_number, schedule) if node_type in ("section", "clause") else []
-    amendments = _amendments(slug)
-    body = html_view.render_section(
-        # version and endnotes are what the reading bar's "Text as at" line
-        # and the outline's Endnotes link are built from.
-        {"nodes": nodes, "hierarchy": hierarchy, "version": _act_version(slug),
-         "endnotes": amendments["endnotes"]},
-        title, _url(f"/browse/{slug}"), section_slug,
-        crossrefs=crossrefs,
-        amendment_index=amendments["index"],
-        timeline=entries, version_urls=version_urls, superseded=_superseded(slug),
-        version_dates=_version_dates(slug),
-        timeline_unavailable=_timeline(split_document_slug(slug)[0]).get("mixed_parsers", False),
-    )
+    body = reader.section_page(_SOURCE, slug, _url(f"/browse/{slug}"), section_slug)
     if body is None:
         raise HTTPException(404, f"No such section {section_slug!r} in {slug!r}")
     return HTMLResponse(html_view.page_shell(
@@ -2058,13 +2050,8 @@ def browse_endnotes(slug: str):
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = _current_nodes(slug)
-    amendments = _amendments(slug)
     title = _act_title(slug)
-    body = html_view.render_endnotes(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
-        title, _url(f"/browse/{slug}"), amendments["summary"],
-    )
+    body = reader.endnotes_page(_SOURCE, slug, _url(f"/browse/{slug}"))
     if body is None:
         raise HTTPException(404, f"{slug!r} has no endnotes -- re-parse it if it's an Act.")
     return HTMLResponse(html_view.page_shell(f"{title} \u2014 Endnotes", body, _preview_bar(slug), base_url=_url(f"/browse/{slug}")))
