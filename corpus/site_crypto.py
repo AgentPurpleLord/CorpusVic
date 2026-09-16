@@ -86,6 +86,7 @@ class SiteGate:
 
 
 ROBOTS_TXT = "User-agent: *\nDisallow: /\n"
+ROBOTS_TXT_ALLOW_ALL = "User-agent: *\nDisallow:\n"
 
 
 # The unlock page. Self-contained on purpose: no external stylesheet or

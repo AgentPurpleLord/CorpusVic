@@ -371,6 +371,30 @@ the proxy and give Caddy a certificate some other way, which means an
 origin certificate from the CDN or a DNS-01 challenge. The first is
 simpler and is what the rest of this guide assumes.
 
+## If the site was open when it should not have been
+
+Rebuilding with the passphrase closes it to new readers. Two things it
+does not undo, and both are worth a few minutes:
+
+**Anything already crawled.** An open build published thousands of
+provisions of mostly unchecked text. Check what is out there:
+
+```
+site:corpusvic.au
+```
+
+in a search engine. Where there are results, ask for removal rather than
+waiting -- Google Search Console's Removals tool, Bing Webmaster Tools'
+equivalent -- because a crawler will otherwise keep serving its snapshot
+long after the pages behind it stopped answering. A gated rebuild also
+publishes a Disallow-everything robots.txt, which stops the *next* crawl
+but does nothing about a cached one.
+
+**Anyone who read it.** There is no log of that unless Caddy's access log
+was on, and nothing to be done about it either way. Worth knowing rather
+than worth acting on: what was published was the parser's reading of
+public legislation, with the disclaimers already on every page.
+
 ## If you already deployed under the old path
 
 A server set up before the repository was renamed has everything under
@@ -429,6 +453,7 @@ look at:
 # If the site is gated, its front page is the unlock page rather than the
 # index -- this is the one that catches a passphrase having gone missing.
 curl -s https://corpusvic.au/ | grep -c 'id="payload"'   # 1 when gated, 0 when open
+curl -s https://corpusvic.au/robots.txt                 # Disallow: / unless you asked otherwise
 sudo systemctl status dashboard          # active (running)
 grep -r /opt/vic-legislation-parser /etc/systemd/system /etc/caddy   # expect nothing
 curl -sI https://corpusvic.au/admin | head -1                        # 308 to /admin/

@@ -835,3 +835,31 @@ def test_the_servers_file_is_preferred_to_the_command_line(tmp_path, monkeypatch
     monkeypatch.setattr("export_static_site.SITE_ENV_FILE", path)
 
     assert resolve_password("typed on the line", False, tmp_path) == "from the file"
+
+
+# ---------------------------------------------------------------------
+# Who is allowed to crawl it
+# ---------------------------------------------------------------------
+# robots.txt used to be written only on a gated build, which had the two
+# cases backwards: the gated site publishes ciphertext, so a crawler
+# ignoring the file would index gibberish, while the open site publishes
+# thousands of provisions of mostly unchecked legal text -- and that was
+# the build that got no robots.txt at all. The site was live in that
+# state.
+
+@pytest.mark.parametrize("gated, allow_indexing, indexable", [
+    # The state it was actually in, and the one that matters most.
+    (False, False, False),
+    (False, True, True),
+    (True, False, False),
+    # Asking to index a site that is behind a passphrase is a
+    # contradiction, resolved the safe way round.
+    (True, True, False),
+])
+def test_crawling_is_asked_for_rather_than_arrived_at(gated, allow_indexing, indexable):
+    from export_static_site import robots_txt_for
+
+    robots = robots_txt_for(gated, allow_indexing)
+
+    assert ("Disallow: /" in robots) is not indexable
+    assert robots.startswith("User-agent: *"), "whatever the answer, it is stated"

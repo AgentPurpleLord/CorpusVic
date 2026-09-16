@@ -83,7 +83,7 @@ from pathlib import Path
 import dashboard
 from corpus import html_view
 from corpus.hierarchy import group_into_units
-from corpus.site_crypto import ROBOTS_TXT, SiteGate
+from corpus.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL, SiteGate
 from corpus.versions import split_document_slug
 
 
@@ -713,7 +713,25 @@ def _landing_page_html(published: list[dict], base_path: str) -> str:
     return _page("Published legislation", body, site_prefix=base_path)
 
 
-def build_site(out: Path, base_path: str, password: "str | None" = None) -> tuple:
+def robots_txt_for(gated: bool, allow_indexing: bool) -> str:
+    """What to tell crawlers. Always something: no file at all means the
+    crawler decides.
+
+    It used to be written only on a gated build, which had the two cases
+    exactly backwards. A gated site publishes ciphertext, so a crawler
+    that ignored the file would index gibberish; an open site publishes
+    thousands of provisions of mostly unchecked legal text, and that was
+    the build with no robots.txt at all.
+
+    So indexing is asked for rather than arrived at, and asking for it on
+    a gated site is a contradiction resolved the safe way round. A crawl
+    cannot be taken back: the pages come down and the snapshot stays
+    up."""
+    return ROBOTS_TXT_ALLOW_ALL if (allow_indexing and not gated) else ROBOTS_TXT
+
+
+def build_site(out: Path, base_path: str, password: "str | None" = None,
+               allow_indexing: bool = False) -> tuple:
     """The whole site. With a passphrase, every page is encrypted behind
     the unlock gate and a Disallow-everything robots.txt goes out beside
     them -- a site that isn't ready to be read isn't ready to be indexed
@@ -748,10 +766,9 @@ def build_site(out: Path, base_path: str, password: "str | None" = None) -> tupl
     preview_files = _write_previews(
         out, base_path, targets,
         {doc["site_slug"]: (doc["slug"], doc["published_pages"]) for doc in published}, gate)
-    if gate:
-        # Never encrypted: a crawler has to be able to read the one file
-        # that tells it to go away.
-        _write(out / "robots.txt", ROBOTS_TXT)
+    # Never encrypted: a crawler has to be able to read the one file that
+    # tells it what to do.
+    _write(out / "robots.txt", robots_txt_for(gate is not None, allow_indexing))
     domain = custom_domain()
     if domain:
         # Published with the site, not just kept in the repository. A
@@ -769,6 +786,8 @@ def main():
     ap.add_argument("--password", default=None, help="passphrase to encrypt every page behind (default: $SITE_PASSWORD, else deploy/site.env)")
     ap.add_argument("--no-password", action="store_true",
                     help="publish an open, ungated site, even where the build being replaced was gated")
+    ap.add_argument("--allow-indexing", action="store_true",
+                    help="let search engines index the site (open builds only; the default asks them not to)")
     args = ap.parse_args()
 
     base_path = args.base_path if args.base_path is not None else _default_base_path()
@@ -776,7 +795,7 @@ def main():
     password = resolve_password(args.password, args.no_password, out)
 
     all_slugs = dashboard.discover_slugs()
-    published, preview_files = build_site(out, base_path, password)
+    published, preview_files = build_site(out, base_path, password, args.allow_indexing)
     published_slugs = {doc["slug"] for doc in published}
     skipped = [s for s in all_slugs if s not in published_slugs]
 
@@ -790,11 +809,13 @@ def main():
         print(f"Skipped {len(skipped)} document(s) (not parsed):")
         for slug in skipped:
             print(f"  {slug}")
-    print(
-        "Every page is encrypted behind the passphrase, and robots.txt disallows crawlers."
-        if password else
-        "No passphrase set -- the site is open to anyone who has the URL."
-    )
+    if password:
+        print("Every page is encrypted behind the passphrase, and robots.txt disallows crawlers.")
+    elif args.allow_indexing:
+        print("OPEN SITE, and robots.txt invites search engines in. Anyone can read it.")
+    else:
+        print("OPEN SITE -- anyone with the URL can read it. robots.txt asks crawlers to stay out, "
+              "which is a request, not a lock. Pass a passphrase to gate it.")
 
 
 if __name__ == "__main__":
