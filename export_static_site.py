@@ -81,18 +81,29 @@ import shutil
 from pathlib import Path
 
 import dashboard
-from corpus import html_view, reader
+from corpus import db, html_view, reader
 from corpus.hierarchy import group_into_units
 from corpus.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL, SiteGate
 from corpus.versions import split_document_slug
 
 
-def select_candidate_slugs(statuses: dict[str, dict]) -> list[str]:
-    """Which documents are even eligible for the site: every parsed one,
-    including older versions of a work. How much of a candidate a human
-    has checked is a separate question, answered per provision by
-    approved_page_slugs below, and it decides what each page says about
-    itself rather than whether it exists.
+def select_candidate_slugs(statuses: dict[str, dict],
+                           include_unpublished: bool = False) -> list[str]:
+    """Which documents are even eligible for the site: every parsed one
+    somebody has put on the site, including older versions of a work.
+    How much of a candidate a human has checked is a separate question,
+    answered per provision by approved_page_slugs below, and it decides
+    what each page says about itself rather than whether it exists.
+
+    Publication is decided per *work* (see corpus/db.py), so a work's
+    reprints are in or out together and this filter never splits a
+    version set -- which is what lets site_slugs below keep its promise
+    that the newest version holds the work's own address.
+
+    include_unpublished is for an archive of everything held rather than
+    of what is on the site. It has to be asked for: a build that
+    published more than the site does, by default, would be a way to
+    publish something by accident.
 
     Older reprints are published because a reader needs to be able to go
     and read one: "Compare with another version" on a provision offers
@@ -104,7 +115,10 @@ def select_candidate_slugs(statuses: dict[str, dict]) -> list[str]:
     Pure and file-I/O-free so it's unit-testable on fabricated status
     dicts -- see tests/test_export_static_site.py. `statuses` is
     {slug: dashboard.act_status(slug)}."""
-    return sorted(slug for slug, status in statuses.items() if status["parsed"])
+    return sorted(
+        slug for slug, status in statuses.items()
+        if status["parsed"] and (include_unpublished or status.get("published"))
+    )
 
 
 def site_slugs(candidates: list[str]) -> dict[str, str]:
@@ -707,7 +721,7 @@ def robots_txt_for(gated: bool, allow_indexing: bool) -> str:
 
 
 def build_site(out: Path, base_path: str, password: "str | None" = None,
-               allow_indexing: bool = False) -> tuple:
+               allow_indexing: bool = False, include_unpublished: bool = False) -> tuple:
     """The whole site. With a passphrase, every page is encrypted behind
     the unlock gate and a Disallow-everything robots.txt goes out beside
     them -- a site that isn't ready to be read isn't ready to be indexed
@@ -718,8 +732,10 @@ def build_site(out: Path, base_path: str, password: "str | None" = None,
     written)."""
     gate = SiteGate(password) if password else None
     _copy_template(out)
-    statuses = {slug: dashboard.act_status(slug) for slug in dashboard.discover_slugs()}
-    candidates = select_candidate_slugs(statuses)
+    publication = db.load_publication(dashboard.BASE_DIR)
+    statuses = {slug: dashboard.act_status(slug, publication)
+                for slug in dashboard.discover_slugs()}
+    candidates = select_candidate_slugs(statuses, include_unpublished)
     slugs = site_slugs(candidates)
     # Which candidates will publish anything, worked out before any page
     # is written: an Act's contents links to its Bill and Explanatory
@@ -764,6 +780,9 @@ def main():
                     help="publish an open, ungated site, even where the build being replaced was gated")
     ap.add_argument("--allow-indexing", action="store_true",
                     help="let search engines index the site (open builds only; the default asks them not to)")
+    ap.add_argument("--include-unpublished", action="store_true",
+                    help="build every parsed document, not only the works put on the site from the dashboard "
+                         "-- an archive of everything held rather than a copy of the site")
     args = ap.parse_args()
 
     base_path = args.base_path if args.base_path is not None else _default_base_path()
@@ -771,7 +790,8 @@ def main():
     password = resolve_password(args.password, args.no_password, out)
 
     all_slugs = dashboard.discover_slugs()
-    published, preview_files = build_site(out, base_path, password, args.allow_indexing)
+    published, preview_files = build_site(out, base_path, password, args.allow_indexing,
+                                          args.include_unpublished)
     published_slugs = {doc["slug"] for doc in published}
     skipped = [s for s in all_slugs if s not in published_slugs]
 

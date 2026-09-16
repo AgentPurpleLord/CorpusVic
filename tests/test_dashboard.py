@@ -56,6 +56,9 @@ def test_act_status_reports_not_parsed_when_no_parsed_json_exists(tmp_path, monk
     assert status == {
         "slug": "crimes-act",
         "has_pdf": False,
+        # Nothing reaches the public site because it happened to get
+        # parsed -- see corpus/db.py's publication table.
+        "published": False,
         "work": "crimes-act",
         "version": None,
         "version_as_at": None,
@@ -1082,3 +1085,86 @@ def test_two_callers_behind_the_proxy_do_not_lock_each_other_out():
     everyone_else = _request_from("127.0.0.1", "198.51.100.4")
     assert dashboard._is_locked_out(dashboard._client_ip(everyone_else)) is False
     dashboard._FAILED_ATTEMPTS.clear()
+
+
+# ---------------------------------------------------------------------
+# Choosing what is on the public site
+# ---------------------------------------------------------------------
+
+
+def _dashboard_at(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    dashboard._DASHBOARD_USERNAME = None
+    return TestClient(dashboard.app)
+
+
+def test_publishing_a_work_from_the_dashboard(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+
+    res = client.post("/api/publication", json={"work": "crimes-act", "published": True})
+
+    assert res.status_code == 200
+    assert res.json()["published_works"] == ["crimes-act"]
+    assert dashboard.db.published_works(tmp_path) == {"crimes-act"}
+
+
+def test_taking_a_work_off_the_public_site(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    client.post("/api/publication", json={"work": "crimes-act", "published": True})
+
+    res = client.post("/api/publication", json={"work": "crimes-act", "published": False})
+
+    assert res.json()["published_works"] == []
+    assert dashboard.db.published_works(tmp_path) == set()
+
+
+def test_a_publication_request_has_to_name_a_work(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    assert client.post("/api/publication", json={"work": "   ", "published": True}).status_code == 400
+
+
+def test_the_decision_covers_every_reprint_of_a_work(tmp_path, monkeypatch):
+    """Published per work, so all five Criminal Procedure Act reprints
+    answer the same -- there is no state in which the newest is down and
+    an older one is still up."""
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    for version in (110, 114):
+        (tmp_path / "data" / "parsed" / f"criminal-procedure-act-v{version}.json").write_text(
+            "{}", encoding="utf-8")
+    dashboard.db.set_publication("criminal-procedure-act", True, tmp_path)
+
+    publication = dashboard.db.load_publication(tmp_path)
+    for version in (110, 114):
+        assert dashboard.act_status(f"criminal-procedure-act-v{version}", publication)["published"] is True
+
+
+def test_seeding_records_what_was_already_being_served(tmp_path, monkeypatch):
+    """Everything parsed used to be on the site. The table arriving must
+    not take all of it down -- that is not a decision anybody made."""
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "crimes-act.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "data" / "parsed" / "criminal-procedure-act-v114.json").write_text("{}", encoding="utf-8")
+
+    dashboard._seed_publication_if_new()
+
+    assert dashboard.db.published_works(tmp_path) == {"crimes-act", "criminal-procedure-act"}
+
+
+def test_seeding_leaves_a_later_document_off(tmp_path, monkeypatch):
+    """Once the table has been written, a newly parsed work starts off
+    the site until somebody says otherwise -- which is the whole point of
+    asking for the control."""
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "crimes-act.json").write_text("{}", encoding="utf-8")
+    dashboard._seed_publication_if_new()
+
+    (tmp_path / "data" / "parsed" / "evidence-act.json").write_text("{}", encoding="utf-8")
+    dashboard._seed_publication_if_new()
+
+    assert dashboard.db.published_works(tmp_path) == {"crimes-act"}
+    assert dashboard.act_status("evidence-act")["published"] is False

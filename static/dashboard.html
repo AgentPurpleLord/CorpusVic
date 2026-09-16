@@ -164,6 +164,11 @@
   .badge.done { background: var(--badge-done-bg); color: var(--done); }
   .badge.in-progress { background: var(--badge-progress-bg); color: var(--flagged); }
   .badge.not-started, .badge.not-parsed { background: var(--badge-bg); color: var(--pending); }
+  /* A badge that is also a button: it reports a state and changes it. */
+  .badge.publish { border: 1px solid transparent; cursor: pointer; font: inherit; font-size: 11.5px; padding: 2px 8px; }
+  .badge.publish.on { background: var(--badge-done-bg); color: var(--done); }
+  .badge.publish.off { background: var(--badge-bg); color: var(--pending); }
+  .badge.publish:hover { border-color: currentColor; }
   .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   /* Bill + Act + Explanatory Memorandum all inter-relate. Shown as one row. */
   .doc-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
@@ -674,11 +679,26 @@ function actCardHtml(s) {
     ? `<span class="badge">${s.version !== null ? "v" + s.version + " &mdash; " : ""}as at ${s.version_as_at}</span>`
     : "";
 
+  // Whether this work is on the public site, and the way to change it.
+  // A state rather than an action, so it sits with the badges rather
+  // than in the button row -- but a clickable one, because being unable
+  // to see why a document is missing from the site is the failure this
+  // is here to prevent.
+  const publishBadge = s.parsed
+    ? `<button class="badge publish ${s.published ? "on" : "off"}"
+               onclick="togglePublication('${s.work}', ${s.published ? "false" : "true"}, this)"
+               title="${s.published
+                 ? "On the public site -- click to take it down"
+                 : "Not on the public site -- click to publish it"}">${
+        s.published ? "On the public site" : "Not published"}</button>`
+    : "";
+
   return `
     <div class="act-card">
       <div class="head">
         <span class="slug">${s.work}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
+        ${publishBadge}
         ${kindBadge}
         ${asAt}
         ${nodesBadge}
@@ -1031,6 +1051,34 @@ async function loadActs() {
   ACTS = await actsRes.json();
   BILL_LINKS = await linksRes.json();
   renderActs();
+}
+
+async function togglePublication(work, publish, btn) {
+  // Taking something down is the direction worth a moment's pause: a
+  // page that has been linked to stops answering.
+  if (!publish && !confirm(
+      `Take ${work} off the public site?\n\n` +
+      "Its pages will stop answering, including any link somebody already has.")) {
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch("api/publication", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ work, published: publish }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't change it.");
+    toast(publish ? `${work} is on the public site.` : `${work} is no longer published.`);
+    await loadActs();
+    // The decision lives in the review database, so it is now something
+    // waiting to be pushed like everything else.
+    loadSync();
+  } catch (e) {
+    btn.disabled = false;
+    toast(e.message, true);
+  }
 }
 
 async function runExport(slug, kind, btn) {

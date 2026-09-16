@@ -207,6 +207,28 @@ CREATE TABLE IF NOT EXISTS orphaned_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_orphaned_reviews_act ON orphaned_reviews(act);
 
+-- Which works are on the public site.
+--
+-- Keyed by *work* rather than by parse slug, and that is the whole
+-- design. A work is on the site or it is not, and all of its reprints go
+-- with it. Keying by slug would force an answer to "the newest version
+-- was just withdrawn -- now what?", and both available answers are bad:
+-- falling back to the previous reprint silently republishes at a
+-- different address text that was just taken down, while doing nothing
+-- leaves /browse/<work>/ dead while /browse/<work>-v113/ still resolves.
+-- Per-work, the question cannot be asked. It also matches the dashboard,
+-- which has drawn one card per work since versions became first-class.
+--
+-- Editorial state, not derived state: a person decided it, so it is
+-- committed and travels with the repository like the review work does.
+-- Absence means not published -- nothing reaches the public site without
+-- somebody having said so.
+CREATE TABLE IF NOT EXISTS publication (
+    work       TEXT PRIMARY KEY,
+    published  INTEGER NOT NULL,
+    changed_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS custom_types (
     act TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -927,3 +949,58 @@ def delete_custom_type(act: str, name: str) -> None:
     conn = _connect()
     with conn:
         conn.execute("DELETE FROM custom_types WHERE act = ? AND name = ?", (act, name))
+
+
+# ---------------------------------------------------------------------------
+# What is on the public site (was: everything that had been parsed)
+# ---------------------------------------------------------------------------
+
+
+def load_publication(base_dir: "str | Path | None" = None) -> dict[str, bool]:
+    """{work: whether it is on the public site}, for every work anybody
+    has decided about. A work that has never been decided about is simply
+    absent -- see published_works, which is what callers usually want."""
+    rows = _connect(base_dir).execute("SELECT work, published FROM publication").fetchall()
+    return {row["work"]: bool(row["published"]) for row in rows}
+
+
+def published_works(base_dir: "str | Path | None" = None) -> set[str]:
+    """Just the works that are on the site, as a set to test against."""
+    return {work for work, on in load_publication(base_dir).items() if on}
+
+
+def set_publication(work: str, published: bool, base_dir: "str | Path | None" = None) -> None:
+    """Puts a work on the public site, or takes it off.
+
+    Stored either way rather than deleting the row for "off", so that a
+    work somebody deliberately withdrew is distinguishable from one
+    nobody has considered -- and so changed_at says when."""
+    conn = _connect(base_dir)
+    with conn:
+        conn.execute(
+            "INSERT INTO publication (work, published, changed_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(work) DO UPDATE SET published = excluded.published, "
+            "changed_at = excluded.changed_at",
+            (work, 1 if published else 0, _now_iso()),
+        )
+
+
+def seed_publication(works, base_dir: "str | Path | None" = None) -> int:
+    """Records `works` as published, but only those nobody has decided
+    about yet. Returns how many were newly recorded.
+
+    For the one moment this table arrives in a database that predates it:
+    what was already on the site stays on it. Without this, adding the
+    table would take down every page the site was serving, which is not a
+    decision anyone made. It is deliberately not the same as "publish
+    everything": a work withdrawn on purpose is left withdrawn, and a
+    work parsed after this point starts off."""
+    known = set(load_publication(base_dir))
+    fresh = [work for work in dict.fromkeys(works) if work not in known]
+    conn = _connect(base_dir)
+    with conn:
+        conn.executemany(
+            "INSERT INTO publication (work, published, changed_at) VALUES (?, 1, ?)",
+            [(work, _now_iso()) for work in fresh],
+        )
+    return len(fresh)

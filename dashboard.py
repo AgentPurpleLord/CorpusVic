@@ -155,12 +155,20 @@ def _pdf_version(pdf: Path) -> "int | None":
     return _pdf_version_cache[key]
 
 
-def act_status(slug: str) -> dict:
+def act_status(slug: str, publication: "dict | None" = None) -> dict:
     parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     work, version = split_document_slug(slug)
+    # Passed in when a caller is asking about every document at once, so
+    # the one small table is read once rather than per document.
+    if publication is None:
+        publication = db.load_publication(BASE_DIR)
     status = {
         "slug": slug,
         "has_pdf": _find_source_pdf(slug) is not None,
+        # Whether this work is on the public site. Per work, so every
+        # reprint of an Act answers the same -- see corpus/db.py's
+        # publication table for why that is the only coherent key.
+        "published": bool(publication.get(work, False)),
         # A version of a work, or a document in its own right. "work" is
         # the Act itself and is the same for all its versions; "version" is
         # None for a Bill, an EM, or an Act not being version-tracked.
@@ -994,7 +1002,34 @@ def index():
 
 @app.get("/api/acts")
 def list_acts():
-    return [act_status(slug) for slug in discover_slugs()]
+    publication = db.load_publication(BASE_DIR)
+    return [act_status(slug, publication) for slug in discover_slugs()]
+
+
+class PublicationRequest(BaseModel):
+    work: str
+    published: bool
+
+
+@app.post("/api/publication")
+def set_publication(req: PublicationRequest):
+    """Puts a work on the public site, or takes it off.
+
+    Per work rather than per parsed document: an Act is on the site or it
+    isn't, and all of its reprints go with it (see corpus/db.py). The
+    decision lands in data/legislation.db, so it travels to GitHub with
+    the review work on the next push rather than living only on whichever
+    machine it was made."""
+    if not req.work.strip():
+        raise HTTPException(400, "Which work?")
+    db.set_publication(req.work.strip(), req.published, BASE_DIR)
+    publication = db.load_publication(BASE_DIR)
+    return {
+        "ok": True,
+        "work": req.work.strip(),
+        "published": req.published,
+        "published_works": sorted(w for w, on in publication.items() if on),
+    }
 
 
 @app.get("/api/profiles")
@@ -2138,6 +2173,29 @@ def _resolve_auth(cli_username: str | None, cli_password: str | None) -> bool:
     return True
 
 
+def _seed_publication_if_new() -> None:
+    """The one moment the publication table arrives in a database that
+    predates it.
+
+    Until now, everything parsed was on the published site. Starting with
+    an empty table would take all of it down at once, which is not a
+    decision anybody made -- so the first run records what was already
+    showing as published, and every work parsed after that starts off
+    until somebody says otherwise.
+
+    Only when the table has never been written. A row is never deleted,
+    including for a work taken down on purpose, so this cannot fire twice
+    and quietly republish something that was withdrawn."""
+    if db.load_publication(BASE_DIR):
+        return
+    works = [split_document_slug(slug)[0] for slug in discover_slugs()
+             if (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists()]
+    seeded = db.seed_publication(works, BASE_DIR)
+    if seeded:
+        print(f"{seeded} work(s) recorded as already on the public site. "
+              f"Change that per work on the dashboard.", file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="127.0.0.1", help="bind address; 0.0.0.0 to accept remote connections")
@@ -2167,6 +2225,8 @@ def main():
             )
 
     import uvicorn
+
+    _seed_publication_if_new()
 
     print(f"{len(discover_slugs())} Act(s)/Bill(s)/EM(s) known.")
     where = args.host if args.host != "0.0.0.0" else "<this-machine-address>"

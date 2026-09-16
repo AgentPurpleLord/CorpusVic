@@ -29,8 +29,12 @@ from export_static_site import (
 )
 
 
-def _status(parsed=True, review_status="reviewed"):
-    return {"parsed": parsed, "review_status": review_status}
+def _status(parsed=True, review_status="reviewed", published=True):
+    """Published by default, so that the tests either side of this are
+    about the question they were written to ask -- whether a document is
+    eligible at all -- rather than about publication, which has its own
+    tests below."""
+    return {"parsed": parsed, "review_status": review_status, "published": published}
 
 
 def test_select_candidate_slugs_skips_an_unparsed_document():
@@ -60,6 +64,50 @@ def test_every_parsed_version_is_a_candidate():
     }
     assert select_candidate_slugs(statuses) == [
         "criminal-procedure-act-v110", "criminal-procedure-act-v114"]
+
+
+def test_a_work_nobody_put_on_the_site_is_not_built():
+    """Publication is a decision somebody makes on the dashboard, not
+    something a document earns by being parsed."""
+    statuses = {
+        "crimes-act": _status(published=True),
+        "evidence-act": _status(published=False),
+    }
+    assert select_candidate_slugs(statuses) == ["crimes-act"]
+
+
+def test_a_status_with_no_publication_answer_is_not_built():
+    """A document from before the flag existed, or one whose status came
+    from somewhere that doesn't fill it in. Silence is not consent."""
+    assert select_candidate_slugs({"crimes-act": {"parsed": True, "review_status": "reviewed"}}) == []
+
+
+def test_an_archive_of_everything_has_to_be_asked_for():
+    """A build that published more than the site does would be a way to
+    publish something by accident, so it is a flag rather than a
+    default."""
+    statuses = {
+        "crimes-act": _status(published=True),
+        "evidence-act": _status(published=False),
+        "not-parsed-act": _status(parsed=False, published=True),
+    }
+    assert select_candidate_slugs(statuses, include_unpublished=True) == [
+        "crimes-act", "evidence-act"]
+
+
+def test_publication_never_splits_a_works_version_set():
+    """It is decided per work, so every reprint answers the same -- which
+    is what lets site_slugs keep its promise that the newest version
+    holds the work's own address."""
+    statuses = {
+        "criminal-procedure-act-v110": _status(published=True),
+        "criminal-procedure-act-v114": _status(published=True),
+        "evidence-act": _status(published=False),
+    }
+    chosen = select_candidate_slugs(statuses)
+    assert chosen == ["criminal-procedure-act-v110", "criminal-procedure-act-v114"]
+    from export_static_site import site_slugs
+    assert site_slugs(chosen)["criminal-procedure-act-v114"] == "criminal-procedure-act"
 
 
 def test_the_newest_version_is_published_without_a_version_in_its_address():

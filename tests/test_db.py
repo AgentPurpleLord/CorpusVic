@@ -518,3 +518,68 @@ def test_boxes_are_per_document(tmp_path, monkeypatch):
     db.save_node_rects("cpa", 1, [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
 
     assert db.load_node_rects("interpretation") == {}
+
+
+# ---------------------------------------------------------------------
+# What is on the public site
+# ---------------------------------------------------------------------
+
+
+def test_a_work_nobody_has_decided_about_is_not_published(tmp_path):
+    """Absence means off. Nothing reaches the public site because it
+    happened to get parsed."""
+    assert db.load_publication(tmp_path) == {}
+    assert db.published_works(tmp_path) == set()
+
+
+def test_publishing_a_work_and_taking_it_back_off(tmp_path):
+    db.set_publication("crimes-act", True, tmp_path)
+    assert db.published_works(tmp_path) == {"crimes-act"}
+
+    db.set_publication("crimes-act", False, tmp_path)
+    assert db.published_works(tmp_path) == set()
+    # Recorded rather than deleted: a work somebody withdrew on purpose
+    # is not the same as one nobody has considered.
+    assert db.load_publication(tmp_path) == {"crimes-act": False}
+
+
+def test_publishing_twice_is_not_two_rows(tmp_path):
+    db.set_publication("crimes-act", True, tmp_path)
+    db.set_publication("crimes-act", True, tmp_path)
+    assert db.load_publication(tmp_path) == {"crimes-act": True}
+
+
+def test_the_decision_covers_every_version_of_a_work(tmp_path):
+    """The point of keying by work: an Act is on the site or it isn't,
+    and its reprints go with it. Keying by parse slug would force an
+    answer to "the newest version was just withdrawn -- now what?"."""
+    from corpus.versions import split_document_slug
+
+    db.set_publication("criminal-procedure-act", True, tmp_path)
+    published = db.published_works(tmp_path)
+    for slug in ["criminal-procedure-act-v110", "criminal-procedure-act-v114"]:
+        assert split_document_slug(slug)[0] in published
+
+
+def test_seeding_keeps_what_was_already_on_the_site(tmp_path):
+    """The one moment this table arrives in a database that predates it.
+    Adding it must not take down every page the site was serving."""
+    added = db.seed_publication(["crimes-act", "evidence-act"], tmp_path)
+
+    assert added == 2
+    assert db.published_works(tmp_path) == {"crimes-act", "evidence-act"}
+
+
+def test_seeding_does_not_reverse_a_deliberate_withdrawal(tmp_path):
+    """Seeding is "keep what was showing", not "publish everything"."""
+    db.set_publication("crimes-act", False, tmp_path)
+
+    added = db.seed_publication(["crimes-act", "evidence-act"], tmp_path)
+
+    assert added == 1
+    assert db.published_works(tmp_path) == {"evidence-act"}
+
+
+def test_seeding_again_changes_nothing(tmp_path):
+    db.seed_publication(["crimes-act"], tmp_path)
+    assert db.seed_publication(["crimes-act"], tmp_path) == 0
