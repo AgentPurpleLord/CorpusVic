@@ -69,6 +69,7 @@ import secrets
 import shutil
 import socket
 import subprocess
+from datetime import datetime, timezone
 import sys
 import time
 from pathlib import Path
@@ -81,7 +82,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus import commentary, db, diffing, html_view
+from corpus import commentary, db, diffing, html_view, sync
 from corpus.act_registry import load_act_registry
 from corpus.amendments import build_amendment_index, summarise_by_act
 from corpus.commentary import build_commentary_index
@@ -691,6 +692,43 @@ def do_change_password(req: ChangePasswordRequest):
     _configure_auth(_DASHBOARD_USERNAME, req.new_password, must_change=False)
     _save_auth_store()
     return {"ok": True}
+
+
+class PushRequest(BaseModel):
+    # What the commit will say. Optional: the point of the button is not
+    # having to think of one.
+    message: "str | None" = None
+
+
+@app.get("/api/sync/status")
+def sync_status():
+    """Where this checkout stands against GitHub, so the page can say
+    what a push would do before anyone presses it."""
+    return sync.status(BASE_DIR)
+
+
+@app.post("/api/sync/push")
+def sync_push(req: PushRequest):
+    """Commits whatever has changed under data/ and pushes it.
+
+    Here rather than in review.py because it is about the whole checkout
+    rather than one document: a session usually touches more than one,
+    and two review processes racing to commit the same database would be
+    a way to lose work rather than save it."""
+    message = (req.message or "").strip() or _default_commit_message()
+    try:
+        return sync.push(BASE_DIR, message)
+    except sync.SyncError as e:
+        raise HTTPException(409, str(e)) from e
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(500, f"Couldn't run git: {e}") from e
+
+
+def _default_commit_message() -> str:
+    """Dated, because the point of the button is not having to think of a
+    message, and "Review progress" fifty times over is a history nobody
+    can read. Anything more specific is the reviewer's to type."""
+    return f"Review progress, {datetime.now(timezone.utc):%Y-%m-%d}"
 
 
 @app.post("/api/logout")

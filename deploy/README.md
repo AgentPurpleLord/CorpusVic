@@ -235,7 +235,16 @@ Confirm the whole path works while nothing is at stake:
 sudo -u dashboard git -C /opt/corpusvic push --dry-run
 ```
 
-After a review session:
+After that, pushing is a button. The dashboard at `/admin` carries a
+strip along the top saying how the review work stands against GitHub --
+how much is unpushed, and whether the remote has moved on -- with a
+**Push to GitHub** button beside it. It commits what has changed under
+`data/` (and only that, so an edit left in the working tree on the
+server stays there), checkpoints the database's write-ahead log first,
+and refuses rather than forces when the remote is ahead.
+
+The equivalent by hand, if you would rather, or if the button is telling
+you something you want to look at directly:
 
 ```bash
 cd /opt/corpusvic

@@ -638,3 +638,67 @@ def test_logging_in_under_a_base_path_sets_a_cookie_scoped_to_it(_at_admin):
     assert "HttpOnly" in ok.headers["set-cookie"]
     # The session now opens the app's own pages.
     assert client.get("/admin/").status_code == 200
+
+
+# ---------------------------------------------------------------------
+# Pushing the review work from the admin tool
+# ---------------------------------------------------------------------
+
+def test_the_push_endpoint_reports_a_refusal_as_a_conflict(monkeypatch):
+    """A remote that has moved on is an ordinary thing to run into, not a
+    server fault: the page has to be able to say what happened and stay
+    usable, which a 500 does not."""
+    from fastapi.testclient import TestClient
+    from corpus import sync
+
+    dashboard._DASHBOARD_USERNAME = None
+    monkeypatch.setattr(dashboard.sync, "push",
+                        lambda *a, **k: (_ for _ in ()).throw(sync.SyncError("the remote has 2 commits")))
+    client = TestClient(dashboard.app)
+
+    res = client.post("/api/sync/push", json={"message": None})
+
+    assert res.status_code == 409
+    assert "2 commits" in res.json()["detail"]
+
+
+def test_the_push_endpoint_uses_a_dated_message_when_given_none(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    seen = {}
+    monkeypatch.setattr(dashboard.sync, "push",
+                        lambda repo, message: seen.setdefault("message", message) and None
+                        or {"pushed": True, "committed": True, "message": "ok", "status": {}})
+    client = TestClient(dashboard.app)
+
+    client.post("/api/sync/push", json={"message": "   "})
+
+    assert seen["message"].startswith("Review progress, ")
+
+
+def test_the_push_endpoint_keeps_a_message_the_reviewer_typed(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    seen = {}
+    monkeypatch.setattr(dashboard.sync, "push",
+                        lambda repo, message: seen.setdefault("message", message) and None
+                        or {"pushed": True, "committed": True, "message": "ok", "status": {}})
+    client = TestClient(dashboard.app)
+
+    client.post("/api/sync/push", json={"message": "Reviewed CPA Chapter 2"})
+
+    assert seen["message"] == "Reviewed CPA Chapter 2"
+
+
+def test_the_sync_endpoints_are_behind_the_login(_at_admin):
+    """They commit and push. Anyone who can reach them without a session
+    can write to the repository."""
+    from fastapi.testclient import TestClient
+
+    dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
+    client = TestClient(dashboard.serving_app(), follow_redirects=False)
+
+    assert client.get("/admin/api/sync/status").status_code == 401
+    assert client.post("/admin/api/sync/push", json={}).status_code == 401

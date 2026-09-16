@@ -90,6 +90,27 @@
   header h1 { font-size: 17px; margin: 0; font-weight: 600; }
   header .spacer { flex: 1; }
   header .stat { font-size: 12.5px; color: var(--muted); }
+  /* The sync strip. Quiet when there is nothing to push -- it is a
+     status line most of the time -- and accented when there is, because
+     unpushed review work is the one thing on this page worth noticing
+     before anything else. */
+  .sync {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border: 1px solid var(--border); border-left-width: 4px;
+    background: var(--panel); padding: 10px 14px; margin-bottom: 14px;
+  }
+  .sync[data-state="pending"] { border-left-color: var(--accent); }
+  .sync[data-state="clean"] { border-left-color: var(--border); }
+  .sync[data-state="blocked"] { border-left-color: var(--flagged); }
+  .sync-state { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .sync-state strong { font-size: 13.5px; }
+  .sync-detail { font-size: 12px; color: var(--muted); }
+  .sync-message {
+    flex: 1 1 220px; min-width: 0; font-family: inherit; font-size: 12.5px;
+    padding: 5px 9px; border: 1px solid var(--border); border-radius: 0;
+    background: var(--bg); color: var(--fg);
+  }
+  .sync-message:focus { outline: none; border-color: var(--accent); }
   button, .btn {
     border: 1px solid var(--border);
     background: var(--panel);
@@ -102,6 +123,15 @@
   button:hover, .btn:hover { background: var(--hover-bg); }
   .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
   .btn.primary:hover { background: var(--accent-hover); }
+  /* A disabled button looked exactly like one that worked, and this page
+     has had several since it was written -- Review and Browse before a
+     document is parsed, the exports beside them. Clicking one and having
+     nothing happen reads as the page being broken. */
+  button:disabled, .btn:disabled, .btn.primary:disabled {
+    opacity: 0.45; cursor: default;
+  }
+  button:disabled:hover, .btn:disabled:hover { border-color: var(--border); }
+  .btn.primary:disabled:hover { background: var(--accent); }
   .btn.small { padding: 3px 9px; font-size: 12px; }
   main { padding: 20px; max-width: 980px; margin: 0 auto; }
   #tools-row { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -206,6 +236,20 @@
 </header>
 
 <main>
+  <!-- Where the review work stands against GitHub, and the one button
+       that puts it there. Above the documents because it is about all of
+       them at once, and because unpushed work is the thing worth seeing
+       on arrival rather than hunting for. -->
+  <section id="sync" class="sync" hidden>
+    <div class="sync-state">
+      <strong id="sync-headline">Checking&hellip;</strong>
+      <span class="sync-detail" id="sync-detail"></span>
+    </div>
+    <input id="sync-message" class="sync-message" type="text"
+           placeholder="What changed (optional)" autocomplete="off">
+    <button class="btn primary" id="sync-push" onclick="pushWork()" disabled>Push to GitHub</button>
+  </section>
+
   <div id="tools-row">
     <button class="btn" onclick="openModal('link-modal')">Link a Bill to its Act / EM</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
@@ -578,6 +622,96 @@ function renderActs() {
   }).join("");
 }
 
+// ---------------------------------------------------------------------
+// Pushing the review work to GitHub
+// ---------------------------------------------------------------------
+// Reviewing writes to a database on this machine. Until it is pushed it
+// exists on one disk, and the point of this strip is that noticing that
+// should not require opening a terminal on the server.
+
+function renderSync(s) {
+  const strip = document.getElementById("sync");
+  const headline = document.getElementById("sync-headline");
+  const detail = document.getElementById("sync-detail");
+  const button = document.getElementById("sync-push");
+  strip.hidden = false;
+
+  if (s.error) {
+    strip.dataset.state = "blocked";
+    headline.textContent = "Can't reach GitHub";
+    detail.textContent = s.error;
+    button.disabled = true;
+    return;
+  }
+  if (s.behind) {
+    // Refused rather than offered: the review database is synced whole,
+    // so there is no merge, and a push from here would have to discard
+    // one side or the other.
+    strip.dataset.state = "blocked";
+    headline.textContent = `GitHub has ${s.behind} commit(s) this server doesn't`;
+    detail.textContent = "Pull them in before pushing -- the database is synced whole, so there is no merge.";
+    button.disabled = true;
+    return;
+  }
+  const waiting = s.pending.length;
+  if (!waiting && !s.ahead) {
+    strip.dataset.state = "clean";
+    headline.textContent = "Everything is pushed";
+    detail.textContent = s.last_commit
+      ? `Last: ${s.last_commit.subject} (${s.last_commit.sha})` : "";
+    button.disabled = true;
+    return;
+  }
+  strip.dataset.state = "pending";
+  headline.textContent = waiting
+    ? `${waiting} change(s) not yet pushed`
+    : `${s.ahead} commit(s) not yet pushed`;
+  detail.textContent = waiting ? s.pending.join(", ") : "Committed here, still only here.";
+  button.disabled = false;
+}
+
+async function loadSync() {
+  try {
+    renderSync(await (await fetch("api/sync/status")).json());
+  } catch (e) {
+    const strip = document.getElementById("sync");
+    strip.hidden = false;
+    strip.dataset.state = "blocked";
+    document.getElementById("sync-headline").textContent = "Couldn't read the sync state";
+    document.getElementById("sync-detail").textContent = String(e);
+  }
+}
+
+async function pushWork() {
+  const button = document.getElementById("sync-push");
+  const box = document.getElementById("sync-message");
+  const was = button.textContent;
+  button.disabled = true;
+  button.textContent = "Pushing\u2026";
+  try {
+    const res = await fetch("api/sync/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: box.value || null }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Push failed.");
+    box.value = "";
+    renderSync(data.status);
+    document.getElementById("sync-detail").textContent = data.message;
+  } catch (e) {
+    const strip = document.getElementById("sync");
+    strip.dataset.state = "blocked";
+    document.getElementById("sync-headline").textContent = "Push failed";
+    document.getElementById("sync-detail").textContent = e.message;
+  } finally {
+    button.textContent = was;
+    // Whatever happened, the strip now reflects a fresh read rather than
+    // what it said before the attempt.
+    loadSync();
+  }
+}
+
 async function loadActs() {
   const [actsRes, linksRes] = await Promise.all([fetch("api/acts"), fetch("api/bill-links")]);
   ACTS = await actsRes.json();
@@ -910,6 +1044,7 @@ async function stopAiScan() {
 }
 
 loadActs();
+loadSync();
 </script>
 </body>
 </html>
