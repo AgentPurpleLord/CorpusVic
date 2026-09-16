@@ -445,6 +445,41 @@ break a commit:
 sudo find /opt/corpusvic ! -user dashboard -print -quit
 ```
 
+### "Permission denied (publickey)" / "Could not read from remote repository"
+
+The same mistake as dubious ownership, one step further along: git run as
+the wrong user. The deploy key lives in `/opt/corpusvic/.ssh/`, which is
+`dashboard`'s home, so ssh run as root looks in `/root/.ssh/`, finds
+nothing GitHub accepts, and is refused.
+
+If `sudo -u dashboard git -C /opt/corpusvic pull` works and a bare
+`git fetch` does not, that is the whole diagnosis -- the second one is
+root.
+
+```bash
+sudo -u dashboard git -C /opt/corpusvic fetch
+```
+
+Adding a `safe.directory` exception for root does not fix this and makes
+it worse: it gets root past the ownership check so that it can go on to
+write root-owned files into a checkout the service has to be able to
+write. If you added one, take it back out and put the ownership right:
+
+```bash
+sudo git config --global --unset-all safe.directory
+sudo chown -R dashboard:dashboard /opt/corpusvic
+```
+
+To confirm which key ssh is actually offering:
+
+```bash
+sudo -u dashboard ssh -T git@github.com    # names the repository if the key is right
+sudo ssh -T git@github.com                 # "Permission denied" -- expected, root has no key
+```
+
+The second line failing is correct, not a problem to fix. Root is not
+meant to be able to push this repository; `dashboard` is.
+
 ### Two traps worth knowing before you start
 
 **The bare IP will not load, even when everything is right.** The site
