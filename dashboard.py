@@ -1565,10 +1565,15 @@ _act_title_cache: dict[str, str] = {}
 _EM_SLUG_SUFFIX = "-em"
 
 
+# How an Explanatory Memorandum's title says what it is. One string, so
+# the name is the same whether it came from the parse or from the slug.
+_EM_TITLE_SUFFIX = " \u2014 Explanatory Memorandum"
+
+
 def _title_from_slug(slug: str) -> str:
     name = slug[: -len(_EM_SLUG_SUFFIX)] if slug.endswith(_EM_SLUG_SUFFIX) else slug
     title = " ".join(word if word.isdigit() else word.capitalize() for word in name.split("-"))
-    return f"{title} \u2014 Explanatory Memorandum" if slug.endswith(_EM_SLUG_SUFFIX) else title
+    return f"{title}{_EM_TITLE_SUFFIX}" if slug.endswith(_EM_SLUG_SUFFIX) else title
 
 
 def _parse_field(slug: str, key: str, default=None):
@@ -1615,8 +1620,26 @@ def _act_title(slug: str) -> str:
 
         title = _detect_act_citation(_parse_field(slug, "source")).get("title")
     title = title or _title_from_slug(slug)
+    title = _named_as_an_em(slug, title)
     _act_title_cache[slug] = title
     return title
+
+
+def _named_as_an_em(slug: str, title: str) -> str:
+    """An Explanatory Memorandum, said so in its own name.
+
+    An EM's front matter names the Bill it is about, so the title read off
+    it is the Bill's: "Criminal Procedure Bill 2008" for both documents,
+    with nothing to tell them apart. On an Act's contents page that put
+    two identical links side by side, and on the EM's own page it meant
+    the heading named a different document entirely.
+
+    _title_from_slug has always added this, but only reached an EM whose
+    parse recorded no title at all -- so the careful case was the one that
+    never ran."""
+    if _document_kind(slug) != "em" or _EM_TITLE_SUFFIX.lower() in title.lower():
+        return title
+    return f"{title}{_EM_TITLE_SUFFIX}"
 
 
 _KIND_LABELS = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}

@@ -1000,15 +1000,26 @@ def test_the_timeline_says_when_it_cannot_compare_versions():
 
 
 def test_an_act_offers_its_bill_and_em_from_its_own_contents():
+    """Each named, and nothing else. These used to carry a sentence
+    apiece explaining which was which, because both read "Crimes Bill
+    1957": an EM's front matter names the Bill it is about, so the two
+    titles were identical and only the gloss told them apart. The EM says
+    what it is in its own name now (see dashboard._named_as_an_em), and a
+    sentence explaining a link that explains itself is noise."""
     related = [
-        {"slug": "crimes-bill", "kind": "bill", "title": "Crimes Bill 1957", "href": "/browse/crimes-bill/"},
-        {"slug": "crimes-bill-em", "kind": "em", "title": "Crimes Bill 1957 EM", "href": "/browse/crimes-bill-em/"},
+        {"slug": "crimes-bill", "kind": "bill", "title": "Crimes Bill 1957",
+         "href": "/browse/crimes-bill/"},
+        {"slug": "crimes-bill-em", "kind": "em",
+         "title": "Crimes Bill 1957 \u2014 Explanatory Memorandum",
+         "href": "/browse/crimes-bill-em/"},
     ]
     page = render_index(_parsed(_definitions_act()), "Crimes Act 1958", "/browse/a", related=related)
 
     assert "Related documents" in page
-    assert 'href="/browse/crimes-bill/"' in page and 'href="/browse/crimes-bill-em/"' in page
-    assert "the Bill it was enacted from" in page
+    assert 'href="/browse/crimes-bill/">Crimes Bill 1957</a>' in page
+    assert "Crimes Bill 1957 \u2014 Explanatory Memorandum</a>" in page
+    assert "the Bill it was enacted from" not in page
+    assert "written about that Bill" not in page
     # Nothing at all where there is no related document to offer.
     assert "Related documents" not in render_index(_parsed(_definitions_act()), "A", "/browse/a")
 

@@ -157,7 +157,6 @@ a:hover { text-decoration: underline; }
    which is why they are here and not on the site's front page. */
 .related { margin-top: 26px; }
 .related h2 { margin-bottom: 8px; }
-.related-kind { font-size: 12.5px; color: var(--muted); }
 .act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
 .endnote-text { margin-bottom: 18px; }
 .endnote-text p { margin: 0 0 11px; }

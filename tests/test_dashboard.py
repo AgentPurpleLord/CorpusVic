@@ -778,3 +778,50 @@ def test_removing_an_association_validates_the_slug(tmp_path, monkeypatch):
     client = TestClient(dashboard.app)
 
     assert client.post("/api/bill-link/remove", data={"bill_slug": "../../etc"}).status_code == 400
+
+
+# ---------------------------------------------------------------------
+# An Explanatory Memorandum's own name
+# ---------------------------------------------------------------------
+# An EM's front matter names the Bill it is about, so the title read off
+# it is the Bill's. Two links on an Act's contents page both read
+# "Criminal Procedure Bill 2008", and only a sentence after each one said
+# which was which.
+
+def test_an_em_is_named_as_one():
+    assert dashboard._named_as_an_em.__doc__, "the reason is worth keeping"
+
+
+@pytest.mark.parametrize("kind, title, expected", [
+    ("em", "Criminal Procedure Bill 2008",
+     "Criminal Procedure Bill 2008 — Explanatory Memorandum"),
+    # A Bill and an Act are already named for what they are.
+    ("bill", "Criminal Procedure Bill 2008", "Criminal Procedure Bill 2008"),
+    ("act", "Criminal Procedure Act 2009", "Criminal Procedure Act 2009"),
+    # Said once, however many times the title is asked for -- this is
+    # cached and rendered into pages, so appending twice would stick.
+    ("em", "Criminal Procedure Bill 2008 — Explanatory Memorandum",
+     "Criminal Procedure Bill 2008 — Explanatory Memorandum"),
+])
+def test_only_an_em_is_told_it_is_one(monkeypatch, kind, title, expected):
+    monkeypatch.setattr(dashboard, "_document_kind", lambda slug: kind)
+
+    assert dashboard._named_as_an_em("a-slug", title) == expected
+
+
+def test_a_title_built_from_the_slug_says_it_too(monkeypatch):
+    """The fallback always did this; it was the path that only ran when a
+    parse recorded no title at all, which is to say almost never."""
+    assert dashboard._title_from_slug("criminal-procedure-bill-2008-em") == (
+        "Criminal Procedure Bill 2008 — Explanatory Memorandum"
+    )
+    assert dashboard._title_from_slug("criminal-procedure-bill-2008") == "Criminal Procedure Bill 2008"
+
+
+def test_the_real_em_carries_it_end_to_end():
+    """Against the corpus, since the point is what the parse actually
+    recorded rather than what a fixture says it did."""
+    assert dashboard._act_title("criminal-procedure-bill-2008-em") == (
+        "Criminal Procedure Bill 2008 — Explanatory Memorandum"
+    )
+    assert dashboard._act_title("criminal-procedure-bill-2008") == "Criminal Procedure Bill 2008"

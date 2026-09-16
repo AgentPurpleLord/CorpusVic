@@ -589,11 +589,16 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             "&mdash; general information, the Table of Amendments, explanatory details</div>"
         )
     if related:
-        kinds = {"bill": "the Bill it was enacted from",
-                 "em": "the Explanatory Memorandum written about that Bill"}
+        # The title alone. These used to carry "-- the Bill it was enacted
+        # from" and "-- the Explanatory Memorandum written about that
+        # Bill", which were there because both links read "Criminal
+        # Procedure Bill 2008": an EM's front matter names the Bill, so
+        # the two titles were identical and only the gloss told them
+        # apart. The EM now says what it is in its own name, and a
+        # sentence explaining a link that already explains itself is
+        # noise.
         items = "".join(
-            f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a> '
-            f'<span class="related-kind">&mdash; {kinds.get(doc.get("kind"), "")}</span></li>'
+            f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a></li>'
             for doc in related
         )
         out.append(f'<div class="related"><h2>Related documents</h2><ul class="section-list">{items}</ul></div>')
