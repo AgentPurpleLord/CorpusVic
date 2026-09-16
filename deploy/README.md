@@ -445,6 +445,34 @@ break a commit:
 sudo find /opt/corpusvic ! -user dashboard -print -quit
 ```
 
+### The admin page says a sync or API call was "not found"
+
+A `git pull` without the restart after it. The two halves of the
+dashboard update at different moments: `static/dashboard.html` is served
+off disk on every request, so the browser has the new page the instant
+the pull lands, while the routes it calls live in a process that started
+before it. The new page asks for a route the old process has never heard
+of and gets a 404.
+
+```bash
+sudo systemctl restart dashboard
+```
+
+To tell this apart from a route that genuinely is not there, ask the
+service directly:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/admin/api/sync/status
+```
+
+`401` means the route exists and is only asking who you are, which is the
+answer you want. `404` after a restart means the pull did not bring the
+code -- check `git -C /opt/corpusvic log --oneline -1` against GitHub.
+
+Worth the habit: any pull that touched a `.py` file needs the restart,
+and one that touched `corpus/`, `static/site/` or the data needs the site
+rebuilt as well. Both lines are in "Updating later" above.
+
 ### "Permission denied (publickey)" / "Could not read from remote repository"
 
 The same mistake as dubious ownership, one step further along: git run as
