@@ -296,6 +296,27 @@ def _connect(base_dir: "str | Path | None" = None) -> sqlite3.Connection:
     return conn
 
 
+def close_connections() -> None:
+    """Drops every cached connection, so the next call opens the file
+    again rather than the one it opened before.
+
+    For the moment the database file is replaced underneath us -- a pull,
+    a discard. sqlite holds the file it opened by descriptor, and git
+    replaces rather than rewrites, so without this the process goes on
+    reading the old inode: the pull reports success and every page keeps
+    showing what was there before, indefinitely. Closing on the last
+    connection also lets sqlite tidy the -wal and -shm away, so the new
+    file is not left sitting beside the previous one's write-ahead log."""
+    while _connections:
+        _, conn = _connections.popitem()
+        try:
+            conn.close()
+        except sqlite3.Error:
+            # Nothing useful to do about a connection that will not
+            # close, and leaving it in the cache would hand it back out.
+            pass
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 

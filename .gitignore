@@ -14,6 +14,11 @@ _site/
 # so a failed AI scan's reason (e.g. Ollama not installed) is visible in
 # the UI -- not durable state, just the latest run's output.
 data/ai_scan_logs/
+# The published-site rebuild's own stdout (dashboard.py's /api/site/rebuild).
+# Under data/ because that is where this project's working files live, and
+# ignored because data/ is what the dashboard's Push button commits -- a
+# build log riding along in every push would be noise in the history.
+data/site_build.log
 
 # data/parsed/<act>.json (the raw parse) and data/legislation.db (the
 # durable, human-created review state overlaid on it -- verified rows,
@@ -55,3 +60,8 @@ __pycache__/
 deploy/dashboard.env
 # Same again for the published site's own passphrase.
 deploy/site.env
+
+# Databases kept aside by a discard from the dashboard (corpus/sync.py).
+# Recoverable work, deliberately not committed: a backup that travelled
+# with the repository would be another copy of the thing it backs up.
+_backups/

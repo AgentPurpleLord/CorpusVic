@@ -71,6 +71,7 @@ import socket
 import subprocess
 from datetime import datetime, timezone
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -703,8 +704,21 @@ class PushRequest(BaseModel):
 @app.get("/api/sync/status")
 def sync_status():
     """Where this checkout stands against GitHub, so the page can say
-    what a push would do before anyone presses it."""
-    return sync.status(BASE_DIR)
+    what a push would do before anyone presses it -- and whether the code
+    answering this request is still the code on disk."""
+    state = sync.status(BASE_DIR)
+    on_disk = sync.head(BASE_DIR)
+    can_restart, why_not = _restart_capability()
+    return {
+        **state,
+        "running_head": _RUNNING_HEAD,
+        "checkout_head": on_disk,
+        # Both known and different: the checkout has moved since this
+        # process started, so what is being served is not what is there.
+        "code_stale": bool(_RUNNING_HEAD and on_disk and _RUNNING_HEAD != on_disk),
+        "can_restart": can_restart,
+        "restart_blocked": why_not,
+    }
 
 
 @app.post("/api/sync/push")
@@ -729,6 +743,214 @@ def _default_commit_message() -> str:
     message, and "Review progress" fifty times over is a history nobody
     can read. Anything more specific is the reviewer's to type."""
     return f"Review progress, {datetime.now(timezone.utc):%Y-%m-%d}"
+
+
+# ---------------------------------------------------------------------------
+# Whether the code on disk is still the code that is running
+# ---------------------------------------------------------------------------
+#
+# A pull button without this would be a trap of its own making: git
+# succeeds, the checkout moves forward, and this process goes on serving
+# whatever it imported at startup. Nothing anywhere would say so -- which
+# is exactly the shape of failure the pull was meant to fix.
+
+_RUNNING_HEAD = sync.head(BASE_DIR)
+
+# systemd sets this for every service it starts, and nothing else does.
+# Its absence means a restart here would stop the dashboard and leave it
+# stopped, which is a worse outcome than asking someone to type the
+# command.
+_RESTART_UNIT_DIRS = (
+    "/etc/systemd/system", "/run/systemd/system",
+    "/lib/systemd/system", "/usr/lib/systemd/system",
+)
+# Restart= values that bring a service back after a deliberate exit.
+# "no" (and an absent setting, which means the same) does not.
+_RESTARTING_POLICIES = {"always", "on-failure", "on-abnormal", "on-abort", "on-success"}
+
+
+def _own_unit_name() -> "str | None":
+    """This process's systemd unit, read from its own cgroup."""
+    try:
+        line = Path("/proc/self/cgroup").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = re.search(r"([\w@.\-\\]+\.service)", line)
+    return match.group(1) if match else None
+
+
+def _restart_capability() -> tuple:
+    """Whether pressing a restart button would actually bring the service
+    back, and if not, why not.
+
+    Measured rather than assumed: the unit file is read and its Restart=
+    setting checked. A service systemd will not restart is one this
+    process must not exit from, so the button is disabled with the reason
+    rather than offered and found out afterwards."""
+    if not os.environ.get("INVOCATION_ID"):
+        return False, "This dashboard wasn't started by systemd, so nothing would bring it back."
+    unit = _own_unit_name()
+    if not unit:
+        return False, "Couldn't work out which systemd unit this is."
+    # The unit file and its drop-ins, in the order systemd reads them, so
+    # that a drop-in overriding Restart= is seen the same way.
+    text = ""
+    for directory in _RESTART_UNIT_DIRS:
+        base = Path(directory) / unit
+        candidates = [base] if base.exists() else []
+        candidates += sorted(Path(f"{base}.d").glob("*.conf"))
+        for path in candidates:
+            try:
+                text += path.read_text(encoding="utf-8") + "\n"
+            except OSError:
+                pass
+    if not text:
+        return False, f"Couldn't read {unit} to check that systemd would restart it."
+    # The last one wins, the same way systemd reads them.
+    found = re.findall(r"^\s*Restart\s*=\s*(\S+)", text, re.MULTILINE)
+    if not found or found[-1] not in _RESTARTING_POLICIES:
+        setting = found[-1] if found else "no"
+        return False, f"{unit} has Restart={setting}, so stopping here would leave it stopped."
+    return True, None
+
+
+class PullRequest(BaseModel):
+    pass
+
+
+class DiscardRequest(BaseModel):
+    # Typed out in full by whoever is discarding. The only destructive
+    # button on the page, and the only one that asks for more than a
+    # click.
+    confirm: str = ""
+
+
+@app.post("/api/sync/commit")
+def sync_commit(req: PushRequest):
+    """Commits the review work without sending it anywhere.
+
+    For the case push cannot help with: a remote that is not answering.
+    The work still lands somewhere it survives a restart."""
+    message = (req.message or "").strip() or _default_commit_message()
+    try:
+        result = sync.commit(BASE_DIR, message)
+    except sync.SyncError as e:
+        raise HTTPException(409, str(e)) from e
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(500, f"Couldn't run git: {e}") from e
+    return {**result, "status": sync.status(BASE_DIR)}
+
+
+@app.post("/api/sync/pull")
+def sync_pull(req: "PullRequest | None" = None):
+    """Brings in what was committed elsewhere. Fast-forward only -- see
+    corpus/sync.py's pull for why there is no merge to fall back on."""
+    try:
+        return sync.pull(BASE_DIR)
+    except sync.SyncError as e:
+        raise HTTPException(409, str(e)) from e
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(500, f"Couldn't run git: {e}") from e
+
+
+@app.post("/api/sync/discard")
+def sync_discard(req: DiscardRequest):
+    """Throws away uncommitted review work and goes back to the last
+    commit, keeping a copy of the database first (see sync.discard).
+
+    Requires the word typed out, because a click in the wrong place
+    should not be able to do this."""
+    if req.confirm.strip().lower() != "discard":
+        raise HTTPException(400, "Type 'discard' to confirm.")
+    try:
+        return sync.discard(BASE_DIR)
+    except sync.SyncError as e:
+        raise HTTPException(409, str(e)) from e
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(500, f"Couldn't run git: {e}") from e
+
+
+@app.post("/api/sync/restart")
+def sync_restart():
+    """Exits, so that systemd starts this service again on the code that
+    is now on disk.
+
+    There is no way for a process to reload its own imports, so restarting
+    is the only honest way to finish a pull that brought new code. The
+    exit status is a failure one deliberately: it restarts a unit set to
+    either `on-failure` or `always`, where a clean exit only restarts the
+    second, and a server whose unit file predates this feature is exactly
+    where getting that wrong would leave the dashboard down."""
+    can, why = _restart_capability()
+    if not can:
+        raise HTTPException(409, f"{why} Restart it from a terminal: sudo systemctl restart dashboard")
+
+    def _exit_once_this_response_is_out():
+        time.sleep(0.5)
+        os._exit(1)
+
+    threading.Thread(target=_exit_once_this_response_is_out, daemon=True).start()
+    return {"ok": True, "message": "Restarting -- reload this page in a few seconds."}
+
+
+# ---------------------------------------------------------------------------
+# Rebuilding the published site
+# ---------------------------------------------------------------------------
+#
+# The public site is a static export: nothing about adding an Act or
+# reviewing one changes what is being served until export_static_site.py
+# runs again. Left to the terminal, that shows up as "the new Acts aren't
+# on the site" with nothing wrong anywhere.
+
+_site_build: dict = {}
+_SITE_BUILD_LOG = BASE_DIR / "data" / "site_build.log"
+_SITE_OUT = "_site"
+
+
+@app.post("/api/site/rebuild")
+def site_rebuild():
+    """Runs export_static_site.py over the current data, in the
+    background: a full build is minutes, far past what one request should
+    be left holding open.
+
+    No --password: the script takes the passphrase from deploy/site.env
+    and refuses outright to replace a gated build with an open one (see
+    export_static_site.resolve_password), so the way to publish this site
+    in the clear stays a deliberate command rather than a button."""
+    running = _site_build.get("proc")
+    if running and running.poll() is None:
+        raise HTTPException(409, "A rebuild is already running.")
+    _SITE_BUILD_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with open(_SITE_BUILD_LOG, "w", encoding="utf-8") as log_file:
+        proc = subprocess.Popen(
+            [sys.executable, "export_static_site.py", "--out", _SITE_OUT],
+            cwd=str(BASE_DIR), stdout=log_file, stderr=subprocess.STDOUT,
+        )
+    _site_build.update({"proc": proc, "started": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True, "message": "Rebuilding the published site. This takes a few minutes."}
+
+
+@app.get("/api/site/progress")
+def site_progress():
+    """How the rebuild is going, and what it said.
+
+    The log tail is the whole point: a build that refuses to run -- no
+    passphrase where the published site has one -- says so on stdout and
+    nowhere else."""
+    proc = _site_build.get("proc")
+    running = bool(proc and proc.poll() is None)
+    log = ""
+    if _SITE_BUILD_LOG.exists():
+        log = _SITE_BUILD_LOG.read_text(encoding="utf-8", errors="replace")[-4000:]
+    built = BASE_DIR / _SITE_OUT / "index.html"
+    return {
+        "running": running,
+        "started": _site_build.get("started"),
+        "exit_code": None if running or proc is None else proc.returncode,
+        "log": log,
+        "last_built": (datetime.fromtimestamp(built.stat().st_mtime, timezone.utc).isoformat()
+                       if built.exists() else None),
+    }
 
 
 @app.post("/api/logout")

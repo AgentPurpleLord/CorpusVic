@@ -99,6 +99,10 @@
     border: 1px solid var(--border); border-left-width: 4px;
     background: var(--panel); padding: 10px 14px; margin-bottom: 14px;
   }
+  /* display:flex above beats the browser's own [hidden] rule, so without
+     this a hidden strip is a visible empty box. Both strips start hidden
+     and one of them is hidden most of the time. */
+  .sync[hidden] { display: none; }
   .sync[data-state="pending"] { border-left-color: var(--accent); }
   .sync[data-state="clean"] { border-left-color: var(--border); }
   .sync[data-state="blocked"] { border-left-color: var(--flagged); }
@@ -111,6 +115,12 @@
     background: var(--bg); color: var(--fg);
   }
   .sync-message:focus { outline: none; border-color: var(--accent); }
+  .sync-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  /* Set apart from the buttons beside it, because the cost of pressing
+     it by mistake is a day's review work rather than a moment's wait. */
+  .sync-actions .danger { margin-left: 8px; border-color: var(--flagged); color: var(--flagged); }
+  .sync-actions .danger:not(:disabled):hover { background: var(--flagged); color: #fff; }
+  .site-state { font-size: 12px; color: var(--muted); align-self: center; }
   button, .btn {
     border: 1px solid var(--border);
     background: var(--panel);
@@ -134,7 +144,7 @@
   .btn.primary:disabled:hover { background: var(--accent); }
   .btn.small { padding: 3px 9px; font-size: 12px; }
   main { padding: 20px; max-width: 980px; margin: 0 auto; }
-  #tools-row { display: flex; gap: 10px; margin-bottom: 20px; }
+  #tools-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
   #acts { display: flex; flex-direction: column; gap: 10px; }
   .act-card {
     background: var(--card-bg);
@@ -260,12 +270,35 @@
     </div>
     <input id="sync-message" class="sync-message" type="text"
            placeholder="What changed (optional)" autocomplete="off">
-    <button class="btn primary" id="sync-push" onclick="pushWork()" disabled>Push to GitHub</button>
+    <!-- Ordered by how often they are wanted, and by how much they cost
+         to get wrong: the two routine ones first, then the local-only
+         fallback, then the one that throws work away, set apart. -->
+    <div class="sync-actions">
+      <button class="btn" id="sync-refresh" onclick="loadSync()" title="Re-read this checkout and the remote">Refresh</button>
+      <button class="btn primary" id="sync-push" onclick="pushWork()" disabled>Push to GitHub</button>
+      <button class="btn" id="sync-pull" onclick="pullWork()" disabled>Pull</button>
+      <button class="btn" id="sync-commit" onclick="commitWork()" disabled
+              title="Commit here without sending it -- for when GitHub can't be reached">Save locally</button>
+      <button class="btn danger" id="sync-discard" onclick="discardWork()" disabled>Discard&hellip;</button>
+    </div>
+  </section>
+
+  <!-- Shown only when the checkout has moved past the code answering
+       this page: a pull that brought new Python changes nothing until
+       the service restarts, and nothing else would ever say so. -->
+  <section id="stale" class="sync" data-state="blocked" hidden>
+    <div class="sync-state">
+      <strong>The code on disk is newer than the code running</strong>
+      <span class="sync-detail" id="stale-detail"></span>
+    </div>
+    <button class="btn primary" id="stale-restart" onclick="restartService()">Restart the dashboard</button>
   </section>
 
   <div id="tools-row">
     <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
+    <button class="btn" onclick="rebuildSite()" id="site-rebuild">Rebuild the public site</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
+    <span class="site-state" id="site-state"></span>
   </div>
   <div id="acts"></div>
   <div id="empty" style="display:none">No Acts yet -- click "+ Add Act / Bill / EM" to parse your first one.</div>
@@ -731,37 +764,68 @@ function renderActs() {
 // exists on one disk, and the point of this strip is that noticing that
 // should not require opening a terminal on the server.
 
+// Every button that can act on the checkout, and the state that decides
+// which of them are worth offering. A disabled button carries its reason
+// in its tooltip rather than just going grey, because "nothing happens
+// when I click it" is how this page has been misread before.
+function setAction(id, enabled, why) {
+  const button = document.getElementById(id);
+  if (!button) return;
+  button.disabled = !enabled;
+  button.title = enabled ? (button.dataset.title || "") : (why || "");
+}
+
 function renderSync(s) {
   const strip = document.getElementById("sync");
   const headline = document.getElementById("sync-headline");
   const detail = document.getElementById("sync-detail");
-  const button = document.getElementById("sync-push");
   strip.hidden = false;
+  renderStale(s);
+
+  const waiting = (s.pending || []).length;
+  // Discarding is about this checkout alone, so it stays available
+  // whatever the remote is doing -- including when nothing else is.
+  setAction("sync-discard", waiting > 0, "Nothing uncommitted to discard.");
+  setAction("sync-commit", waiting > 0, "Nothing to commit.");
 
   if (s.error) {
     strip.dataset.state = "blocked";
     headline.textContent = "Can't reach GitHub";
     detail.textContent = s.error;
-    button.disabled = true;
+    // Both need the network; committing does not, which is the whole
+    // reason "Save locally" is a separate button.
+    setAction("sync-push", false, "GitHub can't be reached.");
+    setAction("sync-pull", false, "GitHub can't be reached.");
+    return;
+  }
+  setAction("sync-pull", s.behind > 0, "Nothing to pull -- already up to date.");
+
+  if (s.behind && s.ahead) {
+    // Neither direction is safe: the database is synced whole, so there
+    // is no merge that keeps both sides.
+    strip.dataset.state = "blocked";
+    headline.textContent = `Diverged: ${s.ahead} commit(s) here, ${s.behind} on GitHub`;
+    detail.textContent = "One side has to be chosen -- there is no merge for a database synced as one file.";
+    setAction("sync-push", false, "The remote has commits this server doesn't.");
+    setAction("sync-pull", false, "This server has commits the remote doesn't.");
     return;
   }
   if (s.behind) {
-    // Refused rather than offered: the review database is synced whole,
-    // so there is no merge, and a push from here would have to discard
-    // one side or the other.
     strip.dataset.state = "blocked";
     headline.textContent = `GitHub has ${s.behind} commit(s) this server doesn't`;
-    detail.textContent = "Pull them in before pushing -- the database is synced whole, so there is no merge.";
-    button.disabled = true;
+    detail.textContent = waiting
+      ? "Push or discard the uncommitted changes below, then pull."
+      : "Pull them in before pushing -- the database is synced whole, so there is no merge.";
+    setAction("sync-push", false, "The remote has commits this server doesn't.");
+    setAction("sync-pull", !waiting, "Uncommitted changes here would be overwritten.");
     return;
   }
-  const waiting = (s.pending || []).length;
   if (!waiting && !s.ahead) {
     strip.dataset.state = "clean";
     headline.textContent = "Everything is pushed";
     detail.textContent = s.last_commit
       ? `Last: ${s.last_commit.subject} (${s.last_commit.sha})` : "";
-    button.disabled = true;
+    setAction("sync-push", false, "Nothing to push.");
     return;
   }
   strip.dataset.state = "pending";
@@ -769,7 +833,21 @@ function renderSync(s) {
     ? `${waiting} change(s) not yet pushed`
     : `${s.ahead} commit(s) not yet pushed`;
   detail.textContent = waiting ? s.pending.join(", ") : "Committed here, still only here.";
-  button.disabled = false;
+  setAction("sync-push", true);
+}
+
+// The checkout has moved past the code answering this page -- someone
+// pulled, here or in a terminal. Worth its own strip rather than a line
+// in the one above: until the service restarts, every other thing this
+// page says is being said by the old version.
+function renderStale(s) {
+  const strip = document.getElementById("stale");
+  strip.hidden = !s.code_stale;
+  if (!s.code_stale) return;
+  document.getElementById("stale-detail").textContent =
+    `Running ${(s.running_head || "?").slice(0, 7)}, on disk ${(s.checkout_head || "?").slice(0, 7)}.` +
+    (s.can_restart ? "" : ` ${s.restart_blocked || ""} Restart it with: sudo systemctl restart dashboard`);
+  setAction("stale-restart", !!s.can_restart, s.restart_blocked || "");
 }
 
 function syncFailed(headline, detail) {
@@ -778,7 +856,8 @@ function syncFailed(headline, detail) {
   strip.dataset.state = "blocked";
   document.getElementById("sync-headline").textContent = headline;
   document.getElementById("sync-detail").textContent = detail;
-  document.getElementById("sync-push").disabled = true;
+  ["sync-push", "sync-pull", "sync-commit", "sync-discard"].forEach(
+    id => setAction(id, false, "The sync state couldn't be read."));
 }
 
 async function loadSync() {
@@ -800,31 +879,151 @@ async function loadSync() {
   }
 }
 
-async function pushWork() {
-  const button = document.getElementById("sync-push");
-  const box = document.getElementById("sync-message");
+// One shape for all four, since they differ only in what they send and
+// what they say afterwards. Each ends in a fresh read, so the strip
+// reflects what happened rather than what was true before it.
+async function syncAction(id, url, body, failure) {
+  const button = document.getElementById(id);
   const was = button.textContent;
   button.disabled = true;
-  button.textContent = "Pushing\u2026";
+  button.textContent = "Working\u2026";
   try {
-    const res = await fetch("api/sync/push", {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: box.value || null }),
+      body: JSON.stringify(body || {}),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "Push failed.");
-    box.value = "";
-    renderSync(data.status);
-    document.getElementById("sync-detail").textContent = data.message;
+    if (!res.ok) throw new Error(data.detail || `${failure}.`);
+    toast(data.message || "Done.");
+    return data;
   } catch (e) {
-    syncFailed("Push failed", e.message);
+    syncFailed(failure, e.message);
+    return null;
   } finally {
     button.textContent = was;
-    // Whatever happened, the strip now reflects a fresh read rather than
-    // what it said before the attempt.
     loadSync();
   }
+}
+
+async function pushWork() {
+  const box = document.getElementById("sync-message");
+  const data = await syncAction("sync-push", "api/sync/push", { message: box.value || null }, "Push failed");
+  if (data) box.value = "";
+}
+
+async function commitWork() {
+  const box = document.getElementById("sync-message");
+  const data = await syncAction("sync-commit", "api/sync/commit", { message: box.value || null }, "Commit failed");
+  if (data) box.value = "";
+}
+
+async function pullWork() {
+  const data = await syncAction("sync-pull", "api/sync/pull", {}, "Pull failed");
+  // Said here as well as in the strip below, because this is the moment
+  // it becomes true and the moment somebody is looking.
+  if (data && data.code_changed) {
+    toast("That pull brought new code -- restart the dashboard to run it.");
+  }
+  if (data && data.pulled) loadActs();
+}
+
+async function discardWork() {
+  const typed = prompt(
+    "This throws away every uncommitted change under data/ and goes back to the last commit.\n\n" +
+    "The database is copied to _backups/ first, so it can be recovered.\n\n" +
+    "Type 'discard' to confirm:");
+  if (typed === null) return;
+  if (typed.trim().toLowerCase() !== "discard") {
+    toast("Not discarded -- the word didn't match.", true);
+    return;
+  }
+  const data = await syncAction("sync-discard", "api/sync/discard", { confirm: typed }, "Discard failed");
+  if (data && data.discarded) loadActs();
+}
+
+async function restartService() {
+  const button = document.getElementById("stale-restart");
+  button.disabled = true;
+  button.textContent = "Restarting\u2026";
+  try {
+    const res = await fetch("api/sync/restart", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Restart refused.");
+    toast(data.message || "Restarting.");
+    // The service is going down and coming back; polling until it
+    // answers again is friendlier than a page that just stops working.
+    waitForRestart();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = "Restart the dashboard";
+    toast(e.message, true);
+  }
+}
+
+async function waitForRestart(attempt = 0) {
+  if (attempt > 30) {
+    toast("The dashboard hasn't come back yet -- check: systemctl status dashboard", true);
+    return;
+  }
+  await new Promise(r => setTimeout(r, 1000));
+  try {
+    const res = await fetch("api/sync/status", { cache: "no-store" });
+    if (res.ok) { location.reload(); return; }
+  } catch (e) { /* still down, which is expected for a second or two */ }
+  waitForRestart(attempt + 1);
+}
+
+// ---------------------------------------------------------------------
+// Rebuilding the published site
+// ---------------------------------------------------------------------
+// The public site is a static export. Nothing about adding an Act or
+// reviewing one reaches it until this runs, which is why a new Act can
+// be sitting in the dashboard and nowhere on corpusvic.au.
+
+async function rebuildSite() {
+  const button = document.getElementById("site-rebuild");
+  button.disabled = true;
+  try {
+    const res = await fetch("api/site/rebuild", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't start the rebuild.");
+    toast(data.message || "Rebuilding.");
+    pollSite();
+  } catch (e) {
+    button.disabled = false;
+    toast(e.message, true);
+  }
+}
+
+async function pollSite(announce = true) {
+  const state = document.getElementById("site-state");
+  const button = document.getElementById("site-rebuild");
+  try {
+    const res = await fetch("api/site/progress");
+    if (!res.ok) return;
+    const data = await res.json();
+    button.disabled = data.running;
+    if (data.running) {
+      state.textContent = "Rebuilding the site\u2026";
+      setTimeout(() => pollSite(announce), 3000);
+      return;
+    }
+    if (data.exit_code === 0) {
+      state.textContent = "Site rebuilt.";
+      if (announce) toast("The published site is up to date.");
+    } else if (data.exit_code !== null && data.exit_code !== undefined) {
+      // The reason is only ever on the build's own stdout -- a refusal
+      // to replace a gated site with an open one, most likely.
+      state.textContent = "The last rebuild failed.";
+      if (announce) toast("Rebuild failed -- see console for what it said.", true);
+      console.error(data.log);
+    } else if (data.last_built) {
+      state.textContent = `Site last built ${new Date(data.last_built).toLocaleString()}`;
+    } else {
+      state.textContent = "The site hasn't been built on this server yet.";
+    }
+  } catch (e) { /* the row is a convenience; a failed poll is not worth a toast */ }
 }
 
 async function loadActs() {
@@ -1161,6 +1360,9 @@ async function stopAiScan() {
 loadActs();
 loadSync();
 loadProfiles();
+// Quietly: on arrival this only reports when the site was last built,
+// and a rebuild somebody else started is worth seeing as it runs.
+pollSite(false);
 </script>
 </body>
 </html>

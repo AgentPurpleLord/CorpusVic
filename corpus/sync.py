@@ -1,7 +1,8 @@
 """
-Committing and pushing the review work from wherever it is being done --
-so that a reviewer on the server does not have to open a terminal on it
-to put a day's decisions somewhere safe.
+Moving the review work between the server and GitHub from wherever it is
+being done -- so that a reviewer on the server does not have to open a
+terminal on it to put a day's decisions somewhere safe, or to take in
+what was decided somewhere else.
 
 What travels is `data/`: the review database and the parses its rows are
 keyed against (see .gitignore's own note on why those two are committed
@@ -26,10 +27,18 @@ remember:
   - never invents credentials. Pushing is whatever `git push` can already
     do from this checkout, which on the server is the deploy key. If that
     is not set up, the failure says so instead of appearing to work.
+
+Coming the other way, `pull` is fast-forward only and `discard` keeps a
+copy, for the same reason: with the database synced as one whole file
+there is no merge, so every operation here either moves cleanly or stops
+and says which of its reasons applied. None of them silently picks a
+side.
 """
 import os
 import re
+import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Everything committed by a push from here. Anything else in the working
@@ -244,4 +253,141 @@ def push(repo: Path, message: str) -> dict:
         "message": (f"Pushed {count} change(s) to {after['branch']}." if committed
                     else f"Pushed {state['ahead']} commit(s) already waiting."),
         "status": after,
+    }
+
+
+def head(repo: Path) -> "str | None":
+    """This checkout's current commit, or None if that can't be read.
+
+    Used to notice that the code on disk has moved on from the code that
+    is running (see dashboard.py), which is the failure a pull button
+    would otherwise introduce: git succeeds, the process keeps serving
+    what it loaded at startup, and nothing anywhere says so."""
+    result = _git(Path(repo), "rev-parse", "HEAD")
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def commit(repo: Path, message: str) -> dict:
+    """Commits what has changed under data/ without touching the network.
+
+    Worth having separately from push for the case push cannot help
+    with: a remote that isn't answering. Committing still puts the work
+    somewhere it survives a restart, and the push can follow whenever
+    the network does."""
+    repo = Path(repo)
+    pending = pending_changes(repo)
+    if not pending:
+        return {"committed": False, "message": "Nothing to commit -- data/ matches the last commit."}
+    checkpoint_database()
+    _git_ok(repo, "add", "--", *TRACKED_PATHS)
+    staged = _git(repo, "diff", "--cached", "--quiet", "--", *TRACKED_PATHS)
+    if staged.returncode == 0:
+        return {"committed": False, "message": "Nothing to commit -- data/ matches the last commit."}
+    _git_ok(repo, "commit", "-m", message)
+    return {"committed": True, "message": f"Committed {len(pending)} change(s), not yet pushed."}
+
+
+def pull(repo: Path) -> dict:
+    """Brings in commits from the remote, fast-forward only.
+
+    Fast-forward only because the review database is one file synced
+    whole: git cannot merge two versions of it, and the merge it would
+    otherwise attempt ends in a conflict on a binary file that nobody
+    can resolve by hand. So this either moves cleanly onto what the
+    remote has, or refuses and says which of the three reasons it is."""
+    from . import db
+
+    repo = Path(repo)
+    # Before reading what has changed, not after: a write still sitting
+    # in the write-ahead log is a change git cannot see, and a pull that
+    # believed the tree was clean would replace the database out from
+    # under it.
+    checkpoint_database()
+    state = status(repo)
+    if state["error"]:
+        raise SyncError(state["error"])
+    if state["pending"]:
+        raise SyncError(
+            f"There are {len(state['pending'])} uncommitted change(s) under data/ that a pull "
+            "would overwrite. Push them first, or discard them if they aren't wanted."
+        )
+    if not state["behind"]:
+        return {"pulled": False, "message": "Nothing to pull -- already up to date.", "status": state}
+    if state["ahead"]:
+        raise SyncError(
+            f"This server has {state['ahead']} commit(s) the remote doesn't, and the remote has "
+            f"{state['behind']} this server doesn't. The review database is synced as one whole "
+            "file, so there is no merge that keeps both -- one of the two has to be chosen, on a "
+            "machine where you can see what each contains."
+        )
+
+    was = head(repo)
+    # sqlite is holding the database file open by descriptor and git
+    # replaces rather than rewrites it, so a connection left open here
+    # would go on reading the old file after the pull -- see
+    # db.close_connections.
+    db.close_connections()
+    merged = _git(repo, "merge", "--ff-only", f"origin/{state['branch']}")
+    if merged.returncode != 0:
+        raise SyncError(explain((merged.stderr or merged.stdout).strip()) or "git merge failed")
+
+    changed = []
+    if was:
+        listed = _git(repo, "diff", "--name-only", f"{was}..HEAD")
+        if listed.returncode == 0:
+            changed = [line for line in listed.stdout.splitlines() if line.strip()]
+    return {
+        "pulled": True,
+        "message": f"Pulled {state['behind']} commit(s), {len(changed)} file(s) changed.",
+        "code_changed": any(path.endswith(".py") for path in changed),
+        "status": status(repo),
+    }
+
+
+# Where a discarded database is kept. Gitignored, and outside data/ so
+# that a backup can never itself become something to commit.
+BACKUP_DIR = "_backups"
+
+
+def discard(repo: Path) -> dict:
+    """Throws away uncommitted changes under data/ and goes back to the
+    last commit.
+
+    The one destructive thing in this module, so it is also the one that
+    keeps a copy: the database is written to `_backups/` first, named
+    for the moment it was taken. A discard is usually somebody choosing
+    the remote's version over this server's, and "usually" is not a good
+    enough reason for a day's review work to be unrecoverable.
+
+    Only tracked files are restored. Anything untracked under data/ -- a
+    PDF just uploaded, a parse not yet committed -- is left exactly
+    where it is, because it has no committed version to go back to and
+    deleting it would be a different and much larger promise."""
+    from . import db
+
+    repo = Path(repo)
+    pending = pending_changes(repo)
+    if not pending:
+        return {"discarded": False, "message": "Nothing to discard -- data/ matches the last commit."}
+
+    checkpoint_database()
+    backup = None
+    source = repo / "data" / "legislation.db"
+    if source.exists():
+        backup_dir = repo / BACKUP_DIR
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup = backup_dir / f"legislation-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.db"
+        shutil.copy2(source, backup)
+
+    db.close_connections()
+    restored = _git(repo, "checkout", "HEAD", "--", *TRACKED_PATHS)
+    if restored.returncode != 0:
+        raise SyncError(explain((restored.stderr or restored.stdout).strip()) or "git checkout failed")
+
+    kept = f" The previous database is in {BACKUP_DIR}/{backup.name}." if backup else ""
+    return {
+        "discarded": True,
+        "message": f"Discarded {len(pending)} change(s).{kept}",
+        "backup": backup.name if backup else None,
+        "status": status(repo),
     }

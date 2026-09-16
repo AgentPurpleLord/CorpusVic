@@ -305,3 +305,164 @@ def test_dubious_ownership_is_explained_rather_than_passed_on(repo, monkeypatch)
 
 def test_an_ordinary_git_error_is_left_as_git_put_it():
     assert sync.explain("fatal: couldn't find remote ref main") == "fatal: couldn't find remote ref main"
+
+
+# ---------------------------------------------------------------------------
+# Pulling
+# ---------------------------------------------------------------------------
+
+
+def _commit_elsewhere(tmp_path, remote, name="other", contents=b"second", path="data/legislation.db"):
+    """Somebody else's checkout pushing a commit, so the repo under test
+    has something real to be behind by."""
+    other = tmp_path / name
+    other.mkdir()
+    _git(other, "clone", str(remote), ".")
+    _git(other, "config", "user.email", "other@example.com")
+    _git(other, "config", "user.name", "Other")
+    target = other / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(contents)
+    _git(other, "add", ".")
+    _git(other, "commit", "-m", f"From {name}")
+    _git(other, "push", "origin", "main")
+    return other
+
+
+def test_pulling_brings_in_what_was_committed_elsewhere(repo, remote, tmp_path):
+    _commit_elsewhere(tmp_path, remote)
+    result = sync.pull(repo)
+    assert result["pulled"] is True
+    assert (repo / "data" / "legislation.db").read_bytes() == b"second"
+    assert result["status"]["behind"] == 0
+
+
+def test_pulling_nothing_says_so_rather_than_failing(repo):
+    result = sync.pull(repo)
+    assert result["pulled"] is False
+    assert "up to date" in result["message"]
+
+
+def test_a_pull_refuses_to_overwrite_uncommitted_review_work(repo, remote, tmp_path):
+    _commit_elsewhere(tmp_path, remote)
+    (repo / "data" / "legislation.db").write_bytes(b"a day's reviewing")
+    with pytest.raises(sync.SyncError) as excinfo:
+        sync.pull(repo)
+    assert "uncommitted" in str(excinfo.value)
+    # And left it exactly where it was, rather than half-applying.
+    assert (repo / "data" / "legislation.db").read_bytes() == b"a day's reviewing"
+
+
+def test_a_diverged_checkout_is_refused_rather_than_merged(repo, remote, tmp_path):
+    _commit_elsewhere(tmp_path, remote)
+    (repo / "data" / "legislation.db").write_bytes(b"local")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "Local work")
+    with pytest.raises(sync.SyncError) as excinfo:
+        sync.pull(repo)
+    message = str(excinfo.value)
+    assert "no merge" in message
+    assert (repo / "data" / "legislation.db").read_bytes() == b"local"
+
+
+def test_a_pull_says_when_it_brought_new_code(repo, remote, tmp_path):
+    _commit_elsewhere(tmp_path, remote, contents=b"print('new')\n", path="code.py")
+    assert sync.pull(repo)["code_changed"] is True
+
+
+def test_a_pull_of_data_alone_does_not_ask_for_a_restart(repo, remote, tmp_path):
+    _commit_elsewhere(tmp_path, remote)
+    assert sync.pull(repo)["code_changed"] is False
+
+
+def test_a_pull_lets_go_of_the_database_before_replacing_it(repo, remote, tmp_path, monkeypatch):
+    """sqlite holds the file it opened, and git replaces rather than
+    rewrites it. A connection left open here would go on reading the old
+    file after a successful pull -- which looks like a pull that did
+    nothing, forever."""
+    from corpus import db
+
+    opened = {}
+    monkeypatch.setattr(db, "_connections", opened)
+    import sqlite3
+    opened["held"] = sqlite3.connect(str(tmp_path / "held.db"))
+
+    _commit_elsewhere(tmp_path, remote)
+    sync.pull(repo)
+    assert opened == {}
+
+
+# ---------------------------------------------------------------------------
+# Committing without pushing
+# ---------------------------------------------------------------------------
+
+
+def test_committing_works_with_the_remote_unreachable(repo):
+    _git(repo, "remote", "set-url", "origin", "/nonexistent/repo.git")
+    result = sync.commit(repo, "Review progress")
+    assert result["committed"] is False  # nothing has changed yet
+
+    (repo / "data" / "legislation.db").write_bytes(b"reviewed")
+    result = sync.commit(repo, "Review progress")
+    assert result["committed"] is True
+    assert sync.pending_changes(repo) == []
+
+
+def test_a_local_commit_carries_only_the_review_data(repo):
+    (repo / "data" / "legislation.db").write_bytes(b"reviewed")
+    (repo / "code.py").write_text("print('half-finished edit')\n")
+    sync.commit(repo, "Review progress")
+    listed = subprocess.run(["git", "show", "--name-only", "--pretty=", "HEAD"],
+                            cwd=str(repo), capture_output=True, text=True, check=True)
+    assert listed.stdout.split() == ["data/legislation.db"]
+
+
+# ---------------------------------------------------------------------------
+# Discarding
+# ---------------------------------------------------------------------------
+
+
+def test_discarding_goes_back_to_the_last_commit(repo):
+    (repo / "data" / "legislation.db").write_bytes(b"unwanted")
+    result = sync.discard(repo)
+    assert result["discarded"] is True
+    assert (repo / "data" / "legislation.db").read_bytes() == b"first"
+
+
+def test_a_discard_keeps_what_it_threw_away(repo):
+    (repo / "data" / "legislation.db").write_bytes(b"a day's reviewing")
+    result = sync.discard(repo)
+    backup = repo / sync.BACKUP_DIR / result["backup"]
+    assert backup.read_bytes() == b"a day's reviewing"
+    assert result["backup"] in result["message"]
+
+
+def test_a_discard_leaves_untracked_files_where_they_are(repo):
+    """A PDF just uploaded has no committed version to go back to.
+    Deleting it would be a different promise from the one this makes."""
+    (repo / "data" / "legislation.db").write_bytes(b"unwanted")
+    uploaded = repo / "data" / "just-uploaded.pdf"
+    uploaded.write_bytes(b"%PDF-1.4")
+    sync.discard(repo)
+    assert uploaded.exists()
+
+
+def test_discarding_nothing_says_so_rather_than_failing(repo):
+    result = sync.discard(repo)
+    assert result["discarded"] is False
+    assert not (repo / sync.BACKUP_DIR).exists()
+
+
+# ---------------------------------------------------------------------------
+# Which commit this is
+# ---------------------------------------------------------------------------
+
+
+def test_head_is_the_current_commit(repo):
+    expected = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo),
+                              capture_output=True, text=True, check=True).stdout.strip()
+    assert sync.head(repo) == expected
+
+
+def test_head_of_somewhere_that_is_not_a_repository_is_none(tmp_path):
+    assert sync.head(tmp_path) is None

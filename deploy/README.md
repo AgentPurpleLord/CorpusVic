@@ -249,15 +249,77 @@ Confirm the whole path works while nothing is at stake:
 sudo -u dashboard git -C /opt/corpusvic push --dry-run
 ```
 
-After that, pushing is a button. The dashboard at `/admin` carries a
+After that, git is a row of buttons. The dashboard at `/admin` carries a
 strip along the top saying how the review work stands against GitHub --
-how much is unpushed, and whether the remote has moved on -- with a
-**Push to GitHub** button beside it. It commits what has changed under
-`data/` (and only that, so an edit left in the working tree on the
-server stays there), checkpoints the database's write-ahead log first,
-and refuses rather than forces when the remote is ahead.
+how much is unpushed, whether the remote has moved on -- and the things
+you can do about it. Each button says in its tooltip why it is greyed
+out when it is, because a button that does nothing when clicked reads as
+a broken page.
 
-The equivalent by hand, if you would rather, or if the button is telling
+| Button | What it does | What it refuses |
+| --- | --- | --- |
+| **Refresh** | Re-reads this checkout and fetches the remote | -- |
+| **Push to GitHub** | Commits what changed under `data/` and pushes it | When the remote is ahead. It never forces |
+| **Pull** | Fast-forwards onto what the remote has | When there are uncommitted changes, or the two have diverged |
+| **Save locally** | Commits without pushing | -- |
+| **Discard...** | Throws away uncommitted changes under `data/` | Unless you type the word out |
+
+Only `data/` is ever staged, so an edit left in the working tree on the
+server stays there. The database's write-ahead log is checkpointed
+first, every time, so what is committed is the whole state rather than
+whatever had been folded into the file so far.
+
+**Pull is fast-forward only, and that is not a limitation to work
+around.** `data/legislation.db` is synced as one whole file: git cannot
+merge two versions of it, and the merge it would otherwise attempt ends
+in a conflict on a binary file that nobody can resolve. So a checkout
+that has diverged -- commits here that GitHub doesn't have, and commits
+there this server doesn't -- stops and says so. One side has to be
+chosen, deliberately, on a machine where you can see what each contains.
+
+**Save locally** exists for the case Push cannot help with: a remote
+that isn't answering. The work still lands in a commit that survives a
+restart, and the push can follow whenever the network does.
+
+**Discard** is the only button here that destroys anything, so it is the
+only one that asks for more than a click, and the only one that keeps a
+copy: the database is written to `_backups/legislation-<timestamp>.db`
+before anything is restored. Untracked files under `data/` -- a PDF just
+uploaded, a parse not yet committed -- are left alone, because they have
+no committed version to go back to.
+
+### When a pull brings new code
+
+A pull that changes a `.py` file changes nothing about what is running:
+this process imported its code at startup and cannot reload it. The
+dashboard notices -- it compares the commit it started on against the
+one now checked out -- and says so in a strip of its own, with a
+**Restart the dashboard** button.
+
+That button works by exiting, and letting systemd start the service
+again. So it is offered only where systemd will actually do that: the
+unit file is read and its `Restart=` checked, and if it says `no`, or
+this process was not started by systemd at all, the button is disabled
+and says why rather than stopping a service nothing would bring back.
+`deploy/dashboard.service` ships with `Restart=on-failure`, which is
+enough.
+
+### Rebuilding the published site
+
+The public site is a static export. Nothing about adding an Act,
+reviewing one, or pulling somebody else's work reaches
+`corpusvic.au` until `export_static_site.py` runs over the current data
+-- which is how a new Act ends up sitting in the dashboard and nowhere
+on the site. **Rebuild the public site**, in the row under the sync
+strip, runs it in the background and reports what it said.
+
+It runs the script with no passphrase argument, which means the script
+takes `SITE_PASSWORD` from `deploy/site.env` and refuses outright to
+replace a gated build with an open one. Taking the gate off stays a
+deliberate command (`--no-password`) rather than something a button can
+do by accident.
+
+The equivalents by hand, if you would rather, or if a button is telling
 you something you want to look at directly:
 
 ```bash
@@ -265,6 +327,9 @@ cd /opt/corpusvic
 sudo -u dashboard git add data/
 sudo -u dashboard git commit -m "Review progress"
 sudo -u dashboard git push
+sudo -u dashboard git pull --ff-only
+sudo systemctl restart dashboard
+sudo -u dashboard .venv/bin/python export_static_site.py --out _site
 ```
 
 To revoke the key later -- a rebuilt server, a suspicion, or just
@@ -628,6 +693,12 @@ pushed: the site rebuilds in about three minutes, the password is one
 file, and the deploy key takes a minute to reissue.
 
 ## Updating later
+
+Most of this is now a button on `/admin` -- **Pull**, then **Restart the
+dashboard** if it brought new code, then **Rebuild the public site** (see
+"After that, git is a row of buttons" above). What is left for a terminal
+is a dependency change, which is the one line the dashboard has no
+business running as itself.
 
 ```bash
 cd /opt/corpusvic

@@ -693,15 +693,140 @@ def test_the_push_endpoint_keeps_a_message_the_reviewer_typed(monkeypatch):
 
 
 def test_the_sync_endpoints_are_behind_the_login(_at_admin):
-    """They commit and push. Anyone who can reach them without a session
-    can write to the repository."""
+    """They commit, push, pull, discard and restart. Anyone who can reach
+    them without a session can write to the repository."""
     from fastapi.testclient import TestClient
 
     dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
     client = TestClient(dashboard.serving_app(), follow_redirects=False)
 
     assert client.get("/admin/api/sync/status").status_code == 401
-    assert client.post("/admin/api/sync/push", json={}).status_code == 401
+    for path in ("push", "pull", "commit", "discard", "restart"):
+        assert client.post(f"/admin/api/sync/{path}", json={}).status_code == 401, path
+    assert client.post("/admin/api/site/rebuild").status_code == 401
+    assert client.get("/admin/api/site/progress").status_code == 401
+
+
+def test_the_pull_endpoint_reports_a_refusal_as_a_conflict(monkeypatch):
+    from fastapi.testclient import TestClient
+    from corpus import sync
+
+    dashboard._DASHBOARD_USERNAME = None
+    monkeypatch.setattr(dashboard.sync, "pull",
+                        lambda *a, **k: (_ for _ in ()).throw(sync.SyncError("3 uncommitted change(s)")))
+    client = TestClient(dashboard.app)
+
+    res = client.post("/api/sync/pull", json={})
+
+    assert res.status_code == 409
+    assert "uncommitted" in res.json()["detail"]
+
+
+def test_discarding_needs_the_word_typed_out(monkeypatch):
+    """The one button on the page that destroys work. A click in the
+    wrong place must not be able to reach it."""
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    called = []
+    monkeypatch.setattr(dashboard.sync, "discard", lambda *a, **k: called.append(True) or {})
+    client = TestClient(dashboard.app)
+
+    for body in ({}, {"confirm": ""}, {"confirm": "yes"}, {"confirm": "Discard it"}):
+        assert client.post("/api/sync/discard", json=body).status_code == 400, body
+    assert called == []
+
+    assert client.post("/api/sync/discard", json={"confirm": "  Discard "}).status_code == 200
+    assert called == [True]
+
+
+def test_the_status_says_when_the_running_code_is_stale(monkeypatch):
+    """The failure a pull button introduces: git moves the checkout on
+    and this process keeps serving what it imported at startup."""
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    monkeypatch.setattr(dashboard.sync, "status", lambda repo: {"branch": "main", "error": None})
+    monkeypatch.setattr(dashboard.sync, "head", lambda repo: "b" * 40)
+    monkeypatch.setattr(dashboard, "_RUNNING_HEAD", "a" * 40)
+    client = TestClient(dashboard.app)
+
+    body = client.get("/api/sync/status").json()
+
+    assert body["code_stale"] is True
+    assert body["running_head"] == "a" * 40
+    assert body["checkout_head"] == "b" * 40
+
+
+def test_an_unreadable_head_is_not_reported_as_stale(monkeypatch):
+    """Not knowing is not the same as knowing they differ, and a banner
+    that cannot be dismissed is worse than no banner."""
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    monkeypatch.setattr(dashboard.sync, "status", lambda repo: {"branch": "main", "error": None})
+    monkeypatch.setattr(dashboard.sync, "head", lambda repo: None)
+    monkeypatch.setattr(dashboard, "_RUNNING_HEAD", "a" * 40)
+    client = TestClient(dashboard.app)
+
+    assert client.get("/api/sync/status").json()["code_stale"] is False
+
+
+def test_restarting_is_refused_where_nothing_would_start_it_again(monkeypatch):
+    """Exiting a service systemd will not restart leaves the dashboard
+    down, which is worse than asking for a command to be typed."""
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    monkeypatch.delenv("INVOCATION_ID", raising=False)
+    client = TestClient(dashboard.app)
+
+    res = client.post("/api/sync/restart")
+
+    assert res.status_code == 409
+    assert "systemctl restart dashboard" in res.json()["detail"]
+
+
+def test_a_unit_that_would_not_come_back_is_read_rather_than_assumed(monkeypatch, tmp_path):
+    """Measured off the unit file, because INVOCATION_ID only says
+    systemd started this -- not that it would start it again."""
+    unit = tmp_path / "dashboard.service"
+    unit.write_text("[Service]\nRestart=no\n")
+    monkeypatch.setenv("INVOCATION_ID", "abc123")
+    monkeypatch.setattr(dashboard, "_own_unit_name", lambda: "dashboard.service")
+    monkeypatch.setattr(dashboard, "_RESTART_UNIT_DIRS", (str(tmp_path),))
+
+    can, why = dashboard._restart_capability()
+
+    assert can is False
+    assert "Restart=no" in why
+
+
+def test_a_restarting_unit_is_allowed(monkeypatch, tmp_path):
+    unit = tmp_path / "dashboard.service"
+    unit.write_text("[Service]\nRestart=on-failure\n")
+    monkeypatch.setenv("INVOCATION_ID", "abc123")
+    monkeypatch.setattr(dashboard, "_own_unit_name", lambda: "dashboard.service")
+    monkeypatch.setattr(dashboard, "_RESTART_UNIT_DIRS", (str(tmp_path),))
+
+    assert dashboard._restart_capability() == (True, None)
+
+
+def test_a_drop_in_overriding_restart_is_read_last(monkeypatch, tmp_path):
+    """systemd lets a drop-in override the unit file, and reads them in
+    that order. Reading only the unit file would offer a button that
+    stops the service for good."""
+    (tmp_path / "dashboard.service").write_text("[Service]\nRestart=always\n")
+    dropin = tmp_path / "dashboard.service.d"
+    dropin.mkdir()
+    (dropin / "override.conf").write_text("[Service]\nRestart=no\n")
+    monkeypatch.setenv("INVOCATION_ID", "abc123")
+    monkeypatch.setattr(dashboard, "_own_unit_name", lambda: "dashboard.service")
+    monkeypatch.setattr(dashboard, "_RESTART_UNIT_DIRS", (str(tmp_path),))
+
+    can, _why = dashboard._restart_capability()
+
+    assert can is False
 
 
 # ---------------------------------------------------------------------
@@ -825,3 +950,74 @@ def test_the_real_em_carries_it_end_to_end():
         "Criminal Procedure Bill 2008 — Explanatory Memorandum"
     )
     assert dashboard._act_title("criminal-procedure-bill-2008") == "Criminal Procedure Bill 2008"
+
+
+# ---------------------------------------------------------------------
+# Rebuilding the published site
+# ---------------------------------------------------------------------
+
+class _FakeProc:
+    def __init__(self, code=None):
+        self._code = code
+        self.returncode = code
+
+    def poll(self):
+        return self._code
+
+
+def test_rebuilding_runs_the_export_script(monkeypatch):
+    """The whole point of the button: nothing about adding an Act reaches
+    the public site until this script runs over the current data."""
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    dashboard._site_build.clear()
+    seen = {}
+    monkeypatch.setattr(dashboard.subprocess, "Popen",
+                        lambda cmd, **kw: seen.setdefault("cmd", cmd) and None or _FakeProc())
+    client = TestClient(dashboard.app)
+
+    assert client.post("/api/site/rebuild").status_code == 200
+
+    assert seen["cmd"][1:] == ["export_static_site.py", "--out", "_site"]
+    # No --password and no --no-password: the script takes the passphrase
+    # from deploy/site.env and refuses to replace a gated build with an
+    # open one, so this button cannot be the thing that unpublishes the
+    # gate.
+    assert "--no-password" not in seen["cmd"]
+    dashboard._site_build.clear()
+
+
+def test_a_second_rebuild_is_refused_while_one_is_running(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    dashboard._site_build.clear()
+    monkeypatch.setattr(dashboard.subprocess, "Popen", lambda cmd, **kw: _FakeProc())
+    client = TestClient(dashboard.app)
+
+    assert client.post("/api/site/rebuild").status_code == 200
+    assert client.post("/api/site/rebuild").status_code == 409
+    dashboard._site_build.clear()
+
+
+def test_the_progress_endpoint_hands_back_what_the_build_said(monkeypatch, tmp_path):
+    """A build that refuses to run says why on its own stdout and nowhere
+    else -- most likely that it will not replace a gated site with an
+    open one."""
+    from fastapi.testclient import TestClient
+
+    dashboard._DASHBOARD_USERNAME = None
+    log = tmp_path / "site_build.log"
+    log.write_text("Refusing to rebuild _site/ without a passphrase")
+    monkeypatch.setattr(dashboard, "_SITE_BUILD_LOG", log)
+    dashboard._site_build.clear()
+    dashboard._site_build.update({"proc": _FakeProc(1), "started": "2026-09-16T00:00:00Z"})
+    client = TestClient(dashboard.app)
+
+    body = client.get("/api/site/progress").json()
+
+    assert body["running"] is False
+    assert body["exit_code"] == 1
+    assert "without a passphrase" in body["log"]
+    dashboard._site_build.clear()
