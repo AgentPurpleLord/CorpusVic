@@ -941,6 +941,158 @@ def _restart_capability() -> tuple:
     return True, None
 
 
+# ---------------------------------------------------------------------------
+# The public site's own service
+# ---------------------------------------------------------------------------
+#
+# A different process from this one, on the same box, reading the same
+# database. Restarting it is not the same problem as restarting this:
+# this one restarts by exiting and letting systemd bring it back, which
+# needs no privilege at all, while another unit needs systemd to be asked
+# -- and this service runs as `dashboard`, which by default may not ask.
+#
+# So both the state and the permission are read rather than assumed, and
+# the button says which of the two is missing. A button that fails when
+# pressed teaches you not to trust the page.
+
+# Overridable because the unit is named by whoever installed it;
+# deploy/README.md calls it corpusvic-public.
+PUBLIC_UNIT = os.environ.get("PUBLIC_SERVICE_UNIT", "corpusvic-public.service")
+
+# How long to wait for systemctl. A restart of this service is quick, and
+# a systemctl that has not answered in ten seconds is one that is not
+# going to -- most likely sitting on a polkit prompt nobody can see.
+_SYSTEMCTL_TIMEOUT = 10
+
+
+def _systemctl(*arguments, timeout: int = _SYSTEMCTL_TIMEOUT):
+    """Runs systemctl, with sudo when this is not already root.
+
+    `sudo -n`, never interactive: there is no terminal here to type a
+    password into, and a sudo that decides to ask for one would hang
+    until the timeout rather than fail."""
+    command = list(arguments)
+    if os.geteuid() != 0:
+        command = ["sudo", "-n"] + command
+    return subprocess.run(command, capture_output=True, text=True,
+                          timeout=timeout, check=False)
+
+
+def _systemd_is_running() -> bool:
+    """Whether systemd is the init system here.
+
+    The same check libsystemd's own sd_booted() makes. Without it, a
+    laptop running this dashboard to review documents gets told that a
+    service it never installed is in trouble, which is noise dressed as
+    a warning."""
+    return Path("/run/systemd/system").is_dir()
+
+
+def _public_service_state() -> dict:
+    """What systemd says about the public site's unit.
+
+    `systemctl show` reads properties and needs no privilege, so this
+    works even where restarting does not -- which is the common case and
+    worth showing rather than hiding."""
+    if not _systemd_is_running():
+        return {"known": False, "systemd": False,
+                "detail": "There is no systemd here, so there is no service to restart."}
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", PUBLIC_UNIT, "--no-page",
+             "--property=LoadState,ActiveState,SubState,ActiveEnterTimestamp"],
+            capture_output=True, text=True, timeout=_SYSTEMCTL_TIMEOUT, check=False)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"known": False, "systemd": True, "detail": f"Couldn't ask systemd: {e}"}
+    if result.returncode != 0:
+        return {"known": False, "systemd": True,
+                "detail": (result.stderr or result.stdout or "").strip()}
+    values = dict(
+        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+    return {
+        "known": True,
+        "systemd": True,
+        # "not-found" is the interesting one: the unit was never
+        # installed, which is a different problem from it being stopped.
+        "installed": values.get("LoadState") != "not-found",
+        "active": values.get("ActiveState") == "active",
+        "state": values.get("ActiveState", "unknown"),
+        "sub_state": values.get("SubState", ""),
+        "since": values.get("ActiveEnterTimestamp", ""),
+    }
+
+
+def _can_restart_public() -> tuple:
+    """Whether this process may restart the public unit, and if not, what
+    to do about it.
+
+    Probed with `sudo -n -l`, which asks sudo what it would allow without
+    running anything and without prompting. Guessing instead would mean
+    finding out at the moment somebody presses the button, which is the
+    moment it is least useful to find out."""
+    if not _systemd_is_running():
+        return False, "There is no systemd here."
+    if os.geteuid() == 0:
+        return True, None
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "-l", "/usr/bin/systemctl", "restart", PUBLIC_UNIT],
+            capture_output=True, text=True, timeout=_SYSTEMCTL_TIMEOUT, check=False)
+    except FileNotFoundError:
+        return False, "There is no sudo here, so this service cannot ask systemd to restart another."
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, f"Couldn't ask sudo what it allows: {e}"
+    if result.returncode == 0:
+        return True, None
+    return False, (
+        f"This service may not restart {PUBLIC_UNIT}. To allow just that one command, "
+        f"put this in /etc/sudoers.d/corpusvic-restart (via visudo):\n\n"
+        f"    dashboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart {PUBLIC_UNIT}")
+
+
+@app.get("/api/service/public")
+def public_service_status():
+    """Whether the public site is up, and whether this page could restart
+    it."""
+    can, why_not = _can_restart_public()
+    return {"unit": PUBLIC_UNIT, **_public_service_state(),
+            "can_restart": can, "restart_blocked": why_not}
+
+
+@app.post("/api/service/public/restart")
+def public_service_restart():
+    """Restarts the public site.
+
+    Worth a button because the public site holds its own handles on the
+    database and the search index for the life of the process, and a pull
+    that brings new code reaches it only when it starts again -- the same
+    staleness this dashboard's own restart button exists for, one process
+    over."""
+    can, why_not = _can_restart_public()
+    if not can:
+        raise HTTPException(409, f"{why_not}\n\nOr from a terminal: "
+                                 f"sudo systemctl restart {PUBLIC_UNIT}")
+    try:
+        result = _systemctl("systemctl", "restart", PUBLIC_UNIT)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, f"systemctl did not answer within {_SYSTEMCTL_TIMEOUT}s.") from None
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(500, f"Couldn't run systemctl: {e}") from e
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise HTTPException(500, f"systemctl refused: {detail}")
+    # Read back rather than reporting success from an exit status: the
+    # unit can exit immediately after a clean start, and "restarted" over
+    # a service that is already dead again is the kind of reassurance
+    # that costs an hour to see through.
+    state = _public_service_state()
+    if state.get("known") and not state.get("active"):
+        raise HTTPException(
+            500, f"{PUBLIC_UNIT} restarted but is {state.get('state')} "
+                 f"({state.get('sub_state')}). Check: journalctl -u {PUBLIC_UNIT} -n 50")
+    return {"ok": True, "message": "The public site has restarted.", **state}
+
+
 class PullRequest(BaseModel):
     pass
 
