@@ -10,7 +10,7 @@ import sqlite3
 
 import pytest
 
-from corpus import db, html_view, search
+from corpus import db, html_view, query, search
 
 from conftest import make_node
 
@@ -288,6 +288,180 @@ def test_punctuation_becomes_words_rather_than_syntax():
 
 
 # ---------------------------------------------------------------------
+# Typos, and the one rule that makes correcting them safe
+# ---------------------------------------------------------------------
+#
+# Correction is always on, which is only tolerable because of a single
+# invariant: a word the corpus contains is never second-guessed. That is
+# what stops a precise query being quietly softened into a vague one, and
+# it is too important to leave to a docstring. Everything below is that
+# invariant, from both sides.
+
+
+def _vocab(**counts) -> dict:
+    """A vocabulary as fts5vocab hands it over: term -> how often."""
+    return dict(counts)
+
+
+def test_a_word_the_corpus_contains_is_never_corrected():
+    """The invariant, stated directly.
+
+    "excuse" is in the corpus, and "excuses" is in it ten times more
+    often and one edit away. A search engine that helps here is a search
+    engine that cannot be trusted with a term of art."""
+    analysis = query.analyse("excuse", _vocab(excuse=3, excuses=30))
+
+    assert analysis.corrections == {}
+    assert '"excuse"' in analysis.match
+    assert "excuses" not in analysis.match
+
+
+def test_an_unknown_word_is_read_as_the_nearest_one_the_corpus_has():
+    analysis = query.analyse("indictble offence",
+                             _vocab(indictable=40, offence=90))
+
+    assert analysis.corrections == {"indictble": "indictable"}
+
+
+def test_a_correction_adds_to_the_search_and_never_takes_from_it():
+    """Both go to FTS5, OR'd. A correction can only ever widen what is
+    found -- so being wrong about one costs a few extra results rather
+    than the one the reader was after."""
+    analysis = query.analyse("hearsy", _vocab(hearsay=12))
+
+    assert '"hearsy"' in analysis.match
+    assert '"hearsay"' in analysis.match
+    assert " OR " in analysis.match
+
+
+def test_a_word_near_nothing_at_all_is_left_as_it_was():
+    """Rather than dragged to whatever the corpus happens to contain.
+    Nothing found is an honest answer; the wrong provision is not."""
+    analysis = query.analyse("zygomorphic", _vocab(offence=90, hearsay=12))
+
+    assert analysis.corrections == {}
+    assert '"zygomorphic"' in analysis.match
+
+
+def test_how_far_a_correction_reaches_depends_on_the_length_of_the_word():
+    """Two edits in a six-letter word is a different word; in a twelve
+    letter word it is a typo. So the bound goes by length."""
+    # One edit, and short: reached.
+    short = query.analyse("offenc", _vocab(offence=90))
+    assert short.corrections == {"offenc": "offence"}
+
+    # Two edits, and short: not reached.
+    assert query.analyse("offanc", _vocab(offence=90)).corrections == {}
+
+    # Two edits, and long enough that a slip is likelier than a different
+    # word being meant.
+    long = query.analyse("intrpretaton", _vocab(interpretation=25))
+    assert long.corrections == {"intrpretaton": "interpretation"}
+
+
+def test_a_word_too_short_to_correct_safely_is_not_corrected():
+    """At three letters nearly everything is one edit from everything
+    else, and the nearest word is close to a coin toss."""
+    assert query.analyse("act", _vocab(act=50, ac=2, art=9)).corrections == {}
+
+
+def test_a_tie_goes_to_the_word_the_corpus_uses_more():
+    """Two candidates, both one edit away. The frequent one is the one
+    more likely to have been meant."""
+    analysis = query.analyse("offenceX".replace("X", "e"),
+                             _vocab(offences=200, offencer=3))
+
+    assert analysis.corrections == {"offencee": "offences"}
+
+
+def test_a_query_written_in_fts5s_own_language_is_not_corrected():
+    """Somebody who typed a quoted phrase meant it. Correcting inside it
+    would be rewriting a query that was already exact."""
+    analysis = query.analyse('"reasonable excus"', _vocab(excuse=30))
+
+    assert analysis.verbatim
+    assert analysis.corrections == {}
+    assert analysis.match == '"reasonable excus"'
+
+
+def test_without_a_vocabulary_nothing_is_corrected():
+    """Which is what happens when fts5vocab is unavailable: search goes
+    on working, exactly as it did before correction existed."""
+    assert query.analyse("indictble").corrections == {}
+
+
+def test_the_vocabulary_is_the_corpus_words_and_not_their_stems(corpus):
+    """The bug the `word` table exists to prevent, kept as a test.
+
+    node_fts is tokenized with `porter`, so fts5vocab over it hands back
+    stems -- "indict", "famili", "offenc". Correcting against that list
+    answers "no" when asked whether the corpus contains "family", which
+    turns the one safety rule inside out: correction fires on nearly
+    every word anybody types, and what it offers back is a stem."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    vocab = search.vocabulary(index.connection())
+
+    assert "indictable" in vocab
+    assert "indict" not in vocab
+    assert "excuse" in vocab and "excus" not in vocab
+
+
+def test_a_footnote_marker_glued_to_a_word_is_not_a_word():
+    """Real corpus text contains "offence8" and "definitions5", where a
+    marker has ended up against the word. Offering one of those as a
+    correction would read as the search being broken."""
+    words: dict = {}
+    search._count_words(words, "Definitions5", "An offence8 under this Act.")
+
+    assert words.get("definitions") == 1
+    assert words.get("offence") == 1
+    assert "offence8" not in words
+
+
+def test_an_index_with_no_word_table_corrects_nothing(corpus):
+    """An index built before the table existed. Search goes on working;
+    it simply stops offering corrections, which is what it did before
+    correction existed at all."""
+    tmp_path, source = corpus
+    _build(tmp_path, source)
+    writable = sqlite3.connect(str(search.index_path(tmp_path)))
+    with writable:
+        writable.execute("DROP TABLE word")
+    writable.close()
+
+    found = search.Index(tmp_path).search("indictble")
+
+    assert found["corrections"] == {}
+    assert isinstance(found["total"], int)
+
+
+def test_a_typo_finds_the_provision_the_word_would_have(corpus):
+    """End to end, against a real index and its real vocabulary."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    typed = index.search("indictble")
+
+    assert typed["total"] >= 1
+    assert typed["corrections"] == {"indictble": "indictable"}
+    assert typed["results"][0]["label"] == index.search("indictable")["results"][0]["label"]
+
+
+def test_a_precise_query_reports_no_corrections(corpus):
+    """The invariant again, this time against the vocabulary of a real
+    index rather than a hand-written one."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    found = index.search("hearsay")
+
+    assert found["total"] >= 1
+    assert found["corrections"] == {}
+
+
+# ---------------------------------------------------------------------
 # Staleness
 # ---------------------------------------------------------------------
 
@@ -306,6 +480,27 @@ def test_a_reader_notices_the_index_has_been_replaced(corpus):
 
     assert index.search("indictable")["total"] == 0
     assert index.search("entirely")["total"] >= 1
+
+
+def test_the_cached_vocabulary_is_dropped_when_the_index_is(corpus):
+    """The vocabulary is read once per index rather than per query, which
+    is a cache -- and a cache of what words the corpus contains is a
+    cache that can go quietly wrong. It hangs off the same stamp the
+    connection does, so a rebuild drops it."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+    assert "hearsay" in index.vocabulary()
+
+    # A new document, with a word the old index never saw.
+    source.documents["new-act"] = ("Trespass Act 2026", "act", "1 January 2026", _act(
+        make_node("section", "1", "Trespass", "A person must not commit trespass."),
+    ))
+    (tmp_path / "data" / "parsed" / "new-act.json").write_text("{}", encoding="utf-8")
+    db.set_publication("new-act", True, tmp_path)
+    search.rebuild(tmp_path, source=source)
+
+    assert "trespass" in index.vocabulary()
+    assert index.search("trespas")["corrections"] == {"trespas": "trespass"}
 
 
 def test_the_signature_changes_when_the_data_does(corpus):

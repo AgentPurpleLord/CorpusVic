@@ -41,7 +41,7 @@ from .markdown_export import _iter_body_units, compute_section_slugs
 from .versions import split_document_slug
 
 INDEX_FILENAME = "search.db"
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 
 # What a snippet's highlights are marked with on the way out of sqlite.
 # Two characters that cannot occur in legislation, so that the text can be
@@ -80,6 +80,20 @@ CREATE VIRTUAL TABLE IF NOT EXISTS node_fts USING fts5(
     breadcrumb UNINDEXED,   -- "Chapter 5 > Part 5.2"
     ntype      UNINDEXED,
     tokenize = 'porter unicode61 remove_diacritics 2'
+);
+
+-- The words the corpus actually contains, and how often. Only a typo
+-- correction reads this, and it exists because the obvious source for it
+-- does not work: node_fts is tokenized with `porter`, so fts5vocab hands
+-- back stems -- "famili", "violenc", "offenc". Checking a typed word
+-- against those says "family" is not in the corpus, which is the exact
+-- opposite of the truth and breaks the one rule that makes always-on
+-- correction safe. Worse, it then offers the reader a stem as a
+-- correction. So the surface words are counted at build time and kept
+-- here, where they are words a reader would recognise.
+CREATE TABLE IF NOT EXISTS word (
+    term TEXT PRIMARY KEY,
+    cnt  INTEGER NOT NULL
 );
 """
 
@@ -256,6 +270,7 @@ def rebuild(base_dir, source=None, published=None) -> dict:
 
     conn = sqlite3.connect(str(scratch))
     provisions = 0
+    words: dict = {}
     try:
         conn.executescript(_SCHEMA)
         with conn:
@@ -272,6 +287,8 @@ def rebuild(base_dir, source=None, published=None) -> dict:
                 doc_id = cursor.lastrowid
                 rows = list(_rows_for_document(source, slug, html_view))
                 provisions += len(rows)
+                for r in rows:
+                    _count_words(words, r["heading"], r["body"])
                 conn.executemany(
                     "INSERT INTO node_fts (heading, body, doc_id, page, fragment, label, breadcrumb, ntype) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -279,6 +296,8 @@ def rebuild(base_dir, source=None, published=None) -> dict:
                       r["label"], r["breadcrumb"], r["ntype"]) for r in rows],
                 )
             conn.execute("INSERT INTO node_fts(node_fts) VALUES('optimize')")
+            conn.executemany("INSERT INTO word (term, cnt) VALUES (?, ?)",
+                             sorted(words.items()))
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
                 [("schema_version", SCHEMA_VERSION), ("signature", signature(base_dir, source))],
@@ -287,8 +306,28 @@ def rebuild(base_dir, source=None, published=None) -> dict:
         conn.close()
 
     os.replace(scratch, target)
-    return {"documents": len(slugs), "provisions": provisions,
+    return {"documents": len(slugs), "provisions": provisions, "words": len(words),
             "works": sorted(works), "path": str(target)}
+
+
+# Letters only, deliberately. The corpus is full of tokens like
+# "offence8" and "definitions5", where a footnote marker has ended up
+# glued to a word -- and a reader told "showing results for offence8"
+# would rightly conclude the search is broken. Splitting on digits counts
+# the word and drops the marker.
+_WORD_RE = re.compile(r"[^\W\d_]{2,}", re.UNICODE)
+
+
+def _count_words(words: dict, *texts) -> None:
+    """Tallies the surface words of one provision into `words`.
+
+    The corpus's own vocabulary, which is the only list a typo may be
+    corrected to. Counted here rather than read back out of fts5vocab
+    because that returns porter stems -- see the `word` table in _SCHEMA
+    for why that is not merely inconvenient but wrong."""
+    for text in texts:
+        for word in _WORD_RE.findall((text or "").lower()):
+            words[word] = words.get(word, 0) + 1
 
 
 def signature(base_dir, source=None) -> str:
@@ -335,6 +374,7 @@ class Index:
         self.path = index_path(base_dir)
         self._conn = None
         self._stamp = None
+        self._vocabulary = None
 
     def _identity(self):
         try:
@@ -354,14 +394,30 @@ class Index:
             self._conn = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             self._stamp = stamp
+            self._vocabulary = None
         return self._conn
+
+    def vocabulary(self) -> dict:
+        """The corpus's words, read once per index rather than per query.
+
+        Every query needs the whole list -- correction has to know
+        whether a word is absent, which is a question about all of them
+        -- and re-reading 7,000 rows to answer it was an eighth of the
+        time a search took. Dropped when the file changes, by the same
+        stamp that decides the connection is stale, so a rebuilt index is
+        never answered from the old one's vocabulary."""
+        conn = self.connection()
+        if self._vocabulary is None:
+            self._vocabulary = vocabulary(conn)
+        return self._vocabulary
 
     def available(self) -> bool:
         return self._identity() is not None
 
     def search(self, raw: str, include_superseded: bool = False,
                limit: int = 20, offset: int = 0) -> dict:
-        return search(self.connection(), raw, include_superseded, limit, offset)
+        return search(self.connection(), raw, include_superseded, limit, offset,
+                      vocab=self.vocabulary())
 
 
 # How far a structural match is worth moving a result. Large, because
@@ -381,15 +437,21 @@ def vocabulary(conn: sqlite3.Connection) -> dict:
     """Every word the corpus contains, and how often -- the only words a
     typo may be corrected to.
 
-    5,519 of them for this whole corpus, which is why correction needs no
-    index of its own."""
+    Around 24,000 of them for this whole corpus, small enough that the
+    nearest word is found by looking and correction needs no index of its
+    own.
+
+    Read from the `word` table rather than from fts5vocab. That
+    distinction is the whole safety of the feature: fts5vocab over
+    node_fts returns porter *stems*, so asking it whether the corpus
+    contains "family" answers no -- and correction, which is only ever
+    supposed to fire on a word the corpus does not have, would fire on
+    nearly every word anyone typed, offering "famili" back as the
+    correction. An index built before that table existed simply does no
+    correcting, which is what search did before any of this."""
     try:
-        conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS temp.search_vocab "
-                     "USING fts5vocab(main, node_fts, row)")
-        return {row[0]: row[1] for row in conn.execute("SELECT term, cnt FROM temp.search_vocab")}
+        return {row[0]: row[1] for row in conn.execute("SELECT term, cnt FROM word")}
     except sqlite3.Error:
-        # Without it, correction simply does not happen -- which is the
-        # behaviour search had before it existed.
         return {}
 
 
@@ -449,7 +511,7 @@ def _snippet_html(marked: str) -> str:
 
 
 def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
-           limit: int = 20, offset: int = 0) -> dict:
+           limit: int = 20, offset: int = 0, vocab: "dict | None" = None) -> dict:
     """What matches, best first.
 
     Ranked by bm25 with the heading weighted above the body, because
@@ -459,7 +521,10 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
     question somebody asked today."""
     from .query import analyse
 
-    analysis = analyse(raw, vocabulary(conn))
+    # `vocab` is passed by Index, which keeps it for the life of the
+    # file; reading it here is the path a caller holding a bare
+    # connection takes.
+    analysis = analyse(raw, vocabulary(conn) if vocab is None else vocab)
     if not analysis:
         return {"query": raw, "parsed": "", "total": 0, "results": [],
                 "truncated": False, "corrections": {}}

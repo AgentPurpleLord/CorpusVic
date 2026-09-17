@@ -6,6 +6,7 @@ deliberately not covered here -- they were exercised end to end against a
 live server instead (curl and Playwright), same approach test_review.py
 takes for review.py's own endpoints."""
 import json
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -1208,6 +1209,25 @@ def test_a_failed_rebuild_is_reported_rather_than_swallowed(tmp_path, monkeypatc
     assert res.status_code == 500
     assert "no space left" in res.json()["detail"]
     dashboard._search_state.update({"error": None})
+
+
+def test_an_index_built_by_an_older_builder_counts_as_stale(tmp_path, monkeypatch):
+    """Even when the data has not moved a byte.
+
+    The index gained a table the query layer reads; an older one still
+    answers queries, just without typo correction. A feature that is
+    quietly absent is worse than one that is visibly broken, so the
+    schema stamp is compared alongside the data signature."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    dashboard.search.rebuild(tmp_path, source=dashboard)
+    assert client.get("/api/search/status").json()["stale"] is False
+
+    conn = sqlite3.connect(str(dashboard.search.index_path(tmp_path)))
+    with conn:
+        conn.execute("UPDATE meta SET value = '0' WHERE key = 'schema_version'")
+    conn.close()
+
+    assert client.get("/api/search/status").json()["stale"] is True
 
 
 def test_the_index_endpoints_are_behind_the_login(_at_admin):

@@ -780,16 +780,26 @@ def search_status():
     """Whether there is an index, and whether it still matches the data.
 
     Staleness is compared rather than guessed: the signature covers every
-    parse file, the review database and which works are published."""
+    parse file, the review database and which works are published.
+
+    An index built by an older version of the builder is stale too, even
+    when the data has not moved. That is not hypothetical: the index
+    gained a table of the corpus's own words, and without it typo
+    correction silently does nothing -- an index that works, returns
+    results, and quietly lacks a feature is the hardest kind of broken to
+    notice."""
     path = search.index_path(BASE_DIR)
     built = path.exists()
     stale = None
     if built:
         try:
             conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-            stored = conn.execute("SELECT value FROM meta WHERE key = 'signature'").fetchone()
+            stored = dict(conn.execute(
+                "SELECT key, value FROM meta WHERE key IN ('signature', 'schema_version')"))
             conn.close()
-            stale = bool(stored) and stored[0] != search.signature(BASE_DIR)
+            stale = bool(stored.get("signature")) and (
+                stored["signature"] != search.signature(BASE_DIR)
+                or stored.get("schema_version") != search.SCHEMA_VERSION)
         except sqlite3.Error as e:
             stale = None
             _search_state["error"] = f"Couldn't read the index: {e}"
