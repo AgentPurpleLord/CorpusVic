@@ -9,7 +9,7 @@ refused.
 """
 import pytest
 
-from corpus import search_view
+from corpus import search, search_view
 
 
 def _hit(**overrides):
@@ -47,7 +47,7 @@ def _found(results=None, total=None, truncated=False, **extra):
 
 
 def test_a_result_links_where_the_index_says():
-    html = search_view.results_html(_found(), "indictable", False, 0, "/search")
+    html = search_view.results_html(_found(), "indictable", search.Scope(), 0, "/search")
 
     assert "href='/browse/criminal-procedure-act/section/s242#s242-1'" in html
 
@@ -57,34 +57,47 @@ def test_a_result_is_addressed_by_the_name_the_site_serves_it_under():
     is where the newest reprint is served, and the parse's own. A link
     built from the second is a 404 on a page of results that otherwise
     look exactly right -- which is how this was found the first time."""
-    html = search_view.results_html(_found(), "indictable", False, 0, "/search")
+    html = search_view.results_html(_found(), "indictable", search.Scope(), 0, "/search")
 
     assert "href='/browse/criminal-procedure-act/section/s242#s242-1'" in html
     assert "criminal-procedure-act-v114" not in html
 
 
 def test_the_form_submits_where_it_is_told():
-    assert "action='/admin/search'" in search_view.form_html("/admin/search", "", False)
-    assert "action='/search'" in search_view.form_html("/search", "", False)
+    assert "action='/admin/search'" in search_view.form_html("/admin/search", "", search.Scope())
+    assert "action='/search'" in search_view.form_html("/search", "", search.Scope())
 
 
 def test_the_pager_keeps_the_query_and_the_scope():
+    """Page two of a search that included Bills, quietly not including
+    them, is the kind of thing somebody notices as "the results changed
+    when I paged"."""
     html = search_view.pager_html(_found(truncated=True), "indictable offence",
-                                  True, 20, "/admin/search")
+                                  search.Scope(bills=True, superseded=True), 20,
+                                  "/admin/search")
 
-    assert "/admin/search?q=indictable+offence&amp;offset=40&amp;superseded=1" in html
+    assert ("/admin/search?q=indictable+offence&amp;offset=40"
+            "&amp;bills=1&amp;superseded=1") in html
     assert "Previous" in html  # offset is past the first page
 
 
+def test_an_ordinary_search_keeps_an_ordinary_url():
+    """Only the toggles that are on go into a link, so the address of a
+    normal search is not a list of everything switched off."""
+    html = search_view.pager_html(_found(truncated=True), "x", search.Scope(), 0, "/search")
+
+    assert "bills" not in html and "superseded" not in html and "em=" not in html
+
+
 def test_the_first_page_has_no_previous_link():
-    html = search_view.pager_html(_found(truncated=True), "x", False, 0, "/search")
+    html = search_view.pager_html(_found(truncated=True), "x", search.Scope(superseded=False), 0, "/search")
 
     assert "Previous" not in html
     assert "Next" in html
 
 
 def test_the_last_page_has_no_next_link():
-    html = search_view.pager_html(_found(truncated=False), "x", False, 20, "/search")
+    html = search_view.pager_html(_found(truncated=False), "x", search.Scope(superseded=False), 20, "/search")
 
     assert "Next" not in html
     assert "Previous" in html
@@ -96,7 +109,7 @@ def test_the_last_page_has_no_next_link():
 
 
 def test_what_somebody_typed_is_escaped_back_into_the_box():
-    html = search_view.form_html("/search", "<script>alert(1)</script>", False)
+    html = search_view.form_html("/search", "<script>alert(1)</script>", search.Scope())
 
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
@@ -118,14 +131,14 @@ def test_the_snippet_is_not_escaped_twice():
     sqlite's marks into <mark> tags. Escaping it again here would publish
     the tags as visible text -- which is what the other order of those two
     steps does, and why this is worth pinning down in both places."""
-    html = search_view.results_html(_found(), "indictable", False, 0, "/search")
+    html = search_view.results_html(_found(), "indictable", search.Scope(), 0, "/search")
 
     assert "<mark>indictable</mark>" in html
     assert "&lt;mark&gt;" not in html
 
 
 def test_a_query_with_markup_is_escaped_in_the_count_line():
-    html = search_view.results_html(_found(), "<b>bold</b>", False, 0, "/search")
+    html = search_view.results_html(_found(), "<b>bold</b>", search.Scope(), 0, "/search")
 
     assert "<b>bold</b>" not in html
     assert "&lt;b&gt;bold&lt;/b&gt;" in html
@@ -197,7 +210,7 @@ class _Unavailable(Exception):
 def test_an_empty_query_asks_the_index_nothing():
     index = _Index()
 
-    body = search_view.page_body(index, "   ", False, 0, "/search")
+    body = search_view.page_body(index, "   ", search.Scope(), 0, "/search")
 
     assert index.asked == []
     assert "search-page-form" in body
@@ -206,7 +219,7 @@ def test_an_empty_query_asks_the_index_nothing():
 def test_a_missing_index_says_so_rather_than_failing():
     index = _Index(raises=_Unavailable("The search index hasn't been built yet."))
 
-    body = search_view.page_body(index, "anything", False, 0, "/search",
+    body = search_view.page_body(index, "anything", search.Scope(), 0, "/search",
                                  unavailable=_Unavailable)
 
     assert "hasn&#x27;t been built" in body or "hasn't been built" in body
@@ -216,7 +229,7 @@ def test_a_negative_offset_cannot_reach_the_index():
     """It arrives from a query string, so it is whatever somebody typed."""
     index = _Index()
 
-    search_view.page_body(index, "x", False, -50, "/search")
+    search_view.page_body(index, "x", search.Scope(), -50, "/search")
 
     assert index.asked[0]["offset"] == 0
 
@@ -224,7 +237,7 @@ def test_a_negative_offset_cannot_reach_the_index():
 def test_the_page_size_is_the_one_the_pager_counts_in():
     index = _Index()
 
-    search_view.page_body(index, "x", False, 0, "/search")
+    search_view.page_body(index, "x", search.Scope(), 0, "/search")
 
     assert index.asked[0]["limit"] == search_view.PAGE_SIZE
 
@@ -234,4 +247,49 @@ def test_the_page_size_is_the_one_the_pager_counts_in():
     ("", False), ("0", False), ("off", False), (None, False), ("no", False),
 ])
 def test_what_the_checkbox_sends_is_read_the_way_browsers_send_it(value, expected):
-    assert search_view.wants_superseded(value) is expected
+    """A browser sends "on" for a ticked box, a hand-typed URL is as
+    likely to say "1" or "true", and an absent box sends nothing at
+    all."""
+    assert search.Scope.from_params({"bills": value}).bills is expected
+
+
+# ---------------------------------------------------------------------
+# What a search is allowed to look at
+# ---------------------------------------------------------------------
+
+
+def test_the_default_offers_the_extras_without_having_applied_them():
+    html = search_view.form_html("/search", "", search.Scope())
+
+    assert "Also search" in html
+    assert "Bills" in html and "Explanatory memoranda" in html
+    assert "Superseded reprints" in html
+    assert " checked" not in html
+
+
+def test_a_toggle_that_is_on_is_shown_as_on_and_the_panel_is_open():
+    """Somebody who followed a link, or came back to a page, has to see
+    why there are Bills in their results. A filter you cannot see is a
+    filter you blame the search for."""
+    html = search_view.form_html("/search", "arrest", search.Scope(bills=True))
+
+    assert "<details class='search-scope' open>" in html
+    assert "name='bills' value='1' checked" in html
+    assert "name='em' value='1'>" in html
+
+
+def test_a_result_from_a_bill_says_so():
+    """A Bill and its Act say nearly the same thing in nearly the same
+    words. Which one you are reading is not a detail."""
+    html = search_view.results_html(_found([_hit(kind="bill")]), "x",
+                                    search.Scope(bills=True), 0, "/search")
+
+    assert "<span class='search-kind'>Bill</span>" in html
+
+
+def test_a_result_from_an_act_is_not_tagged():
+    """Nearly every result is an Act. A tag on all of them says
+    nothing."""
+    html = search_view.results_html(_found(), "x", search.Scope(), 0, "/search")
+
+    assert "search-kind" not in html

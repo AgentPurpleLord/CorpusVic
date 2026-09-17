@@ -199,6 +199,14 @@ It searches what is *published*, because that is all the index holds. A
 work you have not put on the site will not be found there, which is worth
 knowing before concluding a provision is missing.
 
+It also searches only the **Acts as they stand** unless the reader asks
+otherwise. Bills, explanatory memoranda and superseded reprints are each
+a checkbox under "Also search…" on the search page, and each carries
+through the pager and into the URL, so a search that included Bills can
+be linked to and comes back including them. If somebody reports results
+they did not expect, that panel is the first place to look -- it opens by
+itself whenever any of the three is on.
+
 ### The semantic half (optional)
 
 Lexical search answers a question asked in the statute's own vocabulary.
@@ -422,10 +430,38 @@ and says why rather than stopping a service nothing would bring back.
 `deploy/dashboard.service` ships with `Restart=on-failure`, which is
 enough.
 
-**The button restarts the dashboard only.** There are two services now,
-and the public site imports the same `corpus/` code -- so a pull that
-touched it leaves the public side running the old version with nothing
-saying so. Restart both:
+### Restarting the public site from the dashboard
+
+There are two services, and the public site imports the same `corpus/`
+code -- so a pull that touched it leaves the public side running the old
+version with nothing saying so. The dashboard has a strip of its own for
+it: whether it is running, since when, and a **Restart the public site**
+button.
+
+That button needs a permission the dashboard does not have by default.
+Restarting *itself* takes none -- it exits and systemd brings it back --
+but asking systemd to restart a *different* unit does, and this service
+runs as the unprivileged `dashboard` user. Grant exactly that one
+command and nothing else:
+
+```bash
+sudo visudo -f /etc/sudoers.d/corpusvic-restart
+```
+
+```
+dashboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart corpusvic-public.service
+```
+
+Then reload the dashboard page. Until you do, the strip still shows
+whether the public site is up -- reading that needs no privilege -- and
+the button is disabled with this same line in its tooltip rather than
+failing when pressed.
+
+If your unit is named something else, set `PUBLIC_SERVICE_UNIT` in
+`deploy/dashboard.env` to match, and use that name in the sudoers line
+too.
+
+From a terminal it is the command you would expect, and remains so:
 
 ```bash
 sudo systemctl restart dashboard corpusvic-public

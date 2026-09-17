@@ -1242,6 +1242,167 @@ def test_the_index_endpoints_are_behind_the_login(_at_admin):
 
 
 # ---------------------------------------------------------------------
+# Restarting the public site
+# ---------------------------------------------------------------------
+#
+# A second process on the same box, which this one can only reach through
+# systemd. None of the interesting states exist on the machine the tests
+# run on, so systemd's answers are stood in for -- what is being tested
+# is what the dashboard makes of them, which is the part that can be
+# wrong.
+
+
+def _systemd_says(monkeypatch, properties, returncode=0, booted=True):
+    """Stands in for `systemctl show`."""
+    monkeypatch.setattr(dashboard, "_systemd_is_running", lambda: booted)
+    output = "\n".join(f"{k}={v}" for k, v in properties.items())
+
+    class _Result:
+        def __init__(self):
+            self.returncode = returncode
+            self.stdout = output
+            self.stderr = ""
+
+    monkeypatch.setattr(dashboard.subprocess, "run", lambda *a, **k: _Result())
+
+
+def test_no_systemd_means_nothing_to_say(tmp_path, monkeypatch):
+    """A laptop running this to review documents should not be told that
+    a service it never installed is in trouble."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_systemd_is_running", lambda: False)
+
+    body = client.get("/api/service/public").json()
+
+    assert body["systemd"] is False
+    assert body["can_restart"] is False
+
+
+def test_a_running_public_site_is_reported_as_running(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _systemd_says(monkeypatch, {
+        "LoadState": "loaded", "ActiveState": "active", "SubState": "running",
+        "ActiveEnterTimestamp": "Tue 2026-09-16 09:00:00 AEST"})
+
+    body = client.get("/api/service/public").json()
+
+    assert body["installed"] is True and body["active"] is True
+    assert body["since"].startswith("Tue")
+
+
+def test_a_unit_that_was_never_installed_is_not_a_failure(tmp_path, monkeypatch):
+    """Different from stopped, and the page hides the strip on it rather
+    than reporting a problem nobody has."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _systemd_says(monkeypatch, {"LoadState": "not-found", "ActiveState": "inactive"})
+
+    body = client.get("/api/service/public").json()
+
+    assert body["known"] is True and body["installed"] is False
+
+
+def test_being_unable_to_restart_says_what_to_do_about_it(tmp_path, monkeypatch):
+    """This service runs as `dashboard` and by default may not ask
+    systemd to restart anything. The button is disabled with the sudoers
+    line rather than offered and found out afterwards."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_systemd_is_running", lambda: True)
+    monkeypatch.setattr(dashboard.os, "geteuid", lambda: 1000)
+
+    class _Refused:
+        returncode = 1
+        stdout = ""
+        stderr = "Sorry, user dashboard may not run that command"
+
+    monkeypatch.setattr(dashboard.subprocess, "run", lambda *a, **k: _Refused())
+
+    body = client.get("/api/service/public").json()
+
+    assert body["can_restart"] is False
+    assert "sudoers" in body["restart_blocked"]
+    assert "systemctl restart" in body["restart_blocked"]
+
+
+def test_pressing_restart_without_the_permission_is_refused_not_attempted(
+        tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_can_restart_public", lambda: (False, "Not allowed."))
+    ran = []
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: ran.append(a))
+
+    res = client.post("/api/service/public/restart")
+
+    assert res.status_code == 409
+    assert ran == []
+
+
+def test_a_restart_that_did_not_take_is_not_reported_as_success(tmp_path, monkeypatch):
+    """systemctl exits 0 having asked, and the unit can be dead a second
+    later. "Restarted" over a service that is already down again is the
+    kind of reassurance that costs an hour to see through."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_can_restart_public", lambda: (True, None))
+
+    class _Ok:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: _Ok())
+    monkeypatch.setattr(dashboard, "_public_service_state",
+                        lambda: {"known": True, "systemd": True, "installed": True,
+                                 "active": False, "state": "failed", "sub_state": "failed"})
+
+    res = client.post("/api/service/public/restart")
+
+    assert res.status_code == 500
+    assert "journalctl" in res.json()["detail"]
+
+
+def test_a_restart_that_took_says_so(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_can_restart_public", lambda: (True, None))
+
+    class _Ok:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: _Ok())
+    monkeypatch.setattr(dashboard, "_public_service_state",
+                        lambda: {"known": True, "systemd": True, "installed": True,
+                                 "active": True, "state": "active", "sub_state": "running"})
+
+    res = client.post("/api/service/public/restart")
+
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+
+def test_systemctl_is_never_allowed_to_ask_for_a_password(monkeypatch):
+    """There is no terminal here to type one into, so an interactive sudo
+    would hang until the timeout rather than fail. -n, always."""
+    seen = {}
+    monkeypatch.setattr(dashboard.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(dashboard.subprocess, "run",
+                        lambda cmd, **k: seen.setdefault("cmd", cmd))
+
+    dashboard._systemctl("systemctl", "restart", "anything.service")
+
+    assert seen["cmd"][:2] == ["sudo", "-n"]
+
+
+def test_the_public_service_endpoints_are_behind_the_login(_at_admin):
+    from fastapi.testclient import TestClient
+
+    dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
+    client = TestClient(dashboard.serving_app(), follow_redirects=False)
+
+    assert client.get("/admin/api/service/public").status_code == 401
+    assert client.post("/admin/api/service/public/restart").status_code == 401
+
+
+# ---------------------------------------------------------------------
 # Searching from the admin tool -- which it no longer does
 # ---------------------------------------------------------------------
 

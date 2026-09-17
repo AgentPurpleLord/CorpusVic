@@ -41,28 +41,64 @@ def _address(hit: dict) -> str:
     return address_of(hit["site_slug"], hit["page"], hit.get("fragment") or "")
 
 
-def form_html(action: str, query: str, include_superseded: bool) -> str:
+# The advanced toggles, in the order they are offered. Each is
+# (parameter name, Scope attribute, label, the note under it).
+#
+# Worded as what they add rather than as what is excluded, because the
+# default is not a filter somebody switched on -- it is the corpus a
+# question about the law is asked of, and the rest is extra.
+SCOPE_OPTIONS = (
+    ("bills", "bills", "Bills",
+     "The Bill an Act began as, before Parliament amended it."),
+    ("em", "explanatory", "Explanatory memoranda",
+     "What the Bill's drafters said it was for. Not law, and often the "
+     "clearest statement of the intention behind a provision."),
+    ("superseded", "superseded", "Superseded reprints",
+     "Earlier versions of an Act, as it stood before later amendments."),
+)
+
+
+def form_html(action: str, query: str, scope) -> str:
     """The search form on the results page itself.
 
-    A plain GET form. No script, no fetch, no JSON -- a reference work
-    about the law should still be searchable in a browser with
-    JavaScript turned off, and making that the baseline costs nothing."""
-    checked = " checked" if include_superseded else ""
+    A plain GET form, and the advanced options are a <details>, so the
+    whole thing works in a browser with JavaScript turned off. For a
+    reference work about the law that is worth more than any amount of
+    interactivity, and making it the baseline costs nothing.
+
+    The disclosure starts open when any toggle is on. Somebody who
+    followed a link, or came back to a page, needs to see why a Bill is
+    in their results -- a filter you cannot see is a filter you blame the
+    search for."""
+    rows = []
+    for parameter, attribute, label, note in SCOPE_OPTIONS:
+        checked = " checked" if getattr(scope, attribute) else ""
+        rows.append(
+            f"<label class='search-scope-option'>"
+            f"<input type='checkbox' name='{parameter}' value='1'{checked}> "
+            f"<span><strong>{label}</strong>"
+            f"<span class='search-scope-note'>{_esc(note)}</span></span></label>")
     return (
         "<h1>Search</h1>"
         f"<form class='search-page-form' action='{html.escape(action, quote=True)}' "
         "method='get' role='search'>"
+        "<div class='search-page-row'>"
         f"<input type='search' name='q' value='{html.escape(query or '', quote=True)}' "
         "placeholder='Search the corpus' autofocus>"
-        f"<label><input type='checkbox' name='superseded' value='1'{checked}> "
-        "Include superseded reprints</label>"
         "<button type='submit'>Search</button>"
+        "</div>"
+        f"<details class='search-scope'{' open' if scope else ''}>"
+        "<summary>Also search&hellip;</summary>"
+        "<p class='search-scope-intro'>By default this searches the Acts as they "
+        "stand today &mdash; the law in force.</p>"
+        + "".join(rows) +
+        "<button type='submit' class='search-scope-apply'>Apply</button>"
+        "</details>"
         "</form>"
     )
 
 
-def results_html(found: dict, query: str, include_superseded: bool,
-                 offset: int, action: str) -> str:
+def results_html(found: dict, query: str, scope, offset: int, action: str) -> str:
     """The results, or the reason there are none."""
     if found.get("error"):
         return "<p class='search-empty'>That search could not be read. Try plainer words.</p>"
@@ -75,13 +111,17 @@ def results_html(found: dict, query: str, include_superseded: bool,
            "<ol class='search-results'>"]
     for hit in found["results"]:
         version = "" if hit["is_current"] else " <span class='search-superseded'>superseded</span>"
+        # A Bill and its Act say nearly the same thing in nearly the same
+        # words, so a result from one has to say which it is before the
+        # reader has read a line of it.
+        kind = KIND_LABELS.get(hit.get("kind") or "", "")
         as_at = f" &middot; as at {_esc(hit['as_at'])}" if hit["as_at"] else ""
         crumb = (f"<div class='search-crumb'>{_esc(hit['breadcrumb'])}</div>"
                  if hit["breadcrumb"] else "")
         href = html.escape(_address(hit), quote=True)
         out.append(
             f"<li><a href='{href}'>{_esc(hit['label'])}</a>"
-            f"<div class='search-doc'>{_esc(hit['title'])}{as_at}{version}</div>"
+            f"<div class='search-doc'>{kind}{_esc(hit['title'])}{as_at}{version}</div>"
             f"{crumb}"
             # Already HTML: corpus/search.py escaped the provision's text
             # before turning sqlite's marks into <mark> tags. Escaping it
@@ -91,7 +131,7 @@ def results_html(found: dict, query: str, include_superseded: bool,
             + "</li>"
         )
     out.append("</ol>")
-    out.append(pager_html(found, query, include_superseded, offset, action))
+    out.append(pager_html(found, query, scope, offset, action))
     return "".join(out)
 
 
@@ -109,13 +149,15 @@ def corrections_html(corrections: "dict | None") -> str:
     return f"<p class='search-corrected'>Showing results for {pairs}.</p>"
 
 
-def pager_html(found: dict, query: str, include_superseded: bool,
-               offset: int, action: str) -> str:
+def pager_html(found: dict, query: str, scope, offset: int, action: str) -> str:
     """Plain links, because a page of search results is a page and the
-    back button should mean what it says."""
+    back button should mean what it says.
+
+    Every link carries the scope forward. Page two of a search that
+    included Bills, quietly not including them, is the kind of thing
+    somebody notices as "the results changed when I paged"."""
     def link(params: dict, label: str) -> str:
-        if include_superseded:
-            params["superseded"] = "1"
+        params.update(scope.params())
         # Escaped whole, separators included. A bare "&" between query
         # parameters is invalid in an attribute and is read as the start
         # of an entity -- harmless with today's parameter names, and a
@@ -138,7 +180,7 @@ def unavailable_html(reason: str) -> str:
     return f"<p class='search-empty'>{_esc(reason)}</p>"
 
 
-def page_body(index, query: str, include_superseded: bool, offset: int,
+def page_body(index, query: str, scope, offset: int,
               action: str, unavailable=Exception) -> str:
     """The whole body of a search page: the form, and whatever answering
     the query produced.
@@ -146,20 +188,21 @@ def page_body(index, query: str, include_superseded: bool, offset: int,
     `index` is a corpus.search.Index (or anything with its `search`), and
     `unavailable` is the exception it raises when there is nothing to
     read -- passed in so that this module needs no import of its own."""
-    body = [form_html(action, query, include_superseded)]
+    body = [form_html(action, query, scope)]
     if (query or "").strip():
         try:
-            found = index.search(query, include_superseded=include_superseded,
-                                 limit=PAGE_SIZE, offset=max(offset, 0))
+            found = index.search(query, scope, limit=PAGE_SIZE, offset=max(offset, 0))
         except unavailable as e:
             body.append(unavailable_html(str(e)))
         else:
-            body.append(results_html(found, query, include_superseded,
-                                     max(offset, 0), action))
+            body.append(results_html(found, query, scope, max(offset, 0), action))
     return "".join(body)
 
 
-def wants_superseded(value: str) -> bool:
-    """What the checkbox sends, in the handful of forms a browser or a
-    hand-typed URL might send it as."""
-    return (value or "").lower() in ("1", "on", "true", "yes")
+# What a result from each kind of document is called, where it is not an
+# Act. Acts get nothing: the overwhelming majority of results are Acts,
+# and a tag on every one of them is a tag that says nothing.
+KIND_LABELS = {
+    "bill": "<span class='search-kind'>Bill</span> ",
+    "em": "<span class='search-kind'>Explanatory memorandum</span> ",
+}

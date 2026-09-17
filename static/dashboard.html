@@ -299,6 +299,24 @@
     <button class="btn primary" id="stale-restart" onclick="restartService()">Restart the dashboard</button>
   </section>
 
+  <!-- The public site is a separate process on the same box, holding its
+       own handles on the database and the search index for as long as it
+       runs. A pull that brings new code reaches it only when it starts
+       again -- the same staleness the strip above exists for, one
+       process over, and until now the only one you had to notice for
+       yourself. Hidden entirely where there is no such unit, so a laptop
+       is not told about a service it does not have. -->
+  <section id="public-service" class="sync" data-state="clean" hidden>
+    <div class="sync-state">
+      <strong id="public-headline">The public site</strong>
+      <span class="sync-detail" id="public-detail"></span>
+    </div>
+    <button class="btn" id="public-refresh" onclick="loadPublicService()"
+            title="Ask systemd how the public site is doing">Refresh</button>
+    <button class="btn" id="public-restart" onclick="restartPublicService()"
+            disabled>Restart the public site</button>
+  </section>
+
   <div id="tools-row">
     <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
     <!-- Named for what it does now. The public site reads the database
@@ -989,6 +1007,80 @@ async function restartService() {
   }
 }
 
+// ---------------------------------------------------------------------
+// The public site's own service
+// ---------------------------------------------------------------------
+
+async function loadPublicService() {
+  const strip = document.getElementById("public-service");
+  const headline = document.getElementById("public-headline");
+  const detail = document.getElementById("public-detail");
+  const button = document.getElementById("public-restart");
+  try {
+    const res = await fetch("api/service/public");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't read the service.");
+
+    // Nothing to say where there is no systemd, or no such unit -- a
+    // laptop running the dashboard for review work should not be told
+    // about a service it never installed.
+    if (data.systemd === false) { strip.hidden = true; return; }
+    if (data.known && data.installed === false) { strip.hidden = true; return; }
+    strip.hidden = false;
+
+    if (!data.known) {
+      strip.dataset.state = "blocked";
+      headline.textContent = "The public site";
+      detail.textContent = data.detail || "systemd didn't answer.";
+    } else if (data.active) {
+      strip.dataset.state = "clean";
+      headline.textContent = "The public site is running";
+      detail.textContent = data.since ? `Since ${data.since}` : data.unit;
+    } else {
+      strip.dataset.state = "blocked";
+      headline.textContent = "The public site is not running";
+      detail.textContent = `${data.state}${data.sub_state ? " (" + data.sub_state + ")" : ""}`
+        + ` \u2014 journalctl -u ${data.unit} -n 50`;
+    }
+
+    button.disabled = !data.can_restart;
+    // Loud only when restarting is the thing to do. A button that shouts
+    // at you while everything is fine is one you stop reading, and this
+    // strip -- unlike the stale-code one above -- is on screen always.
+    button.classList.toggle("primary", data.known && !data.active);
+    // The reason lives on the button, because the button is the thing
+    // you are wondering about when it is greyed out.
+    button.title = data.can_restart
+      ? `systemctl restart ${data.unit}`
+      : (data.restart_blocked || "");
+  } catch (e) {
+    strip.hidden = false;
+    strip.dataset.state = "blocked";
+    document.getElementById("public-detail").textContent = String(e.message || e);
+  }
+}
+
+async function restartPublicService() {
+  const button = document.getElementById("public-restart");
+  const previous = button.textContent;
+  button.disabled = true;
+  button.textContent = "Restarting\u2026";
+  try {
+    const res = await fetch("api/service/public/restart", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Restart refused.");
+    toast(data.message || "The public site has restarted.");
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    button.textContent = previous;
+    // Re-read rather than assume: the restart may have succeeded and the
+    // service died a second later, and a button that goes back to normal
+    // would be saying so on no evidence.
+    loadPublicService();
+  }
+}
+
 async function waitForRestart(attempt = 0) {
   if (attempt > 30) {
     toast("The dashboard hasn't come back yet -- check: systemctl status dashboard", true);
@@ -1473,6 +1565,7 @@ loadActs();
 loadSync();
 loadProfiles();
 loadSearchState();
+loadPublicService();
 // Quietly: on arrival this only reports when the site was last built,
 // and a rebuild somebody else started is worth seeing as it runs.
 pollSite(false);
