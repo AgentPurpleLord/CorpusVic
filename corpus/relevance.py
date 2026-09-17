@@ -18,7 +18,14 @@ DEFAULT_CUTOFF = 20
 
 
 def load_eval(path) -> list[dict]:
-    """The evaluation set, as written."""
+    """The evaluation set, as written.
+
+    An entry may name a `group`. Queries in different groups are not
+    averaged together for the purpose of the floor, because they are not
+    the same question: one group is what search already answers and must
+    go on answering, the other is what it cannot answer yet. Averaging
+    the two produces a number that falls when you write down a problem
+    and rises when you stop looking at it."""
     import yaml
 
     rows = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or []
@@ -53,6 +60,7 @@ def score(search, rows: list[dict], cutoff: int = DEFAULT_CUTOFF) -> dict:
         rank = rank_of(results, row["doc"], row["page"])
         scored.append({
             "query": row["query"],
+            "group": row.get("group", "core"),
             "expected": f"{row['doc']}/{row['page']}",
             "rank": rank,
             "reciprocal": 1.0 / rank if rank else 0.0,
@@ -68,10 +76,30 @@ def score(search, rows: list[dict], cutoff: int = DEFAULT_CUTOFF) -> dict:
     }
 
 
+def by_group(result: dict) -> dict:
+    """The same figures, per group."""
+    groups: dict = {}
+    for s in result["queries"]:
+        groups.setdefault(s["group"], []).append(s)
+    return {
+        name: {
+            "mrr": sum(s["reciprocal"] for s in rows) / (len(rows) or 1),
+            "at_1": sum(1 for s in rows if s["rank"] == 1),
+            "at_5": sum(1 for s in rows if s["rank"] and s["rank"] <= 5),
+            "queries": rows,
+        }
+        for name, rows in groups.items()
+    }
+
+
 def report(result: dict) -> str:
     """The scoreboard, for a terminal."""
     lines = [f"MRR {result['mrr']:.3f}   rank 1: {result['at_1']}/{len(result['queries'])}"
-             f"   top 5: {result['at_5']}/{len(result['queries'])}", ""]
+             f"   top 5: {result['at_5']}/{len(result['queries'])}"]
+    for name, figures in sorted(by_group(result).items()):
+        lines.append(f"    {name:16} MRR {figures['mrr']:.3f}   rank 1: "
+                     f"{figures['at_1']}/{len(figures['queries'])}")
+    lines.append("")
     for s in result["queries"]:
         where = f"rank {s['rank']}" if s["rank"] else "NOT FOUND"
         lines.append(f"  {where:>10}  {s['query'][:44]:46} -> {s['expected']}")

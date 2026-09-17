@@ -106,7 +106,21 @@ contain -- so a precise query is never softened into a vague one.
 Whether any of that is an improvement is a measurement, not an opinion:
 `data/search_eval.yaml` holds queries whose answers are known and
 `tests/test_search_relevance.py` scores against it. Mean reciprocal rank
-went from 0.29 to 0.79, and the floor in that file is a ratchet.
+went from 0.29 to 0.79 on those queries, and the floor in that file is a
+ratchet.
+
+It also records what search **cannot** do. A second group of queries in
+that file is the vocabulary gap: where the reader's words and the
+statute's are simply different -- "breach" for contravention, "call a
+lawyer" for "communicate with a legal practitioner", "I was forced to
+commit the crime by threats" for duress. Search scores 0.012 on them and
+finds five of the six nowhere in twenty results. No synonym list scales
+to that and no drafting convention helps, because there is nothing to
+match on: it is what the provision is *about* that matters. That is the
+case for semantic search, and it is written down as a number rather than
+an impression -- the two groups are scored separately, because averaging
+them would produce a figure that falls whenever a known weakness is
+written down.
 
 `export_static_site.py` still builds the whole site as static files, but
 as an archive rather than as the site: a copy that survives the server,

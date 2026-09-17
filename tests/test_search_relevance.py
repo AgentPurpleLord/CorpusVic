@@ -27,9 +27,26 @@ from corpus import relevance, search
 # second query over headings alone now finds it: MRR 0.785, still ten at
 # rank 1, and thirteen of fourteen in the top five. Every number here is
 # one the suite measured, not a target somebody picked.
+#
+# The floors below are per group, and that matters. The eval set was then
+# extended with six queries where the reader's words and the statute's
+# words are simply different -- "breach" for contravention, "call a
+# lawyer" for "communicate with a legal practitioner" -- and search
+# answers none of them: MRR 0.012, nothing at rank 1, and five of the six
+# finding nothing at all in twenty results.
+#
+# Averaging the two groups would produce a number that falls whenever a
+# known weakness is written down and rises whenever it is deleted, which
+# is the opposite of what a scoreboard is for. So the group that works
+# has a ratchet and the group that does not has a record.
 FLOOR_MRR = 0.785
 FLOOR_AT_1 = 10
 FLOOR_AT_5 = 13
+
+# What the vocabulary gap scores today. Not a target and not a ratchet
+# -- it is here so that anything which moves it, in either direction,
+# shows up as a failing test that has to be looked at and re-stated.
+GAP_MRR_TODAY = 0.012
 
 
 @pytest.fixture(scope="session")
@@ -74,14 +91,27 @@ def test_the_eval_set_is_about_documents_that_exist(real_index, eval_rows):
 
 
 def test_relevance_does_not_regress(scored):
-    assert scored["mrr"] >= FLOOR_MRR, (
-        f"MRR fell to {scored['mrr']:.3f} from {FLOOR_MRR}\n\n" + relevance.report(scored))
-    assert scored["at_5"] >= FLOOR_AT_5, (
-        f"queries answered in the top five fell to {scored['at_5']} from {FLOOR_AT_5}\n\n"
+    core = relevance.by_group(scored)["core"]
+    assert core["mrr"] >= FLOOR_MRR, (
+        f"MRR fell to {core['mrr']:.3f} from {FLOOR_MRR}\n\n" + relevance.report(scored))
+    assert core["at_5"] >= FLOOR_AT_5, (
+        f"queries answered in the top five fell to {core['at_5']} from {FLOOR_AT_5}\n\n"
         + relevance.report(scored))
-    assert scored["at_1"] >= FLOOR_AT_1, (
-        f"queries answered at rank 1 fell to {scored['at_1']} from {FLOOR_AT_1}\n\n"
+    assert core["at_1"] >= FLOOR_AT_1, (
+        f"queries answered at rank 1 fell to {core['at_1']} from {FLOOR_AT_1}\n\n"
         + relevance.report(scored))
+
+
+def test_the_vocabulary_gap_is_where_it_was(scored):
+    """Not a ratchet. These are the queries search cannot answer, and
+    this asserts the number has not moved in either direction -- so that
+    improving it is a deliberate act with a new number written down,
+    rather than something nobody notices either way."""
+    gap = relevance.by_group(scored)["vocabulary-gap"]
+
+    assert round(gap["mrr"], 3) == GAP_MRR_TODAY, (
+        f"the vocabulary gap now scores {gap['mrr']:.3f}, not {GAP_MRR_TODAY}. If this is "
+        f"an improvement, say so here and record the new number.\n\n" + relevance.report(scored))
 
 
 def test_the_statutes_own_words_still_work(scored):

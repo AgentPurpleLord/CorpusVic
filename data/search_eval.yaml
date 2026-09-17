@@ -94,3 +94,68 @@
 - query: privilige against self incrimination
   doc: evidence-act
   page: s128
+
+# The vocabulary gap, which the entries above do not actually test.
+#
+# Everything before this point is answered either by words the query and
+# the provision share, or by a drafting convention the parser records --
+# "Meaning of X" for "definition of X". Those were the failures that
+# started this work and they are fixed, which made it look as though
+# search was close to solved.
+#
+# It is not. These are queries where the reader's words and the statute's
+# words are simply different: breach for contravention, "how long does it
+# last" for "period for which the order is in force", "call a lawyer" for
+# "communicate with a legal practitioner". No synonym list scales to
+# this, and structure does not help because there is no convention to
+# read -- it is what the provision is *about* that matters.
+#
+# They are here so that the question of whether this corpus needs
+# semantic search can be answered with a number rather than an opinion.
+- query: what happens if you breach an intervention order
+  group: vocabulary-gap
+  doc: family-violence-protection-act-2008
+  page: s123
+  note: >
+    Section 123 is headed "Contravention of family violence intervention
+    order". Nobody outside a court says contravention.
+
+- query: how long does an intervention order last
+  group: vocabulary-gap
+  doc: family-violence-protection-act-2008
+  page: s97
+  note: '"Court may specify period for which order is in force".'
+
+- query: can I call a lawyer after being arrested
+  group: vocabulary-gap
+  doc: crimes-act
+  page: s464c
+  note: >
+    "Right to communicate with a friend, relative or legal practitioner".
+    Not one word of the query appears in the heading.
+
+- query: I was forced to commit the crime by threats
+  group: vocabulary-gap
+  doc: crimes-act
+  page: s322o
+  note: >
+    Duress. The name of the defence is the one word somebody in this
+    position would not know to type.
+
+- query: can a victim tell the court how the crime affected them
+  group: vocabulary-gap
+  doc: sentencing-act
+  page: s8k
+  note: '"Victim may make victim impact statement".'
+
+- query: can police take my fingerprints
+  group: vocabulary-gap
+  doc: crimes-act
+  page: s464k
+  note: >
+    Put here as a control, on the assumption the words line up well
+    enough for it to already work. It does not: it is not in the first
+    twenty at all, because the heading is weighted above the body and
+    Section 464N is headed with the literal phrase "Taking of
+    fingerprints". 464K is the one that says a police officer may take
+    them.
