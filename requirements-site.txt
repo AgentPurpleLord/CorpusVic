@@ -6,3 +6,16 @@
 # Nothing else in the pipeline encrypts anything: dashboard.py's own login
 # hashes passwords with hashlib, which is in the standard library.
 cryptography
+
+# The optional semantic half of search (corpus/embeddings.py). Not needed
+# to run anything: without them, and without the model
+# download_search_model.py fetches, search is the lexical search it has
+# always been and every test still passes. They are imported lazily, so
+# nothing here fails to start because they are absent.
+#
+# `tokenizers` rather than `transformers`: the whole tokenizer is in the
+# model's tokenizer.json, so the 2 GB of framework that usually comes
+# with it is not needed.
+numpy
+onnxruntime
+tokenizers

@@ -106,3 +106,50 @@ def report(result: dict) -> str:
         if s["rank"] != 1:
             lines.append(f"              {'':46}    top was: {(s['found'] or '-')[:52]}")
     return "\n".join(lines)
+
+
+def main():
+    """The scoreboard, from a terminal.
+
+        python3 -m corpus.relevance
+
+    Here so that measuring is one command on whichever machine has the
+    index -- including a server that has the semantic half installed and
+    this one does not. Two runs of this, before and after, is what a
+    claim about relevance has to be made of."""
+    import argparse
+    import sys
+    import time
+
+    ap = argparse.ArgumentParser(description="Score search against data/search_eval.yaml.")
+    ap.add_argument("--base-dir", default=".")
+    ap.add_argument("--limit", type=int, default=DEFAULT_CUTOFF)
+    args = ap.parse_args()
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from corpus import search
+
+    base = Path(args.base_dir)
+    index = search.Index(base)
+    if not index.available():
+        raise SystemExit("No search index. Build it from the dashboard, "
+                         "or: python3 -m corpus.search --build")
+
+    rows = load_eval(base / "data" / "search_eval.yaml")
+    started = time.time()
+    scored = score(lambda q: index.search(q, limit=args.limit)["results"], rows, args.limit)
+    print(report(scored))
+    print(f"\n{len(rows)} queries in {time.time() - started:.1f}s")
+
+    try:
+        from corpus import embeddings
+
+        state = embeddings.status(base)
+    except ImportError:
+        state = {"model": False, "vectors": False}
+    print("semantic half: " + ("on" if (state["model"] and state["vectors"]) else "off")
+          + (f" ({len(state['sections'])} sections)" if state.get("sections") else ""))
+
+
+if __name__ == "__main__":
+    main()

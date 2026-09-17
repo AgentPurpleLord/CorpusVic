@@ -382,10 +382,12 @@ class Index:
     connection reopened when it is no longer the same file."""
 
     def __init__(self, base_dir):
+        self.base_dir = Path(base_dir)
         self.path = index_path(base_dir)
         self._conn = None
         self._stamp = None
         self._vocabulary = None
+        self._vectors = None
 
     def _identity(self):
         try:
@@ -425,10 +427,22 @@ class Index:
     def available(self) -> bool:
         return self._identity() is not None
 
+    def vectors(self):
+        """The semantic half, or None when there is no model.
+
+        Built lazily and kept, because loading it means memory-mapping a
+        file and starting an ONNX session -- neither of which should
+        happen on a server that has no model, which is most of them."""
+        if self._vectors is None:
+            from . import embeddings
+
+            self._vectors = embeddings.Vectors(self.base_dir)
+        return self._vectors if self._vectors.available() else None
+
     def search(self, raw: str, include_superseded: bool = False,
                limit: int = 20, offset: int = 0) -> dict:
         return search(self.connection(), raw, include_superseded, limit, offset,
-                      vocab=self.vocabulary())
+                      vocab=self.vocabulary(), vectors=self.vectors())
 
 
 # How far a structural match is worth moving a result. Large, because
@@ -454,6 +468,11 @@ _RERANK_DEPTH = 300
 # are more than this the question was not specific enough for the trick
 # to be what saves it.
 _HEADING_DEPTH = 40
+
+# How many semantically-proposed sections to go and fetch when the
+# lexical pool does not already hold them. Bounded because each is a
+# query, and because a suggestion that is fortieth is not a suggestion.
+_SEMANTIC_MERGE = 20
 
 
 def vocabulary(conn: sqlite3.Connection) -> dict:
@@ -542,6 +561,60 @@ def _rerank(rows: list, analysis) -> list:
     return [row for _score, row in scored]
 
 
+def _fuse_semantically(conn, ranked: list, vectors, analysis, include_superseded: bool) -> list:
+    """Reciprocal rank fusion of the lexical ordering with the sections
+    the embeddings think the question is about.
+
+    The sections it names are usually nowhere in the lexical pool -- that
+    is the whole point, since "can I call a lawyer after being arrested"
+    matches none of the words in "Right to communicate with a friend,
+    relative or legal practitioner". So they are fetched and merged in
+    before the two orderings are fused.
+
+    Fetched **without the MATCH**, which is the thing to get right here:
+    a query constrained by the words the reader typed can only ever
+    return rows containing those words, which is precisely the set the
+    semantic half exists to escape. Asking that way returns nothing and
+    looks exactly like an embedding model with no opinion.
+
+    Any failure leaves the lexical results as they were. A model that
+    will not load, vectors that disagree with the index, a query that
+    embeds to nothing: none of those is a reason for search to stop
+    working, and losing the semantic half quietly beats a 500 on a page
+    somebody is looking at."""
+    try:
+        nearest = vectors.nearest(analysis.raw)
+    except Exception:  # noqa: BLE001 -- see the docstring: never fatal
+        return ranked
+    if not nearest:
+        return ranked
+
+    have = {(row["site_slug"], row["page"]) for row in ranked}
+    sql = ("""SELECT d.slug, d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
+                     f.page, f.fragment, f.label, f.breadcrumb, f.heading, f.ntype,
+                     '' AS body_snip, 0.0 AS rank
+              FROM node_fts f JOIN doc d ON d.id = f.doc_id
+              WHERE d.site_slug = ? AND f.page = ?"""
+           + ("" if include_superseded else " AND d.is_current = 1")
+           + " ORDER BY f.rowid LIMIT 1")
+    for hit in [h for h in nearest if (h["site_slug"], h["page"]) not in have][:_SEMANTIC_MERGE]:
+        # One row for the section, not every provision in it. The
+        # semantic side has no opinion about which subsection answers the
+        # question, and a reader who follows the link lands on the
+        # section page either way.
+        #
+        # No snippet: the query's words are not in this provision, which
+        # is why it took an embedding to find it. An extract highlighting
+        # nothing would only look like a bug.
+        found = conn.execute(sql, (hit["site_slug"], hit["page"])).fetchone()
+        if found:
+            ranked.append(dict(found))
+
+    from .embeddings import fuse
+
+    return fuse(ranked, nearest, lambda row: (row["site_slug"], row["page"]))
+
+
 def address_of(slug: str, page: str, fragment: str = "") -> str:
     """Where a hit lives, as a path.
 
@@ -565,7 +638,8 @@ def _snippet_html(marked: str) -> str:
 
 
 def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
-           limit: int = 20, offset: int = 0, vocab: "dict | None" = None) -> dict:
+           limit: int = 20, offset: int = 0, vocab: "dict | None" = None,
+           vectors=None) -> dict:
     """What matches, best first.
 
     Ranked by bm25 with the heading weighted above the body, because
@@ -636,7 +710,14 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
         return {"query": raw, "parsed": analysis.match, "total": 0, "results": [],
                 "truncated": False, "corrections": analysis.corrections, "error": str(e)}
 
-    rows = _rerank(candidates, analysis)[offset:offset + limit]
+    ranked = _rerank(candidates, analysis)
+    # The semantic half, when there is one. Everything above is what
+    # search does without a model, and this is the only place the two
+    # meet -- so with no model the path below is one `if` and the results
+    # are byte for byte what they were.
+    if vectors is not None and not analysis.verbatim:
+        ranked = _fuse_semantically(conn, ranked, vectors, analysis, include_superseded)
+    rows = ranked[offset:offset + limit]
 
     results = []
     for row in rows:

@@ -199,6 +199,47 @@ It searches what is *published*, because that is all the index holds. A
 work you have not put on the site will not be found there, which is worth
 knowing before concluding a provision is missing.
 
+### The semantic half (optional)
+
+Lexical search answers a question asked in the statute's own vocabulary.
+Measured over `data/search_eval.yaml` it scores 0.785 on the queries it
+was built for, and **0.012** on the ones where the reader's words and the
+statute's words are simply different -- "breach" for contravention, "how
+long does it last" for "the period for which the order is in force",
+"call a lawyer" for "communicate with a legal practitioner". Five of
+those six are nowhere in twenty results.
+
+Embeddings close that gap, at the cost of a download and about 250 MB of
+memory while the vectors build:
+
+```bash
+cd /opt/corpusvic
+sudo -u dashboard .venv/bin/pip install numpy onnxruntime tokenizers
+sudo -u dashboard .venv/bin/python download_search_model.py     # ~110 MB
+sudo -u dashboard .venv/bin/python -m corpus.embeddings         # a few minutes
+sudo systemctl restart corpusvic-public
+```
+
+Then measure, rather than forming an impression:
+
+```bash
+sudo -u dashboard .venv/bin/python -m corpus.relevance
+```
+
+It prints both groups and says whether the semantic half is on. If the
+`vocabulary-gap` figure has not moved, the model is not earning its
+place and should come off -- which is one `rm -rf models data/search_vectors.*`
+and a restart, because nothing else depends on it.
+
+**Everything above is optional in the strict sense.** With no model the
+service starts, search works exactly as it did, every test passes, and
+no page mentions any of it. On a 2 GB box use the quantised model (the
+default); `--full` is for 4 GB and above.
+
+Rebuild the vectors after publishing or withdrawing a work, the way you
+rebuild the index -- unlike the index, nothing does it for you yet, and
+stale vectors will keep proposing a section the site no longer serves.
+
 ### The offline archive
 
 `export_static_site.py` still exists and still writes `_site/`. It is no

@@ -27,6 +27,14 @@ data/site_build.log
 # scratch in a few seconds.
 data/search.db
 data/search.building
+# The embedding model (download_search_model.py) and the vectors built
+# from it (corpus/embeddings.py). Both derived, both large -- 110 MB and
+# 19 MB -- and the model is somebody else's artefact. A clone that only
+# wants to parse a PDF should not carry either.
+models/
+data/search_vectors.npy
+data/search_vectors.npy.building
+data/search_vectors.json
 
 # data/parsed/<act>.json (the raw parse) and data/legislation.db (the
 # durable, human-created review state overlaid on it -- verified rows,

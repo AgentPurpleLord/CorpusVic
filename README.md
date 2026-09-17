@@ -36,6 +36,7 @@ whole-document audit run offline. Nothing in there decides anything.
     public.py             the public site (see above)
     corpus/search.py      the full-text index behind it
     corpus/query.py       and what it makes of a question in plain words
+    corpus/embeddings.py  the optional semantic half of it
     export_static_site.py the same site as a static archive
     export_markdown.py, export_akn.py
 
@@ -121,6 +122,17 @@ case for semantic search, and it is written down as a number rather than
 an impression -- the two groups are scored separately, because averaging
 them would produce a figure that falls whenever a known weakness is
 written down.
+
+`corpus/embeddings.py` is the answer to it, and it is **optional in the
+strict sense**: with no model on disk, search is the lexical search it
+has always been, every test passes, and nothing in the UI mentions it.
+Sections rather than provisions are embedded -- 6,173 vectors rather than
+50,462, and a coherent unit, since a bare subsection embeds into nothing
+useful on its own -- and the two orderings are combined by reciprocal
+rank fusion, which compares positions and never a bm25 score against a
+cosine. `download_search_model.py` fetches the model;
+`python3 -m corpus.relevance` prints the scoreboard, so whether it earns
+its place is a measurement. See deploy/README.md.
 
 `export_static_site.py` still builds the whole site as static files, but
 as an archive rather than as the site: a copy that survives the server,
