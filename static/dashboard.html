@@ -300,7 +300,6 @@
   </section>
 
   <div id="tools-row">
-    <a class="btn" href="search">Search the corpus</a>
     <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
     <!-- Named for what it does now. The public site reads the database
          directly, so nothing here has to run for a review decision to
@@ -309,7 +308,7 @@
     <button class="btn" onclick="rebuildSite()" id="site-rebuild"
             title="The live site needs no rebuild. This writes the static copy in _site/ -- the archive, and the rollback.">Rebuild the offline archive</button>
     <button class="btn" onclick="rebuildSearch()" id="search-rebuild"
-            title="Search reads this index. Rebuilt automatically when you publish or withdraw a work.">Rebuild search index</button>
+            title="The public site's search reads this index. Rebuilt automatically when you publish or withdraw a work.">Rebuild search index</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
     <span class="site-state" id="site-state"></span>
     <span class="site-state" id="search-state"></span>

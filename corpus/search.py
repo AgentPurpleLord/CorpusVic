@@ -345,11 +345,22 @@ def signature(base_dir, source=None) -> str:
     for path in sorted(parsed_dir.glob("*.json")) if parsed_dir.exists() else []:
         st = path.stat()
         parts.append(f"{path.name}:{st.st_mtime_ns}:{st.st_size}")
-    for name in ("legislation.db", "legislation.db-wal"):
-        path = base_dir / "data" / name
-        if path.exists():
-            st = path.stat()
-            parts.append(f"{name}:{st.st_mtime_ns}:{st.st_size}")
+    path = base_dir / "data" / "legislation.db"
+    if path.exists():
+        st = path.stat()
+        parts.append(f"legislation.db:{st.st_mtime_ns}:{st.st_size}")
+    # The write-ahead log, but only when it holds something. A -wal is
+    # created when a connection opens and removed when the last one
+    # closes, so stamping its mere existence made the index read stale
+    # whenever nothing happened to have the database open -- a staleness
+    # light that comes on by itself is one you learn to ignore, which is
+    # how a genuinely stale index ends up being served. An empty one
+    # holds no decisions, so it is the same as none.
+    wal = base_dir / "data" / "legislation.db-wal"
+    if wal.exists():
+        st = wal.stat()
+        if st.st_size:
+            parts.append(f"legislation.db-wal:{st.st_mtime_ns}:{st.st_size}")
     parts.append("published:" + ",".join(sorted(db.published_works(base_dir))))
     return "|".join(parts)
 
@@ -488,13 +499,12 @@ def _rerank(rows: list, analysis) -> list:
 
 
 def address_of(slug: str, page: str, fragment: str = "") -> str:
-    """Where a hit lives, as a path with no prefix on it.
+    """Where a hit lives, as a path.
 
-    One function so the two callers cannot compose it differently, and
-    `slug` is a parameter because they do not agree on which name for the
-    document to use: the public site serves an Act's newest reprint at
-    the work's own name, and the admin tool serves every parse under its
-    own."""
+    One function, so an address is composed the same way wherever it is
+    composed. `slug` is a parameter because the index records two names
+    for a document -- the work's own, which is where the site serves the
+    newest reprint, and the parse's own."""
     address = f"/browse/{slug}/section/{page}"
     return f"{address}#{fragment}" if fragment else address
 
@@ -571,13 +581,12 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
             # label above already shows those words, and repeating them
             # underneath reads as a bug rather than as an extract.
             "snippet_html": _snippet_html(row["body_snip"] or ""),
-            # Both names for the document, because the two things that
-            # show these results address it differently. The public site
-            # serves an Act's newest reprint at the work's own name, so
-            # site_slug is its address; the admin tool serves every parse
-            # under its own name, so a link there built from site_slug
-            # points at a document that does not exist. Which to use is
-            # the caller's -- see corpus/search_view.py's `slug_key`.
+            # Both names for the document. site_slug is where the site
+            # serves it -- an Act's newest reprint lives at the work's
+            # own name -- and is what every link is built from. slug is
+            # the parse this row actually came from, which is what tells
+            # you *which reprint* answered, and is the only one that
+            # distinguishes the superseded ones from each other.
             "slug": row["slug"],
             "site_slug": row["site_slug"],
             "page": row["page"],

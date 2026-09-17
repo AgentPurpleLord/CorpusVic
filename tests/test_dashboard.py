@@ -1242,94 +1242,31 @@ def test_the_index_endpoints_are_behind_the_login(_at_admin):
 
 
 # ---------------------------------------------------------------------
-# Searching from the admin tool
+# Searching from the admin tool -- which it no longer does
 # ---------------------------------------------------------------------
 
 
-class _StubIndex:
-    """One result, in the shape corpus/search.py returns."""
+def test_the_admin_tool_does_not_serve_a_search_page():
+    """Search belongs to the public site. This tool still *builds* the
+    index -- it is the process that writes -- but it does not read it,
+    and a browse page here carries no search box.
 
-    def __init__(self, available=True):
-        self._available = available
-        self.asked = []
-
-    def available(self):
-        return self._available
-
-    def search(self, raw, include_superseded=False, limit=20, offset=0):
-        self.asked.append({"raw": raw, "include_superseded": include_superseded})
-        return {
-            "query": raw, "parsed": raw, "total": 1, "truncated": False,
-            "results": [{
-                "title": "Criminal Procedure Act 2009", "kind": "act",
-                "as_at": "1 July 2024", "is_current": True, "version": 114,
-                "label": "Section 242 Committal proceeding",
-                "breadcrumb": "Chapter 4 › Part 4.9",
-                "snippet_html": "an <mark>indictable</mark> offence",
-                "slug": "criminal-procedure-act-v114",
-                "site_slug": "criminal-procedure-act",
-                "page": "s242",
-                "fragment": "s242-1",
-                "href": "/browse/criminal-procedure-act/section/s242#s242-1",
-            }],
-        }
-
-
-def test_the_dashboard_can_search(monkeypatch):
+    Removing a route is the kind of change that looks done in a diff and
+    is not, so this asks the app."""
     from fastapi.testclient import TestClient
 
     dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard, "_index", _StubIndex)
     client = TestClient(dashboard.app)
 
-    body = client.get("/search?q=indictable").text
-
-    assert "Section 242 Committal proceeding" in body
-    assert "<mark>indictable</mark>" in body
+    assert client.get("/search?q=indictable").status_code == 404
+    assert not hasattr(dashboard, "_search_box_url")
 
 
-def test_a_result_link_is_addressed_the_way_this_tool_serves_it(_at_admin, monkeypatch):
-    """Two ways a result link can be wrong here, and both were.
-
-    The index stores addresses for a site served at the domain root, so
-    they need the /admin prefix. And it names each document the way the
-    public site does -- an Act's newest reprint at the work's own name --
-    while this tool serves every parse under its own, so
-    /browse/criminal-procedure-act/ is a document that does not exist
-    here. A page of results that all 404 looks exactly like a page of
-    results that work."""
-    from fastapi.testclient import TestClient
-
-    dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard, "_index", _StubIndex)
-    client = TestClient(dashboard.serving_app())
-
-    body = client.get("/admin/search?q=indictable").text
-
-    assert "/admin/browse/criminal-procedure-act-v114/section/s242#s242-1" in body
-    assert "href='/browse/" not in body
-    assert "/admin/browse/criminal-procedure-act/section" not in body
-
-
-def test_the_search_form_posts_back_under_the_prefix(_at_admin, monkeypatch):
-    from fastapi.testclient import TestClient
-
-    dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard, "_index", _StubIndex)
-    client = TestClient(dashboard.serving_app())
-
-    body = client.get("/admin/search").text
-
-    assert "action='/admin/search'" in body
-
-
-def test_a_browse_page_carries_the_search_box(monkeypatch, tmp_path):
+def test_a_browse_page_carries_no_search_box(monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard, "_index", _StubIndex)
-    monkeypatch.setattr(dashboard, "_search_box_url", lambda: "/search")
     (tmp_path / "data" / "parsed").mkdir(parents=True)
     monkeypatch.setattr(dashboard.reader, "contents_page", lambda *a, **k: "<p>contents</p>")
     monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Test Act")
@@ -1339,30 +1276,5 @@ def test_a_browse_page_carries_the_search_box(monkeypatch, tmp_path):
 
     body = client.get("/browse/test-act/").text
 
-    assert "sitesearch" in body
-
-
-def test_no_search_box_before_there_is_an_index(monkeypatch):
-    """A box that always answers "nothing matches" is indistinguishable
-    from a search that does not work."""
-    monkeypatch.setattr(dashboard, "_index", lambda: _StubIndex(available=False))
-
-    assert dashboard._search_box_url() is None
-
-
-def test_the_index_handle_follows_the_base_directory(monkeypatch, tmp_path):
-    """One built at import time goes on reading the directory it was born
-    in -- which is the real one, from a test that carefully pointed
-    everything else at a temporary copy."""
-    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-
-    assert dashboard._index().path == tmp_path / "data" / "search.db"
-
-
-def test_the_search_page_is_behind_the_login(_at_admin):
-    from fastapi.testclient import TestClient
-
-    dashboard._configure_auth("admin", "a-real-admin-password", must_change=False)
-    client = TestClient(dashboard.serving_app(), follow_redirects=False)
-
-    assert client.get("/admin/search?q=anything").status_code in (303, 307, 401)
+    assert "contents" in body
+    assert "sitesearch" not in body

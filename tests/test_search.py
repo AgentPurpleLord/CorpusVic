@@ -511,6 +511,39 @@ def test_the_signature_changes_when_the_data_does(corpus):
     assert search.signature(tmp_path) != before
 
 
+def test_an_empty_write_ahead_log_does_not_make_the_index_stale(corpus, monkeypatch):
+    """A -wal appears when a connection opens and goes when the last one
+    closes. Stamping its existence meant the index read stale whenever
+    nothing happened to have the database open at that moment -- and a
+    staleness light that comes on by itself is one you stop reading.
+
+    Which works are published is held still here: reading that opens the
+    database, and so moves the very file under examination."""
+    tmp_path, _source = corpus
+    monkeypatch.setattr(db, "published_works", lambda _base: {"crimes-act"})
+    wal = tmp_path / "data" / "legislation.db-wal"
+
+    wal.write_bytes(b"")
+    empty = search.signature(tmp_path)
+    wal.unlink()
+
+    assert search.signature(tmp_path) == empty
+
+
+def test_decisions_still_sitting_in_the_write_ahead_log_do(corpus, monkeypatch):
+    """Which is the reason the log is stamped at all: pages written but
+    not yet checkpointed are data the index was not built from."""
+    tmp_path, _source = corpus
+    monkeypatch.setattr(db, "published_works", lambda _base: {"crimes-act"})
+    wal = tmp_path / "data" / "legislation.db-wal"
+    wal.write_bytes(b"")
+    empty = search.signature(tmp_path)
+
+    wal.write_bytes(b"not checkpointed yet")
+
+    assert search.signature(tmp_path) != empty
+
+
 def test_reading_an_index_that_was_never_built_says_so(tmp_path):
     """Rather than a 500 on a page somebody is looking at."""
     with pytest.raises(search.SearchUnavailable):

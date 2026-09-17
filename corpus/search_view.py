@@ -1,20 +1,15 @@
 """
 The search form and its results, as HTML.
 
-Two things render them: the public site and the admin tool. One copy,
-because two copies of a results page is exactly the drift corpus/reader.py
-was written to stop -- the same renderers, edited on different days for
-different reasons, quietly diverging.
+The public site renders them. It had a second caller -- the admin tool --
+and the two differed over where a result points, which cost this module
+two parameters and cost the tool a page of results that looked right and
+all led to 404s. The admin search has since been removed, so the
+addresses are now composed the one way the index stores them.
 
-Two things differ between the callers, and both are about where a result
-points. The admin tool is served under a path prefix and the public site
-is not, so `base` goes in front of every address -- the same job
-`rewrite` does in corpus/reader.py. And the two disagree about what to
-call a document: the public site serves an Act's newest reprint at the
-work's own name, the admin tool serves every parse under its own, so
-`slug_key` picks which. Getting the second one wrong produces a page of
-results that look right and all lead to 404s, which is why the address is
-composed here from the parts rather than taken ready-made off the hit.
+A result's address is still built here from the parts rather than taken
+ready-made off the hit, because the hit's own `href` is a convenience and
+composing it is the thing that has to stay correct.
 
 Nothing here knows how to search. It is handed what corpus/search.py
 returned and turns it into a page; that separation is what lets the whole
@@ -33,17 +28,17 @@ def _esc(value) -> str:
     return html.escape(str(value or ""))
 
 
-def _address(hit: dict, slug_key: str) -> str:
-    """Where one result points, before any prefix.
+def _address(hit: dict) -> str:
+    """Where one result points.
 
-    Composed from the parts rather than taken from the hit's own `href`,
-    because that one is written for the public site and there is a second
-    caller that serves the same document under a different name. A result
-    row that carries a ready-made address invites exactly one mistake:
-    using it where it does not apply."""
+    `site_slug` and not `slug`: the site serves an Act's newest reprint at
+    the work's own name ("criminal-procedure-act"), while the index also
+    records the parse's own ("criminal-procedure-act-v114"). Addressing a
+    result by the second is a 404 on a page of results that otherwise
+    look right."""
     from .search import address_of
 
-    return address_of(hit[slug_key], hit["page"], hit.get("fragment") or "")
+    return address_of(hit["site_slug"], hit["page"], hit.get("fragment") or "")
 
 
 def form_html(action: str, query: str, include_superseded: bool) -> str:
@@ -67,21 +62,8 @@ def form_html(action: str, query: str, include_superseded: bool) -> str:
 
 
 def results_html(found: dict, query: str, include_superseded: bool,
-                 offset: int, action: str, base: str = "",
-                 slug_key: str = "site_slug") -> str:
-    """The results, or the reason there are none.
-
-    Two things decide where a result points, and they are separate.
-
-    `base` is the path prefix this is being served under -- "" for the
-    public site, "/admin" for the dashboard.
-
-    `slug_key` is which of the document's two names to address it by, and
-    getting it wrong is the failure this argument exists to prevent. The
-    public site serves an Act's newest reprint at the work's own name
-    ("criminal-procedure-act"); the admin tool serves every parse under
-    its own ("criminal-procedure-act-v114"). A link built with the wrong
-    one is a 404 on a page full of results that otherwise look right."""
+                 offset: int, action: str) -> str:
+    """The results, or the reason there are none."""
     if found.get("error"):
         return "<p class='search-empty'>That search could not be read. Try plainer words.</p>"
     if not found["total"]:
@@ -96,7 +78,7 @@ def results_html(found: dict, query: str, include_superseded: bool,
         as_at = f" &middot; as at {_esc(hit['as_at'])}" if hit["as_at"] else ""
         crumb = (f"<div class='search-crumb'>{_esc(hit['breadcrumb'])}</div>"
                  if hit["breadcrumb"] else "")
-        href = html.escape(base + _address(hit, slug_key), quote=True)
+        href = html.escape(_address(hit), quote=True)
         out.append(
             f"<li><a href='{href}'>{_esc(hit['label'])}</a>"
             f"<div class='search-doc'>{_esc(hit['title'])}{as_at}{version}</div>"
@@ -157,8 +139,7 @@ def unavailable_html(reason: str) -> str:
 
 
 def page_body(index, query: str, include_superseded: bool, offset: int,
-              action: str, base: str = "", unavailable=Exception,
-              slug_key: str = "site_slug") -> str:
+              action: str, unavailable=Exception) -> str:
     """The whole body of a search page: the form, and whatever answering
     the query produced.
 
@@ -174,7 +155,7 @@ def page_body(index, query: str, include_superseded: bool, offset: int,
             body.append(unavailable_html(str(e)))
         else:
             body.append(results_html(found, query, include_superseded,
-                                     max(offset, 0), action, base, slug_key))
+                                     max(offset, 0), action))
     return "".join(body)
 
 

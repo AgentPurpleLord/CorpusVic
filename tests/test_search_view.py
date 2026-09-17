@@ -52,27 +52,15 @@ def test_a_result_links_where_the_index_says():
     assert "href='/browse/criminal-procedure-act/section/s242#s242-1'" in html
 
 
-def test_the_admin_tool_addresses_a_document_by_its_parse_name():
-    """The public site serves an Act's newest reprint at the work's own
-    name; the admin tool serves every parse under its own. A link built
-    the public way is a 404 on a page of results that otherwise look
-    exactly right -- which is how this was found."""
-    html = search_view.results_html(_found(), "indictable", False, 0,
-                                    "/admin/search", base="/admin", slug_key="slug")
+def test_a_result_is_addressed_by_the_name_the_site_serves_it_under():
+    """The index records two names for a document: the work's own, which
+    is where the newest reprint is served, and the parse's own. A link
+    built from the second is a 404 on a page of results that otherwise
+    look exactly right -- which is how this was found the first time."""
+    html = search_view.results_html(_found(), "indictable", False, 0, "/search")
 
-    assert "href='/admin/browse/criminal-procedure-act-v114/section/s242#s242-1'" in html
-    assert "criminal-procedure-act/section" not in html
-
-
-def test_the_base_goes_in_front_of_every_address():
-    """The index stores addresses for a site served at the domain root,
-    because that is the one form both callers can derive their own from.
-    The admin tool is not served there."""
-    html = search_view.results_html(_found(), "indictable", False, 0,
-                                    "/admin/search", base="/admin")
-
-    assert "href='/admin/browse/criminal-procedure-act/section/s242#s242-1'" in html
-    assert "href='/browse/" not in html
+    assert "href='/browse/criminal-procedure-act/section/s242#s242-1'" in html
+    assert "criminal-procedure-act-v114" not in html
 
 
 def test_the_form_submits_where_it_is_told():

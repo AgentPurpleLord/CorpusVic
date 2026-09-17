@@ -35,6 +35,7 @@ whole-document audit run offline. Nothing in there decides anything.
     dashboard.py          the hub, and the live browse view
     public.py             the public site (see above)
     corpus/search.py      the full-text index behind it
+    corpus/query.py       and what it makes of a question in plain words
     export_static_site.py the same site as a static archive
     export_markdown.py, export_akn.py
 
@@ -79,6 +80,25 @@ third copy of something two committed files already say. It covers the
 current version of each work by default; superseded reprints are a
 checkbox, since five reprints of one Act would otherwise answer nearly
 every query five times over.
+
+What somebody types is read by `corpus/query.py` before it reaches FTS5,
+and that is where the difference between a search box and a useful one
+turned out to live. FTS5 requires every term, so "when can police issue a
+safety notice" returned nothing at all; and a question asked in ordinary
+words rarely uses the statute's own -- Section 5 of the Family Violence
+Protection Act is headed "Meaning of family violence", so searching for
+its *definition* never reached it. So stopwords go, what is left is OR'd
+and left to bm25 to rank, a small map of legal synonyms is applied, and
+the shape of the question is read: "what is X", "definition of X" and
+"meaning of X" all ask where X is defined, which the parser already knows
+because it recorded which nodes are definitions. Typos are corrected
+against the corpus's own words, and only ever a word the corpus does not
+contain -- so a precise query is never softened into a vague one.
+
+Whether any of that is an improvement is a measurement, not an opinion:
+`data/search_eval.yaml` holds queries whose answers are known and
+`tests/test_search_relevance.py` scores against it. Mean reciprocal rank
+went from 0.29 to 0.77, and the floor in that file is a ratchet.
 
 `export_static_site.py` still builds the whole site as static files, but
 as an archive rather than as the site: a copy that survives the server,
