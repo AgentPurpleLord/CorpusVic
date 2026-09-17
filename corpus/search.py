@@ -438,10 +438,22 @@ class Index:
 _DEFINING_HEADING_BOOST = 25.0
 _DEFINITION_NODE_BOOST = 18.0
 
+# A heading that answers the question the query asked -- "Who may appeal"
+# for "who can appeal ...". Below the defining-heading boost, because
+# "Meaning of X" for "definition of X" is a near-certainty and this is a
+# strong hint.
+_ANSWERING_HEADING_BOOST = 20.0
+
 # Provisions considered for re-ranking before the page is cut. Beyond
 # this, results are in bm25 order, which is where they were before any of
 # this existed.
 _RERANK_DEPTH = 300
+
+# How many heading-answered provisions to fetch. Small on purpose: a
+# heading that opens with the question's own word is rare, and if there
+# are more than this the question was not specific enough for the trick
+# to be what saves it.
+_HEADING_DEPTH = 40
 
 
 def vocabulary(conn: sqlite3.Connection) -> dict:
@@ -466,6 +478,36 @@ def vocabulary(conn: sqlite3.Connection) -> dict:
         return {}
 
 
+def _heading_match(analysis) -> str:
+    """An FTS5 query for provisions whose *heading* answers the question,
+    or "" when the query is not a question.
+
+    A second query rather than a deeper scan of the first. bm25 puts
+    Section 114 "Who may appeal" at position 1,109 for "who can appeal a
+    family violence order" -- below all six thousand provisions that
+    merely mention a family violence order -- so no re-ranking depth this
+    side of reading the whole match would ever reach it. Asking for the
+    handful of provisions headed with the question's own word costs one
+    indexed lookup and finds it directly."""
+    if not analysis.asks or not analysis.subject:
+        return ""
+    subject = " OR ".join(f'"{w}"' for w in analysis.subject)
+    return f'heading: ("{analysis.asks}" AND ({subject}))'
+
+
+def _answers(heading: str, analysis) -> bool:
+    """Whether this provision's heading answers the question that was
+    asked -- "Who may appeal" for "who can appeal ...".
+
+    The heading has to open with the same word. A heading that merely
+    contains "who" is a sentence about somebody, not an answer to a
+    question about who."""
+    low = (heading or "").lower()
+    if not analysis.asks or not low.startswith(analysis.asks + " "):
+        return False
+    return bool(set(analysis.subject) & set(re.findall(r"[^\W_]+", low)))
+
+
 def _defines(heading: str, subject: list) -> bool:
     """Whether this provision is the one that defines what was asked
     about -- "Meaning of family violence" for "definition of family
@@ -482,17 +524,19 @@ def _rerank(rows: list, analysis) -> list:
     Only ever adjusted upward, and only on a structural match: nothing
     here can push a good lexical hit down the page, it can only lift the
     provision that answers the question above the ones that mention it."""
-    if not analysis.wants_definition:
+    if not analysis.wants_definition and not analysis.asks:
         return rows
     scored = []
     for row in rows:
         score = -row["rank"]
         heading = row["heading"] or ""
-        if _defines(heading, analysis.subject):
+        if analysis.wants_definition and _defines(heading, analysis.subject):
             score += _DEFINING_HEADING_BOOST
-        elif row["ntype"] == "definition" and analysis.subject and set(analysis.subject) <= set(
-                re.findall(r"[^\W_]+", heading.lower())):
+        elif analysis.wants_definition and row["ntype"] == "definition" and analysis.subject \
+                and set(analysis.subject) <= set(re.findall(r"[^\W_]+", heading.lower())):
             score += _DEFINITION_NODE_BOOST
+        elif _answers(heading, analysis):
+            score += _ANSWERING_HEADING_BOOST
         scored.append((-score, row))
     scored.sort(key=lambda pair: pair[0])
     return [row for _score, row in scored]
@@ -540,6 +584,11 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
                 "truncated": False, "corrections": {}}
 
     where = "node_fts MATCH ?" + ("" if include_superseded else " AND d.is_current = 1")
+    columns = f"""SELECT d.slug, d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
+                         f.page, f.fragment, f.label, f.breadcrumb, f.heading, f.ntype,
+                         snippet(node_fts, 1, '{_MARK_OPEN}', '{_MARK_CLOSE}', '…', 18) AS body_snip,
+                         bm25(node_fts, 8.0, 1.0) AS rank
+                  FROM node_fts f JOIN doc d ON d.id = f.doc_id"""
     params = [analysis.match]
     # Enough to re-rank the page that is about to be shown, and the ones
     # just past it, without reading the whole match.
@@ -548,16 +597,38 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
         total = conn.execute(
             f"SELECT count(*) FROM node_fts f JOIN doc d ON d.id = f.doc_id WHERE {where}",
             params).fetchone()[0]
-        candidates = conn.execute(
-            f"""SELECT d.slug, d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
-                       f.page, f.fragment, f.label, f.breadcrumb, f.heading, f.ntype,
-                       snippet(node_fts, 1, '{_MARK_OPEN}', '{_MARK_CLOSE}', '…', 18) AS body_snip,
-                       bm25(node_fts, 8.0, 1.0) AS rank
-                FROM node_fts f JOIN doc d ON d.id = f.doc_id
-                WHERE {where}
-                ORDER BY d.is_current DESC, rank
-                LIMIT ?""",
-            params + [depth]).fetchall()
+        candidates = list(conn.execute(
+            f"{columns} WHERE {where} ORDER BY d.is_current DESC, rank LIMIT ?",
+            params + [depth]))
+        # The provisions headed the way the question was asked, which
+        # bm25 can bury a thousand deep. A handful of rows, merged into
+        # the pool so the re-ranking below can lift them.
+        #
+        # They come in at the bottom of it, whatever bm25 said about
+        # them. Their score is from a different MATCH expression and is
+        # not on the same scale as the pool's -- mixing the two put a
+        # provision that merely mentions police above the one that says
+        # when police may issue a safety notice. So the only thing that
+        # can lift a merged row is the boost for actually answering the
+        # question; on its own it sits below everything already found.
+        heading_match = _heading_match(analysis)
+        if heading_match:
+            seen = {(row["slug"], row["page"], row["fragment"]) for row in candidates}
+            floor = max((row["rank"] for row in candidates), default=0.0)
+            for position, row in enumerate(conn.execute(
+                    f"{columns} WHERE {where} ORDER BY rank LIMIT ?",
+                    [heading_match, _HEADING_DEPTH])):
+                if (row["slug"], row["page"], row["fragment"]) not in seen:
+                    merged = dict(row)
+                    # All below the pool, but keeping the order the
+                    # heading query put them in -- which is meaningful
+                    # among themselves even though it is not comparable
+                    # with the pool's. Without it, "Who may appeal" and
+                    # "Who may apply to vary, revoke or extend" arrive
+                    # tied and come out in whatever order they were read.
+                    merged["rank"] = floor + position * 0.001
+                    candidates.append(merged)
+                    total += 1
     except sqlite3.OperationalError as e:
         # corpus/query.py is meant to make this impossible. If it ever
         # gets through, an empty result page beats a 500 -- and says what
@@ -565,7 +636,7 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
         return {"query": raw, "parsed": analysis.match, "total": 0, "results": [],
                 "truncated": False, "corrections": analysis.corrections, "error": str(e)}
 
-    rows = _rerank(list(candidates), analysis)[offset:offset + limit]
+    rows = _rerank(candidates, analysis)[offset:offset + limit]
 
     results = []
     for row in rows:

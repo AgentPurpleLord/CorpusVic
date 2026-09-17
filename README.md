@@ -91,14 +91,22 @@ its *definition* never reached it. So stopwords go, what is left is OR'd
 and left to bm25 to rank, a small map of legal synonyms is applied, and
 the shape of the question is read: "what is X", "definition of X" and
 "meaning of X" all ask where X is defined, which the parser already knows
-because it recorded which nodes are definitions. Typos are corrected
+because it recorded which nodes are definitions.
+
+A question that opens with "who", "when" or "how" gets a second, tiny
+query over headings alone, because this legislation heads provisions the
+same way a person asks -- "Who may appeal", "When is a person a protected
+person". It is a second query rather than a deeper scan because bm25 put
+Section 114 "Who may appeal" at position 1,109 for "who can appeal a
+family violence order", below every one of the six thousand provisions
+that merely mention such an order. Typos are corrected
 against the corpus's own words, and only ever a word the corpus does not
 contain -- so a precise query is never softened into a vague one.
 
 Whether any of that is an improvement is a measurement, not an opinion:
 `data/search_eval.yaml` holds queries whose answers are known and
 `tests/test_search_relevance.py` scores against it. Mean reciprocal rank
-went from 0.29 to 0.77, and the floor in that file is a ratchet.
+went from 0.29 to 0.79, and the floor in that file is a ratchet.
 
 `export_static_site.py` still builds the whole site as static files, but
 as an archive rather than as the site: a copy that survives the server,

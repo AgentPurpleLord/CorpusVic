@@ -113,3 +113,22 @@ intent_words:
   - means
   - counts
   - qualifies
+
+# The words a question opens with, and which this legislation heads
+# provisions with too: "Who may appeal", "When is a person a protected
+# person", "How an application is made". A question that opens with one
+# of these is answered by the provision whose heading opens with the same
+# one -- which is worth a query of its own, because bm25 buries it. "Who
+# can appeal a family violence order" put Section 114 "Who may appeal" at
+# position 1,109, below every one of the six thousand provisions that
+# merely mention a family violence order.
+#
+# They are stopwords as well, and stay that way: what they are worth is
+# in the shape of the question, not as a word to match on.
+interrogatives:
+  - who
+  - when
+  - where
+  - how
+  - which
+  - what

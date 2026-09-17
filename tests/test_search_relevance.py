@@ -20,10 +20,16 @@ from corpus import relevance, search
 # rather than all required, and the question's shape read against the
 # node types and heading conventions the parser already records. That
 # took it to MRR 0.771, ten of fourteen at rank 1, and one query finding
-# nothing. Every number here is one the suite measured, not a target
-# somebody picked.
-FLOOR_MRR = 0.77
+# nothing.
+#
+# That last one was "who can appeal a family violence order", answered by
+# a section headed "Who may appeal" which bm25 put at position 1,109. A
+# second query over headings alone now finds it: MRR 0.785, still ten at
+# rank 1, and thirteen of fourteen in the top five. Every number here is
+# one the suite measured, not a target somebody picked.
+FLOOR_MRR = 0.785
 FLOOR_AT_1 = 10
+FLOOR_AT_5 = 13
 
 
 @pytest.fixture(scope="session")
@@ -70,6 +76,9 @@ def test_the_eval_set_is_about_documents_that_exist(real_index, eval_rows):
 def test_relevance_does_not_regress(scored):
     assert scored["mrr"] >= FLOOR_MRR, (
         f"MRR fell to {scored['mrr']:.3f} from {FLOOR_MRR}\n\n" + relevance.report(scored))
+    assert scored["at_5"] >= FLOOR_AT_5, (
+        f"queries answered in the top five fell to {scored['at_5']} from {FLOOR_AT_5}\n\n"
+        + relevance.report(scored))
     assert scored["at_1"] >= FLOOR_AT_1, (
         f"queries answered at rank 1 fell to {scored['at_1']} from {FLOOR_AT_1}\n\n"
         + relevance.report(scored))

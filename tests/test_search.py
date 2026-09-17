@@ -288,6 +288,82 @@ def test_punctuation_becomes_words_rather_than_syntax():
 
 
 # ---------------------------------------------------------------------
+# Questions, and the provisions headed like answers to them
+# ---------------------------------------------------------------------
+
+
+def test_a_question_asks_for_the_provisions_headed_like_its_answer():
+    a = query.analyse("who can appeal a family violence order")
+
+    assert a.asks == "who"
+    assert search._heading_match(a) == (
+        'heading: ("who" AND ("appeal" OR "family" OR "violence" OR "order"))')
+
+
+def test_a_query_that_is_not_a_question_asks_for_nothing_extra():
+    """The second query is only worth running when the shape of the
+    question says where to look."""
+    assert search._heading_match(query.analyse("hearsay rule")) == ""
+    assert search._heading_match(query.analyse("indictable offence")) == ""
+
+
+def test_a_heading_has_to_open_with_the_question_word():
+    """"Who may appeal" answers "who can appeal". "Protection for
+    children who have become family members" merely contains the word."""
+    a = query.analyse("who can appeal a family violence order")
+
+    assert search._answers("Who may appeal", a)
+    assert not search._answers("Protection for children who have become family members", a)
+    assert not search._answers("Appeal to the County Court", a)
+
+
+def test_a_provision_buried_by_bm25_is_still_found_when_it_answers(tmp_path):
+    """The whole point of the second query. In the real corpus, "who can
+    appeal a family violence order" put Section 114 "Who may appeal" at
+    bm25 position 1,109 -- below every one of the six thousand provisions
+    that mention a family violence order -- so no re-ranking depth would
+    have reached it.
+
+    Reproduced here in miniature: one provision headed like the answer,
+    and enough noise mentioning the query's other words to bury it."""
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    nodes = [make_node("section", "114", "Who may appeal",
+                       "An affected family member may appeal.")]
+    for n in range(60):
+        nodes.append(make_node("section", str(200 + n),
+                               f"Family violence intervention order {n}",
+                               "A family violence intervention order is an order about "
+                               "family violence, made under this family violence Act."))
+    source = FakeSource({"fv-act": ("Family Violence Protection Act 2008", "act",
+                                    "1 January 2026", nodes)})
+    (tmp_path / "data" / "parsed" / "fv-act.json").write_text("{}", encoding="utf-8")
+    db.set_publication("fv-act", True, tmp_path)
+    index = _build(tmp_path, source)
+
+    found = index.search("who can appeal a family violence order", limit=5)
+
+    assert found["results"][0]["label"] == "Section 114 Who may appeal"
+
+
+def test_an_answering_provision_cannot_push_down_a_better_lexical_hit():
+    """The rows the second query brings in are scored by a different
+    MATCH expression, so their bm25 is not on the same scale as the
+    pool's. Merging the two numbers put a provision that merely mentions
+    police above the one saying when police may issue a safety notice, so
+    a merged row comes in below the pool and only the boost can lift it."""
+    analysis = query.analyse("who can appeal a family violence order")
+    pool = [
+        {"rank": -9.0, "heading": "Appeals generally", "ntype": "section"},
+        # Merged: placed at the floor, and it does not answer the question.
+        {"rank": -1.0, "heading": "Orders about family violence", "ntype": "section"},
+    ]
+
+    ranked = search._rerank(pool, analysis)
+
+    assert ranked[0]["heading"] == "Appeals generally"
+
+
+# ---------------------------------------------------------------------
 # Typos, and the one rule that makes correcting them safe
 # ---------------------------------------------------------------------
 #

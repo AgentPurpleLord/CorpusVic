@@ -54,6 +54,7 @@ def terms() -> dict:
             "synonyms": {k: list(v) for k, v in (loaded.get("synonyms") or {}).items()},
             "definition_intent": list(loaded.get("definition_intent") or []),
             "intent_words": set(loaded.get("intent_words") or []),
+            "interrogatives": list(loaded.get("interrogatives") or []),
         }
     return _terms_cache
 
@@ -70,6 +71,10 @@ class Query:
     # removed -- "family violence" out of "definition of family violence".
     subject: list = field(default_factory=list)
     wants_definition: bool = False
+    # The word this question opens with -- "who", "when", "how" -- when
+    # it opens with one. Legislation heads provisions the same way, so
+    # this is a place to look rather than a word to match.
+    asks: str = ""
     # {what was typed: what it was read as}, only for words the corpus
     # does not contain.
     corrections: dict = field(default_factory=dict)
@@ -168,6 +173,7 @@ def analyse(raw: str, vocabulary: "dict | None" = None) -> Query:
 
     low = raw.lower()
     wants_definition = any(phrase in low for phrase in config["definition_intent"])
+    asks = typed[0] if typed[0] in config["interrogatives"] else ""
     subject = [w for w in words if w not in config["intent_words"]]
 
     # What goes to FTS5: every content word, its correction if it has
@@ -192,6 +198,7 @@ def analyse(raw: str, vocabulary: "dict | None" = None) -> Query:
         words=words,
         subject=subject,
         wants_definition=wants_definition,
+        asks=asks,
         corrections=corrections,
     )
 
