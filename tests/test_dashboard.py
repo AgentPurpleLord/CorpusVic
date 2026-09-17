@@ -1245,25 +1245,26 @@ def test_the_index_endpoints_are_behind_the_login(_at_admin):
 # Restarting the public site
 # ---------------------------------------------------------------------
 #
-# A second process on the same box, which this one can only reach through
-# systemd. None of the interesting states exist on the machine the tests
-# run on, so systemd's answers are stood in for -- what is being tested
-# is what the dashboard makes of them, which is the part that can be
-# wrong.
+# A second process on the same box. The dashboard restarts it by sending
+# it SIGTERM -- both units run as the same user, so that needs no
+# privilege -- and letting systemd's Restart= bring it back. Which is
+# what the first version of this got wrong: it went through sudo, and
+# deploy/dashboard.service sets NoNewPrivileges=yes, under which sudo
+# cannot become root no matter what sudoers says.
+#
+# None of these states exist on the machine the tests run on, so
+# systemd's answers are stood in for. What is being tested is what the
+# dashboard makes of them, which is the part that can be wrong.
 
 
-def _systemd_says(monkeypatch, properties, returncode=0, booted=True):
-    """Stands in for `systemctl show`."""
+def _unit(monkeypatch, booted=True, **properties):
+    """Stands in for systemd's answers about the public unit."""
     monkeypatch.setattr(dashboard, "_systemd_is_running", lambda: booted)
-    output = "\n".join(f"{k}={v}" for k, v in properties.items())
-
-    class _Result:
-        def __init__(self):
-            self.returncode = returncode
-            self.stdout = output
-            self.stderr = ""
-
-    monkeypatch.setattr(dashboard.subprocess, "run", lambda *a, **k: _Result())
+    values = {"LoadState": "loaded", "ActiveState": "active", "SubState": "running",
+              "ActiveEnterTimestamp": "Tue 2026-09-16 09:00:00 AEST",
+              "MainPID": "4242", "Restart": "always", "User": "dashboard"}
+    values.update({k: str(v) for k, v in properties.items()})
+    monkeypatch.setattr(dashboard, "_unit_properties", lambda *a, **k: dict(values))
 
 
 def test_no_systemd_means_nothing_to_say(tmp_path, monkeypatch):
@@ -1280,78 +1281,121 @@ def test_no_systemd_means_nothing_to_say(tmp_path, monkeypatch):
 
 def test_a_running_public_site_is_reported_as_running(tmp_path, monkeypatch):
     client = _dashboard_at(tmp_path, monkeypatch)
-    _systemd_says(monkeypatch, {
-        "LoadState": "loaded", "ActiveState": "active", "SubState": "running",
-        "ActiveEnterTimestamp": "Tue 2026-09-16 09:00:00 AEST"})
+    _unit(monkeypatch)
+    monkeypatch.setattr(dashboard, "_process_is_ours", lambda pid: None)
 
     body = client.get("/api/service/public").json()
 
     assert body["installed"] is True and body["active"] is True
     assert body["since"].startswith("Tue")
+    assert body["can_restart"] is True
 
 
 def test_a_unit_that_was_never_installed_is_not_a_failure(tmp_path, monkeypatch):
     """Different from stopped, and the page hides the strip on it rather
     than reporting a problem nobody has."""
     client = _dashboard_at(tmp_path, monkeypatch)
-    _systemd_says(monkeypatch, {"LoadState": "not-found", "ActiveState": "inactive"})
+    _unit(monkeypatch, LoadState="not-found", ActiveState="inactive")
 
     body = client.get("/api/service/public").json()
 
     assert body["known"] is True and body["installed"] is False
 
 
-def test_being_unable_to_restart_says_what_to_do_about_it(tmp_path, monkeypatch):
-    """This service runs as `dashboard` and by default may not ask
-    systemd to restart anything. The button is disabled with the sudoers
-    line rather than offered and found out afterwards."""
-    client = _dashboard_at(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard, "_systemd_is_running", lambda: True)
+# --- the guards on signalling, which is where this could do damage -----
+
+
+def test_a_process_belonging_to_somebody_else_is_not_signalled(monkeypatch):
+    """Both services usually run as the same user. Where they do not,
+    this must not try -- and must say which uid it saw."""
     monkeypatch.setattr(dashboard.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(dashboard.os, "stat", lambda path: type("S", (), {"st_uid": 0})())
+
+    why = dashboard._process_is_ours(4242)
+
+    assert why and "uid 0" in why and "uid 1000" in why
+
+
+def test_a_process_that_is_not_the_public_site_is_not_signalled(monkeypatch, tmp_path):
+    """pids are reused, and systemd's MainPID is read over a socket a
+    moment before it is acted on. Signalling the wrong process is the one
+    way this can do real damage, so the command line is checked too."""
+    monkeypatch.setattr(dashboard.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(dashboard.os, "stat", lambda path: type("S", (), {"st_uid": 1000})())
+    monkeypatch.setattr(dashboard.Path, "read_bytes", lambda self: b"/usr/bin/postgres\x00")
+
+    why = dashboard._process_is_ours(4242)
+
+    assert why and "does not look like the public site" in why
+
+
+def test_a_process_that_is_gone_is_not_signalled(monkeypatch):
+    monkeypatch.setattr(dashboard.os, "stat",
+                        lambda path: (_ for _ in ()).throw(FileNotFoundError()))
+
+    assert "no process" in dashboard._process_is_ours(4242)
+
+
+def test_no_main_process_is_not_signalled():
+    assert "no main process" in dashboard._process_is_ours(0)
+
+
+def test_a_unit_systemd_would_not_bring_back_is_not_signalled(tmp_path, monkeypatch):
+    """Sending SIGTERM to a unit with Restart=no is how you take the
+    public site down and leave it down."""
+    _dashboard_at(tmp_path, monkeypatch)
+    _unit(monkeypatch, Restart="no")
+
+    method, why = dashboard._restart_method()
+
+    assert method == "systemctl"
+    assert "Restart=no" in why
+
+
+# --- restarting ---------------------------------------------------------
+
+
+def test_a_restart_signals_the_process_and_waits_for_a_new_one(tmp_path, monkeypatch):
+    """No sudo, no systemctl: same user, so a signal is enough, and
+    systemd's Restart= does the rest."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _unit(monkeypatch)
+    monkeypatch.setattr(dashboard, "_process_is_ours", lambda pid: None)
+    signalled = []
+    monkeypatch.setattr(dashboard.os, "kill", lambda pid, sig: signalled.append((pid, sig)))
+    monkeypatch.setattr(dashboard, "_wait_for_restart",
+                        lambda was, seconds=8.0: {"known": True, "active": True,
+                                                  "main_pid": 5555, "state": "active"})
+    used_systemctl = []
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: used_systemctl.append(a))
+
+    res = client.post("/api/service/public/restart")
+
+    assert res.status_code == 200
+    assert signalled == [(4242, dashboard.signal.SIGTERM)]
+    assert used_systemctl == []
+    assert "5555" in res.json()["message"]
+
+
+def test_a_restart_where_the_process_did_not_change_is_not_a_success(tmp_path, monkeypatch):
+    """Having sent a signal is not evidence that anything came back. A
+    page saying "restarted" over a site that is down is the kind of
+    reassurance that costs an hour to see through."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _unit(monkeypatch)
+    monkeypatch.setattr(dashboard, "_process_is_ours", lambda pid: None)
+    monkeypatch.setattr(dashboard.os, "kill", lambda pid, sig: None)
+    monkeypatch.setattr(dashboard, "_wait_for_restart",
+                        lambda was, seconds=8.0: {"known": True, "active": False,
+                                                  "main_pid": 4242, "state": "failed",
+                                                  "sub_state": "failed"})
 
     class _Refused:
         returncode = 1
         stdout = ""
-        stderr = "Sorry, user dashboard may not run that command"
+        stderr = "Failed to restart: Access denied"
 
-    monkeypatch.setattr(dashboard.subprocess, "run", lambda *a, **k: _Refused())
-
-    body = client.get("/api/service/public").json()
-
-    assert body["can_restart"] is False
-    assert "sudoers" in body["restart_blocked"]
-    assert "systemctl restart" in body["restart_blocked"]
-
-
-def test_pressing_restart_without_the_permission_is_refused_not_attempted(
-        tmp_path, monkeypatch):
-    client = _dashboard_at(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard, "_can_restart_public", lambda: (False, "Not allowed."))
-    ran = []
-    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: ran.append(a))
-
-    res = client.post("/api/service/public/restart")
-
-    assert res.status_code == 409
-    assert ran == []
-
-
-def test_a_restart_that_did_not_take_is_not_reported_as_success(tmp_path, monkeypatch):
-    """systemctl exits 0 having asked, and the unit can be dead a second
-    later. "Restarted" over a service that is already down again is the
-    kind of reassurance that costs an hour to see through."""
-    client = _dashboard_at(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard, "_can_restart_public", lambda: (True, None))
-
-    class _Ok:
-        returncode = 0
-        stdout = ""
-        stderr = ""
-
-    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: _Ok())
-    monkeypatch.setattr(dashboard, "_public_service_state",
-                        lambda: {"known": True, "systemd": True, "installed": True,
-                                 "active": False, "state": "failed", "sub_state": "failed"})
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: _Refused())
 
     res = client.post("/api/service/public/restart")
 
@@ -1359,37 +1403,120 @@ def test_a_restart_that_did_not_take_is_not_reported_as_success(tmp_path, monkey
     assert "journalctl" in res.json()["detail"]
 
 
-def test_a_restart_that_took_says_so(tmp_path, monkeypatch):
+def test_what_systemctl_actually_said_reaches_the_page(tmp_path, monkeypatch):
+    """Verbatim. That string names the real cause -- including the
+    NoNewPrivileges one -- and summarising it is how the real cause got
+    lost the first time."""
     client = _dashboard_at(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard, "_can_restart_public", lambda: (True, None))
+    _unit(monkeypatch, ActiveState="failed", SubState="failed", MainPID="0")
+
+    class _Refused:
+        returncode = 1
+        stdout = ""
+        stderr = ("sudo: The \"no new privileges\" flag is set, which prevents sudo "
+                  "from running as root.")
+
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: _Refused())
+
+    res = client.post("/api/service/public/restart")
+
+    assert res.status_code == 500
+    assert "no new privileges" in res.json()["detail"]
+
+
+def test_a_restart_is_attempted_even_when_it_looked_impossible(tmp_path, monkeypatch):
+    """The defect this replaces: the old version decided in advance that
+    it could not, on a `sudo -n -l` probe that exits non-zero for several
+    unrelated reasons, and refused with a 409 naming a sudoers line. For
+    somebody who had already written that line it was the one message
+    that could not help. So the attempt is the measurement."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _unit(monkeypatch)
+    monkeypatch.setattr(dashboard, "_restart_method", lambda: (None, "Looks impossible."))
+    tried = []
 
     class _Ok:
         returncode = 0
         stdout = ""
         stderr = ""
 
-    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: _Ok())
-    monkeypatch.setattr(dashboard, "_public_service_state",
-                        lambda: {"known": True, "systemd": True, "installed": True,
-                                 "active": True, "state": "active", "sub_state": "running"})
+    monkeypatch.setattr(dashboard, "_systemctl", lambda *a, **k: tried.append(a) or _Ok())
+    monkeypatch.setattr(dashboard, "_wait_for_restart",
+                        lambda was, seconds=8.0: {"known": True, "active": True,
+                                                  "main_pid": 5555, "state": "active"})
 
     res = client.post("/api/service/public/restart")
 
     assert res.status_code == 200
-    assert res.json()["ok"] is True
+    assert tried, "it should have tried anyway rather than refusing on a guess"
 
 
-def test_systemctl_is_never_allowed_to_ask_for_a_password(monkeypatch):
-    """There is no terminal here to type one into, so an interactive sudo
-    would hang until the timeout rather than fail. -n, always."""
-    seen = {}
-    monkeypatch.setattr(dashboard.os, "geteuid", lambda: 1000)
-    monkeypatch.setattr(dashboard.subprocess, "run",
-                        lambda cmd, **k: seen.setdefault("cmd", cmd))
+def test_the_two_refusals_that_are_actually_knowable(tmp_path, monkeypatch):
+    """No systemd, and a unit that is not installed. Everything else is
+    found out by trying."""
+    client = _dashboard_at(tmp_path, monkeypatch)
 
-    dashboard._systemctl("systemctl", "restart", "anything.service")
+    monkeypatch.setattr(dashboard, "_systemd_is_running", lambda: False)
+    assert client.post("/api/service/public/restart").status_code == 409
 
-    assert seen["cmd"][:2] == ["sudo", "-n"]
+    _unit(monkeypatch, LoadState="not-found")
+    assert client.post("/api/service/public/restart").status_code == 409
+
+
+# --- the evidence ------------------------------------------------------
+
+
+def test_the_diagnosis_carries_evidence_rather_than_an_assertion(tmp_path, monkeypatch):
+    """A message that reads the same whether or not you have done the
+    thing it asks for is a message nobody can act on."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _unit(monkeypatch, User="www-data")
+    monkeypatch.setattr(dashboard, "_process_is_ours", lambda pid: "belongs to uid 33")
+    monkeypatch.setattr(dashboard, "_sudo_diagnosis",
+                        lambda: {"tried": True, "available": False, "exit_code": 1,
+                                 "detail": "sudo: a password is required",
+                                 "command": "sudo -n -l ..."})
+
+    d = client.get("/api/service/public").json()["diagnosis"]
+
+    assert d["unit_user"] == "www-data"
+    assert d["unit_main_pid"] == 4242
+    assert d["unit_restart_policy"] == "always"
+    assert d["running_uid"] == dashboard.os.geteuid()
+    assert d["sudo"]["detail"] == "sudo: a password is required"
+
+
+def test_no_new_privileges_is_read_from_the_kernel_not_guessed(monkeypatch, tmp_path):
+    """deploy/dashboard.service sets it, and under it no sudoers line can
+    work. Saying so is the difference between a fixable problem and an
+    hour of editing a file that was already right."""
+    status = tmp_path / "status"
+    status.write_text("Name:\tpython3\nNoNewPrivs:\t1\n", encoding="utf-8")
+    real_read = dashboard.Path.read_text
+
+    def read_text(self, *a, **k):
+        if str(self) == "/proc/self/status":
+            return status.read_text(encoding="utf-8")
+        return real_read(self, *a, **k)
+
+    monkeypatch.setattr(dashboard.Path, "read_text", read_text)
+
+    assert dashboard._no_new_privileges() is True
+
+
+def test_sudo_is_only_ever_evidence_never_a_decision(tmp_path, monkeypatch):
+    """It is asked about only when systemctl is the path being taken, and
+    what it says goes in the panel rather than into a refusal."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    _unit(monkeypatch)
+    monkeypatch.setattr(dashboard, "_process_is_ours", lambda pid: None)
+    asked = []
+    monkeypatch.setattr(dashboard, "_sudo_diagnosis", lambda: asked.append(True) or {})
+
+    body = client.get("/api/service/public").json()
+
+    assert body["can_restart"] is True
+    assert asked == [], "signalling works here, so sudo is not even consulted"
 
 
 def test_the_public_service_endpoints_are_behind_the_login(_at_admin):

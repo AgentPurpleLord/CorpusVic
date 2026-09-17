@@ -64,9 +64,11 @@ import hmac
 import html
 import json
 import os
+import pwd
 import re
 import secrets
 import shutil
+import signal
 import sqlite3
 import socket
 import subprocess
@@ -988,27 +990,39 @@ def _systemd_is_running() -> bool:
     return Path("/run/systemd/system").is_dir()
 
 
-def _public_service_state() -> dict:
-    """What systemd says about the public site's unit.
+def _unit_properties(unit: str, *names) -> dict:
+    """What systemd says about a unit.
 
-    `systemctl show` reads properties and needs no privilege, so this
-    works even where restarting does not -- which is the common case and
-    worth showing rather than hiding."""
+    Reading properties needs no privilege -- which is the whole reason
+    the rest of this can work. Returns {} when systemd cannot be asked at
+    all, so a caller distinguishes "no answer" from "answered, nothing
+    there"."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", unit, "--no-page",
+             "--property=" + ",".join(names)],
+            capture_output=True, text=True, timeout=_SYSTEMCTL_TIMEOUT, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if result.returncode != 0:
+        return {}
+    return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+
+
+def _public_service_state() -> dict:
+    """What systemd says about the public site's unit."""
     if not _systemd_is_running():
         return {"known": False, "systemd": False,
                 "detail": "There is no systemd here, so there is no service to restart."}
+    values = _unit_properties(
+        PUBLIC_UNIT, "LoadState", "ActiveState", "SubState", "ActiveEnterTimestamp",
+        "MainPID", "Restart", "User")
+    if not values:
+        return {"known": False, "systemd": True, "detail": f"systemd didn't answer about {PUBLIC_UNIT}."}
     try:
-        result = subprocess.run(
-            ["systemctl", "show", PUBLIC_UNIT, "--no-page",
-             "--property=LoadState,ActiveState,SubState,ActiveEnterTimestamp"],
-            capture_output=True, text=True, timeout=_SYSTEMCTL_TIMEOUT, check=False)
-    except (OSError, subprocess.SubprocessError) as e:
-        return {"known": False, "systemd": True, "detail": f"Couldn't ask systemd: {e}"}
-    if result.returncode != 0:
-        return {"known": False, "systemd": True,
-                "detail": (result.stderr or result.stdout or "").strip()}
-    values = dict(
-        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+        main_pid = int(values.get("MainPID", "0"))
+    except ValueError:
+        main_pid = 0
     return {
         "known": True,
         "systemd": True,
@@ -1019,44 +1033,180 @@ def _public_service_state() -> dict:
         "state": values.get("ActiveState", "unknown"),
         "sub_state": values.get("SubState", ""),
         "since": values.get("ActiveEnterTimestamp", ""),
+        "main_pid": main_pid,
+        "restart_policy": values.get("Restart", ""),
+        "unit_user": values.get("User", ""),
     }
 
 
-def _can_restart_public() -> tuple:
-    """Whether this process may restart the public unit, and if not, what
-    to do about it.
+def _process_is_ours(pid: int) -> "str | None":
+    """Why this pid must not be signalled, or None if it may be.
 
-    Probed with `sudo -n -l`, which asks sudo what it would allow without
-    running anything and without prompting. Guessing instead would mean
-    finding out at the moment somebody presses the button, which is the
-    moment it is least useful to find out."""
+    Three cheap checks, because signalling the wrong process is the one
+    way this can do real damage. systemd's MainPID is authoritative, but
+    it is read over a socket and the process can be gone by the time we
+    act on it -- and pids are reused."""
+    if pid <= 0:
+        return "systemd reports no main process for it."
+    try:
+        owner = os.stat(f"/proc/{pid}").st_uid
+    except OSError:
+        return f"There is no process {pid} any more."
+    if owner != os.geteuid():
+        return (f"Process {pid} belongs to uid {owner} and this service runs as "
+                f"uid {os.geteuid()}, so it cannot signal it.")
+    try:
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().decode("utf-8", "replace")
+    except OSError:
+        return f"Couldn't read the command line of process {pid}."
+    if "public.py" not in cmdline:
+        return f"Process {pid} does not look like the public site."
+    return None
+
+
+def _restart_method() -> tuple:
+    """How this process could restart the public site, and why not if it
+    could not.
+
+    Advisory. It decides which way to *try* and what the page says while
+    idle -- it is never a gate, because the previous version of this was
+    one and its single message ("add this sudoers line") was the one
+    thing that could not help somebody who had already added it.
+
+    Signalling is preferred and needs no privilege at all: both units run
+    as the same user, so this process may send SIGTERM to that one, and
+    systemd's Restart= brings it back. That is exactly how the dashboard
+    restarts itself, one process over."""
     if not _systemd_is_running():
-        return False, "There is no systemd here."
-    if os.geteuid() == 0:
-        return True, None
+        return None, "There is no systemd here."
+    state = _public_service_state()
+    if not state.get("known"):
+        return None, state.get("detail", "systemd didn't answer.")
+    if not state.get("installed"):
+        return None, f"{PUBLIC_UNIT} is not installed on this server."
+
+    if state.get("restart_policy") not in _RESTARTING_POLICIES:
+        # Signalling a unit systemd will not bring back is how you take
+        # the public site down and leave it down.
+        policy = state.get("restart_policy") or "no"
+        return "systemctl", (f"{PUBLIC_UNIT} has Restart={policy}, so stopping its process "
+                             f"would leave it stopped. Restarting it has to go through systemd.")
+
+    if state.get("active"):
+        why_not = _process_is_ours(state.get("main_pid", 0))
+        if why_not is None:
+            return "signal", None
+    else:
+        # Nothing to signal. systemd has to start it.
+        why_not = f"{PUBLIC_UNIT} is {state.get('state')}, so there is no process to signal."
+    return "systemctl", why_not
+
+
+def _sudo_diagnosis() -> dict:
+    """What sudo would say, asked without running anything.
+
+    Only for the details panel. Its answer is evidence, never a decision:
+    `sudo -n -l` exits non-zero for several unrelated reasons -- among
+    them "a password is required" and this service's own
+    NoNewPrivileges=yes -- and reading all of them as "you have not
+    written the sudoers line" is what produced a message that repeated
+    an instruction back at somebody who had followed it."""
+    systemctl = shutil.which("systemctl") or "systemctl"
     try:
         result = subprocess.run(
-            ["sudo", "-n", "-l", "/usr/bin/systemctl", "restart", PUBLIC_UNIT],
+            ["sudo", "-n", "-l", systemctl, "restart", PUBLIC_UNIT],
             capture_output=True, text=True, timeout=_SYSTEMCTL_TIMEOUT, check=False)
     except FileNotFoundError:
-        return False, "There is no sudo here, so this service cannot ask systemd to restart another."
+        return {"tried": True, "available": False, "detail": "There is no sudo on this server."}
     except (OSError, subprocess.SubprocessError) as e:
-        return False, f"Couldn't ask sudo what it allows: {e}"
-    if result.returncode == 0:
-        return True, None
-    return False, (
-        f"This service may not restart {PUBLIC_UNIT}. To allow just that one command, "
-        f"put this in /etc/sudoers.d/corpusvic-restart (via visudo):\n\n"
-        f"    dashboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart {PUBLIC_UNIT}")
+        return {"tried": True, "available": False, "detail": str(e)}
+    return {
+        "tried": True,
+        "available": result.returncode == 0,
+        "exit_code": result.returncode,
+        # Verbatim. This is the string that names the real cause, and
+        # summarising it is how the real cause got lost the first time.
+        "detail": (result.stderr or result.stdout or "").strip(),
+        "command": f"sudo -n -l {systemctl} restart {PUBLIC_UNIT}",
+    }
+
+
+def _restart_diagnosis(state: dict) -> dict:
+    """Everything needed to see why a restart would or would not work,
+    rather than a sentence asserting it.
+
+    A message that reads the same whether or not you have done the thing
+    it asks for is a message nobody can act on."""
+    try:
+        whoami = pwd.getpwuid(os.geteuid()).pw_name
+    except (KeyError, AttributeError):
+        whoami = ""
+    method, why_not = _restart_method()
+    diagnosis = {
+        "method": method,
+        "reason": why_not,
+        "running_as": whoami,
+        "running_uid": os.geteuid(),
+        "unit_user": state.get("unit_user", ""),
+        "unit_main_pid": state.get("main_pid", 0),
+        "unit_restart_policy": state.get("restart_policy", ""),
+        "systemctl_path": shutil.which("systemctl") or "",
+        "no_new_privileges": _no_new_privileges(),
+    }
+    # Only worth asking sudo when sudo is the path we would take.
+    if method == "systemctl":
+        diagnosis["sudo"] = _sudo_diagnosis()
+    return diagnosis
+
+
+def _no_new_privileges() -> bool:
+    """Whether this process may gain privileges at all.
+
+    systemd's NoNewPrivileges=yes -- which deploy/dashboard.service sets
+    -- makes the kernel ignore the setuid bit on anything this process
+    executes, and setuid is exactly how sudo becomes root. So under it no
+    sudoers line can work, and saying so is the difference between a
+    fixable problem and an hour of editing a file that was already
+    right."""
+    try:
+        for line in Path("/proc/self/status").read_text(encoding="utf-8").splitlines():
+            if line.startswith("NoNewPrivs:"):
+                return line.split(":", 1)[1].strip() == "1"
+    except OSError:
+        pass
+    return False
+
+
+def _wait_for_restart(was_pid: int, seconds: float = 8.0) -> dict:
+    """Waits for systemd to bring the unit back on a new process.
+
+    Polled rather than assumed. Having sent a signal is not evidence that
+    anything came back -- and a service that dies a second later leaves a
+    page saying "restarted" over a site that is down, which is the kind
+    of reassurance that costs an hour to see through."""
+    deadline = time.monotonic() + seconds
+    state = _public_service_state()
+    while time.monotonic() < deadline:
+        state = _public_service_state()
+        if state.get("active") and state.get("main_pid") not in (0, was_pid):
+            return state
+        time.sleep(0.3)
+    return state
 
 
 @app.get("/api/service/public")
 def public_service_status():
-    """Whether the public site is up, and whether this page could restart
+    """Whether the public site is up, and how this page would restart
     it."""
-    can, why_not = _can_restart_public()
-    return {"unit": PUBLIC_UNIT, **_public_service_state(),
-            "can_restart": can, "restart_blocked": why_not}
+    state = _public_service_state()
+    method, why_not = _restart_method()
+    return {"unit": PUBLIC_UNIT, **state,
+            # Kept for the page, which greys the button on it -- but the
+            # button is no longer *prevented* by it. See the restart
+            # endpoint.
+            "can_restart": method is not None,
+            "restart_blocked": why_not,
+            "diagnosis": _restart_diagnosis(state)}
 
 
 @app.post("/api/service/public/restart")
@@ -1067,30 +1217,79 @@ def public_service_restart():
     database and the search index for the life of the process, and a pull
     that brings new code reaches it only when it starts again -- the same
     staleness this dashboard's own restart button exists for, one process
-    over."""
-    can, why_not = _can_restart_public()
-    if not can:
-        raise HTTPException(409, f"{why_not}\n\nOr from a terminal: "
-                                 f"sudo systemctl restart {PUBLIC_UNIT}")
+    over.
+
+    Two ways, tried in that order:
+
+    **Signal it.** Both units run as the same user, so this process may
+    send SIGTERM to that one and systemd's Restart= brings it straight
+    back. No privilege of any kind, which matters because
+    deploy/dashboard.service sets NoNewPrivileges=yes -- under that flag
+    the kernel ignores the setuid bit on anything this process runs, and
+    setuid is how sudo becomes root, so *no* sudoers line can work here.
+
+    **Ask systemd.** For a split-user setup, where signalling is not
+    possible. Needs both a sudoers line and NoNewPrivileges=no.
+
+    What it does not do is decide in advance that it cannot and refuse.
+    The previous version did, on a `sudo -n -l` probe that exits non-zero
+    for several unrelated reasons, and the single message it could
+    produce -- "add this sudoers line" -- was the one thing that could
+    not help somebody who had added it. So the attempt is the
+    measurement, and a failure carries what actually happened."""
+    state = _public_service_state()
+    if not state.get("systemd", False):
+        raise HTTPException(409, "There is no systemd here, so there is no service to restart.")
+    if state.get("known") and not state.get("installed"):
+        raise HTTPException(409, f"{PUBLIC_UNIT} is not installed on this server.")
+
+    method, why_not = _restart_method()
+    attempts = []
+
+    if method == "signal":
+        was_pid = state["main_pid"]
+        try:
+            os.kill(was_pid, signal.SIGTERM)
+        except OSError as e:
+            attempts.append(f"signalling process {was_pid}: {e}")
+        else:
+            after = _wait_for_restart(was_pid)
+            if after.get("active") and after.get("main_pid") not in (0, was_pid):
+                return {"ok": True,
+                        "message": f"The public site has restarted (was {was_pid}, "
+                                   f"now {after['main_pid']}).",
+                        **after}
+            attempts.append(
+                f"signalled process {was_pid}, but the unit is {after.get('state')} "
+                f"({after.get('sub_state')}) on pid {after.get('main_pid')}")
+    elif why_not:
+        attempts.append(why_not)
+
+    # Either signalling was not possible, or it was and did not take.
     try:
         result = _systemctl("systemctl", "restart", PUBLIC_UNIT)
     except subprocess.TimeoutExpired:
-        raise HTTPException(504, f"systemctl did not answer within {_SYSTEMCTL_TIMEOUT}s.") from None
+        attempts.append(f"systemctl did not answer within {_SYSTEMCTL_TIMEOUT}s")
+        result = None
     except (OSError, subprocess.SubprocessError) as e:
-        raise HTTPException(500, f"Couldn't run systemctl: {e}") from e
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "").strip()
-        raise HTTPException(500, f"systemctl refused: {detail}")
-    # Read back rather than reporting success from an exit status: the
-    # unit can exit immediately after a clean start, and "restarted" over
-    # a service that is already dead again is the kind of reassurance
-    # that costs an hour to see through.
-    state = _public_service_state()
-    if state.get("known") and not state.get("active"):
-        raise HTTPException(
-            500, f"{PUBLIC_UNIT} restarted but is {state.get('state')} "
-                 f"({state.get('sub_state')}). Check: journalctl -u {PUBLIC_UNIT} -n 50")
-    return {"ok": True, "message": "The public site has restarted.", **state}
+        attempts.append(f"running systemctl: {e}")
+        result = None
+    if result is not None and result.returncode != 0:
+        # Verbatim, because this string names the real cause -- including
+        # the NoNewPrivileges one, which no summary of mine would have.
+        attempts.append((result.stderr or result.stdout or "").strip()
+                        or f"systemctl exited {result.returncode}")
+    elif result is not None:
+        after = _wait_for_restart(state.get("main_pid", 0), seconds=5.0)
+        if after.get("active"):
+            return {"ok": True, "message": "The public site has restarted.", **after}
+        attempts.append(f"systemctl accepted the restart but the unit is "
+                        f"{after.get('state')} ({after.get('sub_state')})")
+
+    raise HTTPException(500, "Couldn't restart the public site.\n\n"
+                             + "\n\n".join(attempts)
+                             + f"\n\nFrom a terminal: sudo systemctl restart {PUBLIC_UNIT}\n"
+                               f"Then: journalctl -u {PUBLIC_UNIT} -n 50")
 
 
 class PullRequest(BaseModel):

@@ -438,30 +438,48 @@ version with nothing saying so. The dashboard has a strip of its own for
 it: whether it is running, since when, and a **Restart the public site**
 button.
 
-That button needs a permission the dashboard does not have by default.
-Restarting *itself* takes none -- it exits and systemd brings it back --
-but asking systemd to restart a *different* unit does, and this service
-runs as the unprivileged `dashboard` user. Grant exactly that one
-command and nothing else:
+**It needs no configuration.** Both units run as the same user
+(`User=dashboard`), so the dashboard can send the public site's own
+process a SIGTERM, and `Restart=always` in `deploy/public.service` brings
+it straight back. No privilege is involved at any point. It is exactly
+how the dashboard's own restart button works -- exit, and let systemd
+start it again -- applied to a sibling process that happens to share its
+user.
+
+The button verifies three things before signalling anything, because
+signalling the wrong process is the one way this could do real damage:
+the pid comes from systemd's own `MainPID`, it belongs to this same uid,
+and its command line is actually `public.py`. Then it waits for the unit
+to come back on a *different* pid before reporting success -- having sent
+a signal is not evidence that anything came back.
+
+**An earlier version of this section told you to add a sudoers line. That
+was wrong** and can be deleted:
 
 ```bash
-sudo visudo -f /etc/sudoers.d/corpusvic-restart
+sudo rm -f /etc/sudoers.d/corpusvic-restart
 ```
 
-```
-dashboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart corpusvic-public.service
-```
+It could never have worked. `deploy/dashboard.service` sets
+`NoNewPrivileges=yes`, under which the kernel ignores the setuid bit on
+anything the service runs -- and setuid is how `sudo` becomes root. So
+sudo fails before it ever reads sudoers, whatever is in it.
 
-Then reload the dashboard page. Until you do, the strip still shows
-whether the public site is up -- reading that needs no privilege -- and
-the button is disabled with this same line in its tooltip rather than
-failing when pressed.
+If you run the two services as *different* users, signalling is not
+possible and the dashboard falls back to `systemctl restart`, which does
+need both a sudoers line and `NoNewPrivileges=no` on the dashboard unit.
+That is a real trade -- you would be removing a hardening flag from the
+admin service to gain a button -- and running both as the same user is
+the better answer.
 
-If your unit is named something else, set `PUBLIC_SERVICE_UNIT` in
-`deploy/dashboard.env` to match, and use that name in the sudoers line
-too.
+When the button is greyed out, the strip has a **Why can't I restart
+it?** panel carrying what was actually measured: which user each service
+runs as, the unit's main pid and `Restart=`, whether `NoNewPrivileges` is
+set, and sudo's own words if sudo was consulted. It is evidence rather
+than a suggestion, because a message that reads the same whether or not
+you have already done what it asks is a message nobody can act on.
 
-From a terminal it is the command you would expect, and remains so:
+From a terminal it remains what you would expect:
 
 ```bash
 sudo systemctl restart dashboard corpusvic-public

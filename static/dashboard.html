@@ -106,6 +106,14 @@
   .sync[data-state="pending"] { border-left-color: var(--accent); }
   .sync[data-state="clean"] { border-left-color: var(--border); }
   .sync[data-state="blocked"] { border-left-color: var(--flagged); }
+  /* The diagnosis panel on the public-site strip. Full width under the
+     row, because sudo's stderr is a sentence and not a chip. */
+  .public-why { flex-basis: 100%; font-size: 12.5px; }
+  .public-why > summary { color: var(--muted); cursor: pointer; }
+  .public-why > summary:hover { color: var(--accent); }
+  .public-why dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 8px 0 2px; }
+  .public-why dt { color: var(--muted); }
+  .public-why dd { margin: 0; word-break: break-word; }
   .sync-state { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .sync-state strong { font-size: 13.5px; }
   .sync-detail { font-size: 12px; color: var(--muted); }
@@ -315,6 +323,14 @@
             title="Ask systemd how the public site is doing">Refresh</button>
     <button class="btn" id="public-restart" onclick="restartPublicService()"
             disabled>Restart the public site</button>
+    <!-- The evidence, not a sentence asserting a conclusion. The first
+         version of this strip said one thing whatever the cause -- "add
+         this sudoers line" -- which is the one message that cannot help
+         somebody who has already added it. -->
+    <details class="public-why" id="public-why" hidden>
+      <summary id="public-why-summary">Why can't I restart it?</summary>
+      <dl id="public-diagnosis"></dl>
+    </details>
   </section>
 
   <div id="tools-row">
@@ -1048,16 +1064,63 @@ async function loadPublicService() {
     // at you while everything is fine is one you stop reading, and this
     // strip -- unlike the stale-code one above -- is on screen always.
     button.classList.toggle("primary", data.known && !data.active);
-    // The reason lives on the button, because the button is the thing
-    // you are wondering about when it is greyed out.
     button.title = data.can_restart
-      ? `systemctl restart ${data.unit}`
+      ? `Restarts ${data.unit}`
       : (data.restart_blocked || "");
+    renderDiagnosis(data);
   } catch (e) {
     strip.hidden = false;
     strip.dataset.state = "blocked";
     document.getElementById("public-detail").textContent = String(e.message || e);
   }
+}
+
+// Shown only when there is something to explain. A details panel that
+// is always there invites you to open it and find nothing, which teaches
+// you not to open it on the day it matters.
+function renderDiagnosis(data) {
+  const panel = document.getElementById("public-why");
+  const list = document.getElementById("public-diagnosis");
+  const d = data.diagnosis || {};
+  // Shown whenever there is something to say, not only when the button
+  // is dead. A restart that *will* be attempted the hard way -- because
+  // signalling is impossible on this box -- is exactly the case where
+  // knowing why beforehand saves the hour.
+  if (!d.reason && data.can_restart) { panel.hidden = true; return; }
+  // The question depends on which case this is. "Why can't I restart
+  // it?" over a button that works is its own small lie.
+  document.getElementById("public-why-summary").textContent = data.can_restart
+    ? "This restart may not work \u2014 why"
+    : "Why can't I restart it?";
+
+  const rows = [];
+  if (d.reason) rows.push(["What is in the way", d.reason]);
+  if (d.no_new_privileges) {
+    rows.push(["NoNewPrivileges", "Set on this service, so sudo cannot become root here "
+      + "\u2014 no sudoers line can change that. Restarting has to be by signal, which "
+      + "needs both services to run as the same user."]);
+  }
+  rows.push(["This service runs as", `${d.running_as || "?"} (uid ${d.running_uid})`]);
+  if (d.unit_user) rows.push([`${data.unit} runs as`, d.unit_user]);
+  if (d.unit_main_pid) rows.push(["Its main process", String(d.unit_main_pid)]);
+  if (d.unit_restart_policy) rows.push(["Its Restart=", d.unit_restart_policy]);
+  if (d.sudo) {
+    rows.push(["sudo said", d.sudo.detail || `exit ${d.sudo.exit_code}`]);
+    if (d.sudo.command) rows.push(["asked with", d.sudo.command]);
+  }
+
+  // Built as nodes rather than as a string of HTML. Every value here
+  // comes from systemd or from sudo's stderr, and the whole point of
+  // this panel is to show those verbatim -- which is exactly the input
+  // that must not be pasted into innerHTML.
+  list.replaceChildren(...rows.flatMap(([term, value]) => {
+    const dt = document.createElement("dt");
+    dt.textContent = term;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    return [dt, dd];
+  }));
+  panel.hidden = false;
 }
 
 async function restartPublicService() {
