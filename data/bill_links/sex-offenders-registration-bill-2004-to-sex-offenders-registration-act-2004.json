@@ -1,0 +1,83 @@
+{
+  "bill_slug": "sex-offenders-registration-bill-2004",
+  "act_slug": "sex-offenders-registration-act-2004",
+  "links": [
+    {
+      "clause_number": "49",
+      "schedule": null,
+      "bill_node_index": 8,
+      "act_node_index": 814,
+      "act_section_number": "49",
+      "act_schedule": null,
+      "similarity": 0.022,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "54",
+      "schedule": null,
+      "bill_node_index": 10,
+      "act_node_index": 858,
+      "act_section_number": "54",
+      "act_schedule": null,
+      "similarity": 0.009,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "58",
+      "schedule": null,
+      "bill_node_index": 12,
+      "act_node_index": 876,
+      "act_section_number": "58",
+      "act_schedule": null,
+      "similarity": 0.008,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "64",
+      "schedule": null,
+      "bill_node_index": 14,
+      "act_node_index": 969,
+      "act_section_number": "64",
+      "act_schedule": null,
+      "similarity": 0.012,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "70",
+      "schedule": null,
+      "bill_node_index": 16,
+      "act_node_index": 1621,
+      "act_section_number": "70",
+      "act_schedule": null,
+      "similarity": 0.026,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "70",
+      "schedule": null,
+      "bill_node_index": 18,
+      "act_node_index": 1621,
+      "act_section_number": "70",
+      "act_schedule": null,
+      "similarity": 0.026,
+      "status": "flagged",
+      "verified_at": null
+    },
+    {
+      "clause_number": "1973",
+      "schedule": null,
+      "bill_node_index": 564,
+      "act_node_index": null,
+      "act_section_number": null,
+      "act_schedule": null,
+      "similarity": null,
+      "status": "unmatched",
+      "verified_at": null
+    }
+  ]
+}

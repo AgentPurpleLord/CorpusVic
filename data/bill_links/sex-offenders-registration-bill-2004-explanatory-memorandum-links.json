@@ -1,0 +1,632 @@
+{
+  "em_slug": "sex-offenders-registration-bill-2004-explanatory-memorandum",
+  "bill_slug": "sex-offenders-registration-bill-2004",
+  "act_slug": "sex-offenders-registration-act-2004",
+  "links": [
+    {
+      "em_node_index": 1,
+      "clause_number": "1",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 2,
+      "clause_number": "2",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 3,
+      "clause_number": "3",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 4,
+      "clause_number": "4",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 5,
+      "clause_number": "5",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 7,
+      "clause_number": "6",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 16,
+      "clause_number": "7",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 17,
+      "clause_number": "8",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": "sentencing-act",
+        "act_title": "Sentencing Act 1991",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 18,
+      "clause_number": "9",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 19,
+      "clause_number": "10",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 20,
+      "clause_number": "11",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 22,
+      "clause_number": "12",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 23,
+      "clause_number": "13",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 24,
+      "clause_number": "14",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 41,
+      "clause_number": "15",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 42,
+      "clause_number": "16",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 43,
+      "clause_number": "17",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 47,
+      "clause_number": "18",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 54,
+      "clause_number": "19",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 61,
+      "clause_number": "20",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 62,
+      "clause_number": "21",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 65,
+      "clause_number": "22",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 68,
+      "clause_number": "23",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 74,
+      "clause_number": "24",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 78,
+      "clause_number": "25",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 82,
+      "clause_number": "26",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 90,
+      "clause_number": "27",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 91,
+      "clause_number": "28",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 99,
+      "clause_number": "29",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 103,
+      "clause_number": "30",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 108,
+      "clause_number": "31",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 113,
+      "clause_number": "32",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 118,
+      "clause_number": "33",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 122,
+      "clause_number": "34",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 130,
+      "clause_number": "35",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 131,
+      "clause_number": "36",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 132,
+      "clause_number": "37",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 133,
+      "clause_number": "38",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 134,
+      "clause_number": "39",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 135,
+      "clause_number": "40",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 136,
+      "clause_number": "41",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 137,
+      "clause_number": "42",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 138,
+      "clause_number": "43",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 139,
+      "clause_number": "44",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 144,
+      "clause_number": "45",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 145,
+      "clause_number": "46",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 146,
+      "clause_number": "47",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 147,
+      "clause_number": "48",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 148,
+      "clause_number": "49",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "sex-offenders-registration-act-2004",
+        "clause_number": "49",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 149,
+      "clause_number": "50",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 150,
+      "clause_number": "51",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 151,
+      "clause_number": "52",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 152,
+      "clause_number": "53",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 153,
+      "clause_number": "54",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "sex-offenders-registration-act-2004",
+        "clause_number": "54",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 154,
+      "clause_number": "55",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 155,
+      "clause_number": "56",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 159,
+      "clause_number": "57",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 160,
+      "clause_number": "58",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Witness Protection Act 1991",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 165,
+      "clause_number": "59",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 166,
+      "clause_number": "60",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 167,
+      "clause_number": "61",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 169,
+      "clause_number": "62",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 170,
+      "clause_number": "63",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 173,
+      "clause_number": "64",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "sex-offenders-registration-act-2004",
+        "clause_number": "64",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 174,
+      "clause_number": "65",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Witness Protection Act 1991",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 175,
+      "clause_number": "66",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 177,
+      "clause_number": "67",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 178,
+      "clause_number": "68",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 179,
+      "clause_number": "69",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 180,
+      "clause_number": "70",
+      "schedule": null,
+      "target": {
+        "kind": "bill_clause",
+        "act_slug": "sex-offenders-registration-act-2004",
+        "clause_number": "70",
+        "schedule": null
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 182,
+      "clause_number": "71",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Police Regulation Act 1958",
+        "section_ref": "86J"
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 183,
+      "clause_number": "72",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 184,
+      "clause_number": "73",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 185,
+      "clause_number": "74",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Constitution Act 1975",
+        "section_ref": "85",
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 186,
+      "clause_number": "75",
+      "schedule": null,
+      "target": null,
+      "verified_at": null
+    },
+    {
+      "em_node_index": 188,
+      "clause_number": "76",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Ombudsman Act 1973",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 189,
+      "clause_number": "77",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Ombudsman Act 1973",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 190,
+      "clause_number": "78",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Ombudsman Act 1973",
+        "section_ref": null,
+        "in_force": true
+      },
+      "verified_at": null
+    },
+    {
+      "em_node_index": 191,
+      "clause_number": "79",
+      "schedule": null,
+      "target": {
+        "kind": "act_section",
+        "act_slug": null,
+        "act_title": "Part VI of the Crimes Act 1958",
+        "section_ref": null
+      },
+      "verified_at": null
+    }
+  ]
+}
