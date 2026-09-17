@@ -348,17 +348,24 @@ def _partial_notice_html(checked: int, total: int) -> str:
     """The same caveat on the contents page, where it is about the
     document rather than about one provision.
 
-    Only where some of it is unchecked, and phrased as a count, because
-    the state a reader needs to know is not "this Act is under review"
-    but "how much of what you are about to read has been looked at".
-    Every provision is here either way; the ones that have not been
-    checked say so on themselves, which is where it matters."""
+    Leads with the state rather than with the arithmetic -- "only part of
+    this has been reviewed" is what a reader needs first, and a sentence
+    that opens on two numbers makes them do the division before they
+    learn anything. The count stays, one clause in, because the question
+    behind the state is "how much", and "under review" without a figure
+    could mean anything between one provision and all of them.
+
+    What it must not say is that the unreviewed provisions are empty.
+    They are not: every one carries the parser's reading of the official
+    PDF, and has done since those provisions were published rather than
+    withheld. Saying otherwise would send a reader away from a page that
+    has what they came for."""
     return (
         '<div class="disclaimer">'
-        f"<strong>{checked} of {total} provisions in this document have been checked by a human.</strong> "
-        "The rest were read automatically from the official PDF and have not yet been verified "
-        "against it. Every provision is published here; the ones still to be checked say so at "
-        "the top of their own page."
+        "<strong>Only part of this document has been reviewed.</strong> "
+        f"{checked} of {total} provisions have been checked by a human against the "
+        "official PDF. The rest are here in full, read automatically from that PDF, "
+        "and say so at the top of their own page."
         "</div>"
     )
 

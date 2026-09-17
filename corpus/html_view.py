@@ -1070,8 +1070,27 @@ def render_section(
     ]
     if notice:
         out.append(notice)
+    # Every part of the trail is a link, not just the first. "Act index »
+    # Part I » Division 1 » Subdivision (4)" names four places a reader
+    # might want to be, and until now only one of them could be reached
+    # from here.
+    #
+    # The anchors already exist: compute_index_slugs gives every Chapter,
+    # Part, Division and Subdivision a heading slug, and render_index
+    # emits each one as an id on its heading. This is the same
+    # {base_url}/#{fragment} form _build_linkifier_html builds for prose
+    # "Part 3" references, so the two cannot disagree about where a Part
+    # lives.
+    index_slugs = ctx["index_slugs"]
     crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
-    crumb_bits.extend(_esc(_display_title(b["node"]["type"], b["node"].get("number"), b["node"].get("heading"))) for b in breadcrumb)
+    for b in breadcrumb:
+        label = _esc(_display_title(b["node"]["type"], b["node"].get("number"),
+                                    b["node"].get("heading")))
+        slug = index_slugs.get(b["eid"])
+        # No slug, no link. An anchor that scrolls nowhere is worse than
+        # plain text: it looks like the page failed rather than like this
+        # crumb was never a heading in the index.
+        crumb_bits.append(f'<a href="{base_url}/#{_esc(slug)}">{label}</a>' if slug else label)
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
     if show_review_badge:
         out.append(_verification_badge(verification))

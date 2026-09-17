@@ -739,7 +739,8 @@ def test_the_contents_page_tags_nothing(tmp_path, monkeypatch):
 def test_the_contents_page_says_how_much_has_been_checked(tmp_path, monkeypatch):
     _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
 
-    assert "1 of 2 provisions in this document have been checked by a human." in read("index.html")
+    assert "Only part of this document has been reviewed." in read("index.html")
+    assert "1 of 2 provisions have been checked by a human" in read("index.html")
 
 
 def test_a_fully_checked_document_says_nothing_about_checking(tmp_path, monkeypatch):
@@ -759,7 +760,7 @@ def test_a_document_nobody_has_checked_at_all_is_still_published(tmp_path, monke
     assert summary["checked_provisions"] == 0
     assert summary["total_provisions"] == 2
     assert "This Act may be cited as the Test Act." in read("section/s1/index.html")
-    assert "0 of 2 provisions in this document have been checked" in read("index.html")
+    assert "0 of 2 provisions have been checked by a human" in read("index.html")
 
 
 def test_every_page_is_offered_for_preview(tmp_path, monkeypatch):
@@ -911,3 +912,41 @@ def test_crawling_is_asked_for_rather_than_arrived_at(gated, allow_indexing, ind
 
     assert ("Disallow: /" in robots) is not indexable
     assert robots.startswith("User-agent: *"), "whatever the answer, it is stated"
+
+
+# ---------------------------------------------------------------------
+# What the contents page says about how much has been checked
+# ---------------------------------------------------------------------
+
+
+def test_the_partial_notice_leads_with_the_state_not_the_arithmetic():
+    """A sentence that opens on two numbers makes a reader do the
+    division before they learn anything. What they need first is that
+    part of this is unreviewed."""
+    from export_static_site import _partial_notice_html
+    import re
+
+    text = re.sub("<[^>]+>", "", _partial_notice_html(1, 434))
+
+    assert text.startswith("Only part of this document has been reviewed.")
+    assert "1 of 434" in text, "the count stays -- 'under review' alone could mean anything"
+
+
+def test_the_partial_notice_never_says_the_unreviewed_pages_are_empty():
+    """The trap in this wording, and the reason it is a test rather than
+    a docstring.
+
+    Before unchecked provisions were published, the true thing to say was
+    that they were listed but had no text. It stopped being true the day
+    they were published in full, and a notice still saying it would send
+    a reader away from a page that has exactly what they came for --
+    which is worse than the over-long sentence it replaced."""
+    from export_static_site import _partial_notice_html
+    import re
+
+    text = re.sub("<[^>]+>", "", _partial_notice_html(1, 434)).lower()
+
+    assert "in full" in text
+    for false_claim in ("do not contain", "no body text", "still to come",
+                        "not yet published", "empty"):
+        assert false_claim not in text, f"the notice claims {false_claim!r}, which is not true"

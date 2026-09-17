@@ -346,6 +346,20 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    --header-h is what the outline's own sticky offset is measured from, so
    the two never cover each other. */
 :root { --header-h: 41px; }
+/* Anything an in-page link can land on clears that header. Without this
+   the target scrolls to top: 0, which is *underneath* the bar -- click a
+   breadcrumb's "Subdivision (4)" and you arrive at a page where the
+   heading you asked for is the one thing you cannot see. The link works
+   and does not look like it worked, which for navigation is the same as
+   broken.
+
+   Measured rather than guessed: the heading landed at top 0 against a
+   43px header. It applies to every anchor on the site, not just the
+   breadcrumb -- prose "Part 3" links and endnote anchors had it too --
+   and scroll-margin does nothing at all except when an element is a
+   scroll target, so [id] is broad without being risky, and cannot miss
+   an anchor added later. */
+[id] { scroll-margin-top: calc(var(--header-h) + 12px); }
 .siteheader {
   position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; gap: 14px;

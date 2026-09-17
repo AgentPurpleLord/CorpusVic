@@ -157,6 +157,94 @@ def test_a_bill_page_calls_its_own_index_contents_not_act_index():
     assert "Act index" not in body
 
 
+def _nested_act() -> list[dict]:
+    """Part > Division > Subdivision > Section -- the depth the reader
+    breadcrumb is actually about."""
+    return [
+        make_node("part", "I", "Offences"),
+        make_node("division", "1", "Offences against the person"),
+        make_node("subdivision", "4", "Offences against the person"),
+        make_node("section", "16", "Causing serious injury intentionally",
+                  "A person who causes serious injury is guilty of an offence."),
+    ]
+
+
+def test_every_part_of_the_breadcrumb_is_a_link():
+    """"Act index >> Part I >> Division 1 >> Subdivision (4)" names four
+    places a reader might want to be, and only the first of them used to
+    be reachable from the page."""
+    body = render_section(_parsed(_nested_act()), "Test Act", "/browse/a", "s16")
+
+    crumb = re.search(r'<div class="breadcrumb">(.*?)</div>', body, re.S).group(1)
+    links = dict((label, href) for href, label in
+                 re.findall(r'<a href="([^"]+)">(.*?)</a>', crumb))
+
+    assert links["Act index"] == "/browse/a/"
+    assert links["Part I - Offences"] == "/browse/a/#part-i---offences"
+    assert links["Division 1 - Offences against the person"] == \
+        "/browse/a/#division-1---offences-against-the-person"
+    assert links["Subdivision (4) - Offences against the person"] == \
+        "/browse/a/#subdivision-4---offences-against-the-person"
+
+
+def test_a_breadcrumb_link_lands_on_a_heading_that_exists():
+    """The failure this could have: four links that all look right and
+    scroll nowhere. So the anchors are checked against the index page
+    rather than against the slug function that generated both."""
+    parsed = _parsed(_nested_act())
+    body = render_section(parsed, "Test Act", "/browse/a", "s16")
+    index = render_index(parsed, "Test Act", "/browse/a")
+
+    crumb = re.search(r'<div class="breadcrumb">(.*?)</div>', body, re.S).group(1)
+    anchors = {href.split("#", 1)[1]
+               for href, _label in re.findall(r'<a href="([^"]+)">(.*?)</a>', crumb)
+               if "#" in href}
+    ids = set(re.findall(r'<h[1-6] id="([^"]+)"', index))
+
+    assert anchors and anchors <= ids
+
+
+def test_the_breadcrumb_follows_the_path_prefix_it_is_served_under():
+    """render_section serves both the public site and the dashboard's
+    /admin. A link built for the root is a 404 under the prefix, which is
+    exactly how the admin search results broke."""
+    body = render_section(_parsed(_nested_act()), "Test Act", "/admin/browse/a", "s16")
+
+    crumb = re.search(r'<div class="breadcrumb">(.*?)</div>', body, re.S).group(1)
+
+    assert 'href="/admin/browse/a/#part-i---offences"' in crumb
+    assert 'href="/browse/' not in crumb
+
+
+def test_a_crumb_with_no_heading_of_its_own_stays_plain_text():
+    """An anchor that scrolls nowhere is worse than plain text: it reads
+    as the page having failed rather than as this crumb never having been
+    a heading in the index."""
+    from corpus import html_view
+
+    parsed = _parsed(_nested_act())
+    ctx = html_view._build_context(parsed, "Test Act")
+    # As if the Division had never been given an index heading.
+    division = next(eid for eid, slug in ctx["index_slugs"].items()
+                    if slug.startswith("division-1"))
+    real_build = html_view._build_context
+
+    def without_the_division(*a, **k):
+        built = real_build(*a, **k)
+        built["index_slugs"].pop(division, None)
+        return built
+
+    html_view._build_context = without_the_division
+    try:
+        body = render_section(parsed, "Test Act", "/browse/a", "s16")
+    finally:
+        html_view._build_context = real_build
+
+    crumb = re.search(r'<div class="breadcrumb">(.*?)</div>', body, re.S).group(1)
+    assert "Division 1 - Offences against the person" in crumb
+    assert "division-1---offences" not in crumb
+
+
 def test_render_section_renders_the_explained_in_chips():
     crossrefs = [
         {"kind": "bill", "label": "Bill clause 5", "href": "/browse/b/section/c5", "title": "the clause"},
