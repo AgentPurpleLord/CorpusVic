@@ -1487,6 +1487,16 @@ def template_text(name: str) -> str:
 _TEMPLATE_COMMENT_RE = re.compile(r"<!--.*?-->\n?", re.S)
 
 
+def template_html(name: str) -> str:
+    """A template file, ready to put in a page.
+
+    The same live re-read as template_text, with the authoring comments
+    taken out. Those comments exist for whoever is editing the file --
+    which placeholder is which, what must not be removed -- and are of no
+    use to a reader, so they should not be served to one."""
+    return _TEMPLATE_COMMENT_RE.sub("", template_text(name)).strip()
+
+
 def _search_form_html(search_url: "str | None", query: str) -> str:
     """The header's search box, or nothing at all.
 
@@ -1563,7 +1573,7 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
     # to a reader nor anything to make an editor think twice about writing.
     # Done before substitution, so a comment in the page's own body (or in
     # a provision quoting one) is left exactly as it was.
-    page = _TEMPLATE_COMMENT_RE.sub("", template_text("page.html"))
+    page = template_html("page.html")
     for placeholder, value in replacements.items():
         page = page.replace(placeholder, value)
     return page

@@ -39,6 +39,13 @@ whole-document audit run offline. Nothing in there decides anything.
     corpus/embeddings.py  the optional semantic half of it
     export_static_site.py the same site as a static archive
     export_markdown.py, export_akn.py
+    static/site/          the site's template: its shell, stylesheets and fonts
+
+**Changing how the site looks** — fonts, colours, buttons, the header,
+the footer, the wording — is `docs/STYLING.md`. Almost none of it is
+Python, and almost none of it needs a restart: the stylesheets are served
+off disk and the templates are re-read when they change, so it is edit,
+save, reload.
 
 ## Reviewing against the page
 

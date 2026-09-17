@@ -1,12 +1,35 @@
-<footer>
+<!--
+  The footer on every published page of the public site and of the
+  offline archive.
+
+  Edit this file, save, reload the browser. No restart: it is read
+  through html_view.template_html(), which re-reads whenever the file's
+  mtime changes. See docs/STYLING.md.
+
+  This comment is stripped before the page is served, so notes to
+  yourself can go here freely.
+
+  Two things to keep:
+
+    - class="site-footer" on the wrapper. That is what page.css styles;
+      rename it and the footer renders as bare paragraphs.
+    - the legislation.vic.gov.au link, as a link. Somebody reading this
+      footer is being told the text above it is not authoritative, and
+      the least the sentence can do is take them to the text that is.
+
+  Everything else is yours.
+-->
+<footer class="site-footer">
     <div class="footer-column-01">
         <p>Corpus Vic is not a source of official legislative text.</p>
-        <p>For full, authorised versions of legislation you must refer to: legislation.vic.gov.au.</p>
+        <p>For full, authorised versions of legislation you must refer to
+            <a href="https://www.legislation.vic.gov.au" rel="noopener">legislation.vic.gov.au</a>.</p>
         <p>This site does not provide legal advice or commentary. Relying upon the interpreted text is done so at your own risk.</p>
         <p>Corpus Vic is not related to the Victorian Government or any of its agencies.</p>
     </div>
     <div class="footer-column-02">
+        <!-- Once the repository is public, make this a link:
+             <a href="https://github.com/OWNER/REPO/issues" rel="noopener">GitHub</a> -->
         <p>If you would like to report a bug or issue, utilise GitHub.</p>
     </div>
-    
 </footer>

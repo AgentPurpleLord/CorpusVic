@@ -294,12 +294,21 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 4px;
   padding: 12px 16px; margin: 0 0 26px;
 }
+/* The wording is in static/site/footer.html, which is editable and
+   live-reloading; this is only how it sits on the page. Two columns
+   because that is the shape the footer is written in -- the notices,
+   then where to report a problem -- collapsing to one where there is no
+   room for two. */
 .site-footer {
   font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted);
   border-top: 2px solid var(--border); margin-top: 44px; padding-top: 16px;
+  display: grid; grid-template-columns: 2fr 1fr; gap: 10px 32px;
 }
 .site-footer p { margin: 0 0 10px; }
 .site-footer p:last-child { margin-bottom: 0; }
+@media (max-width: 560px) {
+  .site-footer { grid-template-columns: 1fr; }
+}
 
 /* Sits above the provisions, out of the reading column: useful, not
    competing with the text it copies. */

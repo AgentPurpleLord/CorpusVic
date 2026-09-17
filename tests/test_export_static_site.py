@@ -296,19 +296,32 @@ def test_the_landing_page_points_at_the_official_source():
     assert "authorised legislative texts" in page
 
 
+# The footer's wording lives in static/site/footer.html and is meant to
+# be edited without asking anyone. So these check what the footer has to
+# *do* -- say the text is not official, and point at the text that is --
+# rather than one exact sentence. A test that fails on every rewording is
+# a test that gets deleted the first time it is inconvenient, and then
+# the page ships with no notice at all.
+
+
+def _says_it_is_not_official(html: str) -> bool:
+    lowered = html.lower()
+    return "not" in lowered and ("official" in lowered or "authoris" in lowered)
+
+
 def test_the_landing_page_footer_repeats_the_caveat_and_adds_the_rest():
     page = _landing_page_html([_DOC], "")
     footer = page[page.index('<footer class="site-footer">'):]
-    assert "These are not official legislative texts." in footer
-    assert "does not provide legal advice or commentary" in footer
-    assert "at their own risk" in footer
+    assert _says_it_is_not_official(footer)
+    assert "own risk" in footer
+    assert OFFICIAL_SOURCE_URL in footer, "the notice has to reach the authorised text"
 
 
 def test_the_disclaimers_are_there_even_with_nothing_published():
     """An empty site is still making the same claim about itself."""
     page = _landing_page_html([], "")
-    assert "These are not official legislative texts." in page
-    assert "at their own risk" in page
+    assert _says_it_is_not_official(page)
+    assert "own risk" in page
 
 
 def test_every_page_built_through_the_shell_carries_the_footer():
@@ -316,9 +329,30 @@ def test_every_page_built_through_the_shell_carries_the_footer():
     to one provision is -- so the footer belongs on whatever page they
     land on, not just the front door."""
     page = _page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
-    assert "These are not official legislative texts." in page
-    assert "does not provide legal advice or commentary" in page
-    assert "at their own risk" in page
+    assert '<footer class="site-footer">' in page
+    assert _says_it_is_not_official(page)
+    assert "own risk" in page
+
+
+def test_the_footer_is_read_from_the_file_so_it_can_be_edited(tmp_path, monkeypatch):
+    """The point of moving it out of Python. It used to be a constant in
+    export_static_site.py while an editable footer.html sat beside the
+    stylesheets loaded by nothing -- so editing the obvious file did
+    nothing, silently."""
+    from corpus import html_view
+
+    original = (html_view.TEMPLATE_DIR / "footer.html").read_text(encoding="utf-8")
+    try:
+        (html_view.TEMPLATE_DIR / "footer.html").write_text(
+            '<!-- a note to self -->\n'
+            '<footer class="site-footer"><p>Rewritten by hand.</p></footer>',
+            encoding="utf-8")
+        page = _page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
+    finally:
+        (html_view.TEMPLATE_DIR / "footer.html").write_text(original, encoding="utf-8")
+
+    assert "Rewritten by hand." in page
+    assert "a note to self" not in page, "authoring comments are for the editor, not the reader"
 
 
 def test_the_landing_page_carries_the_footer_exactly_once():

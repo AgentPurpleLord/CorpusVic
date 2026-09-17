@@ -404,7 +404,7 @@ def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = F
     somewhere for a search box to submit to. The archive has neither,
     which is why both default to the archive's answer."""
     return html_view.page_shell(
-        title, body + _FOOTER_HTML, base_url=base_url, reader=reader,
+        title, body + _footer_html(), base_url=base_url, reader=reader,
         # With no server to render a hover card on demand, the archive's
         # cards are pre-built (see _write_previews) and the page says so.
         preview_source=preview_source,
@@ -538,13 +538,22 @@ _NOT_OFFICIAL_HTML = (
 # are read by different people: the header catches someone arriving, the
 # footer catches someone who has just finished reading a provision and is
 # deciding what to do with it.
-_FOOTER_HTML = (
-    '<footer class="site-footer">'
-    f"<p>{_NOT_OFFICIAL_HTML}</p>"
-    "<p>This site does not provide legal advice or commentary. Anyone relying on this "
-    "site as the text of legislation does so at their own risk.</p>"
-    "</footer>"
-)
+def _footer_html() -> str:
+    """The site's footer, from static/site/footer.html.
+
+    A file rather than a string in here, because a footer is wording, and
+    wording is the part of this site most often changed by somebody who
+    has no reason to be reading Python. It sat in this module as a
+    constant while an editable footer.html existed beside the stylesheets
+    and was loaded by nothing at all -- so edits to the obvious file did
+    nothing, silently, which is the worst way for a thing to not work.
+
+    Read per call rather than at import: html_view.template_html
+    re-reads on mtime, so an edit shows on the next page load without
+    restarting the server."""
+    from corpus import html_view
+
+    return html_view.template_html("footer.html")
 
 
 # ---------------------------------------------------------------------------
