@@ -383,6 +383,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 0;
 }
 .search-count, .search-empty { font-family: var(--sans); font-size: 14px; color: var(--muted); }
+/* A reader who typed a term of art needs to know the search read it
+   as something else, so this is stated rather than slipped in. */
+.search-corrected { font-family: var(--sans); font-size: 14px; color: var(--flagged); margin: 0 0 4px; }
 .search-results { list-style: none; padding: 0; margin: 18px 0 0; }
 .search-results li { margin: 0 0 22px; }
 .search-results a { font-family: var(--sans); font-size: 15px; font-weight: 600; }

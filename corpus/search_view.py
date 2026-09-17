@@ -87,7 +87,8 @@ def results_html(found: dict, query: str, include_superseded: bool,
     if not found["total"]:
         return f"<p class='search-empty'>Nothing matches <strong>{_esc(query)}</strong>.</p>"
 
-    out = [f"<p class='search-count'><strong>{found['total']}</strong> provision(s) match "
+    out = [corrections_html(found.get("corrections")),
+           f"<p class='search-count'><strong>{found['total']}</strong> provision(s) match "
            f"<strong>{_esc(query)}</strong>.</p>",
            "<ol class='search-results'>"]
     for hit in found["results"]:
@@ -110,6 +111,20 @@ def results_html(found: dict, query: str, include_superseded: bool,
     out.append("</ol>")
     out.append(pager_html(found, query, include_superseded, offset, action))
     return "".join(out)
+
+
+def corrections_html(corrections: "dict | None") -> str:
+    """"Showing results for ...", when a word was read as another.
+
+    Only ever fires on a word the corpus does not contain anywhere, so
+    it never appears for a query that was already precise -- and saying
+    so matters, because a reader who typed a term of art needs to know
+    the search quietly read it as something else."""
+    if not corrections:
+        return ""
+    pairs = ", ".join(f"<strong>{_esc(fixed)}</strong> for {_esc(typed)}"
+                      for typed, fixed in sorted(corrections.items()))
+    return f"<p class='search-corrected'>Showing results for {pairs}.</p>"
 
 
 def pager_html(found: dict, query: str, include_superseded: bool,

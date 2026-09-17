@@ -280,7 +280,11 @@ def test_a_phrase_is_kept_as_a_phrase():
 
 
 def test_punctuation_becomes_words_rather_than_syntax():
-    assert search.parse_query("s 3(1)") == '"s" "3 1"'
+    """`s 3(1)` is a syntax error to FTS5. It becomes three harmless
+    words, OR'd -- a provision matching two of them still appears, which
+    is the whole change: requiring every term is what made a question
+    typed in plain words return nothing at all."""
+    assert search.parse_query("s 3(1)") == '"s" OR "3" OR "1"'
 
 
 # ---------------------------------------------------------------------

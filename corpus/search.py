@@ -96,54 +96,17 @@ def index_path(base_dir) -> Path:
 # Turning what somebody typed into something FTS5 will accept
 # ---------------------------------------------------------------------------
 
-# FTS5's MATCH is a query language, not a string, and legislation is full
-# of characters that are punctuation to it: "s 3(1)" is a syntax error,
-# and so is a single unbalanced quote. Raw input can never reach MATCH.
-_OPERATORS = {"AND", "OR", "NOT", "NEAR"}
-_TOKEN_RE = re.compile(r'"[^"]*"?|\S+')
-_WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
-
-
 def parse_query(raw: str) -> str:
     """What somebody typed, as something FTS5 will accept.
 
-    Kept deliberately small. A phrase in double quotes stays a phrase; a
-    trailing `*` stays a prefix search; `AND`/`OR`/`NOT` in capitals stay
-    operators, because that is how every search box in the world behaves
-    and someone who types them means them. Everything else is reduced to
-    quoted words, which is what makes `s 3(1)` a search for "s" and "3"
-    and "1" rather than a syntax error.
+    Kept as the narrow answer to "will sqlite take this", which is what
+    the rest of the module and its tests want from it. What the query
+    *means* -- its stopwords, its synonyms, whether it is asking for a
+    definition -- is corpus/query.py's business, and this is that
+    module's MATCH expression."""
+    from .query import analyse
 
-    Returns "" for input with nothing searchable in it, which callers
-    treat as "no search" rather than as an error."""
-    parts = []
-    for token in _TOKEN_RE.findall(raw or ""):
-        if token.startswith('"'):
-            inner = token.strip('"').strip()
-            words = _WORD_RE.findall(inner)
-            if words:
-                parts.append('"' + " ".join(words) + '"')
-            continue
-        if token in _OPERATORS:
-            # An operator with nothing before it can only be a syntax
-            # error, so it is dropped rather than passed on.
-            if parts and not parts[-1] in _OPERATORS:
-                parts.append(token)
-            continue
-        if token.startswith("-") and len(token) > 1:
-            words = _WORD_RE.findall(token[1:])
-            if words and parts:
-                parts.append("NOT")
-                parts.append('"' + " ".join(words) + '"')
-            continue
-        prefix = token.endswith("*")
-        words = _WORD_RE.findall(token)
-        if not words:
-            continue
-        parts.append('"' + " ".join(words) + '"' + ("*" if prefix else ""))
-    while parts and parts[-1] in _OPERATORS:
-        parts.pop()
-    return " ".join(parts)
+    return analyse(raw).match
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +364,67 @@ class Index:
         return search(self.connection(), raw, include_superseded, limit, offset)
 
 
+# How far a structural match is worth moving a result. Large, because
+# these are not "this provision mentions your words" but "this provision
+# is the one that defines the thing you asked about" -- and measured: it
+# is what takes "what is family violence" from rank 10 to rank 1.
+_DEFINING_HEADING_BOOST = 25.0
+_DEFINITION_NODE_BOOST = 18.0
+
+# Provisions considered for re-ranking before the page is cut. Beyond
+# this, results are in bm25 order, which is where they were before any of
+# this existed.
+_RERANK_DEPTH = 300
+
+
+def vocabulary(conn: sqlite3.Connection) -> dict:
+    """Every word the corpus contains, and how often -- the only words a
+    typo may be corrected to.
+
+    5,519 of them for this whole corpus, which is why correction needs no
+    index of its own."""
+    try:
+        conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS temp.search_vocab "
+                     "USING fts5vocab(main, node_fts, row)")
+        return {row[0]: row[1] for row in conn.execute("SELECT term, cnt FROM temp.search_vocab")}
+    except sqlite3.Error:
+        # Without it, correction simply does not happen -- which is the
+        # behaviour search had before it existed.
+        return {}
+
+
+def _defines(heading: str, subject: list) -> bool:
+    """Whether this provision is the one that defines what was asked
+    about -- "Meaning of family violence" for "definition of family
+    violence", rather than the eighty provisions that use the phrase."""
+    low = (heading or "").lower()
+    if not subject or not low.startswith(("meaning of", "definition of", "definitions of")):
+        return False
+    return set(subject) <= set(re.findall(r"[^\W_]+", low))
+
+
+def _rerank(rows: list, analysis) -> list:
+    """bm25, adjusted for what the question was asking for.
+
+    Only ever adjusted upward, and only on a structural match: nothing
+    here can push a good lexical hit down the page, it can only lift the
+    provision that answers the question above the ones that mention it."""
+    if not analysis.wants_definition:
+        return rows
+    scored = []
+    for row in rows:
+        score = -row["rank"]
+        heading = row["heading"] or ""
+        if _defines(heading, analysis.subject):
+            score += _DEFINING_HEADING_BOOST
+        elif row["ntype"] == "definition" and analysis.subject and set(analysis.subject) <= set(
+                re.findall(r"[^\W_]+", heading.lower())):
+            score += _DEFINITION_NODE_BOOST
+        scored.append((-score, row))
+    scored.sort(key=lambda pair: pair[0])
+    return [row for _score, row in scored]
+
+
 def address_of(slug: str, page: str, fragment: str = "") -> str:
     """Where a hit lives, as a path with no prefix on it.
 
@@ -433,32 +457,40 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
     called that rather than the eighty that mention it. Current text
     first, always: an older reprint is never the better answer to a
     question somebody asked today."""
-    query = parse_query(raw)
-    if not query:
-        return {"query": raw, "parsed": "", "total": 0, "results": [], "truncated": False}
+    from .query import analyse
+
+    analysis = analyse(raw, vocabulary(conn))
+    if not analysis:
+        return {"query": raw, "parsed": "", "total": 0, "results": [],
+                "truncated": False, "corrections": {}}
 
     where = "node_fts MATCH ?" + ("" if include_superseded else " AND d.is_current = 1")
-    params = [query]
+    params = [analysis.match]
+    # Enough to re-rank the page that is about to be shown, and the ones
+    # just past it, without reading the whole match.
+    depth = max(_RERANK_DEPTH, offset + limit * 3)
     try:
         total = conn.execute(
             f"SELECT count(*) FROM node_fts f JOIN doc d ON d.id = f.doc_id WHERE {where}",
             params).fetchone()[0]
-        rows = conn.execute(
+        candidates = conn.execute(
             f"""SELECT d.slug, d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
-                       f.page, f.fragment, f.label, f.breadcrumb, f.heading,
+                       f.page, f.fragment, f.label, f.breadcrumb, f.heading, f.ntype,
                        snippet(node_fts, 1, '{_MARK_OPEN}', '{_MARK_CLOSE}', '…', 18) AS body_snip,
                        bm25(node_fts, 8.0, 1.0) AS rank
                 FROM node_fts f JOIN doc d ON d.id = f.doc_id
                 WHERE {where}
                 ORDER BY d.is_current DESC, rank
-                LIMIT ? OFFSET ?""",
-            params + [limit, offset]).fetchall()
+                LIMIT ?""",
+            params + [depth]).fetchall()
     except sqlite3.OperationalError as e:
-        # parse_query is meant to make this impossible. If it ever gets
-        # through, an empty result page beats a 500 -- and says what
+        # corpus/query.py is meant to make this impossible. If it ever
+        # gets through, an empty result page beats a 500 -- and says what
         # happened rather than pretending there were no matches.
-        return {"query": raw, "parsed": query, "total": 0, "results": [],
-                "truncated": False, "error": str(e)}
+        return {"query": raw, "parsed": analysis.match, "total": 0, "results": [],
+                "truncated": False, "corrections": analysis.corrections, "error": str(e)}
+
+    rows = _rerank(list(candidates), analysis)[offset:offset + limit]
 
     results = []
     for row in rows:
@@ -487,8 +519,12 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
             "fragment": row["fragment"],
             "href": address_of(row["site_slug"], row["page"], row["fragment"]),
         })
-    return {"query": raw, "parsed": query, "total": total, "results": results,
-            "truncated": total > offset + len(results)}
+    return {"query": raw, "parsed": analysis.match, "total": total, "results": results,
+            "truncated": total > offset + len(results),
+            # {what was typed: what it was read as}, for the page to say
+            # "showing results for". Empty unless a word matched nothing
+            # in the corpus at all.
+            "corrections": analysis.corrections}
 
 
 def main():

@@ -1,0 +1,115 @@
+# The vocabulary gap between the person searching and the person drafting.
+#
+# Legislation says "Meaning of family violence" where a reader types
+# "definition of family violence"; it says "Privilege in respect of
+# self-incrimination" where a lawyer says "privilege against
+# self-incrimination". Neither side is wrong and no amount of ranking
+# bridges it, because the words are simply not the same words.
+#
+# Kept as data rather than code because it is a judgement about legal
+# vocabulary, and the person best placed to correct it is a lawyer
+# reading this file, not somebody reading a regular expression.
+
+# Dropped from a query unless dropping them would leave nothing. These
+# are what made "when can police issue a safety notice" return nothing at
+# all: FTS5 required every term, and "when", "can" and "a" are terms.
+stopwords:
+  - a
+  - an
+  - and
+  - any
+  - are
+  - as
+  - at
+  - be
+  - by
+  - can
+  - do
+  - does
+  - for
+  - from
+  - how
+  - i
+  - if
+  - in
+  - is
+  - it
+  - may
+  - me
+  - must
+  - my
+  - of
+  - on
+  - or
+  - shall
+  - that
+  - the
+  - this
+  - to
+  - was
+  - what
+  - when
+  - where
+  - which
+  - who
+  - whom
+  - why
+  - with
+  - you
+  - your
+
+# Searched alongside the word that was typed, never instead of it. A
+# match on the typed word still ranks above a match on a synonym,
+# because the typed word is also still in the query.
+synonyms:
+  definition: [meaning, means, defined]
+  definitions: [meaning, means]
+  define: [meaning, means, definition]
+  defined: [meaning, means, definition]
+  meaning: [definition, means]
+  # Drafting says "offence"; people say both.
+  crime: [offence]
+  crimes: [offences]
+  offense: [offence]
+  # A reader asks about "police"; the Act often says "police officer" or
+  # names the rank.
+  cop: [police, constable]
+  cops: [police, constable]
+  # Everyday words for the orders this corpus is full of.
+  avo: [intervention, order]
+  restraining: [intervention]
+  # Time limits.
+  deadline: [period, time, within]
+  # Common shorthand.
+  dv: [family, violence]
+
+# A query in one of these shapes is asking where something is *defined*,
+# not merely where it is mentioned. Matched against the whole query, and
+# what follows is treated as the subject being asked about -- so "what is
+# family violence" looks for a provision that defines family violence
+# rather than the eighty that use the phrase.
+definition_intent:
+  - what is
+  - what are
+  - what does
+  - what counts as
+  - what qualifies as
+  - definition of
+  - definitions of
+  - meaning of
+  - defined in
+  - defined as
+  - define
+
+# Words that carry the intent rather than name the subject. Removed when
+# working out what the question is *about*, so that "definition of family
+# violence" is understood to be about family violence.
+intent_words:
+  - definition
+  - definitions
+  - define
+  - defined
+  - meaning
+  - means
+  - counts
+  - qualifies

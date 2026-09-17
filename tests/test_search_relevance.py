@@ -14,11 +14,16 @@ import pytest
 from corpus import relevance, search
 
 # Where the search stood when this file was written: MRR 0.2946, four of
-# fourteen queries at rank 1, and eight finding nothing at all. Every
-# number here is one the suite actually measured, not a target somebody
-# picked.
-FLOOR_MRR = 0.294      # the measured 0.2946, rounded down
-FLOOR_AT_1 = 4
+# fourteen queries at rank 1, and eight finding nothing at all.
+#
+# Then the query layer was rewritten -- stopwords dropped, terms OR'd
+# rather than all required, and the question's shape read against the
+# node types and heading conventions the parser already records. That
+# took it to MRR 0.771, ten of fourteen at rank 1, and one query finding
+# nothing. Every number here is one the suite measured, not a target
+# somebody picked.
+FLOOR_MRR = 0.77
+FLOOR_AT_1 = 10
 
 
 @pytest.fixture(scope="session")
