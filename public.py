@@ -419,25 +419,29 @@ def _unverified_notice(slug: str, section_slug: str) -> "str | None":
 
 
 @app.get("/search", response_class=HTMLResponse)
-def search_page(q: str = "", superseded: str = "", offset: int = 0):
+def search_page(q: str = "", superseded: str = "", bills: str = "", em: str = "",
+                offset: int = 0):
     """A plain page for a plain GET form, so search works with
     JavaScript off -- which for a reference work about the law is worth
     more than a type-ahead.
 
-    The body is built by corpus/search_view.py, which the dashboard's own
-    search page uses too. No base prefix here: this site is served at the
-    domain root, which is the form the index already stores."""
-    body = search_view.page_body(
-        _INDEX, q, search_view.wants_superseded(superseded), offset,
-        action="/search", unavailable=search.SearchUnavailable)
+    The three scope parameters default to off, which is what makes an
+    ordinary search a search of the law as it stands. See
+    corpus/search.py's Scope."""
+    scope = search.Scope.from_params(
+        {"superseded": superseded, "bills": bills, "em": em})
+    body = search_view.page_body(_INDEX, q, scope, offset,
+                                 action="/search", unavailable=search.SearchUnavailable)
     return _page("Search", body, query=q)
 
 
 @app.get("/api/search")
-def search_api(q: str = "", superseded: str = "", offset: int = 0, limit: int = 20):
+def search_api(q: str = "", superseded: str = "", bills: str = "", em: str = "",
+               offset: int = 0, limit: int = 20):
+    scope = search.Scope.from_params(
+        {"superseded": superseded, "bills": bills, "em": em})
     try:
-        return _INDEX.search(q, include_superseded=search_view.wants_superseded(superseded),
-                             limit=min(max(limit, 1), 100), offset=max(offset, 0))
+        return _INDEX.search(q, scope, limit=min(max(limit, 1), 100), offset=max(offset, 0))
     except search.SearchUnavailable as e:
         raise HTTPException(503, str(e)) from e
 

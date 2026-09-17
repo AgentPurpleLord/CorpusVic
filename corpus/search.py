@@ -35,6 +35,7 @@ import html
 import os
 import re
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
 
 from .markdown_export import _iter_body_units, compute_section_slugs
@@ -100,6 +101,85 @@ CREATE TABLE IF NOT EXISTS word (
 
 class SearchUnavailable(RuntimeError):
     """There is no index to read yet."""
+
+
+@dataclass(frozen=True)
+class Scope:
+    """Which documents a search is allowed to look at.
+
+    The corpus holds four kinds of thing and only one of them is the law
+    as it stands. Beside each Act sit the Bill it began as and that
+    Bill's explanatory memorandum, which restate the same provisions in
+    almost the same words -- so a default that searched everything
+    answered "family violence intervention order" with Section 39 *and*
+    Clause 39, twice over, and pushed the Act's own provisions down the
+    page to make room for drafts of themselves.
+
+    So the default is the current Acts, and everything else is something
+    you ask for. Which is also how a reader thinks about it: a Bill is of
+    interest when you want to know what was intended, not when you want
+    to know what the law is.
+
+    Frozen, and one object rather than three booleans threaded through
+    five call sites. Three parameters in a row is how a caller ends up
+    passing `False, True` and meaning the other one."""
+
+    bills: bool = False
+    explanatory: bool = False
+    superseded: bool = False
+
+    # The URL parameter each toggle is carried by, and the kind in the
+    # index each one admits. Kept together so that adding a fourth kind
+    # of document is one line here rather than four edits apart.
+    KINDS = (("bills", "bill"), ("explanatory", "em"))
+
+    @classmethod
+    def from_params(cls, params) -> "Scope":
+        """What the query string asked for.
+
+        `params` is anything with a `.get`, which is what both a
+        Starlette request and a plain dict are."""
+        def on(name):
+            return _is_on(params.get(name))
+
+        return cls(bills=on("bills"), explanatory=on("em"), superseded=on("superseded"))
+
+    def params(self) -> dict:
+        """The toggles that are on, for putting back into a link. Only
+        the ones that are on, so an ordinary search keeps an ordinary
+        URL."""
+        out = {}
+        if self.bills:
+            out["bills"] = "1"
+        if self.explanatory:
+            out["em"] = "1"
+        if self.superseded:
+            out["superseded"] = "1"
+        return out
+
+    def sql(self) -> str:
+        """The clause that narrows a query to this scope.
+
+        Written as exclusions rather than as a list of allowed kinds
+        because a kind nobody has thought of yet should show up in an
+        ordinary search rather than silently vanish from it."""
+        clauses = []
+        if not self.superseded:
+            clauses.append("d.is_current = 1")
+        for attribute, kind in self.KINDS:
+            if not getattr(self, attribute):
+                clauses.append(f"d.kind <> '{kind}'")
+        return "".join(f" AND {clause}" for clause in clauses)
+
+    def __bool__(self) -> bool:
+        """Whether this is anything other than the default."""
+        return bool(self.bills or self.explanatory or self.superseded)
+
+
+def _is_on(value) -> bool:
+    """What a checkbox sends, in the handful of forms a browser or a
+    hand-typed URL might send it as."""
+    return str(value or "").lower() in ("1", "on", "true", "yes")
 
 
 def index_path(base_dir) -> Path:
@@ -439,9 +519,9 @@ class Index:
             self._vectors = embeddings.Vectors(self.base_dir)
         return self._vectors if self._vectors.available() else None
 
-    def search(self, raw: str, include_superseded: bool = False,
+    def search(self, raw: str, scope: "Scope | None" = None,
                limit: int = 20, offset: int = 0) -> dict:
-        return search(self.connection(), raw, include_superseded, limit, offset,
+        return search(self.connection(), raw, scope, limit, offset,
                       vocab=self.vocabulary(), vectors=self.vectors())
 
 
@@ -561,7 +641,7 @@ def _rerank(rows: list, analysis) -> list:
     return [row for _score, row in scored]
 
 
-def _fuse_semantically(conn, ranked: list, vectors, analysis, include_superseded: bool) -> list:
+def _fuse_semantically(conn, ranked: list, vectors, analysis, scope) -> list:
     """Reciprocal rank fusion of the lexical ordering with the sections
     the embeddings think the question is about.
 
@@ -595,7 +675,7 @@ def _fuse_semantically(conn, ranked: list, vectors, analysis, include_superseded
                      '' AS body_snip, 0.0 AS rank
               FROM node_fts f JOIN doc d ON d.id = f.doc_id
               WHERE d.site_slug = ? AND f.page = ?"""
-           + ("" if include_superseded else " AND d.is_current = 1")
+           + scope.sql()
            + " ORDER BY f.rowid LIMIT 1")
     for hit in [h for h in nearest if (h["site_slug"], h["page"]) not in have][:_SEMANTIC_MERGE]:
         # One row for the section, not every provision in it. The
@@ -637,27 +717,30 @@ def _snippet_html(marked: str) -> str:
             .replace(_MARK_CLOSE, "</mark>"))
 
 
-def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
+def search(conn: sqlite3.Connection, raw: str, scope: "Scope | None" = None,
            limit: int = 20, offset: int = 0, vocab: "dict | None" = None,
            vectors=None) -> dict:
     """What matches, best first.
 
     Ranked by bm25 with the heading weighted above the body, because
     somebody searching "committal proceeding" usually wants the provision
-    called that rather than the eighty that mention it. Current text
-    first, always: an older reprint is never the better answer to a
-    question somebody asked today."""
+    called that rather than the eighty that mention it.
+
+    `scope` says which documents are eligible; the default is the current
+    Acts, which is what somebody asking a question about the law means.
+    See Scope."""
     from .query import analyse
 
     # `vocab` is passed by Index, which keeps it for the life of the
     # file; reading it here is the path a caller holding a bare
     # connection takes.
+    scope = Scope() if scope is None else scope
     analysis = analyse(raw, vocabulary(conn) if vocab is None else vocab)
     if not analysis:
         return {"query": raw, "parsed": "", "total": 0, "results": [],
                 "truncated": False, "corrections": {}}
 
-    where = "node_fts MATCH ?" + ("" if include_superseded else " AND d.is_current = 1")
+    where = "node_fts MATCH ?" + scope.sql()
     columns = f"""SELECT d.slug, d.site_slug, d.title, d.as_at, d.is_current, d.version, d.kind,
                          f.page, f.fragment, f.label, f.breadcrumb, f.heading, f.ntype,
                          snippet(node_fts, 1, '{_MARK_OPEN}', '{_MARK_CLOSE}', '…', 18) AS body_snip,
@@ -672,7 +755,17 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
             f"SELECT count(*) FROM node_fts f JOIN doc d ON d.id = f.doc_id WHERE {where}",
             params).fetchone()[0]
         candidates = list(conn.execute(
-            f"{columns} WHERE {where} ORDER BY d.is_current DESC, rank LIMIT ?",
+            # bm25 first, and the current text only as the tie-break.
+            # The other order -- every current provision, then every
+            # superseded one -- was a no-op whenever superseded reprints
+            # were excluded (they are not in the result set to sort) and
+            # actively defeated the switch whenever they were included:
+            # the first superseded hit for "committal proceeding" was at
+            # position 1,613, eighty pages down. Ties are the common case
+            # here, because a reprint that did not change a section has
+            # word for word the same text and scores identically, and
+            # there the current one should lead.
+            f"{columns} WHERE {where} ORDER BY rank, d.is_current DESC LIMIT ?",
             params + [depth]))
         # The provisions headed the way the question was asked, which
         # bm25 can bury a thousand deep. A handful of rows, merged into
@@ -716,7 +809,7 @@ def search(conn: sqlite3.Connection, raw: str, include_superseded: bool = False,
     # meet -- so with no model the path below is one `if` and the results
     # are byte for byte what they were.
     if vectors is not None and not analysis.verbatim:
-        ranked = _fuse_semantically(conn, ranked, vectors, analysis, include_superseded)
+        ranked = _fuse_semantically(conn, ranked, vectors, analysis, scope)
     rows = ranked[offset:offset + limit]
 
     results = []
@@ -762,6 +855,8 @@ def main():
     ap.add_argument("--build", action="store_true", help="rebuild the index")
     ap.add_argument("--base-dir", default=".")
     ap.add_argument("--superseded", action="store_true", help="include superseded reprints")
+    ap.add_argument("--bills", action="store_true", help="include Bills")
+    ap.add_argument("--em", action="store_true", help="include explanatory memoranda")
     args = ap.parse_args()
 
     if args.build or not args.query:
@@ -772,7 +867,9 @@ def main():
         if not args.query:
             return
 
-    found = Index(args.base_dir).search(" ".join(args.query), args.superseded)
+    found = Index(args.base_dir).search(
+        " ".join(args.query),
+        Scope(bills=args.bills, explanatory=args.em, superseded=args.superseded))
     print(f"{found['total']} match(es) for {found['parsed']}")
     for result in found["results"]:
         print(f"\n  {result['title']} -- {result['label']}")

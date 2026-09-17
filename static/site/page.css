@@ -372,15 +372,44 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    the right -- the box already did. */
 .sitesearch ~ .theme-toggle { margin-left: 0; }
 
-.search-page-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 20px; }
+.search-page-form { margin: 0 0 20px; }
+.search-page-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .search-page-form input[type="search"] {
   flex: 1 1 260px; font-family: var(--sans); font-size: 15px; padding: 7px 10px;
   border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--fg);
 }
-.search-page-form label { font-family: var(--sans); font-size: 13px; color: var(--muted); }
 .search-page-form button {
   font-family: var(--sans); font-size: 14px; padding: 7px 16px; cursor: pointer;
   border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 0;
+}
+/* The scope panel. A <details> rather than anything scripted, so that
+   search keeps working with JavaScript off -- see search_view.form_html. */
+.search-scope { margin-top: 10px; font-family: var(--sans); }
+.search-scope > summary {
+  font-size: 13px; color: var(--muted); cursor: pointer; padding: 2px 0;
+  width: max-content;
+}
+.search-scope > summary:hover { color: var(--accent); }
+.search-scope[open] > summary { margin-bottom: 8px; }
+.search-scope-intro { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.search-scope-option {
+  display: flex; gap: 9px; align-items: flex-start; margin: 0 0 10px;
+  font-size: 13.5px; color: var(--fg); cursor: pointer;
+}
+.search-scope-option input { margin-top: 2px; flex: none; }
+.search-scope-option strong { display: block; font-weight: 600; }
+.search-scope-note { display: block; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+/* Secondary: applying the panel is a smaller act than searching, and two
+   equally loud buttons on one form is a question rather than a form. */
+.search-scope-apply {
+  background: transparent; color: var(--accent); border-color: var(--border);
+  padding: 5px 14px; font-size: 13px;
+}
+/* Which kind of document a result came from, where it is not an Act. A
+   Bill and its Act say nearly the same thing in nearly the same words. */
+.search-kind {
+  display: inline-block; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+  border: 1px solid var(--border); padding: 0 5px; margin-right: 6px; color: var(--muted);
 }
 .search-count, .search-empty { font-family: var(--sans); font-size: 14px; color: var(--muted); }
 /* A reader who typed a term of art needs to know the search read it

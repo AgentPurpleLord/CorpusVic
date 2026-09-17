@@ -199,6 +199,14 @@ It searches what is *published*, because that is all the index holds. A
 work you have not put on the site will not be found there, which is worth
 knowing before concluding a provision is missing.
 
+It also searches only the **Acts as they stand** unless the reader asks
+otherwise. Bills, explanatory memoranda and superseded reprints are each
+a checkbox under "Also search…" on the search page, and each carries
+through the pager and into the URL, so a search that included Bills can
+be linked to and comes back including them. If somebody reports results
+they did not expect, that panel is the first place to look -- it opens by
+itself whenever any of the three is on.
+
 ### The semantic half (optional)
 
 Lexical search answers a question asked in the statute's own vocabulary.

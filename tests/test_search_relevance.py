@@ -25,28 +25,36 @@ from corpus import relevance, search
 # That last one was "who can appeal a family violence order", answered by
 # a section headed "Who may appeal" which bm25 put at position 1,109. A
 # second query over headings alone now finds it: MRR 0.785, still ten at
-# rank 1, and thirteen of fourteen in the top five. Every number here is
-# one the suite measured, not a target somebody picked.
+# rank 1, and thirteen of fourteen in the top five.
+#
+# Then the default scope narrowed to the Acts as they stand. Beside each
+# Act sit the Bill it began as and that Bill's explanatory memorandum,
+# restating the same provisions in almost the same words, and they had
+# been in every search -- answering a question twice over with drafts of
+# itself and pushing the Act's own provisions down to make room. Taking
+# them out of the default moved five queries up and none down, and every
+# one of the fourteen is now in the top five. Every number here is one
+# the suite measured, not a target somebody picked.
 #
 # The floors below are per group, and that matters. The eval set was then
 # extended with six queries where the reader's words and the statute's
 # words are simply different -- "breach" for contravention, "call a
 # lawyer" for "communicate with a legal practitioner" -- and search
-# answers none of them: MRR 0.012, nothing at rank 1, and five of the six
+# answers none of them: MRR 0.019, nothing at rank 1, and five of the six
 # finding nothing at all in twenty results.
 #
 # Averaging the two groups would produce a number that falls whenever a
 # known weakness is written down and rises whenever it is deleted, which
 # is the opposite of what a scoreboard is for. So the group that works
 # has a ratchet and the group that does not has a record.
-FLOOR_MRR = 0.785
+FLOOR_MRR = 0.823
 FLOOR_AT_1 = 10
-FLOOR_AT_5 = 13
+FLOOR_AT_5 = 14
 
 # What the vocabulary gap scores today. Not a target and not a ratchet
 # -- it is here so that anything which moves it, in either direction,
 # shows up as a failing test that has to be looked at and re-stated.
-GAP_MRR_TODAY = 0.012
+GAP_MRR_TODAY = 0.019
 
 
 @pytest.fixture(scope="session")

@@ -166,11 +166,39 @@ def test_superseded_reprints_can_be_asked_for(corpus):
     tmp_path, source = corpus
     index = _build(tmp_path, source)
 
-    both = index.search("hearsay", include_superseded=True)
+    both = index.search("hearsay", search.Scope(superseded=True))
     assert both["total"] == 2
     # Current text first, always: an older reprint is never the better
     # answer to a question somebody asked today.
     assert both["results"][0]["is_current"] is True
+
+
+def test_a_superseded_reprint_is_reachable_and_not_eighty_pages_down(corpus):
+    """The switch has to deliver what it promises. Ordering every current
+    provision ahead of every superseded one was a no-op when superseded
+    reprints were excluded -- they are not in the result set to sort --
+    and defeated the switch whenever they were included: on the real
+    corpus the first superseded hit for "committal proceeding" was at
+    position 1,613. So bm25 leads and the current text is the
+    tie-break."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    found = index.search("hearsay", search.Scope(superseded=True))
+
+    assert not all(hit["is_current"] for hit in found["results"][:5])
+
+
+def test_the_current_text_still_leads_where_nothing_distinguishes_them(corpus):
+    """A reprint that did not change a section has word for word the
+    same text and scores identically. There the current one goes
+    first."""
+    tmp_path, source = corpus
+    index = _build(tmp_path, source)
+
+    found = index.search("hearsay", search.Scope(superseded=True))
+
+    assert found["results"][0]["is_current"] is True
 
 
 def test_the_newest_reprint_holds_the_works_address(corpus):
@@ -179,6 +207,92 @@ def test_the_newest_reprint_holds_the_works_address(corpus):
 
     hit = index.search("hearsay")["results"][0]
     assert hit["href"].startswith("/browse/evidence-act/")
+
+
+@pytest.fixture
+def with_a_bill(tmp_path):
+    """An Act, the Bill it began as, and that Bill's explanatory
+    memorandum -- all saying nearly the same thing in nearly the same
+    words, which is the situation the scope exists for."""
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    source = FakeSource({
+        "fv-act": ("Family Violence Protection Act 2008", "act", "1 January 2026", _act(
+            make_node("section", "123", "Contravention of family violence intervention order",
+                      "A person must not contravene a family violence intervention order."),
+        )),
+        "fv-bill": ("Family Violence Protection Bill 2008", "bill", None, _act(
+            make_node("section", "123", "Contravention of family violence intervention order",
+                      "A person must not contravene a family violence intervention order."),
+        )),
+        "fv-bill-em": ("Family Violence Protection Bill 2008 -- Explanatory Memorandum",
+                       "em", None, _act(
+                           make_node("section", "123", "Clause 123",
+                                     "Clause 123 makes it an offence to contravene a family "
+                                     "violence intervention order."),
+                       )),
+    })
+    for slug in source.documents:
+        (tmp_path / "data" / "parsed" / f"{slug}.json").write_text("{}", encoding="utf-8")
+        db.set_publication(slug, True, tmp_path)
+    return tmp_path, source
+
+
+def test_a_search_is_of_the_law_as_it_stands_by_default(with_a_bill):
+    """A Bill and its explanatory memorandum restate the Act in almost
+    the same words, so a default that searched everything answered every
+    question two or three times over with drafts of itself."""
+    tmp_path, source = with_a_bill
+    index = _build(tmp_path, source)
+
+    found = index.search("contravene an intervention order")
+
+    assert {hit["kind"] for hit in found["results"]} == {"act"}
+
+
+def test_bills_are_there_when_they_are_asked_for(with_a_bill):
+    tmp_path, source = with_a_bill
+    index = _build(tmp_path, source)
+
+    found = index.search("contravene an intervention order", search.Scope(bills=True))
+
+    assert "bill" in {hit["kind"] for hit in found["results"]}
+    assert "em" not in {hit["kind"] for hit in found["results"]}
+
+
+def test_each_switch_admits_only_its_own_kind(with_a_bill):
+    """Three switches, not one "everything else" -- somebody who wants
+    what Parliament was told the Bill would do does not thereby want
+    every superseded reprint as well."""
+    tmp_path, source = with_a_bill
+    index = _build(tmp_path, source)
+
+    only_em = index.search("intervention order", search.Scope(explanatory=True))
+
+    assert {hit["kind"] for hit in only_em["results"]} == {"act", "em"}
+
+
+def test_the_count_is_of_what_the_scope_allows(with_a_bill):
+    """The total under the box has to be the total of what is shown. A
+    count that includes documents the reader filtered out reads as a
+    pager that has lost some results."""
+    tmp_path, source = with_a_bill
+    index = _build(tmp_path, source)
+
+    narrow = index.search("intervention order")
+    wide = index.search("intervention order", search.Scope(bills=True, explanatory=True))
+
+    assert narrow["total"] < wide["total"]
+    assert narrow["total"] == len(narrow["results"])
+
+
+def test_a_kind_nobody_has_thought_of_yet_is_in_an_ordinary_search():
+    """The scope is written as exclusions rather than as a list of
+    allowed kinds, so a fourth kind of document added later shows up in
+    an ordinary search rather than silently vanishing from one."""
+    clause = search.Scope().sql()
+
+    assert "d.kind <> 'bill'" in clause and "d.kind <> 'em'" in clause
+    assert "d.kind =" not in clause
 
 
 # ---------------------------------------------------------------------

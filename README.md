@@ -77,10 +77,22 @@ every published work, built from the merged text a reader actually sees
 rather than from the raw parse. It rebuilds from scratch in a few seconds
 -- which is why there is no incremental update path to get wrong -- and
 lives in a gitignored `data/search.db`, because a committed index is a
-third copy of something two committed files already say. It covers the
-current version of each work by default; superseded reprints are a
-checkbox, since five reprints of one Act would otherwise answer nearly
-every query five times over.
+third copy of something two committed files already say. 
+
+**What a search is of, by default, is the law as it stands** -- the Acts,
+as they are now. The corpus also holds the Bill each Act began as, that
+Bill's explanatory memorandum, and every superseded reprint, and each is
+a checkbox under "Also search…" on the search page. Searching all of it
+by default was the old behaviour and it was worse in a way that is
+measurable rather than arguable: a Bill restates its Act in almost the
+same words, so every question was answered twice over with drafts of
+itself, and narrowing the default moved five of the twenty eval queries
+up the page and none down (MRR 0.785 to 0.824).
+
+The default is not a filter somebody switched on. It is the corpus a
+question about the law is asked of; a Bill is what you want when you are
+asking what was *intended*, which is a different question and worth
+having to ask for.
 
 What somebody types is read by `corpus/query.py` before it reaches FTS5,
 and that is where the difference between a search box and a useful one

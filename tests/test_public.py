@@ -264,13 +264,36 @@ def test_a_search_result_links_to_the_provision(unlocked, monkeypatch):
     assert "/browse/criminal-procedure-act/section/s242#s242-1" in body
 
 
-def test_the_superseded_switch_is_carried_through(unlocked, monkeypatch):
+def test_the_scope_switches_are_carried_through(unlocked, monkeypatch):
     stub = _StubIndex()
     monkeypatch.setattr(public, "_INDEX", stub)
 
-    unlocked.get("/search?q=indictable&superseded=1")
+    unlocked.get("/search?q=indictable&superseded=1&bills=1")
 
-    assert stub.asked[-1]["include_superseded"] is True
+    scope = stub.asked[-1]["scope"]
+    assert (scope.superseded, scope.bills, scope.explanatory) == (True, True, False)
+
+
+def test_an_ordinary_search_is_of_the_law_as_it_stands(unlocked, monkeypatch):
+    """The default, which is the whole point of having the switches: a
+    reader asking what the law is should not be answered with a draft of
+    it from 2008."""
+    stub = _StubIndex()
+    monkeypatch.setattr(public, "_INDEX", stub)
+
+    unlocked.get("/search?q=indictable")
+
+    scope = stub.asked[-1]["scope"]
+    assert (scope.superseded, scope.bills, scope.explanatory) == (False, False, False)
+
+
+def test_the_api_takes_the_same_switches(unlocked, monkeypatch):
+    stub = _StubIndex()
+    monkeypatch.setattr(public, "_INDEX", stub)
+
+    unlocked.get("/api/search?q=indictable&em=1")
+
+    assert stub.asked[-1]["scope"].explanatory is True
 
 
 def test_what_somebody_typed_is_escaped_back_into_the_box(unlocked, monkeypatch):
@@ -287,8 +310,8 @@ class _StubIndex:
     def __init__(self):
         self.asked = []
 
-    def search(self, raw, include_superseded=False, limit=20, offset=0):
-        self.asked.append({"raw": raw, "include_superseded": include_superseded})
+    def search(self, raw, scope=None, limit=20, offset=0):
+        self.asked.append({"raw": raw, "scope": scope})
         return {
             "query": raw, "parsed": raw, "total": 1, "truncated": False,
             "results": [{
