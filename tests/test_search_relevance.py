@@ -54,7 +54,20 @@ FLOOR_AT_5 = 14
 # What the vocabulary gap scores today. Not a target and not a ratchet
 # -- it is here so that anything which moves it, in either direction,
 # shows up as a failing test that has to be looked at and re-stated.
-GAP_MRR_TODAY = 0.019
+#
+# Re-stated once, from 0.019, when the Crimes Act was re-parsed: "can
+# police take my fingerprints" went from nowhere to rank 16. The corpus
+# moved, not the search. That is the honest reason and it is written down
+# rather than absorbed -- a number nobody can account for is a number
+# that stops meaning anything.
+#
+# It was briefly 0.029 against a *broken* corpus too, while two thirds of
+# the Crimes Act was missing (see finished_units in review.py). Coming
+# out at the same figure either way is a coincidence of these six
+# queries, not a sign the corpus does not matter: the test that caught
+# the breakage was test_the_eval_set_is_about_documents_that_exist, which
+# noticed s322O had disappeared.
+GAP_MRR_TODAY = 0.029
 
 
 @pytest.fixture(scope="session")

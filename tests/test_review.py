@@ -23,6 +23,7 @@ from review import (
     commit_unit,
     compute_unit_labels,
     compute_unit_tree_info,
+    finished_units,
     group_into_units,
     order_and_units,
     reflow_with_map,
@@ -323,6 +324,100 @@ def test_build_current_nodes_uses_the_edited_version_of_a_committed_unit(tmp_pat
 
     assert current[0]["heading"] == "Murder (as edited)"
     assert current[1]["heading"] == "Manslaughter"  # not yet reached -- shown as originally parsed
+
+
+def test_reviewing_one_section_in_the_middle_keeps_the_rest_of_the_act(tmp_path, monkeypatch):
+    """The bug this replaces, at the size it actually happened.
+
+    One section of the Crimes Act was reviewed -- s464C, which sits at
+    unit 547 of 906. Because the finished units were taken to be
+    everything below the highest marker, 4,767 provisions were inferred
+    to have been merged away and vanished from the browse view, the
+    search index, both exports and the public site. The Act's index began
+    at s464C; Murder was gone.
+
+    A reviewer opening one section in the middle is the ordinary case,
+    not an odd one, and it must cost nothing."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [make_node("section", str(i), f"Section {i}") for i in range(1, 11)]
+    _write_parsed("crimes-act", nodes)
+    # Unit 7 committed, nothing before it: exactly one finished unit.
+    _write_verified("crimes-act", [
+        dict(nodes[6], verified_at="2024-01-01T00:00:00+00:00",
+             _source_node_index=6, _unit_end_index=6),
+    ])
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert len(current) == 10, "no provision may disappear because a later one was reviewed"
+    assert [n["heading"] for n in current] == [f"Section {i}" for i in range(1, 11)]
+
+
+def test_a_merge_inside_a_committed_unit_is_still_honoured(tmp_path, monkeypatch):
+    """The inference is narrowed, not removed. Within a unit the reviewer
+    did commit, a node with no verified row was still folded into its
+    neighbour and must still go."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [
+        make_node("section", "1", "Kept"),
+        make_node("section", "2", "Target"),
+        make_node("subsection", "1", None, "folded into the target"),
+    ]
+    _write_parsed("crimes-act", nodes)
+    # Unit 1 committed with only its target: index 2 was merged into it.
+    _write_verified("crimes-act", [
+        dict(nodes[1], verified_at="2024-01-01T00:00:00+00:00",
+             _source_node_index=1, _unit_end_index=1),
+    ])
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n["heading"] for n in current] == ["Kept", "Target"]
+    assert all("folded into the target" not in (n.get("text") or "") for n in current)
+
+
+def test_an_unreviewed_unit_before_a_reviewed_one_is_left_alone(tmp_path, monkeypatch):
+    """The distinction the whole change rests on: unit 0 has no marker,
+    so nothing is known about it and nothing may be inferred -- even
+    though unit 2 above it is finished."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [
+        make_node("section", "1", "Untouched"),
+        make_node("subsection", "1", None, "still here"),
+        make_node("section", "2", "Reviewed"),
+    ]
+    _write_parsed("crimes-act", nodes)
+    _write_verified("crimes-act", [
+        dict(nodes[2], verified_at="2024-01-01T00:00:00+00:00",
+             _source_node_index=2, _unit_end_index=1),
+    ])
+
+    current, _notes, _hierarchy = build_current_nodes("crimes-act")
+
+    assert [n.get("heading") for n in current] == ["Untouched", None, "Reviewed"]
+
+
+def test_finished_units_is_the_set_of_markers_not_a_range():
+    """_resume_point answers "how far did I get"; this answers "what did
+    I finish". They were the same function, and that is what deleted the
+    Act."""
+    units = [[0], [1], [2], [3], [4]]
+    verified = [{"_source_node_index": 3, "_unit_end_index": 3}]
+
+    assert set(finished_units(units, verified, markers_are_complete=True)) == {3}
+    # The other question, unchanged: resume *after* the furthest marker.
+    assert _resume_point(units, verified, markers_are_complete=True) == 4
+
+
+def test_rows_from_before_markers_existed_keep_their_contiguous_reading():
+    """Marker-free rows predate the marker and were always committed
+    whole and in order, so there the contiguous range really is the set
+    of finished units. Narrowing it would resurrect nodes those reviewers
+    genuinely merged away."""
+    units = [[0], [1], [2], [3]]
+    verified = [{"_source_node_index": 0}, {"_source_node_index": 1}]
+
+    assert list(finished_units(units, verified)) == [0, 1]
 
 
 def test_build_current_nodes_drops_a_node_that_was_merged_away(tmp_path, monkeypatch):

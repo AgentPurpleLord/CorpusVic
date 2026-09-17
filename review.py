@@ -372,7 +372,7 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     # positions can't be vouched for, infer nothing and show every node.
     merged_away: set[int] = set()
     if positions_are_trustworthy(act, fingerprint):
-        for u in range(_resume_point(units, list(verified), markers_are_complete=True)):
+        for u in finished_units(units, list(verified), markers_are_complete=True):
             for i in units[u]:
                 if i not in verified_by_source_index and not _was_inserted(edits, i):
                     merged_away.add(i)
@@ -406,7 +406,7 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
 
     merged_away: set[int] = set()
     if positions_are_trustworthy(act, fingerprint):
-        for u in range(_resume_point(units, list(verified), markers_are_complete=True)):
+        for u in finished_units(units, list(verified), markers_are_complete=True):
             for i in units[u]:
                 if i not in verified_by_source_index and not _was_inserted(edits, i):
                     merged_away.add(i)
@@ -573,6 +573,42 @@ def validate_custom_type_name(name: str, existing: list[str]) -> str:
     if cleaned in existing:
         raise ValueError(f"{cleaned!r} already exists.")
     return cleaned
+
+
+def finished_units(units: list[list[int]], verified: list[dict],
+                   markers_are_complete: bool = False) -> "set[int] | range":
+    """Which units the reviewer actually committed.
+
+    Not the same question as _resume_point, which answers *how far they
+    got* -- and using that one for this one is what deleted two thirds of
+    the Crimes Act. A reviewer who opens a single section in the middle
+    of an Act has a resume point of 548 and exactly one finished unit;
+    treating units 0..547 as finished inferred 4,767 provisions to have
+    been merged away and dropped them from the browse view, the search
+    index and both exports.
+
+    commit_unit tags the last node it appends with that unit's own index,
+    so a marker *is* a record that the unit was committed. Reading the
+    set of markers asks what was done; reading the highest one and
+    counting down from it assumes review runs front to back, which it
+    does not -- least of all now the review GUI makes opening one section
+    the natural thing to do.
+
+    Without markers at all, the caller is looking at rows written before
+    markers existed. A marker-free run always committed whole units in
+    order, so there the contiguous range _resume_point computes really is
+    the set of finished units, and it is kept.
+
+    One case this gives up: a unit whose every node was merged away
+    appends nothing, so it carries no marker and is no longer inferred.
+    Its text comes back as its own provision as well as inside the one it
+    was merged into. That is duplicated text rather than missing text,
+    it is visible rather than silent, and it is rare -- all three of
+    which the alternative is not."""
+    marked = {n["_unit_end_index"] for n in verified if "_unit_end_index" in n}
+    if marked:
+        return marked
+    return range(_resume_point(units, verified, markers_are_complete))
 
 
 def _resume_point(units: list[list[int]], verified: list[dict], markers_are_complete: bool = False) -> int:
@@ -2750,7 +2786,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     # positions_are_trustworthy, and build_current_nodes for the same
     # guard on the read-only path.
     if _positions_trusted:
-        for u in range(_startup_resume_unit):
+        for u in finished_units(_units, _verified, markers_are_complete=_positions_trusted):
             for i in _units[u]:
                 if i not in _verified_by_source_index and not _was_inserted(_structure_edits, i):
                     _merged_away.add(i)
