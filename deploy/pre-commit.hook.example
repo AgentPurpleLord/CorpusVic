@@ -1,5 +1,55 @@
 #!/bin/sh
-# Keeps a review commit whole.
+# Two jobs, both of them about what a commit from this checkout carries.
+#
+# Git hooks don't travel with a clone, which is why this lives here as a
+# tracked template instead of directly at .git/hooks/pre-commit -- install
+# it once per environment:
+#
+#   cp deploy/pre-commit.hook.example .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# See deploy/README.md's "Working from a remote dev environment" section.
+
+# ---------------------------------------------------------------------
+# 1. Never commit a private key.
+#
+# On the server the `dashboard` service account's home directory IS this
+# checkout, so the GitHub deploy key sits at .ssh/id_ed25519 -- inside
+# the working tree. .gitignore covers it, and this covers the times the
+# ignore rule does not: `git add -f`, a rule somebody rewrote, a key
+# saved somewhere new. It has happened once; GitHub's push protection
+# caught it, which is a backstop rather than a plan.
+#
+# Checked by content, not by filename, because the filename is the part
+# that varies.
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+for path in $staged; do
+    case "$path" in
+        .ssh/*|*/.ssh/*)
+            echo "pre-commit: refusing to commit $path" >&2
+            echo "  Anything under .ssh/ belongs to the machine, not the repository." >&2
+            exit 1
+            ;;
+    esac
+    # -I so a binary file is never matched on a coincidence; the index
+    # copy, not the working tree, because that is what would be committed.
+    #
+    # [A-Z ]* rather than .* on purpose. A real banner names the format in
+    # capitals -- OPENSSH, RSA, EC, ENCRYPTED, or nothing at all -- and
+    # the narrower pattern has the useful property that THIS LINE does not
+    # match itself. With .* the hook refused the commit that introduced
+    # it, which is the way a guard gets uninstalled.
+    if git show ":$path" 2>/dev/null | grep -qI -- "-----BEGIN [A-Z ]*PRIVATE KEY-----"; then
+        echo "pre-commit: refusing to commit $path -- it contains a private key." >&2
+        echo "  If this is a test fixture and the key is not real, commit with" >&2
+        echo "  --no-verify. If it is real, it does not belong in git at all:" >&2
+        echo "  unstage it, and rotate the key if it was ever pushed." >&2
+        exit 1
+    fi
+done
+
+# ---------------------------------------------------------------------
+# 2. Keep a review commit whole.
 #
 # The review work lives in data/legislation.db while you work and travels
 # as text in data/review/**.jsonl. Two things have to happen between
@@ -14,18 +64,9 @@
 # corpus/sync.py does both before every commit it makes, which covers the
 # dashboard's buttons. This covers committing from a terminal.
 #
-# Git hooks don't travel with a clone, which is why this lives here as a
-# tracked template instead of directly at .git/hooks/pre-commit -- install
-# it once per environment:
-#
-#   cp deploy/pre-commit.hook.example .git/hooks/pre-commit
-#   chmod +x .git/hooks/pre-commit
-#
-# See deploy/README.md's "Working from a remote dev environment" section.
-#
 # Only when review files are already part of the commit, so that a code
 # commit never quietly sweeps up a day's reviewing.
-if git diff --cached --name-only | grep -q '^data/review/'; then
+if echo "$staged" | grep -q '^data/review/'; then
     python3 checkpoint_db.py || exit 1
     python3 -m corpus.review_sync export || exit 1
     git add data/review
