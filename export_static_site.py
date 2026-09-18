@@ -2,7 +2,7 @@
 Builds a static, public copy of the "browse" reading view (the same one
 dashboard.py serves live at /browse/*) as a tree of plain HTML files,
 suitable for GitHub Pages. Meant to be run by .github/workflows/pages.yml
-on every push that changes data/parsed/ or data/legislation.db, so
+on every push that changes data/parsed/ or data/review/, so
 updating an Act's review state through the dashboard and committing it is
 the whole publishing step -- no separate export command to remember.
 

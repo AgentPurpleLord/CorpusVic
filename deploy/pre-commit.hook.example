@@ -1,8 +1,20 @@
 #!/bin/sh
-# Auto-checkpoints data/legislation.db's WAL into the main file whenever
-# it's part of this commit, so the committed snapshot is always complete
-# -- see checkpoint_db.py's own docstring for why this matters. Git
-# hooks don't travel with a clone, which is why this lives here as a
+# Keeps a review commit whole.
+#
+# The review work lives in data/legislation.db while you work and travels
+# as text in data/review/**.jsonl. Two things have to happen between
+# those, and both are easy to forget by hand:
+#
+#   - the database is opened in WAL mode, so a recent write can still be
+#     sitting in data/legislation.db-wal rather than in the file an
+#     export reads (see checkpoint_db.py);
+#   - the export itself, or the commit carries whatever data/review/ held
+#     the last time anything ran one.
+#
+# corpus/sync.py does both before every commit it makes, which covers the
+# dashboard's buttons. This covers committing from a terminal.
+#
+# Git hooks don't travel with a clone, which is why this lives here as a
 # tracked template instead of directly at .git/hooks/pre-commit -- install
 # it once per environment:
 #
@@ -10,7 +22,11 @@
 #   chmod +x .git/hooks/pre-commit
 #
 # See deploy/README.md's "Working from a remote dev environment" section.
-if git diff --cached --name-only | grep -q '^data/legislation\.db$'; then
+#
+# Only when review files are already part of the commit, so that a code
+# commit never quietly sweeps up a day's reviewing.
+if git diff --cached --name-only | grep -q '^data/review/'; then
     python3 checkpoint_db.py || exit 1
-    git add data/legislation.db
+    python3 -m corpus.review_sync export || exit 1
+    git add data/review
 fi

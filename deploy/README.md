@@ -27,6 +27,17 @@ cd /opt/corpusvic
 
 (Or `git pull` there if it's already cloned.)
 
+The clone brings the review work as text and no database, because the
+database is derived from it. Build one:
+
+```bash
+sudo -u dashboard python3 -m corpus.review_sync import
+```
+
+Do this once, here, before anything else opens the corpus. Everything
+after this point assumes it. (It is safe to re-run: it rebuilds from the
+text and keeps a copy of whatever it replaced in `_backups/`.)
+
 ## 2. Python environment
 
 ```bash
@@ -161,9 +172,9 @@ out why before going further.
 Nothing is, until you say so. Each card on the dashboard carries a badge
 reading **On the public site** or **Not published**; click it to change
 it. The decision is per *work*, so an Act and all its reprints go
-together, and it lives in `data/legislation.db` -- so it travels to
-GitHub with your review work on the next push rather than living only on
-this machine.
+together, and it lives in the database beside your review work -- so it
+travels to GitHub as `data/review/publication.jsonl` on the next push
+rather than living only on this machine.
 
 The first time the dashboard starts after this feature lands it records
 every document already parsed as published, so nothing that was on the
@@ -300,8 +311,9 @@ a repository secret, or it publishes openly whatever it builds.
 
 ## 8. Let the server push your review work back to GitHub
 
-Reviewing on the server writes to `data/legislation.db` there, and that
-database is the review work. Until it is pushed it exists on one disk.
+Reviewing on the server writes to `data/legislation.db` there, and what
+is pushed is that work written out as text under `data/review/`. Until
+it is pushed it exists on one disk.
 
 Give the server its own deploy key with write access. Generate it **on
 the server**: the private half should never exist anywhere else, which
@@ -386,22 +398,51 @@ a broken page.
 | --- | --- | --- |
 | **Refresh** | Re-reads this checkout and fetches the remote | -- |
 | **Push to GitHub** | Commits what changed under `data/` and pushes it | When the remote is ahead. It never forces |
-| **Pull** | Fast-forwards onto what the remote has | When there are uncommitted changes, or the two have diverged |
+| **Pull** | Merges what the remote has, then rebuilds the database from it | When there are uncommitted changes, or both sides reviewed the same provision |
 | **Save locally** | Commits without pushing | -- |
 | **Discard...** | Throws away uncommitted changes under `data/` | Unless you type the word out |
 
 Only `data/` is ever staged, so an edit left in the working tree on the
 server stays there. The database's write-ahead log is checkpointed
-first, every time, so what is committed is the whole state rather than
-whatever had been folded into the file so far.
+first, every time, and then the database is written out to
+`data/review/` -- before the page asks git what has changed, not only
+before a commit. That order is load-bearing: the database is gitignored,
+so a day's reviewing produces no pending change at all until an export
+runs, and a dashboard reporting "Everything is pushed" over unpushed work
+would be a quieter failure than any of the ones this replaced.
 
-**Pull is fast-forward only, and that is not a limitation to work
-around.** `data/legislation.db` is synced as one whole file: git cannot
-merge two versions of it, and the merge it would otherwise attempt ends
-in a conflict on a binary file that nobody can resolve. So a checkout
-that has diverged -- commits here that GitHub doesn't have, and commits
-there this server doesn't -- stops and says so. One side has to be
-chosen, deliberately, on a machine where you can see what each contains.
+If the dashboard says **"The database hasn't been built from the review
+files yet"**, that is a clone with the text on disk and nothing loaded
+from it. Run `python3 -m corpus.review_sync import`. Nothing exports in
+that state, deliberately: an export from an empty database would write
+nothing and then delete every file it did not write.
+
+**Pull merges, and a diverged checkout is ordinary.** What travels is
+`data/review/<act>/<table>.jsonl` -- the review work as text, one line
+per provision -- so two machines that reviewed different provisions merge
+with no help at all. Reviewing on the server while a code change landed
+elsewhere used to be enough to jam the sync; it is now a pull.
+
+Two lines apart merges; immediately adjacent lines are one hunk to git
+and do conflict, as does the same provision reviewed on both machines.
+In that case the pull **undoes the merge** and names the files, rather
+than leaving conflict markers in the tree -- markers would be exported
+over by the next status poll and the local side would win with nobody
+told. Resolve it in a terminal:
+
+```bash
+git pull                      # the conflict, with both sides' JSON
+# edit the marked lines, keeping the right one
+git commit
+python3 -m corpus.review_sync import
+```
+
+**The pull does not end when git does.** `data/legislation.db` is
+gitignored and derived: rows that arrived as text are nothing until they
+are loaded, so a pull that brought review work rebuilds the database from
+it, and says how many rows. Same for **Discard**, which restores the text
+and then rebuilds from what it restored -- otherwise the next status poll
+would export the discarded work straight back over the files.
 
 **Save locally** exists for the case Push cannot help with: a remote
 that isn't answering. The work still lands in a commit that survives a
@@ -409,8 +450,8 @@ restart, and the push can follow whenever the network does.
 
 **Discard** is the only button here that destroys anything, so it is the
 only one that asks for more than a click, and the only one that keeps a
-copy: the database is written to `_backups/legislation-<timestamp>.db`
-before anything is restored. Untracked files under `data/` -- a PDF just
+copy: the database as it stands is written to
+`_backups/legislation-<timestamp>.db` before anything is restored. Untracked files under `data/` -- a PDF just
 uploaded, a parse not yet committed -- are left alone, because they have
 no committed version to go back to.
 
@@ -922,63 +963,83 @@ respectively, neither of which this restart touches.
 ## Backing up your review progress
 
 All the review work a human has actually done -- accepted/flagged
-pieces, link annotations, the correction log -- lives in one file:
-`data/legislation.db` (SQLite), alongside `data/parsed/<act>.json`
-(the raw parse those rows are keyed against). Both are committed to git
-(see the next section) -- that's now the primary way this data travels
-and gets backed up. Between commits, or as extra insurance before
-anything risky (an OS upgrade, a migration, a `git pull` across a major
-version bump), back the live file up directly too:
+pieces, link annotations, the correction log -- lives in
+`data/legislation.db` (SQLite) and is written out to
+`data/review/<act>/<table>.jsonl`, one line per provision, alongside
+`data/parsed/<act>.json` (the raw parse those rows are keyed against).
+**The text files are what is committed**; the database is gitignored and
+rebuilt from them. That is now the primary way this data travels and
+gets backed up.
+
+Between commits, or as extra insurance before anything risky (an OS
+upgrade, a migration, a `git pull` across a major version bump), back the
+live file up directly too:
 
 ```bash
 # A safe way to copy a live SQLite file without risking a torn read
 sqlite3 /opt/corpusvic/data/legislation.db ".backup /path/to/backup/legislation-$(date +%F).db"
 ```
 
+To ask whether a round trip through the text would lose anything, against
+whatever is actually on the server rather than in a test:
+
+```bash
+python3 -m corpus.review_sync check
+```
+
+It exports, imports into a scratch database, and compares every row of
+every table. `identical` is the answer you want.
+
 ## Working from a remote dev environment
 
-`data/legislation.db` and `data/parsed/<act>.json` are committed to
-git as a pair (see `.gitignore`'s own comment on why they're kept
-together): review.py's verified rows are keyed by a *positional* index
-into that exact parse, so a clone that had the DB but regenerated
-`parsed` from a different parser version could silently misalign
-verified content with the wrong provisions. Committing both together
-means a fresh clone -- a temporary cloud dev environment (Codespaces, a
-VS Code remote container, a throwaway VM), say -- can start reviewing
-immediately:
+`data/review/**` and `data/parsed/<act>.json` are committed to git as a
+pair: review.py's verified rows are keyed by a *positional* index into
+that exact parse, so a clone that had the review work but regenerated
+`parsed` from a different parser version could silently misalign verified
+content with the wrong provisions. Committing both together means a fresh
+clone -- a temporary cloud dev environment (Codespaces, a VS Code remote
+container, a throwaway VM), say -- can start reviewing immediately:
 
 ```bash
 git clone https://github.com/AgentPurpleLord/CorpusVic.git
 cd CorpusVic
 pip install -r requirements-gui.txt
-python review.py criminal-procedure-act   # your review progress is already there
+python3 -m corpus.review_sync import       # build the database from the text
+python review.py criminal-procedure-act    # your review progress is already there
 ```
 
-No pipeline re-run needed, and none of the drift risk a re-run would
-otherwise carry.
+**That import step is the one thing a fresh clone needs**, because the
+database is derived now and git does not carry it. Skip it and the
+dashboard says so rather than letting you review into an empty corpus:
+nothing exports while the database is empty and the files are not, since
+an export from an empty database would delete every file it did not
+write.
 
-Before committing any change to `data/legislation.db`, checkpoint it
-first -- it's opened in WAL mode, so a recent write can sit in the
-(gitignored) `-wal` file rather than the main one yet:
+The export runs by itself from then on -- before every question the
+dashboard asks about what is pending, and before every commit -- so
+reviewing and pressing **Push to GitHub** is the whole workflow. From a
+terminal, `python3 -m corpus.review_sync export` does the same thing.
+
+Checkpointing before a commit is still worth doing if you commit by hand,
+since the database is opened in WAL mode and a recent write can sit in
+the (gitignored) `-wal` file rather than the main one:
 
 ```bash
 python checkpoint_db.py
 ```
 
 To do this automatically on every commit instead of remembering it,
-install the tracked hook template once per environment (git hooks
-don't travel with a clone):
+install the tracked hook template once per environment (git hooks don't
+travel with a clone):
 
 ```bash
 cp deploy/pre-commit.hook.example .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
-When you're done working in a temporary environment, just commit and
-push `data/legislation.db` (the hook above handles checkpointing) so
-the progress travels back with you -- and `git pull` it into your other
-environments to pick it up there. This is a single-file, whole-database
-sync, not a real merge: if you review from two environments without
-pulling in between, whichever you push last wins and the other's
-progress is overwritten, so pull before you start a session, and avoid
-leaving two environments mid-review at once.
+When you're done working in a temporary environment, commit and push, and
+`git pull` in your other environments to pick the work up there. Unlike
+the whole-file sync this replaced -- where whichever side pushed last
+won and the other's progress was overwritten -- two environments
+reviewing different provisions now merge. Only the same provision, or the
+very next one to it, conflicts, and the conflict is JSON you can read.

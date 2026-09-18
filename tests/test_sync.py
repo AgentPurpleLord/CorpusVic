@@ -4,7 +4,15 @@ from the admin tool instead of a terminal on the server.
 Against real repositories in tmp_path rather than a mocked git: what
 this module is for is the handful of ways git says no, and a mock would
 only ever say what it was told to.
+
+What is synced here is text -- data/review/<act>/<table>.jsonl, one line
+per provision -- so these fixtures stand up the same shape. The export
+that produces it is stubbed out, because it needs the project's own
+database and this file is about git. corpus/review_sync.py's tests are
+where the export itself is held to account, including the one that
+matters most: that review work with no export still shows as pending.
 """
+import json
 import subprocess
 
 import pytest
@@ -33,8 +41,10 @@ def repo(tmp_path, remote):
     _git(path, "init", "--initial-branch=main")
     _git(path, "config", "user.email", "test@example.com")
     _git(path, "config", "user.name", "Test")
-    (path / "data").mkdir()
-    (path / "data" / "legislation.db").write_bytes(b"first")
+    _review(path, "first")
+    # As the real repository does: the database is derived from the text
+    # beside it, so a pending change is a change to the text.
+    (path / ".gitignore").write_text("data/legislation.db\n_backups/\n")
     (path / "code.py").write_text("print('hi')\n")
     _git(path, "add", ".")
     _git(path, "commit", "-m", "First")
@@ -43,11 +53,29 @@ def repo(tmp_path, remote):
     return path
 
 
+REVIEW_FILE = "data/review/demo-act/verified.jsonl"
+
+
+def _review(repo, text, act="demo-act", path=None):
+    """A line of review work, where the real thing keeps it."""
+    target = repo / (path or f"data/review/{act}/verified.jsonl")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(_line(text, act=act))
+    return target
+
+
+def _line(text, index=1, act="demo-act"):
+    """One provision's review, in the shape the exporter writes it."""
+    return json.dumps({"act": act, "source_node_index": index,
+                       "type": "section", "text": text}, sort_keys=True) + "\n"
+
+
 @pytest.fixture(autouse=True)
-def _no_real_checkpoint(monkeypatch):
-    """The real one opens the project's own database, which these tests
+def _no_real_database(monkeypatch):
+    """Both of these open the project's own database, which these tests
     have nothing to do with."""
     monkeypatch.setattr(sync, "checkpoint_database", lambda: None)
+    monkeypatch.setattr(sync, "refresh_review_files", lambda repo: None)
 
 
 def test_a_clean_checkout_has_nothing_to_push(repo):
@@ -59,10 +87,10 @@ def test_a_clean_checkout_has_nothing_to_push(repo):
     assert state["reachable"] is True
 
 
-def test_a_changed_database_shows_up_as_pending(repo):
-    (repo / "data" / "legislation.db").write_bytes(b"second")
+def test_changed_review_work_shows_up_as_pending(repo):
+    _review(repo, "second")
 
-    assert sync.status(repo)["pending"] == ["data/legislation.db"]
+    assert sync.status(repo)["pending"] == [REVIEW_FILE]
 
 
 def test_pushing_nothing_says_so_rather_than_failing(repo):
@@ -73,15 +101,15 @@ def test_pushing_nothing_says_so_rather_than_failing(repo):
 
 
 def test_pushing_commits_the_database_and_sends_it(repo, remote):
-    (repo / "data" / "legislation.db").write_bytes(b"second")
+    _review(repo, "second")
 
     result = sync.push(repo, "Review progress")
 
     assert (result["pushed"], result["committed"]) == (True, True)
     assert sync.status(repo)["pending"] == []
-    landed = subprocess.run(["git", "show", "main:data/legislation.db"], cwd=str(remote),
-                            capture_output=True).stdout
-    assert landed == b"second"
+    landed = subprocess.run(["git", "show", f"main:{REVIEW_FILE}"], cwd=str(remote),
+                            capture_output=True, text=True).stdout
+    assert landed == _line("second")
 
 
 def test_a_push_carries_only_the_review_data(repo, remote):
@@ -89,7 +117,7 @@ def test_a_push_carries_only_the_review_data(repo, remote):
     the working tree on the server is not review work, and publishing it
     because it happened to be there is how a half-finished change reaches
     everyone else."""
-    (repo / "data" / "legislation.db").write_bytes(b"second")
+    _review(repo, "second")
     (repo / "code.py").write_text("print('half-finished')\n")
 
     sync.push(repo, "Review progress")
@@ -111,7 +139,7 @@ def test_the_checkpoint_runs_before_the_commit(repo, monkeypatch):
     real_git_ok = sync._git_ok
     monkeypatch.setattr(sync, "_git_ok",
                         lambda r, *a: (order.append(a[0]), real_git_ok(r, *a))[1])
-    (repo / "data" / "legislation.db").write_bytes(b"second")
+    _review(repo, "second")
 
     sync.push(repo, "Review progress")
 
@@ -119,26 +147,26 @@ def test_the_checkpoint_runs_before_the_commit(repo, monkeypatch):
 
 
 def test_a_remote_that_has_moved_on_is_refused_not_forced(repo, remote, tmp_path):
-    """The one that matters. The review database is synced as one whole
-    file -- there is no merge -- so forcing here would silently discard
-    whichever side lost, which is the accident this exists to prevent."""
+    """A push cannot merge, whatever the files are made of. Forcing here
+    would silently discard whichever side lost, which is the accident
+    this exists to prevent; the answer is to pull, which now can."""
     other = tmp_path / "other"
     other.mkdir()
     _git(other, "clone", str(remote), ".")
     _git(other, "config", "user.email", "other@example.com")
     _git(other, "config", "user.name", "Other")
-    (other / "data" / "legislation.db").write_bytes(b"from the laptop")
+    _review(other, "from the laptop")
     _git(other, "commit", "-am", "Reviewed on the laptop")
     _git(other, "push")
 
-    (repo / "data" / "legislation.db").write_bytes(b"from the server")
+    _review(repo, "from the server")
 
     with pytest.raises(sync.SyncError, match="doesn't"):
         sync.push(repo, "Review progress")
 
-    landed = subprocess.run(["git", "show", "main:data/legislation.db"], cwd=str(remote),
-                            capture_output=True).stdout
-    assert landed == b"from the laptop", "the other side's work is untouched"
+    landed = subprocess.run(["git", "show", f"main:{REVIEW_FILE}"], cwd=str(remote),
+                            capture_output=True, text=True).stdout
+    assert landed == _line("from the laptop"), "the other side's work is untouched"
 
 
 def test_being_behind_is_reported_before_anyone_presses_anything(repo, remote, tmp_path):
@@ -147,7 +175,7 @@ def test_being_behind_is_reported_before_anyone_presses_anything(repo, remote, t
     _git(other, "clone", str(remote), ".")
     _git(other, "config", "user.email", "other@example.com")
     _git(other, "config", "user.name", "Other")
-    (other / "data" / "legislation.db").write_bytes(b"elsewhere")
+    _review(other, "elsewhere")
     _git(other, "commit", "-am", "Elsewhere")
     _git(other, "push")
 
@@ -160,8 +188,7 @@ def test_a_checkout_with_no_remote_says_so(tmp_path):
     _git(path, "init", "--initial-branch=main")
     _git(path, "config", "user.email", "t@example.com")
     _git(path, "config", "user.name", "T")
-    (path / "data").mkdir()
-    (path / "data" / "legislation.db").write_bytes(b"x")
+    _review(path, "x")
     _git(path, "add", ".")
     _git(path, "commit", "-m", "First")
 
@@ -312,7 +339,7 @@ def test_an_ordinary_git_error_is_left_as_git_put_it():
 # ---------------------------------------------------------------------------
 
 
-def _commit_elsewhere(tmp_path, remote, name="other", contents=b"second", path="data/legislation.db"):
+def _commit_elsewhere(tmp_path, remote, name="other", contents=None, path=None):
     """Somebody else's checkout pushing a commit, so the repo under test
     has something real to be behind by."""
     other = tmp_path / name
@@ -320,9 +347,12 @@ def _commit_elsewhere(tmp_path, remote, name="other", contents=b"second", path="
     _git(other, "clone", str(remote), ".")
     _git(other, "config", "user.email", "other@example.com")
     _git(other, "config", "user.name", "Other")
-    target = other / path
+    target = other / (path or REVIEW_FILE)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(contents)
+    if path:
+        target.write_text(contents)
+    else:
+        target.write_text(_line(contents or "second"))
     _git(other, "add", ".")
     _git(other, "commit", "-m", f"From {name}")
     _git(other, "push", "origin", "main")
@@ -333,7 +363,7 @@ def test_pulling_brings_in_what_was_committed_elsewhere(repo, remote, tmp_path):
     _commit_elsewhere(tmp_path, remote)
     result = sync.pull(repo)
     assert result["pulled"] is True
-    assert (repo / "data" / "legislation.db").read_bytes() == b"second"
+    assert (repo / REVIEW_FILE).read_text() == _line("second")
     assert result["status"]["behind"] == 0
 
 
@@ -345,28 +375,99 @@ def test_pulling_nothing_says_so_rather_than_failing(repo):
 
 def test_a_pull_refuses_to_overwrite_uncommitted_review_work(repo, remote, tmp_path):
     _commit_elsewhere(tmp_path, remote)
-    (repo / "data" / "legislation.db").write_bytes(b"a day's reviewing")
+    _review(repo, "a day's reviewing")
     with pytest.raises(sync.SyncError) as excinfo:
         sync.pull(repo)
     assert "uncommitted" in str(excinfo.value)
     # And left it exactly where it was, rather than half-applying.
-    assert (repo / "data" / "legislation.db").read_bytes() == b"a day's reviewing"
+    assert (repo / REVIEW_FILE).read_text() == _line("a day's reviewing")
 
 
-def test_a_diverged_checkout_is_refused_rather_than_merged(repo, remote, tmp_path):
-    _commit_elsewhere(tmp_path, remote)
-    (repo / "data" / "legislation.db").write_bytes(b"local")
+def test_a_diverged_checkout_merges_rather_than_refusing(repo, remote, tmp_path):
+    """The jam this whole arrangement exists to remove. Reviewing on the
+    server while a code change landed elsewhere used to be enough to stop
+    a pull dead -- not because the two conflicted, but because the
+    database was one binary blob and git cannot merge one of those."""
+    _commit_elsewhere(tmp_path, remote, contents="print('new')\n", path="code.py")
+    _review(repo, "reviewed on the server", act="other-act")
     _git(repo, "add", ".")
     _git(repo, "commit", "-m", "Local work")
+
+    result = sync.pull(repo)
+
+    assert result["pulled"] is True
+    assert (repo / "code.py").read_text() == "print('new')\n", "theirs arrived"
+    assert (repo / "data/review/other-act/verified.jsonl").exists(), "ours survived"
+
+
+def _act_of(rows):
+    return "".join(_line(f"provision {i}", index=i) for i in rows)
+
+
+def test_two_provisions_of_one_act_merge_without_help(repo, remote, tmp_path):
+    """The granularity the whole change was for: one line per provision,
+    so two reviewers working down the same Act do not collide.
+
+    Two lines apart is enough -- measured, not assumed. Immediately
+    adjacent lines are one hunk to git and do conflict, which is why the
+    claim here is "different provisions" rather than "any two lines"."""
+    (repo / REVIEW_FILE).write_text(_act_of(range(1, 21)))
+    _git(repo, "commit", "-am", "Twenty provisions")
+    _git(repo, "push", "origin", "main")
+
+    other = tmp_path / "laptop"
+    other.mkdir()
+    _git(other, "clone", str(remote), ".")
+    _git(other, "config", "user.email", "other@example.com")
+    _git(other, "config", "user.name", "Other")
+    rows = [_line(f"provision {i}", index=i) for i in range(1, 21)]
+    theirs = list(rows)
+    theirs[2] = _line("reviewed on the laptop", index=3)
+    (other / REVIEW_FILE).write_text("".join(theirs))
+    _git(other, "commit", "-am", "Provision 3")
+    _git(other, "push", "origin", "main")
+
+    ours = list(rows)
+    ours[14] = _line("reviewed on the server", index=15)
+    (repo / REVIEW_FILE).write_text("".join(ours))
+    _git(repo, "commit", "-am", "Provision 15")
+
+    sync.pull(repo)
+
+    merged = (repo / REVIEW_FILE).read_text()
+    assert "reviewed on the laptop" in merged, "theirs survived"
+    assert "reviewed on the server" in merged, "ours survived"
+    assert "<<<<" not in merged
+    assert len(merged.splitlines()) == 20, "one line per provision still"
+
+
+def test_the_same_provision_reviewed_twice_is_handed_back_unmerged(repo, remote, tmp_path):
+    """A real conflict, and the one thing that must not be guessed at.
+    Conflict markers left in the tree would be exported over by the next
+    status poll, so the merge is undone and the file is named."""
+    other = tmp_path / "laptop2"
+    other.mkdir()
+    _git(other, "clone", str(remote), ".")
+    _git(other, "config", "user.email", "other@example.com")
+    _git(other, "config", "user.name", "Other")
+    (other / REVIEW_FILE).write_text(_line("theirs"))
+    _git(other, "commit", "-am", "Provision 1, on the laptop")
+    _git(other, "push", "origin", "main")
+
+    (repo / REVIEW_FILE).write_text(_line("ours"))
+    _git(repo, "commit", "-am", "Provision 1, on the server")
+
     with pytest.raises(sync.SyncError) as excinfo:
         sync.pull(repo)
-    message = str(excinfo.value)
-    assert "no merge" in message
-    assert (repo / "data" / "legislation.db").read_bytes() == b"local"
+
+    assert REVIEW_FILE in str(excinfo.value)
+    assert (repo / REVIEW_FILE).read_text() == _line("ours"), "left where it was"
+    assert "<<<<" not in (repo / REVIEW_FILE).read_text()
+    assert _git(repo, "status", "--porcelain").stdout.strip() == "", "the merge was undone"
 
 
 def test_a_pull_says_when_it_brought_new_code(repo, remote, tmp_path):
-    _commit_elsewhere(tmp_path, remote, contents=b"print('new')\n", path="code.py")
+    _commit_elsewhere(tmp_path, remote, contents="print('new')\n", path="code.py")
     assert sync.pull(repo)["code_changed"] is True
 
 
@@ -375,10 +476,38 @@ def test_a_pull_of_data_alone_does_not_ask_for_a_restart(repo, remote, tmp_path)
     assert sync.pull(repo)["code_changed"] is False
 
 
+def test_a_pull_rebuilds_the_database_from_what_arrived(repo, remote, tmp_path):
+    """git finishing is not the pull finishing. The database is gitignored
+    now, so review work that arrived as text is nothing at all until it
+    has been loaded -- and a pull that left it unloaded would report
+    success over a corpus that had not changed."""
+    import sqlite3
+
+    _commit_elsewhere(tmp_path, remote, contents="pulled in")
+    result = sync.pull(repo)
+
+    assert result["imported"]["total"] == 1
+    conn = sqlite3.connect(str(repo / "data" / "legislation.db"))
+    try:
+        assert conn.execute("SELECT text FROM verified").fetchall() == [("pulled in",)]
+    finally:
+        conn.close()
+
+
+def test_a_pull_of_code_alone_leaves_the_database_alone(repo, remote, tmp_path):
+    """Rebuilding costs a backup copy and a replaced file. A commit that
+    touched no review work has nothing to rebuild from."""
+    (repo / "data" / "legislation.db").write_bytes(b"whatever is here")
+    _commit_elsewhere(tmp_path, remote, contents="print('new')\n", path="code.py")
+
+    assert sync.pull(repo)["imported"] is None
+    assert (repo / "data" / "legislation.db").read_bytes() == b"whatever is here"
+
+
 def test_a_pull_lets_go_of_the_database_before_replacing_it(repo, remote, tmp_path, monkeypatch):
-    """sqlite holds the file it opened, and git replaces rather than
-    rewrites it. A connection left open here would go on reading the old
-    file after a successful pull -- which looks like a pull that did
+    """sqlite holds the file it opened, and a rebuild replaces rather
+    than rewrites it. A connection left open here would go on reading the
+    old file after a successful pull -- which looks like a pull that did
     nothing, forever."""
     from corpus import db
 
@@ -402,19 +531,19 @@ def test_committing_works_with_the_remote_unreachable(repo):
     result = sync.commit(repo, "Review progress")
     assert result["committed"] is False  # nothing has changed yet
 
-    (repo / "data" / "legislation.db").write_bytes(b"reviewed")
+    _review(repo, "reviewed")
     result = sync.commit(repo, "Review progress")
     assert result["committed"] is True
     assert sync.pending_changes(repo) == []
 
 
 def test_a_local_commit_carries_only_the_review_data(repo):
-    (repo / "data" / "legislation.db").write_bytes(b"reviewed")
+    _review(repo, "reviewed")
     (repo / "code.py").write_text("print('half-finished edit')\n")
     sync.commit(repo, "Review progress")
     listed = subprocess.run(["git", "show", "--name-only", "--pretty=", "HEAD"],
                             cwd=str(repo), capture_output=True, text=True, check=True)
-    assert listed.stdout.split() == ["data/legislation.db"]
+    assert listed.stdout.split() == [REVIEW_FILE]
 
 
 # ---------------------------------------------------------------------------
@@ -423,14 +552,33 @@ def test_a_local_commit_carries_only_the_review_data(repo):
 
 
 def test_discarding_goes_back_to_the_last_commit(repo):
-    (repo / "data" / "legislation.db").write_bytes(b"unwanted")
+    _review(repo, "unwanted")
     result = sync.discard(repo)
     assert result["discarded"] is True
-    assert (repo / "data" / "legislation.db").read_bytes() == b"first"
+    assert (repo / REVIEW_FILE).read_text() == _line("first")
+
+
+
+def test_a_discard_rebuilds_the_database_from_what_was_restored(repo):
+    """The database is gitignored, so a checkout restores the text and
+    leaves the database holding exactly the work just discarded -- which
+    the next status poll would export straight back over the files. The
+    discard would undo itself, silently, a few seconds later."""
+    import sqlite3
+
+    _review(repo, "unwanted")
+    sync.discard(repo)
+
+    conn = sqlite3.connect(str(repo / "data" / "legislation.db"))
+    try:
+        assert conn.execute("SELECT text FROM verified").fetchall() == [("first",)]
+    finally:
+        conn.close()
 
 
 def test_a_discard_keeps_what_it_threw_away(repo):
     (repo / "data" / "legislation.db").write_bytes(b"a day's reviewing")
+    _review(repo, "a day's reviewing")
     result = sync.discard(repo)
     backup = repo / sync.BACKUP_DIR / result["backup"]
     assert backup.read_bytes() == b"a day's reviewing"
@@ -440,7 +588,7 @@ def test_a_discard_keeps_what_it_threw_away(repo):
 def test_a_discard_leaves_untracked_files_where_they_are(repo):
     """A PDF just uploaded has no committed version to go back to.
     Deleting it would be a different promise from the one this makes."""
-    (repo / "data" / "legislation.db").write_bytes(b"unwanted")
+    _review(repo, "unwanted")
     uploaded = repo / "data" / "just-uploaded.pdf"
     uploaded.write_bytes(b"%PDF-1.4")
     sync.discard(repo)

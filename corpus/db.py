@@ -646,9 +646,10 @@ def delete_link(act: str, link_id: str) -> bool:
 # Correction log (was data/corrections.jsonl, shared across every Act)
 # ---------------------------------------------------------------------------
 
-def add_correction(act: str, parser_output: dict, human_output: dict, changed: bool) -> None:
+def add_correction(act: str, parser_output: dict, human_output: dict, changed: bool,
+                   base_dir: "str | Path | None" = None) -> None:
     fields = ("type", "number", "heading", "text")
-    conn = _connect()
+    conn = _connect(base_dir)
     with conn:
         conn.execute(
             "INSERT INTO corrections (act, ts, changed, ai_output_json, human_output_json) VALUES (?, ?, ?, ?, ?)",

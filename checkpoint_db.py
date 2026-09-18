@@ -6,14 +6,14 @@ before committing it to git.
 Why this matters: db.py opens the database in WAL mode (see its own
 _connect docstring), which means a recent write can sit in
 data/legislation.db-wal, not yet folded into data/legislation.db itself.
-Both files are gitignored except the main one (see .gitignore's own
-comment on this) -- data/legislation.db is committed so a fresh clone
-(e.g. a temporary cloud dev environment) already has your review
-progress, while the -wal/-shm side files are pure runtime state SQLite
-recreates on its own and never need to travel with the repo. If the main
-file were committed while a WAL still held uncheckpointed writes, a fresh
-clone would silently see stale data -- missing whatever hadn't been
-folded in yet, with nothing to indicate anything was missing.
+The database itself is no longer committed -- what travels is
+data/review/**.jsonl, written out from it (see corpus/review_sync.py) --
+but this still matters for the same reason it always did, one step
+earlier in the chain: an export reads the database file, so a write still
+sitting in the -wal would be missing from the text that gets committed,
+with nothing to indicate anything was missing. corpus/sync.py checkpoints
+before every export for exactly this; run it by hand if you are
+exporting or committing by hand.
 
 Usage:
     python checkpoint_db.py
