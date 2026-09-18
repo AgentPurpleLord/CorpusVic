@@ -4,35 +4,47 @@ being done -- so that a reviewer on the server does not have to open a
 terminal on it to put a day's decisions somewhere safe, or to take in
 what was decided somewhere else.
 
-What travels is `data/`: the review database and the parses its rows are
-keyed against (see .gitignore's own note on why those two are committed
-together). Nothing else is staged, deliberately -- a button that pushed
-whatever happened to be in the working tree would sooner or later publish
-a half-finished edit someone left on the server.
+What travels is `data/`: the parses, and the review work written out as
+text under `data/review/` -- one file per act per table, one line per
+row. Nothing else is staged, deliberately; a button that pushed whatever
+happened to be in the working tree would sooner or later publish a
+half-finished edit someone left on the server.
 
-Three things this does that a person typing the commands would have to
+The database itself does not travel any more. `data/legislation.db` is
+the working store several processes write to while you review, and it is
+gitignored and rebuilt from the text (see corpus/review_sync.py). That
+split is what makes the rest of this module ordinary: git can merge lines
+of JSON, so a pull is a pull rather than a standoff.
+
+Four things this does that a person typing the commands would have to
 remember:
 
-  - checkpoints the database's write-ahead log first, so what is
-    committed is the whole state rather than whatever had been folded in
-    (see checkpoint_db.py). The repository ships a pre-commit hook that
-    does this too, but git hooks do not travel with a clone, so relying
-    on it here would be relying on a manual step having been done;
+  - writes the database out to `data/review/` before answering any
+    question about what has changed. This is the load-bearing one. With
+    the database gitignored, a day's review leaves no pending change at
+    all until an export runs, and a dashboard reporting "everything is
+    pushed" over unpushed work would be a quieter failure than any this
+    replaced. So the export runs before `pending_changes`, not only
+    before a commit;
+
+  - checkpoints the write-ahead log first, so what is exported is the
+    whole state rather than whatever had been folded in (see
+    checkpoint_db.py). The repository ships a pre-commit hook that does
+    this too, but git hooks do not travel with a clone, so relying on it
+    here would be relying on a manual step having been done;
 
   - refuses to push when the remote has commits this checkout does not,
-    rather than forcing. The review database is one file synced whole --
-    there is no merge -- so a force here would silently drop whichever
-    side lost, which is exactly the accident this is meant to prevent;
+    rather than forcing -- but now the answer to that is simply to pull,
+    which merges;
 
   - never invents credentials. Pushing is whatever `git push` can already
     do from this checkout, which on the server is the deploy key. If that
     is not set up, the failure says so instead of appearing to work.
 
-Coming the other way, `pull` is fast-forward only and `discard` keeps a
-copy, for the same reason: with the database synced as one whole file
-there is no merge, so every operation here either moves cleanly or stops
-and says which of its reasons applied. None of them silently picks a
-side.
+Coming the other way, `pull` merges and then rebuilds the database from
+what arrived, and `discard` does the same from what was restored. Neither
+leaves the database and the files disagreeing, because the moment they
+disagree the next export picks a side without saying so.
 """
 import os
 import re
@@ -239,6 +251,11 @@ def status(repo: Path) -> dict:
     # page then reports as a type error on a field that isn't there.
     try:
         info["branch"] = _git_ok(repo, "rev-parse", "--abbrev-ref", "HEAD")
+        # Before pending_changes, never after: see refresh_review_files.
+        try:
+            refresh_review_files(repo)
+        except SyncError as e:
+            info["error"] = str(e)
         info["pending"] = pending_changes(repo)
         subject = _git_ok(repo, "log", "-1", "--pretty=%h\x1f%s\x1f%cI")
         sha, message, when = subject.split("\x1f")
@@ -267,6 +284,33 @@ def status(repo: Path) -> dict:
     return info
 
 
+def refresh_review_files(repo: Path) -> None:
+    """Writes the database out to data/review/ before anyone asks what
+    has changed.
+
+    Load-bearing, and the thing this whole arrangement could get wrong.
+    data/legislation.db is gitignored now, so a review session leaves no
+    pending change at all until an export runs -- and a dashboard saying
+    "Everything is pushed" over unpushed review work is a worse failure
+    than the merge refusals this replaced, because that one was at least
+    visible.
+
+    So it runs before every question about what is pending, not only
+    before a commit. It is cheap enough to: a few thousand rows, and a
+    file is only rewritten when its bytes actually change.
+
+    Never fatal. A checkout that cannot export still has to render a
+    status page, and the export failing is itself something the page
+    should be able to say."""
+    from . import review_sync
+
+    try:
+        checkpoint_database()
+        review_sync.export(repo)
+    except Exception as e:  # noqa: BLE001 -- a status page must still render
+        raise SyncError(f"Couldn't write the review files: {e}") from e
+
+
 def checkpoint_database() -> None:
     """Folds the write-ahead log into the database file, so what gets
     committed is the whole state. See checkpoint_db.py."""
@@ -293,10 +337,9 @@ def push(repo: Path, message: str) -> dict:
         raise SyncError(state["error"])
     if state["behind"]:
         raise SyncError(
-            f"The remote has {state['behind']} commit(s) this server doesn't. Pushing would be "
-            "rejected, and forcing it would overwrite them -- the review database is synced as "
-            "one whole file, so there is no merge to fall back on. Pull them in first, on a "
-            "machine where you can see what they are."
+            f"The remote has {state['behind']} commit(s) this server doesn't, so a push would be "
+            "rejected. Pull them in first -- the review work merges now, so unless both sides "
+            "reviewed the same provision it will simply come in."
         )
     if not state["pending"] and not state["ahead"]:
         return {"pushed": False, "committed": False, "message": "Nothing to push -- already up to date.",
@@ -345,10 +388,12 @@ def commit(repo: Path, message: str) -> dict:
     somewhere it survives a restart, and the push can follow whenever
     the network does."""
     repo = Path(repo)
+    # First, so that review work done since the last export is part of
+    # what "pending" means rather than invisible to it.
+    refresh_review_files(repo)
     pending = pending_changes(repo)
     if not pending:
         return {"committed": False, "message": "Nothing to commit -- data/ matches the last commit."}
-    checkpoint_database()
     _git_ok(repo, "add", "--", *TRACKED_PATHS)
     staged = _git(repo, "diff", "--cached", "--quiet", "--", *TRACKED_PATHS)
     if staged.returncode == 0:
@@ -357,21 +402,34 @@ def commit(repo: Path, message: str) -> dict:
     return {"committed": True, "message": f"Committed {len(pending)} change(s), not yet pushed."}
 
 
+# What a pull brings in that is not in use the moment git writes it.
+# Code, parses and the site's templates are read off disk; the review
+# work arrives as text and is nothing until it has been loaded.
+REVIEW_PATH_PREFIX = "data/review/"
+
+
 def pull(repo: Path) -> dict:
-    """Brings in commits from the remote, fast-forward only.
+    """Brings in commits from the remote and rebuilds the database from
+    what arrived.
 
-    Fast-forward only because the review database is one file synced
-    whole: git cannot merge two versions of it, and the merge it would
-    otherwise attempt ends in a conflict on a binary file that nobody
-    can resolve by hand. So this either moves cleanly onto what the
-    remote has, or refuses and says which of the three reasons it is."""
-    from . import db
+    A real merge, now that what travels is text. The review work is one
+    line per provision under `data/review/`, so two machines that
+    reviewed different provisions merge with no help -- which is the jam
+    this replaces. With the database committed as a single binary there
+    was no merge at all, so this had to be fast-forward only and refused
+    on any divergence whatsoever, including a code change that touched
+    nothing a reviewer had.
 
+    The same provision reviewed on both machines is still a conflict, and
+    that one is handed back rather than guessed at: the merge is undone
+    and the files are named. Conflict markers left in the tree would be
+    worse than refusing, because the next status poll exports the
+    database over them and the local side would win without anybody
+    being told."""
     repo = Path(repo)
     # Before reading what has changed, not after: a write still sitting
-    # in the write-ahead log is a change git cannot see, and a pull that
-    # believed the tree was clean would replace the database out from
-    # under it.
+    # in the write-ahead log is a change git cannot see, and the export
+    # that status() runs would miss it.
     checkpoint_database()
     state = status(repo)
     if state["error"]:
@@ -383,46 +441,74 @@ def pull(repo: Path) -> dict:
         )
     if not state["behind"]:
         return {"pulled": False, "message": "Nothing to pull -- already up to date.", "status": state}
-    if state["ahead"]:
-        raise SyncError(
-            f"This server has {state['ahead']} commit(s) the remote doesn't, and the remote has "
-            f"{state['behind']} this server doesn't. The review database is synced as one whole "
-            "file, so there is no merge that keeps both -- one of the two has to be chosen, on a "
-            "machine where you can see what each contains."
-        )
 
     was = head(repo)
-    # sqlite is holding the database file open by descriptor and git
-    # replaces rather than rewrites it, so a connection left open here
-    # would go on reading the old file after the pull -- see
-    # db.close_connections.
-    db.close_connections()
-    merged = _git(repo, "merge", "--ff-only", f"origin/{state['branch']}")
+    merged = _git(repo, "merge", "--no-edit", f"origin/{state['branch']}")
     if merged.returncode != 0:
+        listed = _git(repo, "diff", "--name-only", "--diff-filter=U")
+        conflicted = [line.strip() for line in listed.stdout.splitlines()
+                      if line.strip()] if listed.returncode == 0 else []
+        # Back to exactly where this started. A half-merged tree on a
+        # server nobody is sitting at is the worst of the three outcomes.
+        _git(repo, "merge", "--abort")
+        if conflicted:
+            shown = "\n  ".join(conflicted[:10])
+            more = f"\n  ... and {len(conflicted) - 10} more" if len(conflicted) > 10 else ""
+            raise SyncError(
+                f"Both sides changed the same rows, so nothing here has moved:\n\n  "
+                f"{shown}{more}\n\n"
+                "Each line in those files is one provision's review, written as JSON, so the "
+                "conflict can be read and resolved. Do it in a terminal -- `git pull`, fix the "
+                "marked lines, `git commit`, then `python3 -m corpus.review_sync import`."
+            )
         raise SyncError(explain((merged.stderr or merged.stdout).strip()) or "git merge failed")
-    # git has just written a new database. Anything still beside it
-    # describes the one that was there before -- see clear_stale_sidecars.
-    clear_stale_sidecars(repo)
-    broken = database_is_sound(repo)
-    if broken:
-        raise SyncError(
-            "The pull completed, but the review database it brought will not open: "
-            f"{broken}\n\nNothing is lost -- what was pulled is in git. Restore it with "
-            "`git checkout -- data/legislation.db` after removing any "
-            "data/legislation.db-wal and -shm beside it."
-        )
 
     changed = []
     if was:
         listed = _git(repo, "diff", "--name-only", f"{was}..HEAD")
         if listed.returncode == 0:
             changed = [line for line in listed.stdout.splitlines() if line.strip()]
+
+    # git is not finished when the pull is. The rows that arrived are
+    # still only text until they are loaded, and the database is not in
+    # the commit any more to be replaced wholesale by one.
+    from . import review_sync
+
+    imported = None
+    have_files = review_sync.review_dir(repo).is_dir()
+    need = any(path.startswith(REVIEW_PATH_PREFIX) for path in changed)
+    if have_files and (need or not db_file(repo).exists()):
+        try:
+            imported = review_sync.import_(repo)
+        except review_sync.ImportError_ as e:
+            raise SyncError(
+                f"The commits were pulled, but the review work in them could not be loaded: {e}"
+                "\n\nNothing is lost -- what arrived is in git, and the database here was left "
+                "exactly as it was. Fix the file it names and run "
+                "`python3 -m corpus.review_sync import`."
+            ) from e
+        broken = database_is_sound(repo)
+        if broken:
+            raise SyncError(
+                f"The database was rebuilt from the review files but will not open: {broken}\n\n"
+                "Nothing is lost -- the review work is the text in data/review/, and the "
+                "database that was here is in " + BACKUP_DIR + "/."
+            )
+
+    message = f"Pulled {state['behind']} commit(s), {len(changed)} file(s) changed."
+    if imported:
+        message += f" Rebuilt the database from {imported['total']} row(s) of review work."
     return {
         "pulled": True,
-        "message": f"Pulled {state['behind']} commit(s), {len(changed)} file(s) changed.",
+        "message": message,
         "code_changed": any(path.endswith(".py") for path in changed),
+        "imported": imported,
         "status": status(repo),
     }
+
+
+def db_file(repo: Path) -> Path:
+    return Path(repo) / "data" / "legislation.db"
 
 
 # Where a discarded database is kept. Gitignored, and outside data/ so
@@ -465,6 +551,25 @@ def discard(repo: Path) -> dict:
     if restored.returncode != 0:
         raise SyncError(explain((restored.stderr or restored.stdout).strip()) or "git checkout failed")
     clear_stale_sidecars(repo)
+    # The checkout above restored the review *text*. The database is
+    # gitignored, so it still holds exactly the work that was just
+    # discarded -- and the next status poll would export it straight back
+    # over the files. A discard is not done until the database has been
+    # rebuilt from what was restored.
+    from . import review_sync
+
+    if review_sync.review_dir(repo).is_dir():
+        try:
+            # backup=False: the copy above is the same file, taken a
+            # moment earlier. Two would only make the directory harder to
+            # read at the moment somebody needs to read it.
+            review_sync.import_(repo, backup=False)
+        except review_sync.ImportError_ as e:
+            raise SyncError(
+                f"The files were restored, but the database could not be rebuilt from them: {e}"
+                f"\n\nThe database as it was is in {BACKUP_DIR}/"
+                + (f"{backup.name}." if backup else ".")
+            ) from e
     broken = database_is_sound(repo)
     if broken:
         raise SyncError(f"The database was restored but will not open: {broken}")

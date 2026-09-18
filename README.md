@@ -27,7 +27,9 @@ whole-document audit run offline. Nothing in there decides anything.
     corpus/ai/      the parts that use a model, and only those
     corpus/profiles/  per-Act pattern overrides
     data/parsed/    the parser's output, one JSON file per document
-    data/legislation.db   every decision a human made about it
+    data/review/    every decision a human made about it, as text
+    data/legislation.db   the same decisions, in the store three
+                          processes write to -- derived, gitignored
     tests/
 
     run_pipeline.py       a PDF -> data/parsed/<act>.json
@@ -75,9 +77,40 @@ database the review tool writes. There is no build step between a review
 decision and the page a reader sees.
 
 **What is on it is a decision, not a consequence.** Each work carries a
-published flag, set from the dashboard and stored in
-`data/legislation.db` alongside the review work, so it travels with a
-push. Nothing reaches the site by having been parsed.
+published flag, set from the dashboard and stored alongside the review
+work, so it travels with a push. Nothing reaches the site by having been
+parsed.
+
+**The review work travels as text, and the database is derived from it.**
+`data/review/<act>/<table>.jsonl` is one file per act per table and one
+line per row -- so a diff names the provisions a commit changed, and two
+machines that reviewed different provisions merge. The database was
+committed as a single 1.7 MB binary until this: twenty-two commits
+carrying 10.8 MB of blobs for it, no readable diff, and -- because git
+cannot merge a binary -- a pull that had to be fast-forward only and
+refused on *any* divergence, so reviewing on the server while a code
+change landed elsewhere was enough to jam the sync. One provision edited
+now moves 2 lines and 2 KB where it used to move 1.7 MB.
+
+The database stays, because it is what three processes write to and two
+of them at once -- `review.py` while you review, `run_ai_review.py`
+scanning in the background, both writing the same table. That is what
+sqlite's write-ahead log is for and what two processes appending to a
+JSONL file would interleave into nonsense. One file had been doing two
+unrelated jobs: the working store, and the format the work ships in. It
+is good at the first and cannot do the second at all.
+
+A fresh clone therefore has the text and no database:
+
+    python3 -m corpus.review_sync import
+
+After that the export runs by itself, before every question the dashboard
+asks about what is pending -- which is the part that had to be right,
+because with the database gitignored a day's reviewing produces no
+pending change until an export runs, and "Everything is pushed" over
+unpushed work would be a quieter failure than the merge refusals it
+replaced. `python3 -m corpus.review_sync check` exports, imports into a
+scratch database and compares every row, on demand.
 
 **Search** is `corpus/search.py`: an FTS5 index over every provision of
 every published work, built from the merged text a reader actually sees

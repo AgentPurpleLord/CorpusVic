@@ -36,22 +36,26 @@ data/search_vectors.npy
 data/search_vectors.npy.building
 data/search_vectors.json
 
-# data/parsed/<act>.json (the raw parse) and data/legislation.db (the
-# durable, human-created review state overlaid on it -- verified rows,
-# link annotations, the correction log; see corpus/db.py's module
-# docstring) ARE committed, deliberately, as a pair: review.py's verified
-# rows are keyed by a *positional* index into that exact parse, so a
-# clone that had the DB but regenerated parsed from a later parser
-# version could silently misalign verified content with the wrong
-# provisions. Committing both together means a fresh clone (e.g. a
-# temporary cloud dev environment) can open review.py immediately with
-# your actual progress intact, no pipeline re-run and no drift risk. See
-# deploy/README.md's "Working from a remote dev environment" section.
+# data/parsed/<act>.json (the raw parse) IS committed, deliberately:
+# review.py's verified rows are keyed by a *positional* index into that
+# exact parse, so a clone that regenerated it from a later parser version
+# could silently misalign verified content with the wrong provisions.
 #
-# Run `python checkpoint_db.py` before committing data/legislation.db --
-# it's opened in WAL mode, so a recent write can sit in the -wal file
-# below (gitignored, along with -shm) rather than the main file yet;
-# checkpointing folds it in so the committed file is always complete.
+# data/legislation.db is not, any more. It is the working store several
+# processes write to while you review -- and it is rebuilt from
+# data/review/**.jsonl, which is the same review work written as text git
+# can merge, one line per provision (see corpus/review_sync.py). Keeping
+# the binary here as well would be a second copy of the same state that
+# can disagree with the first, and it was the binary that forced every
+# pull to be fast-forward only: git cannot merge two versions of it, so
+# reviewing on the server while a code change landed elsewhere was enough
+# to jam the sync.
+#
+# A fresh clone therefore has the review work but no database. Build one:
+#
+#     python3 -m corpus.review_sync import
+#
+data/legislation.db
 data/legislation.db-wal
 data/legislation.db-shm
 

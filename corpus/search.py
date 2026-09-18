@@ -18,12 +18,13 @@ reprint of the Criminal Procedure Act alone. Indexing the raw parse would
 mean searching words nobody is shown and missing words that are.
 
 **It lives in `data/search.db`, which is gitignored, and that is
-deliberate.** `data/legislation.db` is committed and pushed as one whole
-file; an index inside it would add megabytes to every push. Worse, it is
-derived from a merge of two committed things, so a committed copy is a
-third thing that can disagree with them -- and `sync.pull` replaces the
-database wholesale, so the copy that arrived would be whichever machine
-built it last, looking authoritative.
+deliberate.** It is derived from a merge of two committed things -- the
+parses and the review work -- so a committed copy would be a third that
+can disagree with them, and the copy that arrived would be whichever
+machine built it last, looking authoritative. It rebuilds from scratch in
+a few seconds, which is why there is no incremental update path to get
+wrong. `data/legislation.db` is gitignored for a related but different
+reason: it is rebuilt from `data/review/` (see corpus/review_sync.py).
 
 **It holds only what is on the public site.** Publication is decided per
 work (see corpus/db.py) and the index is rebuilt when that changes, so a

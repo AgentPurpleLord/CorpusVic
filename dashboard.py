@@ -86,7 +86,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus import commentary, db, diffing, html_view, reader, search, sync
+from corpus import commentary, db, diffing, html_view, reader, review_sync, search, sync
 from corpus.act_registry import load_act_registry
 from corpus.amendments import build_amendment_index, summarise_by_act
 from corpus.commentary import build_commentary_index
@@ -838,8 +838,18 @@ def sync_status():
     state = sync.status(BASE_DIR)
     on_disk = sync.head(BASE_DIR)
     can_restart, why_not = _restart_capability()
+    # A fresh clone has the review work as text and no database built
+    # from it yet. Said here rather than left to be discovered, because
+    # what it looks like from the browse page is a corpus with nothing in
+    # it -- and reviewing into that would be reviewing into a database
+    # the next import replaces.
+    try:
+        needs_import = review_sync.unloaded(BASE_DIR)
+    except OSError as e:
+        needs_import = f"Couldn't read the review files: {e}"
     return {
         **state,
+        "needs_import": needs_import,
         "running_head": _RUNNING_HEAD,
         "checkout_head": on_disk,
         # Both known and different: the checkout has moved since this
@@ -1462,9 +1472,10 @@ def set_publication(req: PublicationRequest):
 
     Per work rather than per parsed document: an Act is on the site or it
     isn't, and all of its reprints go with it (see corpus/db.py). The
-    decision lands in data/legislation.db, so it travels to GitHub with
-    the review work on the next push rather than living only on whichever
-    machine it was made."""
+    decision lands in the database beside the review work, and is written
+    out to data/review/publication.jsonl with it, so it travels to GitHub
+    on the next push rather than living only on whichever machine it was
+    made."""
     if not req.work.strip():
         raise HTTPException(400, "Which work?")
     db.set_publication(req.work.strip(), req.published, BASE_DIR)

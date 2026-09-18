@@ -10,7 +10,7 @@ on:
     # was built by code no longer in the repository.
     paths:
       - "data/parsed/**"
-      - "data/legislation.db"
+      - "data/review/**"
       - "export_static_site.py"
       - "dashboard.py"
       - "corpus/**"
@@ -40,6 +40,13 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements-site.txt
+
+      # The review work is committed as text and the database is derived
+      # from it, so a clone -- which is all a runner has -- has no
+      # database at all. Without this the build succeeds and publishes an
+      # archive of an empty corpus.
+      - name: Build the database from the review files
+        run: python -m corpus.review_sync import
 
       # SITE_PASSWORD gates the whole site behind an unlock page while
       # it's being tested: set it as a repository secret to turn the gate

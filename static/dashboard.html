@@ -850,6 +850,19 @@ function renderSync(s) {
   setAction("sync-discard", waiting > 0, "Nothing uncommitted to discard.");
   setAction("sync-commit", waiting > 0, "Nothing to commit.");
 
+  // Before anything about the remote. A clone with the review work on
+  // disk and no database built from it looks, from every other page
+  // here, like a corpus nobody has reviewed -- and reviewing into it
+  // would be reviewing into a database the import then replaces.
+  if (s.needs_import) {
+    strip.dataset.state = "blocked";
+    headline.textContent = "The database hasn't been built from the review files yet";
+    detail.textContent = s.needs_import;
+    ["sync-push", "sync-pull", "sync-commit", "sync-discard"].forEach(
+      id => setAction(id, false, "Import the review files first."));
+    return;
+  }
+
   if (s.error) {
     strip.dataset.state = "blocked";
     headline.textContent = "Can't reach GitHub";
@@ -863,13 +876,14 @@ function renderSync(s) {
   setAction("sync-pull", s.behind > 0, "Nothing to pull -- already up to date.");
 
   if (s.behind && s.ahead) {
-    // Neither direction is safe: the database is synced whole, so there
-    // is no merge that keeps both sides.
-    strip.dataset.state = "blocked";
+    // Diverged, which used to be the end of it: with the database
+    // committed as one binary there was no merge, so somebody had to
+    // choose a side. The review work is text now and merges.
+    strip.dataset.state = "pending";
     headline.textContent = `Diverged: ${s.ahead} commit(s) here, ${s.behind} on GitHub`;
-    detail.textContent = "One side has to be chosen -- there is no merge for a database synced as one file.";
-    setAction("sync-push", false, "The remote has commits this server doesn't.");
-    setAction("sync-pull", false, "This server has commits the remote doesn't.");
+    detail.textContent = "Pull to merge them -- unless both sides reviewed the same provision, it will simply come in.";
+    setAction("sync-push", false, "Pull first: the remote has commits this server doesn't.");
+    setAction("sync-pull", !waiting, "Uncommitted changes here would be overwritten.");
     return;
   }
   if (s.behind) {
@@ -877,7 +891,7 @@ function renderSync(s) {
     headline.textContent = `GitHub has ${s.behind} commit(s) this server doesn't`;
     detail.textContent = waiting
       ? "Push or discard the uncommitted changes below, then pull."
-      : "Pull them in before pushing -- the database is synced whole, so there is no merge.";
+      : "Pull them in before pushing -- the review work merges, one line per provision.";
     setAction("sync-push", false, "The remote has commits this server doesn't.");
     setAction("sync-pull", !waiting, "Uncommitted changes here would be overwritten.");
     return;
@@ -992,8 +1006,9 @@ async function pullWork() {
 
 async function discardWork() {
   const typed = prompt(
-    "This throws away every uncommitted change under data/ and goes back to the last commit.\n\n" +
-    "The database is copied to _backups/ first, so it can be recovered.\n\n" +
+    "This throws away every uncommitted change under data/ and goes back to the last commit, " +
+    "and rebuilds the database from what it goes back to.\n\n" +
+    "The database as it is now is copied to _backups/ first, so it can be recovered.\n\n" +
     "Type 'discard' to confirm:");
   if (typed === null) return;
   if (typed.trim().toLowerCase() !== "discard") {
