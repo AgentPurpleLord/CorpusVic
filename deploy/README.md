@@ -935,6 +935,54 @@ Nothing on it is irreplaceable as long as `data/legislation.db` has been
 pushed: the site rebuilds in about three minutes, the password is one
 file, and the deploy key takes a minute to reissue.
 
+## One time only: the pull that moves this server onto the text sync
+
+**Read this before pulling the commit that adds `data/review/`.** Skip it
+and the pull either refuses or takes the database away, and any review
+work done on this server since its last push goes with it.
+
+That commit stops tracking `data/legislation.db`, so git records it as
+deleted. A server whose database has moved on since the last push is
+therefore in exactly the position git will not act on by itself: the file
+is modified locally *and* removed by what is arriving. So do it by hand,
+once:
+
+```bash
+cd /opt/corpusvic
+
+# 1. Keep the database. Everything below is recoverable from this file.
+sudo -u dashboard sqlite3 data/legislation.db \
+  ".backup /home/dashboard/legislation-before-text-sync.db"
+
+# 2. Let go of the working-tree copy, so the pull can complete. The
+#    backup above is what makes this safe -- do not skip step 1.
+sudo -u dashboard python3 checkpoint_db.py
+sudo -u dashboard git checkout -- data/legislation.db
+sudo -u dashboard git pull
+
+# 3. Put this server's own database back, review work and all, and write
+#    it out as text. Anything reviewed here since the last push shows up
+#    now as a pending change, per provision.
+sudo -u dashboard cp /home/dashboard/legislation-before-text-sync.db data/legislation.db
+sudo -u dashboard python3 -m corpus.review_sync export
+
+# 4. Check what that found, then push it from the dashboard as usual.
+sudo -u dashboard git status --short data/review
+```
+
+If step 4 lists nothing, this server had nothing unpushed and the text
+that arrived already says everything its database did. If it lists files,
+those are the provisions reviewed here since the last push: push them.
+
+Then restart both services, because this pull brought new code:
+
+```bash
+sudo systemctl restart dashboard corpusvic-public
+```
+
+Keep the backup file until you have seen the dashboard show the review
+counts you expect.
+
 ## Updating later
 
 Most of this is now a button on `/admin` -- **Pull**, then **Restart the
