@@ -332,6 +332,24 @@ made by a service account with no shell. What stands in for it is that
 the key is useless without the server, is scoped to this one repository,
 and can be revoked from GitHub in a click.
 
+**Notice where that is.** `dashboard`'s home directory *is* the checkout,
+so `~/.ssh` is `/opt/corpusvic/.ssh` -- a private key inside a git working
+tree. Two consequences, and both have bitten:
+
+- **git will stage it if you let it.** `.gitignore` covers `.ssh/` and
+  the pre-commit hook refuses any staged private key (install it -- see
+  "Working from a remote dev environment"), but neither survives
+  `git add -f`. Never run `git add -A` here without reading what it
+  staged. If a key ever does reach GitHub, rotate it: deleting the commit
+  is tidying, not remediation.
+- **`git clean -fd` deletes it.** The key is untracked, and untracked is
+  what `git clean` removes -- no `-x` required, because ignoring a file
+  does not protect it from `-x` either. That one command takes the
+  private key, the public key and `known_hosts` together, and the next
+  push fails with `Permission denied (publickey)` for a reason that looks
+  nothing like its cause. Recovery is below under "The deploy key stopped
+  working".
+
 Teach the server who GitHub is, or the first push fails on host
 verification with no one there to answer the prompt:
 
@@ -803,6 +821,80 @@ sudo ssh -T git@github.com                 # "Permission denied" -- expected, ro
 The second line failing is correct, not a problem to fix. Root is not
 meant to be able to push this repository; `dashboard` is.
 
+### The deploy key stopped working, or went missing
+
+Usually after a rollback. `/opt/corpusvic/.ssh/` sits inside the git
+working tree, so `git clean -fd` deletes it -- key, public half and
+`known_hosts` in one go. Generating a replacement is not enough on its
+own, because GitHub has never seen the new key.
+
+Start here, because it distinguishes the three causes in one line:
+
+```bash
+sudo -u dashboard ls -la /opt/corpusvic/.ssh/
+```
+
+- **Missing** -- the rollback took it. Full recovery below.
+- **There, owned by `root`** -- generated without `sudo -u dashboard`.
+  ssh cannot read it as `dashboard`, skips it silently, and GitHub
+  answers `Permission denied (publickey)`. Fix the ownership:
+  `sudo chown -R dashboard:dashboard /opt/corpusvic/.ssh`
+- **There, owned by `dashboard`** -- the key is fine and GitHub does not
+  know it. Step 3 below.
+
+Then the decisive test. The explicit `-i` takes `HOME` out of it, which
+matters because `sudo -u` does not reliably set `HOME` to the target
+user's:
+
+```bash
+sudo -u dashboard ssh -i /opt/corpusvic/.ssh/id_ed25519 \
+  -o IdentitiesOnly=yes -T git@github.com
+```
+
+`Hi AgentPurpleLord/CorpusVic! You've successfully authenticated...`
+means the key is right and the problem is the remote URL -- skip to step
+5. `Permission denied (publickey)` means GitHub has never seen this key.
+
+If that line works and `sudo -u dashboard ssh -T git@github.com` does
+not, it is `HOME`: use `sudo -u dashboard -H` from then on.
+
+Full recovery:
+
+```bash
+# 1. A new key, as dashboard, in dashboard's home
+sudo -u dashboard mkdir -p /opt/corpusvic/.ssh
+sudo -u dashboard chmod 700 /opt/corpusvic/.ssh
+sudo -u dashboard ssh-keygen -t ed25519 -C "corpusvic-vps" \
+  -f /opt/corpusvic/.ssh/id_ed25519 -N ""
+sudo chown -R dashboard:dashboard /opt/corpusvic/.ssh
+sudo -u dashboard chmod 600 /opt/corpusvic/.ssh/id_ed25519
+
+# 2. known_hosts went with it -- put it back (and check the
+#    fingerprints, as in step 8 above)
+sudo -u dashboard sh -c 'ssh-keyscan github.com >> /opt/corpusvic/.ssh/known_hosts'
+
+# 3. The public half, which is the part that goes to GitHub
+sudo cat /opt/corpusvic/.ssh/id_ed25519.pub
+```
+
+On GitHub, **Settings → Deploy keys**: **delete the old entry first** --
+it cannot work any more and leaving it there means looking at a key that
+is not the one being offered -- then **Add deploy key**, paste the
+`.pub`, and **tick "Allow write access"**. Without that tick the key
+authenticates and the push is then refused, which reads like the same
+failure and is not.
+
+```bash
+# 4. Confirm -- it names the repository
+sudo -u dashboard -H ssh -T git@github.com
+
+# 5. The remote. Note the current name: the repository was renamed to
+#    CorpusVic, and an https:// URL never consults an ssh key at all.
+cd /opt/corpusvic
+sudo -u dashboard git remote -v
+sudo -u dashboard git remote set-url origin git@github.com:AgentPurpleLord/CorpusVic.git
+```
+
 ### Two traps worth knowing before you start
 
 **The bare IP will not load, even when everything is right.** The site
@@ -1076,14 +1168,21 @@ the (gitignored) `-wal` file rather than the main one:
 python checkpoint_db.py
 ```
 
-To do this automatically on every commit instead of remembering it,
-install the tracked hook template once per environment (git hooks don't
-travel with a clone):
+**Install the hook** -- once per environment, and on the server too.
+Git hooks don't travel with a clone, so a tracked template is the only
+way to ship one:
 
 ```bash
 cp deploy/pre-commit.hook.example .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
+
+It does the checkpoint-and-export above by itself, and it refuses to
+commit a private key -- by content rather than by filename, and anything
+under `.ssh/` whether it looks like a key or not. On the server that is
+not hypothetical: `dashboard`'s home is the checkout, so the deploy key
+is a file git can see. `tests/test_precommit_hook.py` holds it to that,
+including that it stays out of the way of an ordinary commit.
 
 When you're done working in a temporary environment, commit and push, and
 `git pull` in your other environments to pick the work up there. Unlike
