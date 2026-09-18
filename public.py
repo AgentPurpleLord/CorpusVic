@@ -1,40 +1,8 @@
 """
 The public site: corpusvic.au, served live from the database.
 
-A separate application from dashboard.py, in a separate process, and
-those are two decisions rather than one.
+A passphrase is required currently to gain access to the public view. All the pages are encrypted behind this.
 
-**Separate application** because the dashboard's surface includes
-uploads, review writes, parse spawning, git push, discard and a
-self-restart, all behind one middleware. Everything here is a GET except
-the one form post that checks the passphrase, and there is a test that
-enumerates the routes and fails if that ever stops being true. A
-guarantee you can read off the route table beats one you have to audit
-for.
-
-**Separate process** because the dashboard can restart itself: it exits
-and lets systemd bring it back on new code. Sharing a process would mean
-every code update took the corpus offline, and every crash in the review
-tool -- a failed subprocess, a runaway scan, an upload that ran out of
-memory -- took it offline too. The two also share nothing they should:
-in one process the public traffic and the reviewer's would evict each
-other from html_view's context cache, turning millisecond pages into
-hundred-millisecond ones for both.
-
-It writes nothing, and the route table is where that is guaranteed: every
-route is a GET but the one post that checks the passphrase, and a test
-fails if that changes. `deploy/public.service` narrows what it *could*
-touch to `data/` -- not less, because the review database is in WAL mode
-and sqlite cannot open one of those at all, read-only or otherwise,
-without creating its -shm and -wal beside it.
-
-The passphrase is checked here rather than encrypted into the pages, as
-the archive build still does. That is a plainer design -- no key
-derivation in the browser, no ciphertext to serve -- and it buys
-something the static gate could never offer: changing the passphrase and
-restarting invalidates every session that exists, because the signing key
-*is* the derived key. A leaked passphrase goes from a thirty-day problem
-to a five-second one.
 """
 import argparse
 import base64
