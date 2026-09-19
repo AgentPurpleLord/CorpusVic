@@ -16,13 +16,27 @@
    (headings, notes, chips, nav) stays in --sans. */
 :root {
   color-scheme: light;
-  --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
-  --border: color-mix(in srgb, #201e1d 40%, transparent); --accent: #ec3013;
-  --done: #16a34a; --pending: #7d7979; --flagged: #d97706;
-  --verify-full-bg: #dcfce7; --verify-partial-bg: #fef3c7; --verify-none-bg: color-mix(in srgb, #201e1d 10%, transparent);
-  --bar-bg: #201e1d; --bar-fg: #eae9e9; --bar-link: #ff9783;
-  --ins-bg: #dcfce7; --ins-fg: #14532d; --del-bg: #fee2e2; --del-fg: #7f1d1d;
-  --warn-bg: #fef3c7; --warn-border: #d97706;
+  --bg: #f3f2f2;
+  --panel: #eae9e9;
+  --fg: #000000;
+  --muted: #605d5d;
+  --border: color-mix(in srgb, #201e1d 40%, transparent);
+  --accent: #ec3013;
+  --done: #16a34a;
+  --pending: #7d7979;
+  --flagged: #d97706;
+  --verify-full-bg: #dcfce7;
+  --verify-partial-bg: #fef3c7;
+  --verify-none-bg: color-mix(in srgb, #201e1d 10%, transparent);
+  --bar-bg: #201e1d;
+  --bar-fg: #eae9e9;
+  --bar-link: #ff9783;
+  --ins-bg: #dcfce7;
+  --ins-fg: #14532d;
+  --del-bg: #fee2e2;
+  --del-fg: #7f1d1d;
+  --warn-bg: #fef3c7;
+  --warn-border: #d97706;
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --reading: 'Junicode', Georgia, serif;
 }
