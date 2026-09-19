@@ -1911,11 +1911,32 @@ def detach_history_endpoint(req: HistoryDetachRequest):
 
 @app.post("/api/nodes/{node_index}/edit")
 def edit_node_endpoint(node_index: int, req: EditRequest):
+    """Changes one piece's type, number, heading or text.
+
+    The recompute is the point of the third line, not an afterthought.
+    A piece's displayed number is its *path* chain -- "(a)(c)" -- not its
+    own number, because that is what says where in the Section it sits
+    (see compute_unit_labels). Type and number are two of the three
+    things that chain is derived from, so changing either without
+    replaying the path leaves the label describing where the piece used
+    to be: correcting a mis-parsed subparagraph "(c)" to a paragraph went
+    on reading "(a)(c)" instead of "(c)", and so did everything nested
+    after it, which is issue #51. Heading is the third, through a
+    Definition, whose defined term is its heading and is carried into the
+    path of every piece under it.
+
+    Unconditional, as in read_box_endpoint above, which changes the same
+    fields for the same kind of reason. Replaying a unit's paths is
+    idempotent and costs one pass over one Section, which is less than
+    working out whether it was needed."""
     _require_live(node_index)
     if req.type not in _relabel_types:
         raise HTTPException(400, f"Unknown type {req.type!r}")
     updated = _mutate_node(node_index, type=req.type, number=req.number or None, heading=req.heading or None, text=req.text)
-    return {"node_index": node_index, "type": updated["type"], "number": updated.get("number"), "heading": updated.get("heading")}
+    _recompute_unit_paths(_unit_of_index[node_index])
+    updated = _current_node(node_index)
+    return {"node_index": node_index, "type": updated["type"], "number": updated.get("number"),
+            "heading": updated.get("heading"), "path": updated.get("path")}
 
 
 @app.post("/api/nodes/{node_index}/reset")
