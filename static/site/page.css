@@ -6,13 +6,25 @@
   4. Kerning explicitly set
   5. Ligatures explicitly set */
 body {
-  margin: 0; background: var(--bg); color: var(--fg);
-  font-family: var(--sans); font-size: 17px; line-height: 1.45;
-  font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.45;
+  font-kerning: normal;
+  font-variant-ligatures:
+  common-ligatures contextual;
 }
 .previewbar {
-  background: var(--bar-bg); color: var(--bar-fg); font-family: var(--sans); font-size: 12px;
-  padding: 6px 20px; display: flex; gap: 14px; align-items: center;
+  background: var(--bar-bg);
+  color: var(--bar-fg);
+  font-family: var(--sans);
+  font-size: 12px;
+  padding: 6px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
 }
 .previewbar a { color: var(--bar-link); }
 .page { max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
