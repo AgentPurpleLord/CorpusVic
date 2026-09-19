@@ -67,7 +67,18 @@ FLOOR_AT_5 = 14
 # queries, not a sign the corpus does not matter: the test that caught
 # the breakage was test_the_eval_set_is_about_documents_that_exist, which
 # noticed s322O had disappeared.
-GAP_MRR_TODAY = 0.029
+#
+# Re-stated again, from 0.029, when the Evidence Act was re-parsed and
+# came back some 25,000 lines longer. Exactly one query moved: "can
+# police take my fingerprints", from rank 16 to rank 19. It still finds
+# the right provision and finds it no worse -- there is simply more
+# material sitting between the reader and it. Five of the six are
+# untouched, four of them still nowhere at all, and the core group did
+# not move (0.824). The corpus moved, not the search, which is the same
+# reason as last time and is why this is a record rather than a ratchet:
+# a number that quietly absorbed this would not be telling anybody
+# anything.
+GAP_MRR_TODAY = 0.027
 
 
 @pytest.fixture(scope="session")
