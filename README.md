@@ -104,6 +104,13 @@ A fresh clone therefore has the text and no database:
 
     python3 -m corpus.review_sync import
 
+A `git pull` from a terminal is only half of a pull: it brings the text
+and leaves the database behind it, so follow it with the import above.
+The dashboard's Pull button does both. If the two ever get out of step
+the export refuses rather than writing the older one over the newer --
+which it learned the hard way, having once deleted 193 verified
+provisions that way.
+
 After that the export runs by itself, before every question the dashboard
 asks about what is pending -- which is the part that had to be right,
 because with the database gitignored a day's reviewing produces no

@@ -142,6 +142,107 @@ class Unloaded(RuntimeError):
     """data/review/ holds work the database does not."""
 
 
+# Where the export records what it last left on disk. Beside the
+# database, gitignored, and deliberately NOT a table: every table is
+# exported, so a table holding a fingerprint of the exported files would
+# change the files it fingerprints.
+_STATE_FILE = "review-sync-state.json"
+
+
+def _state_path(base: Path) -> Path:
+    return base / "data" / _STATE_FILE
+
+
+def fingerprint(base_dir=None) -> str:
+    """A stamp of every review file on disk, content and all.
+
+    Cheap enough to take on every export -- 2 MB of text, hashed once --
+    and the only thing that can tell "these files are as I left them"
+    from "something else has been at them"."""
+    import hashlib
+
+    out = review_dir(base_dir)
+    digest = hashlib.sha256()
+    for path in sorted(out.rglob("*.jsonl")):
+        digest.update(str(path.relative_to(out)).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def _record_state(base: Path) -> None:
+    """Remembers that the database and the files agree, because they were
+    just made to."""
+    try:
+        path = _state_path(base)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"fingerprint": fingerprint(base)}), encoding="utf-8")
+    except OSError:
+        # A checkout that cannot write this can still export. Losing the
+        # guard is worse than nothing, but refusing to work at all is
+        # worse than that.
+        pass
+
+
+def files_are_ahead(base_dir=None) -> "str | None":
+    """Why an export must not run, or None: the review files have changed
+    since the database was last written from them or into them.
+
+    The failure this exists for, and it has happened. A plain `git pull`
+    brings new review work as text and leaves the database exactly as it
+    was -- so the database is now *older* than the files, and an export
+    writes it back over them, removing every row and every file it did
+    not itself produce. One pull and one commit an hour apart cost 193
+    verified provisions, 207 corrections and 9 link annotations.
+
+    sync.pull imports after merging and is safe. `git pull` from a
+    terminal is not, and the pre-commit hook exports on any commit
+    touching data/review/, so nothing unusual has to happen.
+
+    unloaded() does not catch this: it refuses only when the database is
+    *entirely* empty, which is the fresh clone it was written for. A
+    database that is merely out of date looks perfectly healthy.
+
+    With no state recorded -- a checkout from before this guard -- the
+    current state is adopted rather than refused, because refusing would
+    stop every existing checkout working and the far commoner reading of
+    "no record" is "this is the first export since an upgrade"."""
+    base = Path(base_dir or ".")
+    if not review_dir(base).is_dir():
+        return None
+    try:
+        recorded = json.loads(_state_path(base).read_text(encoding="utf-8")).get("fingerprint")
+    except (OSError, ValueError):
+        recorded = None
+    if not recorded:
+        _record_state(base)
+        return None
+    if recorded == fingerprint(base):
+        return None
+    return (
+        f"The review files in {review_dir(base)} have changed since this database was last "
+        "written from them -- a `git pull` or a checkout, most likely. Exporting now would "
+        "write this database back over them and delete the work that arrived.\n\n"
+        "Load it first:\n\n    python3 -m corpus.review_sync import\n\n"
+        "If you are certain this database is the newer of the two, take the files as they are "
+        "with `python3 -m corpus.review_sync adopt`, which records them as seen without "
+        "changing either side."
+    )
+
+
+def adopt(base_dir=None) -> str:
+    """Records the review files as they stand, without loading them.
+
+    The way past files_are_ahead when the database really is the newer of
+    the two -- after resolving a merge conflict by hand, say. Deliberately
+    a separate, named thing rather than a flag on export: choosing which
+    of two versions of somebody's review work survives is not a thing to
+    do in passing."""
+    base = Path(base_dir or ".")
+    _record_state(base)
+    return f"Took {review_dir(base)} as it stands. The next export will write over it."
+
+
 def unloaded(base_dir=None) -> "str | None":
     """Why an export must not run, or None.
 
@@ -191,9 +292,12 @@ def export(base_dir=None, conn: "sqlite3.Connection | None" = None) -> dict:
     from . import db
 
     base = Path(base_dir or ".")
-    # Before connecting, for the reason unloaded() gives.
+    # Before connecting, for the reason unloaded() gives. Both checks ask
+    # the same question -- is this database fit to be written over those
+    # files? -- at the two scales it can be wrong at: never loaded, and
+    # loaded but since overtaken.
     if conn is None:
-        blocked = unloaded(base)
+        blocked = unloaded(base) or files_are_ahead(base)
         if blocked:
             raise Unloaded(blocked)
     owned = conn is None
@@ -230,6 +334,9 @@ def export(base_dir=None, conn: "sqlite3.Connection | None" = None) -> dict:
 
     if owned:
         pass  # db owns its connections; closing here would drop a shared one
+        # What is on disk is now exactly what this database says, so say
+        # so -- this is the only moment the two are known to agree.
+        _record_state(base)
     return {"files": len(wanted), "written": written, "removed": removed,
             "path": str(out)}
 
@@ -365,6 +472,8 @@ def import_(base_dir=None, backup: bool = True) -> dict:
     for sidecar in ("-wal", "-shm"):
         target.with_name(target.name + sidecar).unlink(missing_ok=True)
     os.replace(scratch, target)
+    # The other moment the two are known to agree.
+    _record_state(base)
     return {"rows": counts, "total": sum(counts.values()),
             "backup": str(kept) if kept else None, "path": str(target)}
 
@@ -373,10 +482,11 @@ def main():
     import argparse
 
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("direction", choices=("export", "import", "check"),
+    ap.add_argument("direction", choices=("export", "import", "check", "adopt"),
                     help="export: database -> data/review/. "
                          "import: data/review/ -> database. "
-                         "check: export, import into a scratch copy, compare.")
+                         "check: export, import into a scratch copy, compare. "
+                         "adopt: record the files as seen without loading them.")
     ap.add_argument("--base-dir", default=".")
     args = ap.parse_args()
 
@@ -401,6 +511,8 @@ def _run(args):
             print(f"   {name:20} {n:>6}")
         if stats["backup"]:
             print(f"previous database kept at {stats['backup']}")
+    elif args.direction == "adopt":
+        print(adopt(args.base_dir))
     else:
         print(check(args.base_dir))
 

@@ -55,6 +55,12 @@ data/search_vectors.json
 #
 #     python3 -m corpus.review_sync import
 #
+# What the export last left on disk (corpus/review_sync.py), so that a
+# `git pull` bringing newer review work than this database holds is
+# noticed instead of being written over. Machine state, like the
+# database it guards.
+data/review-sync-state.json
+
 data/legislation.db
 data/legislation.db-wal
 data/legislation.db-shm

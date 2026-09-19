@@ -838,13 +838,14 @@ def sync_status():
     state = sync.status(BASE_DIR)
     on_disk = sync.head(BASE_DIR)
     can_restart, why_not = _restart_capability()
-    # A fresh clone has the review work as text and no database built
-    # from it yet. Said here rather than left to be discovered, because
-    # what it looks like from the browse page is a corpus with nothing in
-    # it -- and reviewing into that would be reviewing into a database
-    # the next import replaces.
+    # Two ways the database can be unfit to write over the review files,
+    # and one remedy for both. A fresh clone has the text and nothing
+    # built from it. A checkout that pulled has text *newer* than what it
+    # holds -- and that one is the dangerous half, because everything
+    # looks healthy right up until an export deletes the work that
+    # arrived. Said here rather than left to be discovered.
     try:
-        needs_import = review_sync.unloaded(BASE_DIR)
+        needs_import = review_sync.unloaded(BASE_DIR) or review_sync.files_are_ahead(BASE_DIR)
     except OSError as e:
         needs_import = f"Couldn't read the review files: {e}"
     return {

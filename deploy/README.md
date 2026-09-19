@@ -1083,11 +1083,20 @@ buttons" above). What is left for a terminal is a dependency change and
 restarting the *public* service, neither of which the dashboard has any
 business doing as itself.
 
+**A `git pull` from a terminal is only half of a pull here.** It brings
+the review work as text and leaves the database exactly as it was -- so
+the database is now older than the files, and the next export writes it
+back over them and deletes what arrived. The dashboard's **Pull** button
+loads it for you; a terminal pull needs the second line below. Get it
+wrong and the export now refuses and says so, rather than doing it, but
+the refusal is a backstop and the habit is the fix.
+
 ```bash
 cd /opt/corpusvic
 # As the owner of the checkout, so nothing ends up root-owned and
 # unwritable by the service afterwards.
 sudo -u dashboard git pull
+sudo -u dashboard python3 -m corpus.review_sync import   # load what arrived
 sudo .venv/bin/pip install -r requirements-site.txt   # in case dependencies changed
 # Both services: the public site imports the same corpus/ code, so a pull
 # that touched it leaves that side running the old version.

@@ -912,13 +912,15 @@ function renderSync(s) {
   setAction("sync-discard", waiting > 0, "Nothing uncommitted to discard.");
   setAction("sync-commit", waiting > 0, "Nothing to commit.");
 
-  // Before anything about the remote. A clone with the review work on
-  // disk and no database built from it looks, from every other page
-  // here, like a corpus nobody has reviewed -- and reviewing into it
-  // would be reviewing into a database the import then replaces.
+  // Before anything about the remote, and before any error, because the
+  // remedy is the same and it is urgent. Either the review work on disk
+  // has never been loaded -- a fresh clone, which looks from every other
+  // page here like a corpus nobody has reviewed -- or it is newer than
+  // what this database holds, which looks like nothing at all until an
+  // export writes over it.
   if (s.needs_import) {
     strip.dataset.state = "blocked";
-    headline.textContent = "The database hasn't been built from the review files yet";
+    headline.textContent = "The review files need loading into the database";
     detail.textContent = s.needs_import;
     ["sync-push", "sync-pull", "sync-commit", "sync-discard"].forEach(
       id => setAction(id, false, "Import the review files first."));

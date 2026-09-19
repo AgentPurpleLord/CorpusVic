@@ -333,6 +333,91 @@ def test_an_export_from_a_database_nobody_built_is_refused(tmp_path):
     assert review_sync.export(clone)["written"] == 0, "and then it is an ordinary export"
 
 
+def test_an_export_is_refused_when_the_files_are_newer_than_the_database(tmp_path):
+    """The one that cost real work. A `git pull` brings newer review text
+    and leaves the database exactly as it was; the database is then older
+    than the files, and an export writes it back over them, removing
+    every row and every file it did not itself produce. One pull and one
+    commit an hour apart destroyed 193 verified provisions, 207
+    corrections and 9 link annotations.
+
+    unloaded() does not catch it -- that refuses only an *empty*
+    database, and this one is full and healthy-looking."""
+    _populate(tmp_path)
+    review_sync.export(tmp_path)
+    out = review_sync.review_dir(tmp_path)
+
+    # Exactly what a pull does: the files change, the database does not.
+    arrived = out / "crimes-act" / "verified.jsonl"
+    arrived.write_text(arrived.read_text() + json.dumps(
+        {"act": "crimes-act", "source_node_index": 99, "type": "section",
+         "text": "arrived in the pull"}, sort_keys=True) + "\n")
+    (out / "crimes-act" / "links.jsonl").write_text(json.dumps(
+        {"act": "crimes-act", "id": "abc", "node_index": 1, "start": 0, "end": 3,
+         "label": "act_citation", "created_at": "2026-01-01T00:00:00+00:00"}) + "\n")
+
+    with pytest.raises(review_sync.Unloaded, match="import"):
+        review_sync.export(tmp_path)
+
+    assert "arrived in the pull" in arrived.read_text(), "left exactly as it was"
+    assert (out / "crimes-act" / "links.jsonl").exists(), "and not deleted"
+
+
+def test_loading_what_arrived_lets_the_export_run_again(tmp_path):
+    _populate(tmp_path)
+    review_sync.export(tmp_path)
+    arrived = review_sync.review_dir(tmp_path) / "crimes-act" / "verified.jsonl"
+    arrived.write_text(arrived.read_text() + json.dumps(
+        {"act": "crimes-act", "source_node_index": 99, "type": "section",
+         "text": "arrived in the pull"}, sort_keys=True) + "\n")
+
+    review_sync.import_(tmp_path, backup=False)
+
+    assert review_sync.export(tmp_path)["removed"] == 0
+    assert "arrived in the pull" in arrived.read_text()
+
+
+def test_adopting_is_the_deliberate_way_past_it(tmp_path):
+    """For the case the database really is the newer of the two -- after
+    resolving a merge by hand. Its own command rather than a flag on
+    export, because choosing which version of somebody's review work
+    survives is not a thing to do in passing."""
+    _populate(tmp_path)
+    review_sync.export(tmp_path)
+    arrived = review_sync.review_dir(tmp_path) / "crimes-act" / "verified.jsonl"
+    arrived.write_text(arrived.read_text() + "{}\n")
+
+    review_sync.adopt(tmp_path)
+
+    review_sync.export(tmp_path)  # no longer refused
+    assert "{}" not in arrived.read_text(), "the database won, as asked"
+
+
+def test_an_ordinary_review_and_export_is_not_refused(tmp_path):
+    """The guard has to be invisible in the normal case: reviewing makes
+    the database newer than the files, which is the whole point of an
+    export and must never look like the dangerous direction."""
+    _populate(tmp_path)
+    review_sync.export(tmp_path)
+
+    db.save_verified("crimes-act", [
+        dict(make_node("section", "9", "Later"), _source_node_index=9)], base_dir=tmp_path)
+
+    assert review_sync.export(tmp_path)["written"] >= 1
+
+
+def test_a_checkout_from_before_the_guard_is_adopted_rather_than_blocked(tmp_path):
+    """No record means "first export since an upgrade" far more often
+    than it means trouble, and refusing would stop every existing
+    checkout working."""
+    _populate(tmp_path)
+    review_sync.export(tmp_path)
+    review_sync._state_path(tmp_path).unlink()
+
+    review_sync.export(tmp_path)  # does not raise
+    assert review_sync.files_are_ahead(tmp_path) is None
+
+
 def test_review_work_with_no_export_still_shows_up_as_pending(tmp_path):
     """The load-bearing one. The database is gitignored, so a day's
     reviewing leaves no pending change at all until an export runs -- and
