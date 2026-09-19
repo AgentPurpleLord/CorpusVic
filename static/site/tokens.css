@@ -1,19 +1,3 @@
-/* The palette (and the data-theme dark override below) deliberately
-   uses the same set of variable names static/review.html uses, driven
-   by the same localStorage["reviewTheme"] key -- toggling the theme in
-   the review GUI and then clicking through to a browse page keeps the
-   theme, because both surfaces read the one preference.
-
-   Palette: "Modernist" -- flat, architectural, a near-mono red accent on
-   a warm off-white ground, zero corner radius, strong dividers (see the
-   imported Claude Design system this was adapted from, and
-   static/review.html's own copy of this note). The dark values are a
-   separate OKLCH ramp on the same hue/chroma family (accent hue ~31.5°,
-   neutral hue ~17.3°), not the light ones inverted -- the accent moves to
-   a lighter step for legibility on a dark ground. --reading is the one
-   token that isn't theme-toggled: the actual Act/Bill text a reader is
-   reading (.prov, .endnote-quote) is set in it; everything else here
-   (headings, notes, chips, nav) stays in --sans. */
 :root {
   color-scheme: light;
   --bg: #f3f2f2;
@@ -42,21 +26,29 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #969191;
-  --border: #413b3b; --accent: #ff7f67;
-  --done: #5fd37f; --pending: #989090; --flagged: #f0b135;
-  --verify-full-bg: #092c13; --verify-partial-bg: #3b2400; --verify-none-bg: color-mix(in srgb, #eeeaea 12%, transparent);
-  --bar-bg: #0a0808; --bar-fg: #eeeaea; --bar-link: #ffa08b;
-  --ins-bg: #092c13; --ins-fg: #86efac; --del-bg: #3a1616; --del-fg: #fca5a5;
-  --warn-bg: #3b2400; --warn-border: #f0b135;
+  --bg: #120e0e;
+  --panel: #1c1717;
+  --fg: #eeeaea;
+  --muted: #969191;
+  --border: #413b3b;
+  --accent: #ff7f67;
+  --done: #5fd37f;
+  --pending: #989090;
+  --flagged: #f0b135;
+  --verify-full-bg: #092c13;
+  --verify-partial-bg: #3b2400;
+  --verify-none-bg: color-mix(in srgb, #eeeaea 12%, transparent);
+  --bar-bg: #0a0808;
+  --bar-fg: #eeeaea;
+  --bar-link: #ffa08b;
+  --ins-bg: #092c13;
+  --ins-fg: #86efac;
+  --del-bg: #3a1616;
+  --del-fg: #fca5a5;
+  --warn-bg: #3b2400;
+  --warn-border: #f0b135;
 }
-/* Inter, self-hosted for the same reason Junicode is. It used to come from
-   Google Fonts, which meant every reader of this site announced themselves
-   to a third party to have its chrome drawn -- while the face the law
-   itself is set in was served from here precisely so that they wouldn't.
-   One rule for both is the only consistent answer. Weight is left variable
-   across 400-700, which is every weight this site uses, so one file per
-   style covers them all. */
+/* Inter, self-hosted */
 @font-face {
   font-family: 'Inter';
   src: url('fonts/Inter.woff2') format('woff2');
@@ -67,13 +59,7 @@
   src: url('fonts/Inter-Italic.woff2') format('woff2');
   font-weight: 400 700; font-style: italic; font-display: swap;
 }
-/* Junicode, self-hosted: it isn't on any font CDN, and a public register
-   of the law shouldn't hand every reader's IP to a third party to render
-   its own text. One file per style covers 300-700 because the weight
-   axis is left variable -- see fonts/README.md. The URLs are relative to
-   this stylesheet, which is what keeps them correct whether the site is
-   served from a domain root or from under a repository path -- nothing
-   has to know the prefix. */
+/* Junicode, self-hosted */
 @font-face {
   font-family: 'Junicode';
   src: url('fonts/Junicode-Roman.woff2') format('woff2');
