@@ -56,10 +56,9 @@ def contents_page(source, slug: str, base_url: str, *, rewrite=None,
     server has no such constraint. That difference is real, so it is the
     caller's to make rather than something inferred here."""
     site = rewrite or _identity
-    nodes, _unattached, hierarchy = source._current_nodes(slug)
     amendments = source._amendments(slug)
     body = html_view.render_index(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"],
+        {**source._parsed(slug), "endnotes": amendments["endnotes"],
          "version": source._act_version(slug)},
         document_title(source, slug), base_url,
         superseded=site(source._superseded(slug)),
@@ -80,7 +79,8 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
     None means there is no such page -- a 404 for a live server, and a
     section the static build skips."""
     site = rewrite or _identity
-    nodes, _unattached, hierarchy = source._current_nodes(slug)
+    parsed = source._parsed(slug)
+    nodes = parsed["nodes"]
     title = document_title(source, slug)
     page_index = source._page_index(slug)
 
@@ -115,7 +115,7 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
     return html_view.render_section(
         # version and endnotes are what the reading bar's "Text as at"
         # line and the outline's Endnotes link are built from.
-        {"nodes": nodes, "hierarchy": hierarchy, "version": source._act_version(slug),
+        {**parsed, "version": source._act_version(slug),
          "endnotes": amendments["endnotes"]},
         title, base_url, section_slug,
         crossrefs=site(crossrefs),
@@ -136,9 +136,8 @@ def endnotes_page(source, slug: str, base_url: str) -> "str | None":
     Amendments read as a real table, and Explanatory details. None for a
     document that has none: a Bill, an Explanatory Memorandum, or an Act
     parsed before corpus/endnotes.py existed."""
-    nodes, _unattached, hierarchy = source._current_nodes(slug)
     amendments = source._amendments(slug)
     return html_view.render_endnotes(
-        {"nodes": nodes, "hierarchy": hierarchy, "endnotes": amendments["endnotes"]},
+        {**source._parsed(slug), "endnotes": amendments["endnotes"]},
         document_title(source, slug), base_url, amendments["summary"],
     )

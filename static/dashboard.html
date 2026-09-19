@@ -203,7 +203,26 @@
     max-height: 86vh;
     overflow: auto;
   }
+  /* The defined-terms list is the one modal that is a list rather than a
+     form: an Act can define several hundred words, and a column of them
+     440px wide is unreadable. */
+  .modal.wide { width: 720px; }
   .modal h2 { font-size: 15px; margin: 0 0 14px; }
+  .term-list { max-height: 46vh; overflow: auto; border: 1px solid var(--border); margin-top: 10px; }
+  .term-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px;
+  }
+  .term-row:last-child { border-bottom: 0; }
+  .term-row .term { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .term-row .target { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  .term-row.removed .term { text-decoration: line-through; color: var(--muted); }
+  .term-row .btn.small { padding: 1px 7px; font-size: 11px; }
+  .term-empty { padding: 14px 10px; color: var(--muted); font-size: 12.5px; }
+  .term-add { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; flex-wrap: wrap; }
+  .term-add > div { flex: 1 1 140px; min-width: 0; }
+  .term-add label { margin-top: 0; }
+  .term-count { color: var(--muted); font-size: 12px; margin-top: 8px; }
   .modal label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
   .modal input[type=text], .modal input[type=number], .modal select {
     width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 0; font-size: 13px;
@@ -546,6 +565,38 @@
   </div>
 </div>
 
+<div class="overlay" id="definitions-modal">
+  <div class="modal wide">
+    <h2>Defined terms &mdash; <span id="definitions-slug"></span></h2>
+    <div class="hint">
+      The site hyperlinks a defined word back to where the Act defines it. Which words those are is
+      worked out from drafting convention &mdash; "<em>term</em> means&hellip;", "has the same meaning as in
+      section N", inside a Section headed Definitions or Interpretation &mdash; so it misses a term
+      phrased unusually and now and then catches a phrase that is not a definition at all. This is
+      where you say otherwise. Changes reach the live site straight away; the offline archive picks
+      them up on its next rebuild.
+    </div>
+    <input id="definitions-filter" class="sync-message" type="text" autocomplete="off"
+           placeholder="Filter&hellip;" oninput="renderDefinitions()" style="width:100%;margin-top:10px">
+    <div class="term-list" id="definitions-list"></div>
+    <div class="term-count" id="definitions-count"></div>
+    <div class="term-add">
+      <div>
+        <label for="definitions-new-term">Add a term the matcher missed</label>
+        <input id="definitions-new-term" type="text" autocomplete="off" placeholder="e.g. safety notice">
+      </div>
+      <div style="flex:0 0 140px">
+        <label for="definitions-new-section">Defined in section</label>
+        <select id="definitions-new-section"></select>
+      </div>
+      <button type="button" class="btn" onclick="addDefinition()">Add</button>
+    </div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeModal('definitions-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -574,6 +625,15 @@ document.getElementById("theme-toggle-btn").onclick = () => {
 };
 
 function openModal(id) { document.getElementById(id).classList.add("open"); }
+
+// Defined terms come out of the Act's own text -- "&", quotes and
+// brackets are ordinary in legislation -- and go straight into markup,
+// so they are escaped rather than trusted.
+function escapeHtml(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 
 // ---------------------------------------------------------------------
 // Associating a Bill, its Act, and its Explanatory Memorandum
@@ -753,6 +813,8 @@ function actCardHtml(s) {
         ${browseBtn}
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
+        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
+                title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
         ${dlAkn}
         ${dlMd}
@@ -1567,6 +1629,135 @@ async function installAiModel() {
 
 let aiScanSlug = null;
 let aiScanPollHandle = null;
+
+// ---------------------------------------------------------------------
+// Defined terms
+// ---------------------------------------------------------------------
+// Which words the site hyperlinks back to where they are defined. The
+// matcher (corpus/definitions.py) works from drafting convention and
+// says plainly that it is a navigation aid rather than a guarantee, so
+// this is where a person overrules it -- per document, per term.
+//
+// The whole list is fetched once and filtered in the browser rather than
+// queried: an Act defines a few hundred terms at most, which is nothing
+// to hold, and a filter that waits for the network feels broken.
+let DEFINITIONS = null;
+let definitionsSlug = null;
+
+async function openDefinitionsModal(slug) {
+  definitionsSlug = slug;
+  DEFINITIONS = null;
+  document.getElementById("definitions-slug").textContent = slug;
+  document.getElementById("definitions-filter").value = "";
+  document.getElementById("definitions-new-term").value = "";
+  document.getElementById("definitions-list").innerHTML =
+    `<div class="term-empty">Reading the document&hellip;</div>`;
+  document.getElementById("definitions-count").textContent = "";
+  openModal("definitions-modal");
+  await loadDefinitions();
+}
+
+async function loadDefinitions() {
+  try {
+    const res = await fetch(`api/acts/${definitionsSlug}/definitions`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
+    DEFINITIONS = data;
+    const sel = document.getElementById("definitions-new-section");
+    sel.innerHTML = data.sections
+      .map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+    renderDefinitions();
+  } catch (e) {
+    document.getElementById("definitions-list").innerHTML =
+      `<div class="term-empty">Couldn't read the defined terms: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderDefinitions() {
+  if (!DEFINITIONS) return;
+  const needle = document.getElementById("definitions-filter").value.trim().toLowerCase();
+  const shown = DEFINITIONS.terms
+    .map((t, i) => ({ t, i }))
+    .filter(({ t }) => !needle || t.term.includes(needle));
+  const list = document.getElementById("definitions-list");
+
+  list.innerHTML = shown.length
+    ? shown.map(({ t, i }) => definitionRow(t, i)).join("")
+    : `<div class="term-empty">${DEFINITIONS.terms.length
+        ? "Nothing matches that." : "No defined terms found in this document."}</div>`;
+
+  const c = DEFINITIONS.counts;
+  const parts = [`${c.linked} term(s) linked, of ${c.found} the matcher found`];
+  if (c.added) parts.push(`${c.added} added by hand`);
+  if (c.removed) parts.push(`${c.removed} removed`);
+  const filtered = needle ? ` &mdash; showing ${shown.length}` : "";
+  document.getElementById("definitions-count").innerHTML = parts.join(", ") + filtered + ".";
+}
+
+function definitionRow(t, index) {
+  // Where it points, or why it points nowhere. "unresolved" is an added
+  // term naming a Section this document does not have: the page build
+  // drops it rather than linking it wrong, so saying "links to s99" here
+  // would be this page claiming something the site does not do.
+  let target = t.links_to ? `&rarr; ${escapeHtml(t.links_to)}` : "";
+  if (t.state === "removed") target = "not linked";
+  if (t.unresolved) target = `no section ${escapeHtml(t.section || "")} in this document`;
+
+  const badge = t.state === "added" ? `<span class="badge">added</span>`
+    : t.state === "removed" ? `<span class="badge not-started">removed</span>` : "";
+
+  // One button per row, because there are only ever two things to do
+  // with a term: stop linking it, or put it back the way it was found.
+  // By position, never by value: putting a term inside a JS string
+  // inside an HTML attribute is two layers of quoting deep, and a term
+  // with an apostrophe in it -- "children's court" -- breaks out of
+  // both. An integer cannot.
+  const action = t.state === "auto"
+    ? `<button class="btn small" onclick="setDefinitionAt(${index},'remove')"
+               title="Stop the site linking this word">Remove</button>`
+    : `<button class="btn small" onclick="setDefinitionAt(${index},'auto')"
+               title="${t.state === "removed"
+                 ? "Link it again, as the matcher found it"
+                 : "Throw this addition away"}">${t.state === "removed" ? "Restore" : "Undo"}</button>`;
+
+  return `<div class="term-row ${t.state}">
+    <span class="term">${escapeHtml(t.term)}</span>
+    ${badge}
+    <span class="target">${target}</span>
+    ${action}
+  </div>`;
+}
+
+function setDefinitionAt(index, action) {
+  const entry = DEFINITIONS && DEFINITIONS.terms[index];
+  if (!entry) return;
+  return setDefinition(entry.term, action);
+}
+
+async function setDefinition(term, action, section) {
+  try {
+    const res = await fetch(`api/acts/${definitionsSlug}/definitions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term, action, section: section || null }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
+    DEFINITIONS = data;
+    renderDefinitions();
+    toast(action === "auto" ? "Back to what the matcher found."
+      : action === "remove" ? "Removed -- the site will stop linking it."
+      : "Added -- the site will link it.");
+  } catch (e) { toast(e.message, true); }
+}
+
+async function addDefinition() {
+  const term = document.getElementById("definitions-new-term").value.trim();
+  if (!term) { toast("Which term?", true); return; }
+  const section = document.getElementById("definitions-new-section").value;
+  await setDefinition(term, "add", section);
+  document.getElementById("definitions-new-term").value = "";
+}
 
 function openAiScanModal(slug) {
   aiScanSlug = slug;

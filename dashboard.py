@@ -1461,6 +1461,99 @@ def list_acts():
     return [act_status(slug, publication) for slug in discover_slugs()]
 
 
+class DefinitionOverrideRequest(BaseModel):
+    term: str
+    # "add" links a term the matcher missed; "remove" stops it linking one
+    # it should not have; "auto" throws the decision away and hands the
+    # term back to the matcher.
+    action: str
+    section: "str | None" = None
+
+
+@app.get("/api/acts/{slug}/definitions")
+def list_definitions(slug: str):
+    """Which words this document hyperlinks back to where they are
+    defined, and which of them a person has decided rather than the
+    pattern-matcher.
+
+    Both sides of that are returned, because the useful question is not
+    "what links?" but "what did I change?" -- a term the matcher found
+    and a term somebody added look identical on the page and need to be
+    told apart here."""
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- parse it first.")
+    ctx = html_view._build_context(_parsed(slug), _act_title(slug))
+    found, effective = ctx["definitions_found"], ctx["definitions"]
+    decided = {row["term"]: row for row in db.load_definition_overrides(slug, BASE_DIR)}
+
+    terms = []
+    for term in sorted(set(found) | set(effective) | set(decided)):
+        decision = decided.get(term)
+        state = "auto"
+        if decision:
+            state = "removed" if decision["action"] == "remove" else "added"
+        entry = effective.get(term) or {}
+        # "s5.md" is the page file; a reader wants the provision.
+        target = (entry.get("file") or "")[:-3] if entry.get("file") else None
+        terms.append({
+            "term": term,
+            "state": state,
+            "links_to": target,
+            "section": (decision or {}).get("section"),
+            "found_by_matcher": term in found,
+            # An 'add' naming a Section this document does not have is
+            # dropped when the page is built rather than linked wrong, so
+            # say so here instead of showing a decision that does nothing.
+            "unresolved": state == "added" and term not in effective,
+        })
+    return {
+        "slug": slug,
+        "title": _act_title(slug),
+        "terms": terms,
+        "counts": {
+            "linked": len(effective),
+            "found": len(found),
+            "added": sum(1 for t in terms if t["state"] == "added"),
+            "removed": sum(1 for t in terms if t["state"] == "removed"),
+        },
+        # What an added term may point at, so the form can offer them
+        # rather than have somebody guess a Section number.
+        "sections": sorted(ctx["section_files"], key=_section_sort_key),
+    }
+
+
+def _section_sort_key(number: str) -> tuple:
+    """"7A" after "7" and before "8" -- the order an Act is printed in,
+    rather than the order strings sort in."""
+    digits = "".join(c for c in number if c.isdigit())
+    suffix = "".join(c for c in number if not c.isdigit())
+    return (int(digits) if digits else 0, suffix)
+
+
+@app.post("/api/acts/{slug}/definitions")
+def set_definition(slug: str, req: DefinitionOverrideRequest):
+    """Records one decision about one term, and returns the list as it
+    now stands so the page never has to guess what happened."""
+    _validate_slug(slug)
+    term = (req.term or "").strip()
+    if not term:
+        raise HTTPException(400, "Which term?")
+    try:
+        if req.action == "auto":
+            db.clear_definition_override(slug, term, BASE_DIR)
+        else:
+            db.set_definition_override(slug, term, req.action, req.section, BASE_DIR)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    # The browse pages read these through a cache keyed on the review
+    # database's own mtime, which the write above has just moved -- but
+    # this process holds its own copy, so drop it rather than wait for
+    # the next stat to disagree.
+    _definition_overrides_cache.pop(slug, None)
+    return list_definitions(slug)
+
+
 class PublicationRequest(BaseModel):
     work: str
     published: bool
@@ -2004,9 +2097,48 @@ def _page_index(slug: str) -> dict:
         index = {"by_node_index": {}, "by_key": {}, "schedule_by_node_index": {}}
     else:
         nodes, _unattached, hierarchy = _current_nodes(slug)
-        index = html_view.build_page_index({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug))
+        index = html_view.build_page_index(_parsed(slug), _act_title(slug))
     _page_index_cache[slug] = (signature, index)
     return index
+
+
+_definition_overrides_cache: dict = {}
+
+
+def _definition_overrides(slug: str) -> list[dict]:
+    """What a person has said about this document's defined terms --
+    which words the site hyperlinks back to where they are defined, where
+    they have overruled the pattern-matcher (see corpus/definitions.py).
+
+    Cached against the same signature the browse pages use. It is read
+    once per rendered page and a static build renders thousands; that
+    signature stamps the review database's own file, which is where these
+    rows live, so recording a decision invalidates it."""
+    signature = _browse_state_signature(slug)
+    cached = _definition_overrides_cache.get(slug)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    rows = db.load_definition_overrides(slug, BASE_DIR)
+    _definition_overrides_cache[slug] = (signature, rows)
+    return rows
+
+
+def _parsed(slug: str) -> dict:
+    """The document in the shape every renderer takes it.
+
+    One builder rather than the same dict literal in eight places, and
+    that is load-bearing rather than tidy: html_view caches the structure
+    it derives from this, keyed on what is in it, so a caller that
+    assembled a slightly different dict would quietly get its own second
+    copy of an 80ms build -- and, now that a person's decisions about
+    defined terms travel in here, its own answer about which words are
+    defined. A hover card disagreeing with the page behind it is exactly
+    the kind of difference nobody would think to look for.
+
+    Callers add the page-specific keys -- endnotes, version -- on top."""
+    nodes, _unattached, hierarchy = _current_nodes(slug)
+    return {"nodes": nodes, "hierarchy": hierarchy,
+            "definition_overrides": _definition_overrides(slug)}
 
 
 def _section_crossrefs(act_slug: str, section_number: str | None, schedule: str | None = None) -> list[dict]:
@@ -2581,8 +2713,7 @@ def browse_preview(slug: str, section: str | None = None, fragment: str | None =
     _validate_slug(slug)
     if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
-    nodes, _unattached, hierarchy = _current_nodes(slug)
-    preview = html_view.render_preview({"nodes": nodes, "hierarchy": hierarchy}, _act_title(slug), section, fragment)
+    preview = html_view.render_preview(_parsed(slug), _act_title(slug), section, fragment)
     if preview is None:
         raise HTTPException(404, "No such link target")
     return preview

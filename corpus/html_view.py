@@ -89,6 +89,7 @@ from .markdown_export import (
     _iter_tree,
     _structural_types,
     assign_filenames,
+    apply_definition_overrides,
     collect_definitions,
     collect_sections,
     compute_index_slugs,
@@ -126,9 +127,28 @@ _CONTEXT_CACHE: dict = {}
 _CONTEXT_CACHE_MAX = 4
 
 
+def _override_key(parsed: dict) -> tuple:
+    """The part of the cache key that a person's decisions about defined
+    terms contribute.
+
+    In the key rather than beside it, because the node list does not
+    change when somebody says "stop linking this word": the same list
+    object comes back out of the document cache, and without this the
+    context built from it before the decision would go on being served.
+    A linkifier that quietly ignores an edit is worse than one that never
+    offered the edit at all.
+
+    created_at is left out: re-recording the same decision is not a
+    different page."""
+    return tuple(
+        ((row.get("term") or "").strip().lower(), row.get("action"), row.get("section"))
+        for row in (parsed.get("definition_overrides") or [])
+    )
+
+
 def _build_context(parsed: dict, act_title: str) -> dict:
     nodes = parsed["nodes"]
-    key = (id(nodes), id(parsed.get("hierarchy")), act_title)
+    key = (id(nodes), id(parsed.get("hierarchy")), act_title, _override_key(parsed))
     hit = _CONTEXT_CACHE.get(key)
     if hit is not None:
         return hit[1]
@@ -149,6 +169,13 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     sections = collect_sections(tree_roots, structural_types)
     filenames_by_eid, section_files = assign_filenames(sections)
     definitions = collect_definitions(sections, filenames_by_eid, section_files)
+    # After the patterns, never instead of them: an override is an answer
+    # to what the matcher found, and the list a reviewer is shown on the
+    # dashboard is this same before-and-after. Both are kept, so that
+    # showing somebody what their decisions changed does not mean
+    # building the whole structure a second time to find out.
+    definitions_found = dict(definitions)
+    apply_definition_overrides(definitions, parsed.get("definition_overrides"), section_files)
     index_slugs = compute_index_slugs(tree_roots, act_title, structural_types)
     # "section N" in an Act, "clause N" in a Bill or an EM -- decided
     # from the document's own provisions (see markdown_export's own
@@ -181,6 +208,7 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
         "filenames_by_eid": filenames_by_eid,
         "section_files": section_files,
         "definitions": definitions,
+        "definitions_found": definitions_found,
         "index_slugs": index_slugs,
         "part_eids": part_eids,
         "division_eids": division_eids,

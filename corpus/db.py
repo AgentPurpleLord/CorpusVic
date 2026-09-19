@@ -285,6 +285,42 @@ CREATE TABLE IF NOT EXISTS node_rects (
     PRIMARY KEY (act, node_index)
 );
 CREATE INDEX IF NOT EXISTS idx_node_rects_act ON node_rects(act);
+
+-- Which words the site hyperlinks back to where they are defined, where
+-- a person has overruled the pattern-matcher.
+--
+-- corpus/definitions.py finds defined terms by drafting convention --
+-- "term means ...", "term has the same meaning as in section N", inside
+-- a Section headed "Definitions" or "Interpretation". It says so itself:
+-- a navigation aid, not a guarantee. It misses a term phrased unusually
+-- and it occasionally catches a phrase that is not a definition at all.
+-- Neither is fixable in general, and both are obvious to somebody
+-- reading the Act.
+--
+-- So this is that person's answer, per Act and per term. One row per
+-- decision, because a decision is what it is: `action` is 'add' or
+-- 'remove', and an added term carries the Section number that defines
+-- it. It deliberately does not store where a removed term used to point
+-- -- that is the matcher's business and may move under a re-parse, while
+-- "this is not a definition" stays true.
+--
+-- Keyed by the lowercased term, which is the key the linkifier itself
+-- uses, so a decision cannot be recorded against a casing the site will
+-- never look up.
+CREATE TABLE IF NOT EXISTS definition_overrides (
+    act TEXT NOT NULL,
+    term TEXT NOT NULL,
+    action TEXT NOT NULL CHECK (action IN ('add', 'remove')),
+    -- For 'add': the Section whose page the term links to. Resolved
+    -- against the document when the page is built, not here -- a
+    -- Section that does not exist leaves the term unlinked rather than
+    -- linked wrong, which is the rule the matcher already follows for
+    -- its own "same meaning as in section N" pointers.
+    section TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (act, term)
+);
+CREATE INDEX IF NOT EXISTS idx_definition_overrides_act ON definition_overrides(act);
 """
 
 _connections: dict[str, sqlite3.Connection] = {}
@@ -873,6 +909,59 @@ def save_structure_edits(act: str, edits: dict[int, dict], base_dir: "str | Path
                 for index, edit in sorted(edits.items())
             ],
         )
+
+
+# ---------------------------------------------------------------------
+# Defined terms a person has overruled
+# ---------------------------------------------------------------------
+def load_definition_overrides(act: str, base_dir: "str | Path | None" = None) -> list[dict]:
+    """Every decision recorded about this Act's defined terms, oldest
+    first by term so the list reads the same way twice."""
+    rows = _connect(base_dir).execute(
+        "SELECT term, action, section, created_at FROM definition_overrides "
+        "WHERE act = ? ORDER BY term", (act,)
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_definition_override(act: str, term: str, action: str, section: "str | None" = None,
+                            base_dir: "str | Path | None" = None) -> dict:
+    """Records "link this term" or "don't link this term", replacing any
+    earlier decision about the same one.
+
+    The term is lowercased and stripped here rather than at the call
+    site, because the linkifier looks terms up lowercased: a decision
+    recorded against "Family Violence" would sit in the table looking
+    correct and never match anything."""
+    term = (term or "").strip().lower()
+    if not term:
+        raise ValueError("A term is required.")
+    if action not in ("add", "remove"):
+        raise ValueError(f"Unknown action {action!r} -- expected 'add' or 'remove'.")
+    section = (section or "").strip() or None
+    if action == "add" and not section:
+        raise ValueError("Adding a term needs the Section that defines it.")
+    conn = _connect(base_dir)
+    with conn:
+        conn.execute(
+            "INSERT INTO definition_overrides (act, term, action, section, created_at) "
+            "VALUES (?, ?, ?, ?, ?) ON CONFLICT(act, term) DO UPDATE SET "
+            "action = excluded.action, section = excluded.section, created_at = excluded.created_at",
+            (act, term, action, section if action == "add" else None, _now_iso()),
+        )
+    return {"term": term, "action": action, "section": section if action == "add" else None}
+
+
+def clear_definition_override(act: str, term: str, base_dir: "str | Path | None" = None) -> bool:
+    """Hands one term back to the pattern-matcher. True if there was a
+    decision to undo."""
+    conn = _connect(base_dir)
+    with conn:
+        removed = conn.execute(
+            "DELETE FROM definition_overrides WHERE act = ? AND term = ?",
+            (act, (term or "").strip().lower()),
+        ).rowcount
+    return bool(removed)
 
 
 # ---------------------------------------------------------------------

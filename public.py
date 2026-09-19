@@ -346,8 +346,7 @@ def preview(site_slug: str, section: "str | None" = None, fragment: "str | None"
     without it, hovering a cross-reference would hand out the full text
     of a provision the site refuses to serve."""
     slug = _resolve(site_slug)
-    nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
-    card = html_view.render_preview({"nodes": nodes, "hierarchy": hierarchy},
+    card = html_view.render_preview(dashboard._parsed(slug),
                                     dashboard._act_title(slug), section, fragment)
     if card is None:
         raise HTTPException(404, "No card for that.")

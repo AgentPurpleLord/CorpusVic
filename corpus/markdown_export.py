@@ -517,6 +517,44 @@ def collect_definitions(
     return definitions
 
 
+def apply_definition_overrides(
+    definitions: dict[str, dict],
+    overrides: "list[dict] | None",
+    section_files: dict[str, str],
+) -> dict[str, dict]:
+    """A person's decisions about this Act's defined terms, applied over
+    what the patterns found. Returns the same dict, modified.
+
+    definitions.py finds terms by drafting convention and says plainly
+    that it is a navigation aid rather than a guarantee: it misses a term
+    phrased unusually, and now and then it catches a phrase that is not a
+    definition. Both are obvious to somebody reading the Act and neither
+    is fixable in general, so the answer is to let them say so -- see
+    db.definition_overrides.
+
+    An added term links to a Section's page and carries no fragment,
+    exactly like the "same meaning as in section N" pointers above: the
+    person naming a Section is making the same kind of statement that
+    drafting convention makes, and it gets the same kind of link.
+
+    An 'add' whose Section does not exist in this document is dropped,
+    which is walk_section_refs's own rule one line for line -- leaving a
+    term unlinked is a missing hyperlink, and linking it to the wrong
+    provision is a reader told something untrue about the law."""
+    for row in overrides or []:
+        term = (row.get("term") or "").strip().lower()
+        if not term:
+            continue
+        if row.get("action") == "remove":
+            definitions.pop(term, None)
+            continue
+        target = section_files.get((row.get("section") or "").strip().lower())
+        if not target:
+            continue
+        definitions[term] = {"fragment": None, "file": target, "display": term}
+    return definitions
+
+
 # ---------------------------------------------------------------------------
 # Cross-reference linkification -- one regex pass so a definition term
 # and a "section N" mention can never corrupt each other's replacement.

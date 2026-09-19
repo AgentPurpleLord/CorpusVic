@@ -112,6 +112,29 @@ unpushed work would be a quieter failure than the merge refusals it
 replaced. `python3 -m corpus.review_sync check` exports, imports into a
 scratch database and compares every row, on demand.
 
+**Defined terms are hyperlinked back to where they are defined**, and
+which words those are is a guess. `corpus/definitions.py` reads drafting
+convention -- "*term* means...", "has the same meaning as in section N",
+inside a Section headed Definitions or Interpretation -- and says so in
+its own docstring: a navigation aid, not a guarantee. On the Family
+Violence Protection Act it finds 130 terms and misses "safety notice",
+which that Act uses throughout and defines in a way the patterns do not
+recognise.
+
+Neither the misses nor the false positives are fixable in general, and
+both are obvious to somebody reading the Act. So **Defined terms** on
+each dashboard card lists what the matcher found, what it links to, and
+what a person has decided instead -- remove a word it should not be
+linking, add one it missed by naming the Section that defines it. The
+decisions are stored per document in `definition_overrides` and travel
+with the review work like everything else.
+
+An addition naming a Section the document does not have is dropped when
+the page is built rather than linked to something else, which is the rule
+the matcher already follows for its own pointers: a missing hyperlink is
+a missing hyperlink, and a term linked to the wrong provision tells a
+reader something untrue about the law.
+
 **Search** is `corpus/search.py`: an FTS5 index over every provision of
 every published work, built from the merged text a reader actually sees
 rather than from the raw parse. It rebuilds from scratch in a few seconds

@@ -19,7 +19,7 @@ class FakeSource:
 
     def __init__(self, nodes=None, endnotes=None, superseded=None,
                  crossrefs=None, timeline=None, version_urls=None,
-                 mixed_parsers=False):
+                 mixed_parsers=False, definition_overrides=None):
         self.nodes = nodes if nodes is not None else [
             make_node("part", "1", "Preliminary"),
             make_node("section", "3", "Definitions", "In this Act—"),
@@ -31,6 +31,7 @@ class FakeSource:
         self._timeline_entries = timeline or []
         self._version_urls = version_urls or {}
         self._mixed_parsers = mixed_parsers
+        self.definition_overrides = definition_overrides or []
         self.asked = []
 
     def _record(self, name):
@@ -43,6 +44,14 @@ class FakeSource:
     def _current_nodes(self, slug):
         self._record("nodes")
         return self.nodes, [], None
+
+    def _parsed(self, slug):
+        """The shape every renderer takes a document in -- see
+        dashboard._parsed. Part of this protocol, so it is part of the
+        stand-in."""
+        nodes, _unattached, hierarchy = self._current_nodes(slug)
+        return {"nodes": nodes, "hierarchy": hierarchy,
+                "definition_overrides": self.definition_overrides}
 
     def _amendments(self, slug):
         self._record("amendments")

@@ -629,8 +629,7 @@ def _write_previews(out: Path, base_path: str, targets: set, published: dict,
     written = 0
     for (site_slug, section), fragments in sorted(by_page.items()):
         slug = published[site_slug][0]
-        nodes, _unattached, hierarchy = dashboard._current_nodes(slug)
-        parsed = {"nodes": nodes, "hierarchy": hierarchy}
+        parsed = dashboard._parsed(slug)
         title = dashboard._act_title(slug)
         previews = {}
         for fragment in sorted(fragments):
