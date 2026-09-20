@@ -8,7 +8,7 @@ fingerprint that makes such a shift detectable, and a re-anchoring that
 moves each row onto the node holding the provision it describes."""
 import json
 
-from corpus.db import (
+from corpus.storage.db import (
     load_orphaned_reviews,
     load_parse_fingerprint,
     load_structure_edits,
@@ -17,8 +17,8 @@ from corpus.db import (
     save_structure_edits,
     save_verified,
 )
-from corpus.hierarchy import group_into_units
-from corpus.reparse import (
+from corpus.domain.hierarchy import group_into_units
+from corpus.parsing.reparse import (
     apply_carry_forward,
     apply_remap,
     carry_forward_review,

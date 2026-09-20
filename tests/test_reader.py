@@ -8,7 +8,7 @@ and which of its options reach the renderer. The renderers themselves are
 covered by tests/test_html_view.py, and the real lookups by
 tests/test_dashboard.py.
 """
-from corpus import reader
+from corpus.publishing import reader
 
 from conftest import make_node
 

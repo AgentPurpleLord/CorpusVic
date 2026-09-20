@@ -9,12 +9,12 @@ nobody exported, a half-read file -- each get their own test.
 """
 import json
 import os
-import sqlite3
 import subprocess
 
 import pytest
 
-from corpus import db, review_sync, sync
+from corpus.review import review_sync, sync
+from corpus.storage import db
 from conftest import make_node
 
 

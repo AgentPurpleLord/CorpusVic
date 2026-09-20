@@ -6,7 +6,7 @@ actual Crimes Act / Interpretation of Legislation Act text during this
 project -- the synthetic snippets are trimmed-down, minimal reproductions
 of the real page content that exposed each bug, not made-up shapes.
 """
-from corpus.rule_parser import parse_act
+from corpus.parsing.rule_parser import parse_act
 
 from conftest import HEAD_X0, PARA_WRAP_X0, PARA_X0, SUBPARA_X0, WRAP_X0, line, page
 
@@ -1142,8 +1142,8 @@ def test_those_definitions_nest_under_the_subsection_that_introduced_them():
     """They belong to subsection (6), not beside it: a definition's depth
     depends on what introduced it, which is why the parser records it on
     the node rather than leaving it to be inferred from the type."""
-    from corpus.akn_export import build_hierarchy_tree
-    from corpus.hierarchy import HIERARCHY_ORDER
+    from corpus.exporters.akn_export import build_hierarchy_tree
+    from corpus.domain.hierarchy import HIERARCHY_ORDER
 
     nodes = _parse(_definitions_in_a_subsection()).nodes
     roots, _collisions = build_hierarchy_tree(nodes, HIERARCHY_ORDER)
@@ -1347,7 +1347,7 @@ def test_a_penalty_belongs_to_its_sections_review_unit():
     """Like a note: it is a fact about the provision above it, not a
     container and not a boundary, so it is reviewed alongside the
     offence it attaches to."""
-    from corpus.hierarchy import group_into_units
+    from corpus.domain.hierarchy import group_into_units
 
     lines = [
         line("Part I—Offences", bold=True),

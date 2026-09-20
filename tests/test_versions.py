@@ -4,7 +4,7 @@ a PDF is off its own front matter.
 The fixtures below are the real first-page text of the Acts in acts/,
 reduced to the block that matters. Every Authorised Version prints it the
 same way; a Bill and an Explanatory Memorandum print none of it."""
-from corpus.versions import (
+from corpus.parsing.versions import (
     current_version,
     describe,
     discover_versions,

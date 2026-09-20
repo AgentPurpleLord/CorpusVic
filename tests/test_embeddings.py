@@ -17,7 +17,8 @@ import json
 
 import pytest
 
-from corpus import db, embeddings, html_view, search
+from corpus.search import embeddings
+from corpus.storage import db
 
 from conftest import make_node
 from test_search import FakeSource, _build

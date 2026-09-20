@@ -2,8 +2,8 @@
 move mean for a document's reading order."""
 import pytest
 
-from corpus import structure
-from corpus.structure import DOCUMENT_START, StructureError
+from corpus.review import structure
+from corpus.review.structure import DOCUMENT_START, StructureError
 
 
 def edit(after=None, deleted=False, node=None):

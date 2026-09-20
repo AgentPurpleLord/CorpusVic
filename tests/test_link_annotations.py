@@ -4,7 +4,7 @@ validation and persistence, independent of review.py's FastAPI layer
 entirely."""
 import pytest
 
-from corpus.link_annotations import LinkError, add_link, delete_link, load_links, save_links
+from corpus.review.link_annotations import LinkError, add_link, delete_link, load_links, save_links
 
 
 @pytest.fixture

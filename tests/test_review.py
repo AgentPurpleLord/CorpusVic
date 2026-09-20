@@ -9,10 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from corpus import db
-from corpus.reparse import parse_fingerprint
-from corpus import structure
-from review import (
+from corpus.storage import db
+from corpus.parsing.reparse import parse_fingerprint
+from corpus.review.review import (
     _is_elevated_risk,
     _now_iso,
     _resume_point,
@@ -541,7 +540,7 @@ def test_validate_custom_type_name_rejects_a_duplicate_after_normalising():
 
 def _findings(monkeypatch, *findings):
     """Stands in for what load_diagnostics put on node 7 at startup."""
-    import review
+    from corpus.review import review
     monkeypatch.setattr(review, "_findings_by_node", {7: list(findings)} if findings else {})
 
 
@@ -593,7 +592,7 @@ def test_a_piece_with_no_findings_is_not_gated(monkeypatch):
 # ---------------------------------------------------------------------
 
 def _setup_ai_precondition(monkeypatch, *, findings, node_count=1):
-    import review
+    from corpus.review import review
     monkeypatch.setattr(review, "_nodes", [make_node("section", "1") for _ in range(node_count)])
     monkeypatch.setattr(review, "_merged_away", set())
     monkeypatch.setattr(review, "_act", "test-act")
@@ -646,7 +645,7 @@ def test_a_piece_reports_which_fields_no_longer_match_the_parse(monkeypatch):
     different reasons -- a human corrected it, or it was decided before a
     parser fix and is a stale snapshot of one. Only a reviewer can tell
     which, so the piece says what differs rather than choosing."""
-    import review
+    from corpus.review import review
 
     parsed = {"type": "note", "number": None, "heading": None,
               "text": "A proceeding may also be commenced under section 83AL."}
@@ -844,7 +843,7 @@ def test_annotate_paths_gives_a_continuation_the_path_of_what_it_resumes():
     """Its own type's rank is only a default. Read instead of the
     depth_rank the parser recorded, it cleared levels the continuation
     sits inside -- a wrap-up under s 11(1)(b)'s list lost the (1)."""
-    from corpus.tree import annotate_paths
+    from corpus.parsing.tree import annotate_paths
 
     nodes = annotate_paths([
         make_node("section", "11", "Place of hearing", ""),
@@ -858,7 +857,7 @@ def test_annotate_paths_gives_a_continuation_the_path_of_what_it_resumes():
 
 
 def test_a_section_level_continuation_clears_the_subsection_it_is_not_in():
-    from corpus.tree import annotate_paths
+    from corpus.parsing.tree import annotate_paths
 
     nodes = annotate_paths([
         make_node("section", "31", "Transfer", "If the Court considers-"),
@@ -878,12 +877,12 @@ def test_a_reprints_profile_resolves_to_its_acts_own_profile():
     Handing the recorded name straight to load_profile raised on the
     largest document in the corpus, so every "read this piece from its
     box" on it failed."""
-    from review import load_parse_profile
+    from corpus.review.review import load_parse_profile
 
     assert load_parse_profile("criminal-procedure-act-v114") == "criminal-procedure-act"
 
 
 def test_a_document_with_no_profile_at_all_is_not_invented_one():
-    from review import load_parse_profile
+    from corpus.review.review import load_parse_profile
 
     assert load_parse_profile("no-such-act-anywhere") is None

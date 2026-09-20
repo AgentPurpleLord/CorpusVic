@@ -1,7 +1,7 @@
 """Tests for corpus/link_targets.py -- resolving a labelled span's
 text to a concrete target (which Act, which definition node), independent
 of link_review.py's FastAPI layer and of link_annotations.py's storage."""
-from corpus.link_targets import (
+from corpus.review.link_targets import (
     build_definition_index,
     resolve_act_citation,
     resolve_defined_term,

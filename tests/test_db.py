@@ -4,7 +4,7 @@ tests/test_link_annotations.py, which exercises this same module through
 corpus.link_annotations's re-export)."""
 import pytest
 
-from corpus import db
+from corpus.storage import db
 from conftest import make_node
 
 
@@ -406,7 +406,7 @@ def test_clear_act_review_keeps_what_isnt_tied_to_a_position(tmp_path, monkeypat
 
     db.clear_act_review("cpa")
 
-    from corpus.corrections import stats
+    from corpus.review.corrections import stats
 
     assert stats()["total"] == 1
     assert db.load_custom_types("cpa") == ["penalty"]
@@ -469,7 +469,7 @@ def test_a_document_start_anchor_survives_the_round_trip(tmp_path, monkeypatch):
     """-1 is a real anchor (the front of the document), not a missing
     one -- it has to come back as itself and not as None."""
     monkeypatch.chdir(tmp_path)
-    from corpus.structure import DOCUMENT_START
+    from corpus.review.structure import DOCUMENT_START
 
     db.save_structure_edits("cpa", {
         3: {"after": DOCUMENT_START, "deleted": False, "node": make_node("part", "1")},
@@ -553,7 +553,7 @@ def test_the_decision_covers_every_version_of_a_work(tmp_path):
     """The point of keying by work: an Act is on the site or it isn't,
     and its reprints go with it. Keying by parse slug would force an
     answer to "the newest version was just withdrawn -- now what?"."""
-    from corpus.versions import split_document_slug
+    from corpus.parsing.versions import split_document_slug
 
     db.set_publication("criminal-procedure-act", True, tmp_path)
     published = db.published_works(tmp_path)

@@ -1,7 +1,7 @@
 """Tests for corpus/amendments.py -- turning a margin note's bare
 "No. 68/2009" into the Act it names, using the Act's own Table of
 Amendments first and the general Act registry as a fallback."""
-from corpus.amendments import (
+from corpus.domain.amendments import (
     anchor_id,
     linkify_note,
     build_amendment_index,

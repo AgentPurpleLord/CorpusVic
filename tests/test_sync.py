@@ -17,7 +17,7 @@ import subprocess
 
 import pytest
 
-from corpus import sync
+from corpus.review import sync
 
 
 def _git(repo, *args):
@@ -509,7 +509,7 @@ def test_a_pull_lets_go_of_the_database_before_replacing_it(repo, remote, tmp_pa
     than rewrites it. A connection left open here would go on reading the
     old file after a successful pull -- which looks like a pull that did
     nothing, forever."""
-    from corpus import db
+    from corpus.storage import db
 
     opened = {}
     monkeypatch.setattr(db, "_connections", opened)

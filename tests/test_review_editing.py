@@ -14,8 +14,8 @@ against and it carries both halves of it.
 """
 import pytest
 
-import review
-from review import EditRequest, compute_unit_labels, edit_node_endpoint
+from corpus.review import review
+from corpus.review.review import EditRequest, compute_unit_labels, edit_node_endpoint
 
 HIERARCHY = ["chapter", "part", "division", "subdivision", "section",
              "subsection", "paragraph", "subparagraph", "sub_subparagraph"]
@@ -58,7 +58,7 @@ def section_97(tmp_path, monkeypatch):
     nothing touches the database -- but chdir anyway, so that a test that
     grows a committed row later cannot write into the real one."""
     monkeypatch.chdir(tmp_path)
-    from corpus import tree
+    from corpus.parsing import tree
 
     nodes = [dict(n) for n in SECTION_97]
     # The paths a parse would have stamped, by the same code that stamps

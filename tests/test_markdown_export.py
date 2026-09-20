@@ -3,8 +3,8 @@ import re
 
 import yaml
 
-from corpus.akn_export import build_hierarchy_tree
-from corpus.markdown_export import (
+from corpus.exporters.akn_export import build_hierarchy_tree
+from corpus.exporters.markdown_export import (
     _github_slug,
     export_to_markdown,
     page_title,
