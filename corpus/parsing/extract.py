@@ -14,7 +14,7 @@ import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 
-import fitz
+import pymupdf as fitz
 
 TOP_MASTHEAD_FRACTION = 0.17
 BOTTOM_FOOTER_FRACTION = 0.83
