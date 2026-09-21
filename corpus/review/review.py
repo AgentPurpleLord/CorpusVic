@@ -142,9 +142,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import fitz
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from corpus.review import structure
@@ -1378,17 +1378,6 @@ def _is_elevated_risk(node_index: int) -> bool:
     return any(f.get("severity") in ("error", "warning") for f in _findings_by_node.get(node_index, ()))
 
 
-def _blind_review_gate_indices(indices: list[int]) -> list[int]:
-    """Which of these node indices are elevated-risk and still missing
-    their own recorded independent assessment (see
-    blind_guess_endpoint) -- Accept is refused for any of these until
-    that's done. Never gates Flag: flagging is a reviewer's own honest
-    "I'm not confident, this needs follow-up", which is already the
-    opposite of blindly agreeing -- adding friction to it would only
-    punish exactly the caution this whole mechanism exists to encourage."""
-    return [i for i in indices if _is_elevated_risk(i) and db.get_blind_review(_act, _node_id(i)) is None]
-
-
 def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[int, list[dict]]) -> dict:
     raw_text = node.get("text") or ""
     reflowed, offset_map = reflow_with_map(raw_text)
@@ -1514,6 +1503,24 @@ def _unit_payload(unit_no: int) -> dict:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Legislation review")
+
+# Serve the tool without letting it change anything. Driving the real UI
+# against the real corpus is the only way to see that it works, and doing
+# that without this wrote decisions nobody made into a reviewer's own
+# review. One middleware rather than a check on each endpoint: every
+# mutation here is a POST or a DELETE, and a guard that has to be
+# remembered on the next endpoint is a guard that will be forgotten.
+_READ_ONLY = False
+
+
+@app.middleware("http")
+async def refuse_writes_when_read_only(request: Request, call_next):
+    if _READ_ONLY and request.method not in ("GET", "HEAD", "OPTIONS"):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "This review server was started read-only, so nothing can be changed."},
+        )
+    return await call_next(request)
 
 # static/site/ is the published site's template -- the page shell, its
 # stylesheets, its browser-side scripts and Junicode (see
@@ -1707,6 +1714,56 @@ def get_page_image(page_no: int, zoom: float = 1.0):
     png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
     _cache_page_image(key, png_bytes)
     return Response(content=png_bytes, media_type="image/png")
+
+
+def _indices_on_page(page_no: int) -> list[int]:
+    """Every live provision printed on this page, in document order."""
+    return [i for i in sorted(_unit_of_index)
+            if i not in _merged_away and _node_is_live(i)
+            and any(r.get("page") == page_no for r in _rects_for(i))]
+
+
+@app.post("/api/pages/{page_no}/accept")
+def accept_page(page_no: int, req: AcceptRequest):
+    """Accepts (or flags) everything still outstanding on one page.
+
+    The page rather than the unit, because the page is what a reviewer
+    is actually looking at: a page of a printed Act routinely carries
+    the tail of one Section, the whole of the next, and the head of a
+    third, and having read all of it there is no reason to decide it in
+    three goes.
+
+    Pieces already accepted are left alone, the same as the whole-unit
+    button: this finishes what is outstanding rather than redoing
+    decisions already made.
+    """
+    doc = _get_pdf_doc()
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
+
+    on_page = _indices_on_page(page_no)
+    outstanding = [i for i in on_page if not _is_committed(i)]
+    # Accepting also resolves a flag raised earlier, which is what
+    # "accept" means once a piece has been through review once.
+    reflagged = [] if req.flagged else [
+        i for i in on_page
+        if _is_committed(i) and _verified_by_source_index[i].get("needs_followup")
+    ]
+    if not outstanding and not reflagged:
+        raise HTTPException(400, "Everything on this page has already been accepted.")
+
+    for i in outstanding + reflagged:
+        _accept_node(i, req.flagged)
+
+    return {
+        "page": page_no,
+        "decided": len(outstanding) + len(reflagged),
+        # What each box on the page should now be drawn as, so the
+        # overlay repaints from the same answer the panel does.
+        "statuses": {str(i): _piece_status(i) for i in on_page},
+        "units": {str(u): _unit_status(u)
+                  for u in sorted({_unit_of_index[i] for i in on_page})},
+    }
 
 
 @app.get("/api/pages/{page_no}/boxes")
@@ -2457,13 +2514,19 @@ def move_node_endpoint(req: MoveRequest):
 
 @app.post("/api/nodes/{node_index}/blind-guess")
 def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
-    """Records a reviewer's own classification of an elevated-risk piece,
-    made from its text alone, before the review panel reveals what the
-    parser actually produced (see _is_elevated_risk and the review
-    panel's blind-review gate). This is what unblocks Accept on such a
-    piece -- see _blind_review_gate_indices -- so a reviewer can't just
-    skip past forming their own view and rubber-stamp whatever's already
-    there. Comparison is exact-match on type, and on number normalised
+    """Records a reviewer's own classification of a piece, made from its
+    text alone, before the review panel reveals what the parser actually
+    produced (see _is_elevated_risk for which pieces are offered this).
+
+    Offered, not required. It used to block Accept until it was done,
+    which cost more attention than it bought: the pieces it gated are
+    rare, and a reviewer who has already read the text does not become
+    more careful by being made to type it out again. What it is still
+    for is blind_review_stats -- the only measure of the parser's
+    accuracy that comes from a person rather than from the parser
+    agreeing with itself.
+
+    Comparison is exact-match on type, and on number normalised
     the same light way a human would read it (case/bracket-insensitive:
     "(A)" and "a" count as the same answer) -- this is reported back to
     the reviewer, not judged; disagreeing with the parser is a fine,
@@ -2704,8 +2767,6 @@ def accept_node(node_index: int, req: AcceptRequest):
     been decided one way or another, whether that happened here one at a
     time or via that whole-unit endpoint; see _unit_status."""
     _require_live(node_index)
-    if not req.flagged and _blind_review_gate_indices([node_index]):
-        raise HTTPException(400, "This piece needs your own independent assessment before it can be accepted -- see the form above its text.")
     node = _accept_node(node_index, req.flagged)
     return {
         "node_index": node_index,
@@ -2716,6 +2777,10 @@ def accept_node(node_index: int, req: AcceptRequest):
         # too, and deriving it a second time in the browser is how the
         # two came to disagree.
         "status": _piece_status(node_index),
+        # Which unit was affected, not an assumption that it was the one
+        # open in the panel: a box on the page can be accepted while a
+        # different unit is being read beside it.
+        "unit_no": _unit_of_index[node_index],
         "unit_status": _unit_status(_unit_of_index[node_index]),
     }
 
@@ -2746,13 +2811,6 @@ def accept_unit(unit_no: int, req: AcceptRequest):
     flagged = [] if req.flagged else [
         i for i in live if _is_committed(i) and _verified_by_source_index[i].get("needs_followup")
     ]
-    if not req.flagged:
-        blocked = _blind_review_gate_indices(outstanding + flagged)
-        if blocked:
-            raise HTTPException(
-                400,
-                f"{len(blocked)} piece(s) in this unit need your own independent assessment before the unit can be accepted.",
-            )
     if outstanding:
         unit_orig = [_parse_node(i) for i in outstanding]
         unit_nodes = [_current_node(i) for i in outstanding]
@@ -3008,12 +3066,18 @@ def main():
     ap.add_argument("act")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--restart", action="store_true", help="ignore existing progress and start from the beginning")
+    ap.add_argument("--read-only", action="store_true",
+                    help="serve the tool without letting anything change -- for looking at the real "
+                         "corpus, or driving the interface, without writing a decision nobody made")
     args = ap.parse_args()
+    if args.read_only:
+        globals()["_READ_ONLY"] = True
     _load_state(args.act, restart=args.restart)
 
     import uvicorn
 
-    print(f"Serving {args.act}: {len(_nodes)} nodes, {len(_units)} units.")
+    print(f"Serving {args.act}: {len(_nodes)} nodes, {len(_units)} units."
+          + (" READ-ONLY -- nothing can be changed." if _READ_ONLY else ""))
     if _unplaced_verified:
         print(
             f"Note: {len(_unplaced_verified)} reviewed piece(s) are about provisions this parse "

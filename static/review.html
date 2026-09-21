@@ -327,6 +327,25 @@
      would mean dragging the wrong one. Only the box in hand has grips. */
   .box-handle { fill: #fff; stroke: var(--box-stroke); stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: nwse-resize; opacity: 0; pointer-events: none; }
   .box-selected .box-handle { opacity: 1; pointer-events: auto; }
+  /* Accept and flag, on the box itself. Shown only on the box being
+     pointed at, for the same reason the label is: a page carrying a
+     pair of buttons on every provision is unreadable. */
+  .box-action { opacity: 0; pointer-events: none; cursor: pointer; }
+  .box-selected .box-action { opacity: 1; pointer-events: auto; }
+  .box-action-bg { fill: #fff; stroke: var(--box-stroke); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .box-action-mark {
+    font-family: var(--font-ui); font-size: 9px; font-weight: 700;
+    text-anchor: middle; dominant-baseline: central; pointer-events: none; user-select: none;
+  }
+  .box-action-accept .box-action-mark { fill: #15803d; }
+  .box-action-flag .box-action-mark { fill: #b45309; }
+  .box-action:hover .box-action-bg { fill: var(--box-fill); fill-opacity: 0.22; }
+  /* What a decided provision reads as at a glance, without hovering it. */
+  .box-verdict {
+    font-family: var(--font-ui); font-size: 9px; font-weight: 700;
+    text-anchor: middle; dominant-baseline: central;
+    pointer-events: none; user-select: none; fill: var(--box-stroke);
+  }
   #pdf-stage.drawing { cursor: crosshair; }
   #pdf-stage.drawing #pdf-overlay { pointer-events: none; }
   #pdf-hint { font-size: 11.5px; color: #fcd34d; }
@@ -655,6 +674,7 @@
       <button class="btn small" id="pdf-zoom-in" title="Zoom in">+</button>
       <button class="btn small" id="pdf-zoom-reset" title="Fit the page to the panel width">Fit</button>
       <button class="btn small" id="pdf-boxes-btn" title="Show what the parser read on this page, as boxes you can work on">Boxes</button>
+      <button class="btn small" id="pdf-accept-page-btn" title="Accept every provision still outstanding on this page">&#10003; Accept page</button>
       <span id="pdf-hint"></span>
     </div>
     <div id="pdf-image-wrap">
@@ -874,7 +894,11 @@ function toast(msg, isError) {
 // ---------------------------------------------------------------------
 const VIEW_MODES = ["text", "split", "pdf"];
 const VIEW_MODE_LABELS = { text: "Show PDF", split: "PDF: Split view", pdf: "PDF: Full view" };
-let viewMode = localStorage.getItem("reviewViewMode") || "text";
+// Split by default: the page is what a reviewer checks against, so the
+// tool opens with it rather than making them ask for it every session.
+// A choice made here is still remembered -- "text" is a setting, not a
+// starting point.
+let viewMode = localStorage.getItem("reviewViewMode") || "split";
 let currentPageNo = null;
 
 // Zoom levels for the PDF panel. 1 is fit-to-panel-width, which on a
@@ -984,6 +1008,53 @@ function boxArea(box) {
   return box.rects.reduce((total, r) => total + (r.x1 - r.x0) * (r.y1 - r.y0), 0);
 }
 
+// A tick and a flag, so a provision is accepted from the page rather
+// than from the panel beside it. An accepted box shows the mark it
+// earned instead, because there is nothing left to click -- taking a
+// decision back is still the right-click menu's job.
+//
+// Just outside the box's right edge, not inside it: inside, they sat on
+// top of the provision's own words, and a control that hides the text
+// you are checking is worse than no control. The margin there is the
+// Act's own, and the amendment notes sit further out still.
+function boxActions(box, rect) {
+  const g = svgEl("g", {}, "box-actions");
+  const size = 9;
+  const top = rect.y0;
+  let left = rect.x1 + 2;
+
+  if (box.status !== "pending") {
+    g.appendChild(Object.assign(
+      svgEl("text", { x: left + size / 2, y: top + size / 2 }, "box-verdict"),
+      { textContent: box.status === "accepted" ? "\u2713" : "\u2691" },
+    ));
+    return g;
+  }
+
+  const button = (mark, title, cls, onClick) => {
+    const b = svgEl("g", {}, `box-action ${cls}`);
+    b.appendChild(svgEl("rect", { x: left, y: top, width: size, height: size, rx: 1 }, "box-action-bg"));
+    b.appendChild(Object.assign(
+      svgEl("text", { x: left + size / 2, y: top + size / 2 }, "box-action-mark"),
+      { textContent: mark },
+    ));
+    b.appendChild(Object.assign(document.createElementNS(SVG_NS, "title"), { textContent: title }));
+    // The box underneath opens the provision in the panel on click, so
+    // the button has to stop the event reaching it.
+    b.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
+    b.addEventListener("mousedown", (e) => e.stopPropagation());
+    left += size + 1.5;
+    g.appendChild(b);
+  };
+
+  button("\u2713", "Accept this provision", "box-action-accept",
+         () => acceptPiece(box.node_index, false));
+  button("\u2691", "Flag this provision for follow-up", "box-action-flag",
+         () => acceptPiece(box.node_index, true));
+  return g;
+}
+
+
 function renderOverlay() {
   const svg = overlayEl();
   svg.innerHTML = "";
@@ -1039,6 +1110,7 @@ function renderOverlay() {
         handle.addEventListener("mousedown", (e) => startResize(e, box, i));
         g.appendChild(handle);
       });
+      g.appendChild(boxActions(box, first));
     }
     g.addEventListener("mouseenter", () => setHotNode(box.node_index, false));
     g.addEventListener("mouseleave", () => setHotNode(null, false));
@@ -1386,6 +1458,35 @@ function jumpToPiecePage(pageNo) {
 }
 
 document.getElementById("pdf-toggle-btn").onclick = cycleViewMode;
+// One page, decided in one go. A page of a printed Act routinely carries
+// the tail of one Section, the whole of the next and the head of a third,
+// and having read all of it there is no reason to decide it in three.
+async function acceptPage() {
+  if (currentPageNo == null) return;
+  const outstanding = pageBoxes
+    ? pageBoxes.boxes.filter((b) => b.status !== "accepted").length : null;
+  const what = outstanding == null ? "every provision still outstanding on this page"
+    : `${outstanding} provision(s) on page ${currentPageNo}`;
+  if (!confirm(`Accept ${what}?\n\nProvisions already accepted are left as they are.`)) return;
+  try {
+    const result = await api(`api/pages/${currentPageNo}/accept`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ flagged: false }),
+    });
+    toast(`${result.decided} provision(s) accepted.`);
+    for (const [nodeIndex, status] of Object.entries(result.statuses)) {
+      setBoxStatus(Number(nodeIndex), status);
+    }
+    for (const [unitNo, status] of Object.entries(result.units)) {
+      updateUnitRowStatus(Number(unitNo), status);
+    }
+    // The panel is showing one of these units, so it is reloaded rather
+    // than patched piece by piece.
+    if (currentUnitNo != null) await loadUnit(currentUnitNo, currentPageNo);
+  } catch (e) { toast(e.message, true); }
+}
+
+document.getElementById("pdf-accept-page-btn").onclick = acceptPage;
 document.getElementById("pdf-prev").onclick = () => currentPageNo > 1 && loadPdfPage(currentPageNo - 1);
 document.getElementById("pdf-next").onclick = () => loadPdfPage((currentPageNo || 0) + 1);
 document.getElementById("read-boxes-btn").onclick = readUnitFromBoxes;
@@ -1421,6 +1522,13 @@ async function loadMeta() {
   document.getElementById("blind-review-stat").textContent = br && br.total
     ? `Independent review: ${Math.round((br.type_matched / br.total) * 100)}% type match (${br.total} reviewed)` : "";
   document.getElementById("pdf-toggle-btn").style.display = META.has_source_pdf ? "" : "none";
+  // An Act whose source PDF is not on this machine has no page to show,
+  // and split view would be half an empty panel. Not stored, so the
+  // preference comes back when the PDF does.
+  if (!META.has_source_pdf && viewMode !== "text") {
+    viewMode = "text";
+    applyViewMode();
+  }
   const undoBtn = document.getElementById("undo-nest-btn");
   undoBtn.style.display = META.renest_undo ? "" : "none";
   if (META.renest_undo) undoBtn.title = `Restores piece ${META.renest_undo.node_index} back to type "${META.renest_undo.restores_type}"`;
@@ -1702,17 +1810,18 @@ function buildPiece(piece, idx) {
     const div = document.createElement("div");
     const isAccepted = !!piece.verified_at;
     const isFlagged = !!piece.needs_followup;
-    // Elevated-risk (carrying a diagnostics finding) and not yet
-    // independently assessed -- see _is_elevated_risk in
-    // review.py. Its own classification (type/number/heading) and
-    // findings stay hidden below until the reviewer forms and submits
-    // their own view, so seeing them can't anchor it; the raw text
-    // itself is always visible, since that's exactly what an
-    // independent read needs.
-    const blindPending = piece.elevated_risk && !piece.blind_review;
+    // A piece carrying a real diagnostics finding is offered a blind
+    // assessment -- what do you think this is, from its text alone --
+    // and its answer feeds the only measure of the parser's accuracy
+    // that comes from a person (see blind_guess_endpoint).
+    //
+    // Offered, not demanded. This used to hide the piece's own type,
+    // number, heading and findings until the form was filled in, and
+    // refuse Accept until then. It cost more attention than it bought.
+    const blindOffered = piece.elevated_risk && !piece.blind_review;
     div.className = "piece"
       + (isAccepted ? " piece-accepted" : isFlagged ? " piece-flagged" : "")
-      + (blindPending ? " blind-pending" : "");
+      + (blindOffered ? " blind-pending" : "");
     div.dataset.type = piece.type;
     div.dataset.nodeIndex = piece.node_index;
     const isRoot = idx === 0 && currentUnit.root_type === piece.type && piece.label === "SECTION";
@@ -1720,7 +1829,7 @@ function buildPiece(piece, idx) {
     // so it is set as the piece's own words rather than as a caption
     // above an apparently empty piece.
     const headingIsTheContent = !piece.text && !!piece.heading;
-    const headingLine = !blindPending && piece.heading && piece.type !== "definition"
+    const headingLine = piece.heading && piece.type !== "definition"
       ? `<div class="piece-heading${headingIsTheContent ? " piece-heading-only" : ""}">${escapeHtml(piece.heading)}</div>`
       : "";
     // A table is stored as its rows, one per line, cells separated by a
@@ -1729,9 +1838,9 @@ function buildPiece(piece, idx) {
     // unreadable. So the text box stays the text box, with a rendered
     // copy under it: the reviewer checks the columns against the PDF in
     // the table, and fixes a cell split in the wrong place by typing.
-    const tableHtml = !blindPending && piece.type === "table"
+    const tableHtml = piece.type === "table"
       ? renderPieceTable(piece.text) : "";
-    const findingsHtml = blindPending ? "" : (piece.findings || [])
+    const findingsHtml = (piece.findings || [])
       .map((f) => {
         // "ai-scan" findings come from run_ai_review.py's whole-document
         // audit pass (corpus/ai/scan.py) rather than diagnostics.py's
@@ -1766,14 +1875,14 @@ function buildPiece(piece, idx) {
     // for the state a piece is already in is dropped. (review.py's
     // _accept_node updates the stored row in place either way.)
     const decisionButtonsHtml = `
-          ${isAccepted || blindPending ? "" : `<button class="btn small accept-piece-btn" title="${isFlagged ? "Accept this piece and clear its flag" : "Accept this piece"}">&#10003; Accept</button>`}
+          ${isAccepted ? "" : `<button class="btn small accept-piece-btn" title="${isFlagged ? "Accept this piece and clear its flag" : "Accept this piece"}">&#10003; Accept</button>`}
           ${isFlagged ? "" : `<button class="btn small flag-piece-btn" title="Flag this piece for follow-up">&#9873; Flag</button>`}`;
     const pageJumpHtml = META.has_source_pdf && piece.page_start
       ? `<button class="btn small page-jump-btn" title="Show source PDF page ${piece.page_start}">p.${piece.page_start}${piece.page_end && piece.page_end !== piece.page_start ? `–${piece.page_end}` : ""}</button>`
       : "";
-    const blindFormHtml = blindPending ? `
+    const blindFormHtml = blindOffered ? `
       <div class="blind-form">
-        <div class="blind-form-label">&#9888; Needs your own assessment before it can be accepted${(piece.findings || []).length ? " (flagged by diagnostics)" : ""} -- what do <em>you</em> think this piece is, from its text alone?</div>
+        <div class="blind-form-label">&#9888; Worth your own read${(piece.findings || []).length ? " (flagged by diagnostics)" : ""} -- what do <em>you</em> think this piece is, from its text alone? Optional.</div>
         <div class="blind-form-row">
           <select class="blind-type-input">
             <option value="" disabled selected>Type&hellip;</option>
@@ -1832,8 +1941,8 @@ function buildPiece(piece, idx) {
       ? `<button class="btn small structure-btn" title="Add, move or remove pieces">Structure &#9662;</button>` : "";
     div.innerHTML = `
       <div class="piece-top">
-        <span class="piece-label">${blindPending ? "?" : escapeHtml(isRoot ? rootLabelText(piece) : pieceLabelText(piece))}</span>
-        <span class="piece-type">${blindPending ? "awaiting your assessment" : escapeHtml(piece.type)}</span>
+        <span class="piece-label">${escapeHtml(isRoot ? rootLabelText(piece) : pieceLabelText(piece))}</span>
+        <span class="piece-type">${escapeHtml(piece.type)}</span>
         ${statusBadgeHtml}
         <div class="piece-toolbar">
           ${nestHandleHtml}
@@ -2240,12 +2349,16 @@ document.getElementById("reparse-unit-btn").onclick = async () => {
 // position, the PDF page, the sidebar's scroll) simply stays put, because
 // nothing else is touched.
 async function acceptPiece(nodeIndex, flagged) {
-  const piece = currentUnit && currentUnit.pieces.find((p) => p.node_index === nodeIndex);
   try {
     const result = await api(`api/nodes/${nodeIndex}/accept`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
     });
     toast(flagged ? "Piece flagged." : "Piece accepted.");
+    // Always, and first: the box is on the page whether or not the
+    // provision belongs to the unit open in the panel, which is exactly
+    // what accepting from the page makes possible.
+    setBoxStatus(result.node_index, result.status);
+    updateUnitRowStatus(result.unit_no, result.unit_status);
     applyPieceDecision(result);
   } catch (e) { toast(e.message, true); }
 }
@@ -2265,8 +2378,11 @@ async function resetPiece(nodeIndex) {
   } catch (e) { toast(e.message, true); }
 }
 
+// The panel's own half of a decision. Does nothing when the provision
+// decided is not in the unit being read -- accepting a box on the page
+// can reach any provision printed on it.
 function applyPieceDecision(result) {
-  const idx = currentUnit.pieces.findIndex((p) => p.node_index === result.node_index);
+  const idx = currentUnit ? currentUnit.pieces.findIndex((p) => p.node_index === result.node_index) : -1;
   if (idx === -1) return;
   const piece = currentUnit.pieces[idx];
   piece.verified_at = result.verified_at;
@@ -2277,8 +2393,6 @@ function applyPieceDecision(result) {
   const existing = container.children[idx];
   if (existing) container.replaceChild(buildPiece(piece, idx), existing);
   renderUnitFooter();
-  updateUnitRowStatus(currentUnitNo, result.unit_status);
-  setBoxStatus(result.node_index, result.status);
 }
 
 // A piece's status is drawn in four places: its row here, the unit
@@ -2290,12 +2404,17 @@ function setBoxStatus(nodeIndex, status) {
   const box = pageBoxes.boxes.find((b) => b.node_index === nodeIndex);
   if (!box || box.status === status) return;
   box.status = status;
-  // The group is already on the page, so the attribute the CSS reads is
-  // all that has to change -- rebuilding the overlay would tear out the
-  // element the pointer is on, which is what renderOverlay's own comment
-  // warns about.
+  // The group is already on the page, so only what changed is touched --
+  // rebuilding the whole overlay would tear out the element the pointer
+  // is on, which is what renderOverlay's own comment warns about.
   const g = overlayEl().querySelector(`.box-group[data-node-index="${nodeIndex}"]`);
-  if (g) g.setAttribute("data-status", status);
+  if (!g) return;
+  g.setAttribute("data-status", status);
+  // The buttons become the verdict: there is nothing left to accept.
+  const actions = g.querySelector(".box-actions");
+  if (actions && pageBoxes.editable) {
+    actions.replaceWith(boxActions(box, box.rects[0]));
+  }
 }
 
 // One sidebar row's status, without rebuilding the list. The row may not

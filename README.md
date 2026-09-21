@@ -125,12 +125,27 @@ startup, and gives it back if the provision returns.
 ## Reviewing against the page
 
 `review.py` shows the PDF with a box drawn over every provision the
-parser found, and those boxes are the controls. Right-click one to go to
-it, to edit or move or delete it, or to redraw it -- and once it is
-drawn where the provision actually is, **Read this piece from its box**
-takes the provision's words from under it. So a provision the parser
-split in the wrong place is corrected by pointing at the right words
-rather than by retyping them.
+parser found, and those boxes are the controls. It opens on the page.
+
+Each box carries a tick and a flag in the margin beside it, so a
+provision is accepted or flagged from the page itself; the box turns
+green or amber as you go, and **Accept page** decides everything still
+outstanding on the page in one go. A page of a printed Act routinely
+carries the tail of one Section, the whole of the next and the head of a
+third, and having read all of it there is no reason to decide it in
+three.
+
+Right-click a box to go to it, to edit or move or delete it, or to
+redraw it -- and once it is drawn where the provision actually is,
+**Read this piece from its box** takes the provision's words from under
+it. So a provision the parser split in the wrong place is corrected by
+pointing at the right words rather than by retyping them.
+
+    python -m corpus.review.review <act> --read-only
+
+serves the whole tool without letting anything change it -- for reading
+the corpus, or for driving the interface, without writing a decision
+nobody made.
 
 A provision can carry several boxes, which is how one printed in more
 than one place is marked up -- across a column or a page break, or a
