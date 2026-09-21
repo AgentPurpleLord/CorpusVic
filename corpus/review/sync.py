@@ -12,7 +12,7 @@ half-finished edit someone left on the server.
 
 The database itself does not travel any more. `data/legislation.db` is
 the working store several processes write to while you review, and it is
-gitignored and rebuilt from the text (see corpus/review_sync.py). That
+gitignored and rebuilt from the text (see corpus/review/review_sync.py). That
 split is what makes the rest of this module ordinary: git can merge lines
 of JSON, so a pull is a pull rather than a standoff.
 
@@ -29,7 +29,7 @@ remember:
 
   - checkpoints the write-ahead log first, so what is exported is the
     whole state rather than whatever had been folded in (see
-    checkpoint_db.py). The repository ships a pre-commit hook that does
+    corpus/storage/checkpoint_db.py). The repository ships a pre-commit hook that does
     this too, but git hooks do not travel with a clone, so relying on it
     here would be relying on a manual step having been done;
 
@@ -313,7 +313,7 @@ def refresh_review_files(repo: Path) -> None:
 
 def checkpoint_database() -> None:
     """Folds the write-ahead log into the database file, so what gets
-    committed is the whole state. See checkpoint_db.py."""
+    committed is the whole state. See corpus/storage/checkpoint_db.py."""
     from corpus.storage import db
 
     conn = db._connect()
@@ -459,7 +459,7 @@ def pull(repo: Path) -> dict:
                 f"{shown}{more}\n\n"
                 "Each line in those files is one provision's review, written as JSON, so the "
                 "conflict can be read and resolved. Do it in a terminal -- `git pull`, fix the "
-                "marked lines, `git commit`, then `python3 -m corpus.review_sync import`."
+                "marked lines, `git commit`, then `python3 -m corpus.review.review_sync import`."
             )
         raise SyncError(explain((merged.stderr or merged.stdout).strip()) or "git merge failed")
 
@@ -485,7 +485,7 @@ def pull(repo: Path) -> dict:
                 f"The commits were pulled, but the review work in them could not be loaded: {e}"
                 "\n\nNothing is lost -- what arrived is in git, and the database here was left "
                 "exactly as it was. Fix the file it names and run "
-                "`python3 -m corpus.review_sync import`."
+                "`python3 -m corpus.review.review_sync import`."
             ) from e
         broken = database_is_sound(repo)
         if broken:

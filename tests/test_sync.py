@@ -8,7 +8,7 @@ only ever say what it was told to.
 What is synced here is text -- data/review/<act>/<table>.jsonl, one line
 per provision -- so these fixtures stand up the same shape. The export
 that produces it is stubbed out, because it needs the project's own
-database and this file is about git. corpus/review_sync.py's tests are
+database and this file is about git. corpus/review/review_sync.py's tests are
 where the export itself is held to account, including the one that
 matters most: that review work with no export still shows as pending.
 """

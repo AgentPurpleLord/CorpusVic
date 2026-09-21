@@ -223,9 +223,9 @@ def files_are_ahead(base_dir=None) -> "str | None":
         f"The review files in {review_dir(base)} have changed since this database was last "
         "written from them -- a `git pull` or a checkout, most likely. Exporting now would "
         "write this database back over them and delete the work that arrived.\n\n"
-        "Load it first:\n\n    python3 -m corpus.review_sync import\n\n"
+        "Load it first:\n\n    python3 -m corpus.review.review_sync import\n\n"
         "If you are certain this database is the newer of the two, take the files as they are "
-        "with `python3 -m corpus.review_sync adopt`, which records them as seen without "
+        "with `python3 -m corpus.review.review_sync adopt`, which records them as seen without "
         "changing either side."
     )
 
@@ -278,7 +278,7 @@ def unloaded(base_dir=None) -> "str | None":
                 return None
     return (f"There are {len(files)} file(s) of review work in {out} and nothing in the "
             "database, so it has not been built from them yet. Run "
-            "`python3 -m corpus.review_sync import`. Until then nothing here is exported, "
+            "`python3 -m corpus.review.review_sync import`. Until then nothing here is exported, "
             "because an export from an empty database would delete every one of those files.")
 
 

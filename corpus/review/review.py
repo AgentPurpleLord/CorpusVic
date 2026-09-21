@@ -153,6 +153,7 @@ from corpus.storage import db
 from corpus.ai.assist import build_suggestion
 from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
+from corpus.parsing.identity import annotate_ids
 from corpus.parsing.extract import BodyLine, lines_in_rects
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from corpus.domain.profiles import load_profile, profile_for
@@ -185,6 +186,10 @@ def load_parsed(act: str):
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
     data = json.loads(path.read_text(encoding="utf-8"))
+    # Named here as well as in run_pipeline, so a parse written before
+    # names existed carries the same ones a re-parse would give it. The
+    # names are derived, so both routes agree.
+    annotate_ids(data["nodes"], data.get("hierarchy") or None)
     return data["nodes"], data.get("unattached_notes", []), data.get("hierarchy", []), data.get("fingerprint")
 
 

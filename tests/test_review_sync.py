@@ -1,4 +1,4 @@
-"""Tests for corpus/review_sync.py -- the review work as text git can
+"""Tests for corpus/review/review_sync.py -- the review work as text git can
 merge, instead of as one binary file it cannot.
 
 The question underneath all of these is the same one: does a day's
@@ -102,7 +102,7 @@ def _copy_review(source, target):
 
 def test_check_says_identical_on_a_real_database(tmp_path):
     """The round trip, available on demand rather than only in a test --
-    `python3 -m corpus.review_sync check` is what answers "would this
+    `python3 -m corpus.review.review_sync check` is what answers "would this
     lose anything?" against whatever is actually on the server."""
     _populate(tmp_path)
 

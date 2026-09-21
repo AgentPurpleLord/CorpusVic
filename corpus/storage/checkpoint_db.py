@@ -7,7 +7,7 @@ Why this matters: db.py opens the database in WAL mode (see its own
 _connect docstring), which means a recent write can sit in
 data/legislation.db-wal, not yet folded into data/legislation.db itself.
 The database itself is no longer committed -- what travels is
-data/review/**.jsonl, written out from it (see corpus/review_sync.py) --
+data/review/**.jsonl, written out from it (see corpus/review/review_sync.py) --
 but this still matters for the same reason it always did, one step
 earlier in the chain: an export reads the database file, so a write still
 sitting in the -wal would be missing from the text that gets committed,

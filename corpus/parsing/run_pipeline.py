@@ -65,6 +65,7 @@ from corpus.parsing.versions import describe as describe_version
 from corpus.parsing.versions import document_slug, read_front_matter, work_directory
 from corpus.parsing.rule_parser import parse_act
 from corpus.parsing.toc import detect_body_start
+from corpus.parsing.identity import annotate_ids
 from corpus.parsing.tree import attach_history
 
 
@@ -182,6 +183,10 @@ def main():
         print(f"  {unlinked} amendment note(s) could not be auto-linked to a node (kept for manual review)")
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
+
+    # Named after attach_history, which annotates the paths each name is
+    # built from.
+    annotate_ids(nodes, hierarchy_order)
 
     parsed_dir = Path("data/parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)

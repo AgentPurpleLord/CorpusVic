@@ -22,7 +22,7 @@ data/legislation.db as a deliberate pair -- see .gitignore's own
 comment on this -- because this file's verified rows are keyed by a
 position in that exact parse, and regenerating a mismatched one would
 silently misalign them (see migrate_json_to_sqlite.py for bringing any
-pre-migration JSON review data into this file, and checkpoint_db.py
+pre-migration JSON review data into this file, and corpus/storage/checkpoint_db.py
 before committing this one).
 
 Every function here keeps the exact name and shape its old JSON-backed
@@ -58,9 +58,16 @@ class LinkError(ValueError):
 
 
 _SCHEMA = """
+-- node_id, on this table and the six below it, is the provision's own
+-- name -- "pt2/div1/s97/d/i" -- built by corpus/parsing/identity.py from
+-- what the provision is rather than where it sits. A position survives a
+-- re-parse of the Criminal Procedure Act between 9% and 18% of the time;
+-- a name survives between 97% and 100%. The position stays alongside it
+-- while everything that reads these tables is still keyed by it.
 CREATE TABLE IF NOT EXISTS verified (
     act TEXT NOT NULL,
     source_node_index INTEGER NOT NULL,
+    node_id TEXT,
     type TEXT NOT NULL,
     number TEXT,
     heading TEXT,
@@ -83,6 +90,7 @@ CREATE TABLE IF NOT EXISTS links (
     id TEXT PRIMARY KEY,
     act TEXT NOT NULL,
     node_index INTEGER NOT NULL,
+    node_id TEXT,
     start INTEGER NOT NULL,
     end INTEGER NOT NULL,
     text TEXT,
@@ -109,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_corrections_changed ON corrections(changed);
 CREATE TABLE IF NOT EXISTS blind_reviews (
     act TEXT NOT NULL,
     node_index INTEGER NOT NULL,
+    node_id TEXT,
     guessed_type TEXT NOT NULL,
     guessed_number TEXT,
     guessed_heading TEXT,
@@ -130,6 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 CREATE TABLE IF NOT EXISTS ai_suggestions (
     act TEXT NOT NULL,
     node_index INTEGER NOT NULL,
+    node_id TEXT,
     answer TEXT NOT NULL,
     reasoning TEXT NOT NULL,
     confidence TEXT NOT NULL,
@@ -164,6 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_suggestions_act ON ai_suggestions(act);
 CREATE TABLE IF NOT EXISTS ai_scan_findings (
     act TEXT NOT NULL,
     node_index INTEGER NOT NULL,
+    node_id TEXT,
     severity TEXT NOT NULL,
     message TEXT NOT NULL,
     model TEXT NOT NULL,
@@ -249,6 +260,7 @@ CREATE TABLE IF NOT EXISTS custom_types (
 CREATE TABLE IF NOT EXISTS structure_edits (
     act TEXT NOT NULL,
     node_index INTEGER NOT NULL,
+    node_id TEXT,
     -- The node this one follows. -1 (structure.DOCUMENT_START) is the
     -- front of the document; NULL leaves a parse node where the parse
     -- put it.
@@ -275,6 +287,7 @@ CREATE INDEX IF NOT EXISTS idx_structure_edits_act ON structure_edits(act);
 CREATE TABLE IF NOT EXISTS node_rects (
     act TEXT NOT NULL,
     node_index INTEGER NOT NULL,
+    node_id TEXT,
     -- [{"page": n, "x0": .., "y0": .., "x1": .., "y1": ..}, ...], in PDF
     -- points from the top-left of the page. An empty list means the
     -- reviewer said this provision has no box at all, which is not the
@@ -339,6 +352,24 @@ def db_path(base_dir: "str | Path | None" = None) -> Path:
     return Path(base_dir or ".") / "data" / "legislation.db"
 
 
+# Columns added to a table that already exists somewhere. CREATE TABLE
+# IF NOT EXISTS leaves an existing table exactly as it is, so a database
+# written before a column existed never gains it without this.
+_ADDED_COLUMNS = {
+    table: (("node_id", "TEXT"),)
+    for table in ("verified", "links", "blind_reviews", "ai_suggestions",
+                  "ai_scan_findings", "structure_edits", "node_rects")
+}
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    for table, columns in _ADDED_COLUMNS.items():
+        present = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, kind in columns:
+            if name not in present:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
+
+
 def _connect(base_dir: "str | Path | None" = None) -> sqlite3.Connection:
     path = db_path(base_dir)
     key = str(path.resolve())
@@ -349,6 +380,7 @@ def _connect(base_dir: "str | Path | None" = None) -> sqlite3.Connection:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(_SCHEMA)
+        _add_missing_columns(conn)
         conn.commit()
         _connections[key] = conn
     return conn

@@ -83,6 +83,33 @@ re-judges every provision already parsed and reports where the rules and
 the recorded parse disagree. It is a comparison, not a verdict: either
 side can be the one that is wrong.
 
+## How a provision is named
+
+Review work is attached to provisions, and a provision is named by what
+it is rather than by where it sits in the parse:
+
+    pt2/div1/s97              Part 2, Division 1, section 97
+    s97/d/i                   section 97(d)(i)
+    s15/definition-injury/a   paragraph (a) of the definition of "injury"
+    s97/d+note-1aa            a note a reviewer added after s 97(d)
+
+`corpus/parsing/identity.py` builds these. The reason for them is
+measurable: between two reprints of the Criminal Procedure Act, a
+position in the node list still points at the same provision 9% to 18%
+of the time, and a name does 97% to 100%.
+
+Where a parse gives one name to two provisions -- almost always because
+it read a wrapped citation as a fresh subsection -- the first keeps the
+plain name and the rest carry a short digest of their own wording. That
+happens to 1.7% of provisions, and each one is worth looking at.
+
+    python -m corpus.storage.node_names           what it would name
+    python -m corpus.storage.node_names --write   name them
+
+names the review rows written before the column existed, from the parse
+their position still points into. It reports anything it cannot name and
+never guesses.
+
 ## Reviewing against the page
 
 `review.py` shows the PDF with a box drawn over every provision the
@@ -136,7 +163,7 @@ is good at the first and cannot do the second at all.
 
 A fresh clone therefore has the text and no database:
 
-    python3 -m corpus.review_sync import
+    python3 -m corpus.review.review_sync import
 
 A `git pull` from a terminal is only half of a pull: it brings the text
 and leaves the database behind it, so follow it with the import above.
@@ -150,7 +177,7 @@ asks about what is pending -- which is the part that had to be right,
 because with the database gitignored a day's reviewing produces no
 pending change until an export runs, and "Everything is pushed" over
 unpushed work would be a quieter failure than the merge refusals it
-replaced. `python3 -m corpus.review_sync check` exports, imports into a
+replaced. `python3 -m corpus.review.review_sync check` exports, imports into a
 scratch database and compares every row, on demand.
 
 **Defined terms are hyperlinked back to where they are defined**, and
