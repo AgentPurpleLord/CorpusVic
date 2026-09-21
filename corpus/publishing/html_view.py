@@ -706,7 +706,7 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
         f'{_esc(ref["label"])}</a>'
         for ref in crossrefs
     )
-    return f'<div class="crossrefs"><span class="crossrefs-label">Explained in</span>{chips}</div>'
+    return f'<div class="crossrefs">{chips}</div>'
 
 
 # ---------------------------------------------------------------------------
