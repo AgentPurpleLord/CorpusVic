@@ -7,10 +7,11 @@ behind the gate. A route added later cannot quietly opt out of either,
 which is the whole reason this is a separate application from the
 dashboard rather than a prefix inside it.
 """
+import corpus.search.search
 import pytest
 from fastapi.testclient import TestClient
 
-import public
+from corpus.web import public
 
 PASSPHRASE = "a real site passphrase"
 
@@ -234,7 +235,7 @@ def test_searching_without_an_index_says_so_rather_than_failing(unlocked, monkey
     server fault."""
     class Missing:
         def search(self, *a, **k):
-            raise public.search.SearchUnavailable("The search index hasn't been built yet.")
+            raise corpus.search.search.SearchUnavailable("The search index hasn't been built yet.")
 
     monkeypatch.setattr(public, "_INDEX", Missing())
 

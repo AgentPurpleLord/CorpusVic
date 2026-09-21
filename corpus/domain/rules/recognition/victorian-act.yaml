@@ -1,0 +1,234 @@
+# What each level of a Victorian Act looks like on the page.
+#
+# Every block below is a sentence from domain.md, written as conditions.
+# The sentence is quoted above the block it produced, so a rule can be
+# checked against the drafting convention it claims to encode.
+#
+# Conditions (all optional; an unset one is not looked at):
+#
+#   pattern              the line's text; two capture groups, (number, heading)
+#   not_pattern          text that rules the type out
+#   bold / not_bold      BodyLine.bold
+#   bold_italic          the line opens with a bold italic run
+#   not_bold_italic
+#   min_size_ratio       font size as a multiple of this document's body
+#   max_size_ratio         size, so one rule covers 12pt and 10pt prints
+#   min_indent           x0 in points from the left edge of the page
+#   max_indent
+#   indented_from_parent x0 against the provision currently open
+#   parent_types         which provision must be open for this to be possible
+#   after_clean_break    the line above finished a sentence, or was a heading
+#
+# priority orders the types: lowest is tried first, and the first match
+# wins. Check any line against all of this with
+#   python -m corpus.parsing.show_profile <act> --explain "<the line>"
+#
+# A per-Act file of the same shape, corpus/domain/rules/recognition/
+# <act-slug>.yaml, overrides blocks here type by type.
+
+types:
+
+  # "Schedules: ... Header font (larger than normal text), bold, em-dash
+  #  is typically present but not always."
+  #
+  # First because a Schedule closes everything open above it: its
+  # clauses start numbering from 1 again and belong to no Part.
+  schedule:
+    name: Schedule
+    label: Sch
+    priority: 10
+    is_container: true
+    recognition:
+      pattern: '^Schedule\s+(\d+[A-Za-z]*)\s*[—–-]+\s*(.+)$'
+      bold: true
+      min_size_ratio: 1.0
+
+  # "Chapter 1—Preliminary (chapters are always numbered and headed in
+  #  an Act)"
+  chapter:
+    name: Chapter
+    label: Ch
+    priority: 20
+    is_container: true
+    recognition:
+      pattern: '^Chapter\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
+      bold: true
+      min_size_ratio: 1.1
+      centred: true
+
+  # "Part 1.1—Overview (parts are headed, can be numbered as 1.1, 1.2,
+  #  or 1, 2 etc.)"
+  #
+  # Measured at 16pt against a 12pt body across every Act in
+  # data/extracted/, hence the 1.2 floor: comfortably above body size,
+  # below the Part/Chapter distinction being worth drawing on size alone.
+  part:
+    name: Part
+    label: Pt
+    priority: 21
+    is_container: true
+    recognition:
+      # Dotted numbering ("Part 2.1") as well as plain ("Part 3"):
+      # domain.md, "can be numbered as 1.1, 1.2, or 1, 2 etc."
+      pattern: '^Part\s+([A-Z0-9]+(?:\.[A-Z0-9]+)*[A-Z]?)\s*[—–-]\s*(.+)$'
+      bold: true
+      min_size_ratio: 1.2
+      centred: true
+
+  # "Division 4—Outline (Divisions are headed, numbered as 1, 2, 3, 4,
+  #  etc.)" -- measured at 14pt against a 12pt body.
+  division:
+    name: Division
+    label: Div
+    priority: 22
+    is_container: true
+    recognition:
+      pattern: '^Division\s+(\d+[A-Z]*)\s*[—–-]\s*(.+)$'
+      bold: true
+      min_size_ratio: 1.1
+      centred: true
+
+  # "Subdivisions are not headed. Subdivisions appear as 'Cheats,
+  #  gambling, etc.' in bold italic font."
+  #
+  # Both printed forms occur in the same Act: the bracketed short title
+  # this pattern matches, and a spelled-out "Subdivision 2—Title".
+  subdivision:
+    name: Subdivision
+    label: Subdiv
+    priority: 23
+    is_container: true
+    recognition:
+      pattern: '^(?:\((\w+)\)\s+(.+)|Subdivision\s+(\w+)\s*[—–-]\s*(.+))$'
+      bold: true
+      # Centring is what separates "(4) Offences against the person" --
+      # a Subdivision title, set on its own centred line -- from
+      # "(4) In this section, emergency service vehicle means..." -- a
+      # subsection, which starts at the same left indent as every other
+      # subsection in the Act.
+      centred: true
+
+  # "Sections are identified by a bolded section numbers and a heading."
+  #
+  # Bold at body size is what separates a Section from a Part or
+  # Division above it, which are bold and larger; measured at 89% bold
+  # across parsed Acts, the remainder being sections whose number and
+  # heading were typeset as separate spans.
+  #
+  # Brackets always mean subsection or deeper, so a bare number at the
+  # left margin is unambiguous.
+  section:
+    name: Section
+    label: s
+    priority: 30
+    is_provision: true
+    recognition:
+      pattern: '^(\d+[A-Za-z]*)\s+(.+)$'
+      bold: true
+      max_size_ratio: 1.05
+      after_clean_break: true
+
+  # "Sub-sections: (1), (2), (3), etc. Normal font, indented once from a
+  #  section."
+  #
+  # "Normal font" is deliberately NOT checked here, nor on the levels
+  # below. A line's weight is taken from its longest run of characters,
+  # and a subsection that opens a defined term -- "(4) In this section,
+  # emergency service vehicle means..." -- has its longest run in the
+  # bold italic of the term, so the line reads as bold. Centring is what
+  # separates these from the Subdivision headings above, not weight.
+  subsection:
+    name: Subsection
+    label: subs
+    priority: 40
+    is_provision: true
+    recognition:
+      pattern: '^\((\d+[A-Za-z]*)\)\s*(.*)$'
+      indented_from_parent: true
+
+  # "Paragraphs: (a), (b), (c), etc. Normal font, indented once from a
+  #  subsection. If no preceding subsection, indented once from a
+  #  section or preceding text."
+  #
+  # Which is why the rule is relative and not an x0 band: the same "(a)"
+  # sits at two different places on the page depending on whether a
+  # subsection opened above it.
+  paragraph:
+    name: Paragraph
+    label: para
+    priority: 50
+    is_provision: true
+    recognition:
+      pattern: '^\(([a-z]{1,3})\)\s*(.*)$'
+      indented_from_parent: true
+
+  # "Subparagraphs: (i), (ii), (iii), etc. Normal font, indented once
+  #  from a paragraph."
+  #
+  # parent_types is the load-bearing condition. "(i)" and "(v)" satisfy
+  # the paragraph pattern too, and the only thing that settles which one
+  # a line is, is whether a paragraph is open above it.
+  subparagraph:
+    name: Subparagraph
+    label: subpara
+    priority: 49
+    is_provision: true
+    recognition:
+      pattern: '^\(([ivxlcdm]+)\)\s*(.*)$'
+      indented_from_parent: true
+      parent_types: [paragraph]
+
+  # "Sub-Subparagraphs: (A), (B) (C), etc. Normal font, indented once
+  #  from a subparagraph."
+  #
+  # Case alone settles this one: a capital in brackets is never a
+  # paragraph or a subparagraph.
+  sub_subparagraph:
+    name: Sub-subparagraph
+    label: subsubpara
+    priority: 48
+    is_provision: true
+    recognition:
+      pattern: '^\(([A-Z]{1,3})\)\s*(.*)$'
+      indented_from_parent: true
+
+  # "Definitions: ... Styled in bold italics."
+  #
+  # The bold italic run is the whole signal, and it is a leading run:
+  # the defined term opens the line and the definition follows it in
+  # ordinary type. A term bolded mid-sentence elsewhere is a reference
+  # to a definition, not one.
+  definition:
+    name: Definition
+    label: def
+    priority: 45
+    is_provision: true
+    allows_heading: false
+    recognition:
+      bold_italic: true
+      max_size_ratio: 1.05
+
+  # "Examples are headed by 'Example' in bold" / "Notes function the
+  #  same way, headed by 'Note' in Bold".
+  example:
+    name: Example
+    label: eg
+    priority: 15
+    recognition:
+      pattern: '^(Examples?)()$'
+      bold: true
+      max_size_ratio: 1.05
+
+  note:
+    name: Note
+    label: note
+    priority: 16
+    recognition:
+      pattern: '^(Notes?)()$'
+      bold: true
+      max_size_ratio: 1.05
+
+# How far right a line must start before it belongs to the provision
+# above rather than sitting beside it. See recognise.py for why this is
+# half a level and not a hair's breadth.
+nesting_gap: 13.0

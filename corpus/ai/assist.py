@@ -33,7 +33,7 @@ stored (see db.save_ai_suggestion) with the exact model that produced
 it, so a reviewer reading it back later knows what asked the question,
 not just what it said.
 """
-from ..hierarchy import UNIT_BOUNDARY_TYPES
+from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES
 from .backend import OllamaBackend
 
 _SUGGESTION_SCHEMA = {

@@ -2,7 +2,7 @@
 matching by number + text similarity, and EM entry -> Act/section/Bill-
 clause target resolution, including the "Principal Act"/"this Act" alias
 tracking the OCPC's own EM-drafting guide describes."""
-from corpus.bill_linking import extract_em_target, match_bill_to_act, resolve_em_links
+from corpus.domain.bill_linking import extract_em_target, match_bill_to_act, resolve_em_links
 
 from conftest import make_node
 

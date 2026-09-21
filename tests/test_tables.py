@@ -5,8 +5,8 @@ The coordinates in these fixtures are the real ones, taken off the Acts
 each test names: a table's geometry is the whole of its meaning here, so
 inventing plausible-looking numbers would be testing nothing.
 """
-from corpus import tables
-from corpus.tables import find_table, format_rows, split_rows
+from corpus.parsing import tables
+from corpus.parsing.tables import find_table, format_rows, split_rows
 
 from conftest import line
 

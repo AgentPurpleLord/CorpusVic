@@ -11,7 +11,8 @@ lower it to make a change pass.
 """
 import pytest
 
-from corpus import relevance, search
+from corpus.search import search
+from corpus.search import relevance
 
 # Where the search stood when this file was written: MRR 0.2946, four of
 # fourteen queries at rank 1, and eight finding nothing at all.
@@ -87,7 +88,7 @@ def real_index(tmp_path_factory):
 
     Written to a temporary directory rather than the repository's own, so
     running the tests never disturbs the index a developer is using."""
-    import dashboard
+    from corpus.web import dashboard
 
     out = tmp_path_factory.mktemp("relevance")
     works = {

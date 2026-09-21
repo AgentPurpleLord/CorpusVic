@@ -1,4 +1,4 @@
-"""Tests for corpus/review_sync.py -- the review work as text git can
+"""Tests for corpus/review/review_sync.py -- the review work as text git can
 merge, instead of as one binary file it cannot.
 
 The question underneath all of these is the same one: does a day's
@@ -9,12 +9,12 @@ nobody exported, a half-read file -- each get their own test.
 """
 import json
 import os
-import sqlite3
 import subprocess
 
 import pytest
 
-from corpus import db, review_sync, sync
+from corpus.review import review_sync, sync
+from corpus.storage import db
 from conftest import make_node
 
 
@@ -38,12 +38,12 @@ def _populate(base):
     an autoincrement id, an application-generated one, and the one table
     that is not keyed by act."""
     db.save_verified("crimes-act", [
-        dict(make_node("section", "3", "Murder", "A person who..."), _source_node_index=0),
-        dict(make_node("subsection", "1", None, "Whosoever"), _source_node_index=1),
+        dict(make_node("section", "3", "Murder", "A person who..."), _source_node_index=0, _node_id="s0"),
+        dict(make_node("subsection", "1", None, "Whosoever"), _source_node_index=1, _node_id="s1"),
     ], base_dir=base)
     db.save_verified("family-violence-act", [
         dict(make_node("section", "5", "Meaning of family violence", "In this Act"),
-             _source_node_index=0),
+             _source_node_index=0, _node_id="s0"),
     ], base_dir=base)
     db.add_correction("crimes-act", {"type": "section"}, {"type": "subsection"}, True,
                       base_dir=base)
@@ -53,9 +53,9 @@ def _populate(base):
     conn = db._connect(base)
     with conn:
         conn.execute(
-            "INSERT INTO links (id, act, node_index, start, end, text, label, "
-            "target_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            ("link-abc", "crimes-act", 0, 3, 9, "Act", "Sentencing Act 1991",
+            "INSERT INTO links (id, act, node_id, node_index, start, end, text, label, "
+            "target_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("link-abc", "crimes-act", "s0", 0, 3, 9, "Act", "Sentencing Act 1991",
              json.dumps({"act": "sentencing-act"}), "2024-01-01T00:00:00+00:00"))
         conn.execute(
             "INSERT INTO orphaned_reviews (act, node_json, orphaned_at) VALUES (?, ?, ?)",
@@ -102,7 +102,7 @@ def _copy_review(source, target):
 
 def test_check_says_identical_on_a_real_database(tmp_path):
     """The round trip, available on demand rather than only in a test --
-    `python3 -m corpus.review_sync check` is what answers "would this
+    `python3 -m corpus.review.review_sync check` is what answers "would this
     lose anything?" against whatever is actually on the server."""
     _populate(tmp_path)
 
@@ -135,7 +135,7 @@ def test_rows_are_written_in_the_order_the_act_is_in(tmp_path):
     rather than a reshuffle -- and so two reviewers working in different
     parts of an Act are working in different parts of the file."""
     db.save_verified("crimes-act", [
-        dict(make_node("section", str(n)), _source_node_index=n) for n in (5, 1, 3)
+        dict(make_node("section", str(n)), _source_node_index=n, _node_id=f"s{n}") for n in (5, 1, 3)
     ], base_dir=tmp_path)
     review_sync.export(tmp_path)
 
@@ -260,7 +260,7 @@ def test_a_field_the_table_does_not_have_is_refused(tmp_path):
     out = review_sync.review_dir(tmp_path)
     (out / "crimes-act").mkdir(parents=True)
     (out / "crimes-act" / "verified.jsonl").write_text(
-        json.dumps({"act": "crimes-act", "source_node_index": 0, "type": "section",
+        json.dumps({"act": "crimes-act", "node_id": "s0", "source_node_index": 0, "type": "section",
                     "invented": "yes"}) + "\n")
 
     with pytest.raises(review_sync.ImportError_, match="invented"):
@@ -296,7 +296,7 @@ def test_a_row_missing_a_column_added_later_still_imports(tmp_path):
     out = review_sync.review_dir(tmp_path)
     (out / "crimes-act").mkdir(parents=True)
     (out / "crimes-act" / "verified.jsonl").write_text(
-        json.dumps({"act": "crimes-act", "source_node_index": 0, "type": "section"}) + "\n")
+        json.dumps({"act": "crimes-act", "node_id": "s0", "source_node_index": 0, "type": "section"}) + "\n")
 
     review_sync.import_(tmp_path, backup=False)
 
@@ -350,10 +350,10 @@ def test_an_export_is_refused_when_the_files_are_newer_than_the_database(tmp_pat
     # Exactly what a pull does: the files change, the database does not.
     arrived = out / "crimes-act" / "verified.jsonl"
     arrived.write_text(arrived.read_text() + json.dumps(
-        {"act": "crimes-act", "source_node_index": 99, "type": "section",
+        {"act": "crimes-act", "node_id": "s99", "source_node_index": 99, "type": "section",
          "text": "arrived in the pull"}, sort_keys=True) + "\n")
     (out / "crimes-act" / "links.jsonl").write_text(json.dumps(
-        {"act": "crimes-act", "id": "abc", "node_index": 1, "start": 0, "end": 3,
+        {"act": "crimes-act", "id": "abc", "node_id": "s1", "node_index": 1, "start": 0, "end": 3,
          "label": "act_citation", "created_at": "2026-01-01T00:00:00+00:00"}) + "\n")
 
     with pytest.raises(review_sync.Unloaded, match="import"):
@@ -368,7 +368,7 @@ def test_loading_what_arrived_lets_the_export_run_again(tmp_path):
     review_sync.export(tmp_path)
     arrived = review_sync.review_dir(tmp_path) / "crimes-act" / "verified.jsonl"
     arrived.write_text(arrived.read_text() + json.dumps(
-        {"act": "crimes-act", "source_node_index": 99, "type": "section",
+        {"act": "crimes-act", "node_id": "s99", "source_node_index": 99, "type": "section",
          "text": "arrived in the pull"}, sort_keys=True) + "\n")
 
     review_sync.import_(tmp_path, backup=False)
@@ -401,7 +401,7 @@ def test_an_ordinary_review_and_export_is_not_refused(tmp_path):
     review_sync.export(tmp_path)
 
     db.save_verified("crimes-act", [
-        dict(make_node("section", "9", "Later"), _source_node_index=9)], base_dir=tmp_path)
+        dict(make_node("section", "9", "Later"), _source_node_index=9, _node_id="s9")], base_dir=tmp_path)
 
     assert review_sync.export(tmp_path)["written"] >= 1
 
@@ -439,7 +439,7 @@ def test_review_work_with_no_export_still_shows_up_as_pending(tmp_path):
 
     # A reviewer verifies one more provision, and nothing else happens.
     db.save_verified("crimes-act", [
-        dict(make_node("section", "4", "Manslaughter", "Whosoever"), _source_node_index=2),
+        dict(make_node("section", "4", "Manslaughter", "Whosoever"), _source_node_index=2, _node_id="s2"),
     ], base_dir=repo)
 
     assert sync.pending_changes(repo) == [], "git cannot see a database it is not tracking"

@@ -15,8 +15,9 @@ import json
 
 import pytest
 
-from corpus import db, html_view
-from corpus.markdown_export import apply_definition_overrides
+from corpus.publishing import html_view
+from corpus.storage import db
+from corpus.exporters.markdown_export import apply_definition_overrides
 from conftest import make_node
 
 
@@ -228,11 +229,11 @@ def test_an_empty_term_is_refused():
 
 
 def test_the_decisions_travel_with_the_review_work():
-    """The table is exported by corpus/review_sync.py without being named
+    """The table is exported by corpus/review/review_sync.py without being named
     there -- its registry is read from the schema. That is what stops a
     new table silently not syncing, and it is worth one test that the
     mechanism actually covers this one."""
-    from corpus import review_sync
+    from corpus.review import review_sync
 
     db.set_definition_override("test-act", "safety notice", "add", "5")
     review_sync.export(".")

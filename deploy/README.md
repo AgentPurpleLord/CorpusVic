@@ -31,7 +31,7 @@ The clone brings the review work as text and no database, because the
 database is derived from it. Build one:
 
 ```bash
-sudo -u dashboard python3 -m corpus.review_sync import
+sudo -u dashboard python3 -m corpus.review.review_sync import
 ```
 
 Do this once, here, before anything else opens the corpus. Everything
@@ -431,7 +431,7 @@ would be a quieter failure than any of the ones this replaced.
 
 If the dashboard says **"The database hasn't been built from the review
 files yet"**, that is a clone with the text on disk and nothing loaded
-from it. Run `python3 -m corpus.review_sync import`. Nothing exports in
+from it. Run `python3 -m corpus.review.review_sync import`. Nothing exports in
 that state, deliberately: an export from an empty database would write
 nothing and then delete every file it did not write.
 
@@ -452,7 +452,7 @@ told. Resolve it in a terminal:
 git pull                      # the conflict, with both sides' JSON
 # edit the marked lines, keeping the right one
 git commit
-python3 -m corpus.review_sync import
+python3 -m corpus.review.review_sync import
 ```
 
 **The pull does not end when git does.** `data/legislation.db` is
@@ -1048,7 +1048,7 @@ sudo -u dashboard sqlite3 data/legislation.db \
 
 # 2. Let go of the working-tree copy, so the pull can complete. The
 #    backup above is what makes this safe -- do not skip step 1.
-sudo -u dashboard python3 checkpoint_db.py
+sudo -u dashboard python3 -m corpus.storage.checkpoint_db
 sudo -u dashboard git checkout -- data/legislation.db
 sudo -u dashboard git pull
 
@@ -1056,7 +1056,7 @@ sudo -u dashboard git pull
 #    it out as text. Anything reviewed here since the last push shows up
 #    now as a pending change, per provision.
 sudo -u dashboard cp /home/dashboard/legislation-before-text-sync.db data/legislation.db
-sudo -u dashboard python3 -m corpus.review_sync export
+sudo -u dashboard python3 -m corpus.review.review_sync export
 
 # 4. Check what that found, then push it from the dashboard as usual.
 sudo -u dashboard git status --short data/review
@@ -1096,7 +1096,7 @@ cd /opt/corpusvic
 # As the owner of the checkout, so nothing ends up root-owned and
 # unwritable by the service afterwards.
 sudo -u dashboard git pull
-sudo -u dashboard python3 -m corpus.review_sync import   # load what arrived
+sudo -u dashboard python3 -m corpus.review.review_sync import   # load what arrived
 sudo .venv/bin/pip install -r requirements-site.txt   # in case dependencies changed
 # Both services: the public site imports the same corpus/ code, so a pull
 # that touched it leaves that side running the old version.
@@ -1133,7 +1133,7 @@ To ask whether a round trip through the text would lose anything, against
 whatever is actually on the server rather than in a test:
 
 ```bash
-python3 -m corpus.review_sync check
+python3 -m corpus.review.review_sync check
 ```
 
 It exports, imports into a scratch database, and compares every row of
@@ -1153,8 +1153,8 @@ container, a throwaway VM), say -- can start reviewing immediately:
 git clone https://github.com/AgentPurpleLord/CorpusVic.git
 cd CorpusVic
 pip install -r requirements-gui.txt
-python3 -m corpus.review_sync import       # build the database from the text
-python review.py criminal-procedure-act    # your review progress is already there
+python3 -m corpus.review.review_sync import       # build the database from the text
+python -m corpus.review.review criminal-procedure-act    # your review progress is already there
 ```
 
 **That import step is the one thing a fresh clone needs**, because the
@@ -1167,14 +1167,14 @@ write.
 The export runs by itself from then on -- before every question the
 dashboard asks about what is pending, and before every commit -- so
 reviewing and pressing **Push to GitHub** is the whole workflow. From a
-terminal, `python3 -m corpus.review_sync export` does the same thing.
+terminal, `python3 -m corpus.review.review_sync export` does the same thing.
 
 Checkpointing before a commit is still worth doing if you commit by hand,
 since the database is opened in WAL mode and a recent write can sit in
 the (gitignored) `-wal` file rather than the main one:
 
 ```bash
-python checkpoint_db.py
+python -m corpus.storage.checkpoint_db
 ```
 
 **Install the hook** -- once per environment, and on the server too.

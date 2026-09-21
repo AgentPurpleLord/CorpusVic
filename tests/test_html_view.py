@@ -5,9 +5,9 @@ the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
 import re
 
-from corpus.amendments import build_amendment_index
-from corpus.diffing import provision_identity
-from corpus.html_view import (
+from corpus.domain.amendments import build_amendment_index
+from corpus.domain.diffing import provision_identity
+from corpus.publishing.html_view import (
     build_page_index,
     render_endnotes,
     render_index,
@@ -220,7 +220,7 @@ def test_a_crumb_with_no_heading_of_its_own_stays_plain_text():
     """An anchor that scrolls nowhere is worse than plain text: it reads
     as the page having failed rather than as this crumb never having been
     a heading in the index."""
-    from corpus import html_view
+    from corpus.publishing import html_view
 
     parsed = _parsed(_nested_act())
     ctx = html_view._build_context(parsed, "Test Act")
@@ -592,7 +592,7 @@ def test_render_superseded_banner_names_the_current_version_and_links_to_it():
 # ---------------------------------------------------------------------------
 
 def test_a_known_acts_own_name_is_linked_in_body_prose(monkeypatch):
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
     nodes = [
         make_node("part", "1", "Preliminary"),
@@ -609,7 +609,7 @@ def test_a_capitalised_leading_the_is_not_part_of_the_link(monkeypatch):
     # match -- but no real title is recorded with a leading "The", so the
     # lookup strips it first (matching link_targets.resolve_act_citation's
     # own convention for a reviewer-labelled citation span).
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
     nodes = [
         make_node("part", "1", "Preliminary"),
@@ -628,7 +628,7 @@ def _provisions_of(body: str) -> str:
 
 
 def test_an_acts_own_name_is_not_linked_inside_its_own_pages(monkeypatch):
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {"crimes-act": "Crimes Act 1958"})
     monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {"Crimes Act 1958": {"act_no": "6231", "year": "1958"}})
     nodes = [
@@ -647,7 +647,7 @@ def test_an_acts_own_name_is_excluded_from_the_registry_fallback_too(monkeypatch
     # separately -- an Act not yet parsed here (so absent from
     # known_acts.yaml) must still not link its own name to itself via the
     # registry fallback.
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry",
                         lambda: {"Sentencing Act 1991": {"act_no": "49", "year": "1991"}})
@@ -667,7 +667,7 @@ def test_an_act_in_the_general_registry_links_to_the_legislation_resolver(monkey
     # Act the general registry knows -- links to the standing resolver
     # rather than sitting as plain text, the same treatment an unresolved
     # margin-note citation gets (see _linked_citation_html).
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry",
                         lambda: {"Public Administration Act 2004": {"act_no": "108", "year": "2004"}})
@@ -682,7 +682,7 @@ def test_an_act_in_the_general_registry_links_to_the_legislation_resolver(monkey
 
 
 def test_an_act_in_neither_source_is_left_as_plain_text(monkeypatch):
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {})
     nodes = [
@@ -704,7 +704,7 @@ def test_a_run_on_sentence_does_not_get_swallowed_into_a_false_act_name(monkeypa
     # is that the leading, lowercase-heavy run of the sentence is excluded
     # from the match at all, not merely that the match then fails to
     # resolve.
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
     monkeypatch.setattr(html_view_module, "load_known_acts", lambda: {})
     monkeypatch.setattr(html_view_module, "load_act_registry", lambda: {})
     nodes = [
@@ -742,7 +742,7 @@ def test_a_section_page_offers_a_copy_button():
 
 
 def test_the_copy_script_ships_with_the_page():
-    from corpus.html_view import page_shell
+    from corpus.publishing.html_view import page_shell
 
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
@@ -754,7 +754,7 @@ def test_one_level_of_nesting_is_one_word_tab_stop():
     """36pt is half an inch -- the default tab stop in both Word and
     Google Docs, so a copied paragraph lands where a reader's own tab
     key would have put it."""
-    from corpus.html_view import template_text
+    from corpus.publishing.html_view import template_text
 
     assert "var INDENT_PT = 36;" in template_text("copy.js")
 
@@ -764,7 +764,7 @@ def test_a_defined_term_keeps_its_own_punctuation_tight():
     the copy must not open a gap the page itself doesn't show. Both
     clipboard flavours go through the same rule, which is why there is
     one helper rather than two spellings of it."""
-    from corpus.html_view import template_text
+    from corpus.publishing.html_view import template_text
 
     copy_js = template_text("copy.js")
     assert copy_js.count("function gap(") == 1
@@ -777,7 +777,7 @@ def test_a_defined_term_keeps_its_own_punctuation_tight():
 # "{{...}}" in a published page, which no amount of CSS review would
 # catch.
 def _shell(**kwargs) -> str:
-    from corpus.html_view import page_shell
+    from corpus.publishing.html_view import page_shell
 
     return page_shell("Test Act", "<p>body</p>", **kwargs)
 
@@ -798,7 +798,7 @@ def test_asset_urls_stay_inside_a_project_site():
     assert '<script src="/corpusvic/assets/reader.js"></script>' in page
     # Junicode is reached relative to tokens.css, so no prefix belongs in
     # the stylesheet itself -- that is what makes one file serve both.
-    from corpus.html_view import template_text
+    from corpus.publishing.html_view import template_text
 
     assert "url('fonts/Junicode-Roman.woff2')" in template_text("tokens.css")
 
@@ -812,7 +812,7 @@ def test_the_template_is_read_again_after_it_changes(tmp_path, monkeypatch):
     """Editing a stylesheet or the shell while a server is running has to
     show up on the next reload -- that is most of the reason the template
     is a file at all."""
-    import corpus.html_view as html_view_module
+    import corpus.publishing.html_view as html_view_module
 
     monkeypatch.setattr(html_view_module, "TEMPLATE_DIR", tmp_path)
     monkeypatch.setattr(html_view_module, "_template_cache", {})
@@ -968,7 +968,7 @@ def test_a_comment_in_the_page_itself_is_left_alone():
     """Only the template's own comments go: the body is the document's
     text, and a provision that quotes one is still quoting it."""
     page = _shell(base_url="/browse/a")
-    from corpus.html_view import page_shell
+    from corpus.publishing.html_view import page_shell
 
     assert "<!-- kept -->" in page_shell("T", "<p>a <!-- kept --> note</p>")
 
@@ -1061,7 +1061,7 @@ def test_nothing_in_a_provision_is_positioned_outside_it():
     """The structural guarantee, asserted against the stylesheet itself:
     a negative offset on a provision is what let the number escape, and a
     grid column is what replaced it."""
-    from corpus.html_view import template_text
+    from corpus.publishing.html_view import template_text
 
     import re
 
@@ -1079,7 +1079,7 @@ def test_the_timeline_says_when_it_cannot_compare_versions():
     register of the law the difference matters. Two versions read by
     different parsers would report the parsers' own disagreements as
     amendments -- so nothing is reported, and it says so."""
-    from corpus.html_view import render_timeline
+    from corpus.publishing.html_view import render_timeline
 
     assert render_timeline([], "/browse/a") == ""
     unavailable = render_timeline([], "/browse/a", unavailable=True)
@@ -1168,7 +1168,7 @@ def test_a_tables_cells_are_linkified_like_any_other_text():
 def test_two_documents_do_not_share_a_context():
     """The cache is keyed on identity, so the failure to rule out is a
     page of one Act rendered from another Act's tree."""
-    from corpus.html_view import _build_context
+    from corpus.publishing.html_view import _build_context
 
     a = {"nodes": [make_node("section", "1", "Alpha", "text of alpha")], "hierarchy": None}
     b = {"nodes": [make_node("section", "1", "Beta", "text of beta")], "hierarchy": None}
@@ -1184,7 +1184,7 @@ def test_two_documents_do_not_share_a_context():
 
 
 def test_the_same_document_is_built_once():
-    from corpus.html_view import _build_context
+    from corpus.publishing.html_view import _build_context
 
     parsed = {"nodes": [make_node("section", "1", "Alpha", "text")], "hierarchy": None}
 
@@ -1194,7 +1194,7 @@ def test_the_same_document_is_built_once():
 def test_the_same_nodes_under_a_different_title_are_built_again():
     """The title is part of what the context derives (index anchors are
     computed against it), so it has to be part of the key."""
-    from corpus.html_view import _build_context
+    from corpus.publishing.html_view import _build_context
 
     parsed = {"nodes": [make_node("section", "1", "Alpha", "text")], "hierarchy": None}
 
@@ -1204,7 +1204,7 @@ def test_the_same_nodes_under_a_different_title_are_built_again():
 def test_the_cache_does_not_grow_without_bound():
     """It holds whole document trees, and a site build walks fifteen of
     them. An unbounded cache would keep every one alive at once."""
-    from corpus import html_view
+    from corpus.publishing import html_view
 
     kept = [{"nodes": [make_node("section", "1", f"Doc {i}", "text")], "hierarchy": None}
             for i in range(html_view._CONTEXT_CACHE_MAX + 3)]
@@ -1215,7 +1215,7 @@ def test_the_cache_does_not_grow_without_bound():
 
 
 def test_a_rendered_page_is_the_same_whether_or_not_the_cache_was_warm():
-    from corpus import html_view
+    from corpus.publishing import html_view
 
     parsed = _parsed(_three_part_act())
     html_view._CONTEXT_CACHE.clear()
@@ -1262,7 +1262,7 @@ def test_a_schedule_is_not_in_the_outline_of_a_section_page():
 def test_a_schedule_is_in_the_outline_of_its_own_page():
     """It is the page you are on, so it is the one thing the outline has
     to show -- and it has no siblings to show beside it."""
-    from corpus.html_view import build_page_index
+    from corpus.publishing.html_view import build_page_index
 
     index = build_page_index(_parsed(_act_with_a_prose_schedule()), "Test Act")
     page = next(p for i, p in index["by_node_index"].items()

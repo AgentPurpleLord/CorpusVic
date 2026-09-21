@@ -2,9 +2,9 @@
 review.py's compute_unit_labels, akn_export.py, and history-note
 attachment (attach_history) all read back to know what a node nests
 under."""
-from corpus.hierarchy import HIERARCHY_ORDER
-from corpus.extract import PageText
-from corpus.tree import annotate_paths, attach_history
+from corpus.domain.hierarchy import HIERARCHY_ORDER
+from corpus.parsing.extract import PageText
+from corpus.parsing.tree import annotate_paths, attach_history
 
 from conftest import make_node
 

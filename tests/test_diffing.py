@@ -7,7 +7,7 @@ out by comparing them. The three things that make that hard, and that
 these check, are that a Section's substance lives in its child nodes, that
 an inserted provision shifts every node after it, and that a reprint
 repaginates text it hasn't amended."""
-from corpus.diffing import (
+from corpus.domain.diffing import (
     build_timeline,
     diff_versions,
     is_reordering,

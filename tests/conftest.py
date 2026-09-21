@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from corpus.extract import BodyLine, PageText
+from corpus.parsing.extract import BodyLine, PageText
 
 BODY_SIZE = 12.0
 

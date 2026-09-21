@@ -11,7 +11,7 @@ from pathlib import Path
 
 import xmlschema
 
-from corpus.akn_export import build_hierarchy_tree, export_to_akn
+from corpus.exporters.akn_export import build_hierarchy_tree, export_to_akn
 
 from conftest import make_node
 

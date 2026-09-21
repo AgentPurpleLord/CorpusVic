@@ -4,7 +4,7 @@ and registry building from already-extracted rows. Row extraction itself
 script against the actual em/List-of-Acts-in-chronological-order.pdf and
 spot-checking known Acts, per this project's established practice for
 anything that needs a real document to exercise meaningfully."""
-from extract_act_registry import build_registry, short_title
+from corpus.domain.extract_act_registry import build_registry, short_title
 
 
 def test_short_title_strips_a_trailing_archaic_citation():

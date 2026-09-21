@@ -126,3 +126,10 @@ id_rsa*
 id_ed25519*
 id_ecdsa*
 !*.pub
+
+# Cannot re-publish authorised Acts. The PDFs stay on disk and out of
+# git; basic-structure.yaml is not one of them -- it is the note on
+# Victorian drafting convention that hierarchy.py, rule_parser.py and
+# the exporters all cite, so it stays tracked.
+acts/*
+!acts/profiles/

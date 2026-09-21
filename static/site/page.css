@@ -16,6 +16,7 @@ body {
   font-variant-ligatures:
   common-ligatures contextual;
 }
+
 .previewbar {
   background: var(--bar-bg);
   color: var(--bar-fg);
@@ -26,8 +27,15 @@ body {
   gap: 14px;
   align-items: center;
 }
+
 .previewbar a { color: var(--bar-link); }
-.page { max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
+
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 26px 20px 60px;
+}
+
 h1 { font-size: 22px; margin: 0 0 10px; font-family: var(--sans); }
 h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 2px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
 h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: var(--fg); }
@@ -45,15 +53,18 @@ a:hover { text-decoration: underline; }
 .section-nav { margin-top: 32px; padding-top: 14px; border-top: 2px solid var(--border); font-family: var(--sans); font-size: 13px; }
 
 /* SECTION BODY
-  Two-column grid.
-  Column 1 = provision text
-  Column 2 = margin note text
+  Two-column grid. Column 1 = provision text Column 2 = margin note text
   Provisions have identifying numbers (e.g. '(1)' or similar. These are often indented to the left of the text itself.
-  That indentation follows the same structure as the PDF legislation.
-  In order to represent this, a provisoin has a sub-grid (two-columns).
-  The provision sub-grid ensures the layout is done correctly. 
+  That indentation follows the same structure as the PDF legislation. In order to represent this, a provisoin has a
+  sub-grid (two-columns). The provision sub-grid ensures the layout is done correctly.
   */
-.provisions { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
+
+.provisions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  column-gap: 24px;
+}
+
 .prov {
   --label: 2.4em;
   display: grid;
@@ -65,9 +76,8 @@ a:hover { text-decoration: underline; }
   margin: 0 0 11px calc(var(--depth, 0) * 1.37em);
   max-width: calc(34em + var(--label));
 }
-/* Always the second column, so a provision with no number of its own
-   still lines its text up with a numbered sibling's rather than starting
-   under the numbers. */
+
+/* Provisions without numbers still line up with previous text. */
 .prov-text {
   grid-column: 2;
   /* A line break in the stored text now only ever means one: a printed

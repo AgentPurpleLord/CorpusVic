@@ -57,17 +57,17 @@ done
 #
 #   - the database is opened in WAL mode, so a recent write can still be
 #     sitting in data/legislation.db-wal rather than in the file an
-#     export reads (see checkpoint_db.py);
+#     export reads (see corpus/storage/checkpoint_db.py);
 #   - the export itself, or the commit carries whatever data/review/ held
 #     the last time anything ran one.
 #
-# corpus/sync.py does both before every commit it makes, which covers the
+# corpus/review/sync.py does both before every commit it makes, which covers the
 # dashboard's buttons. This covers committing from a terminal.
 #
 # Only when review files are already part of the commit, so that a code
 # commit never quietly sweeps up a day's reviewing.
 if echo "$staged" | grep -q '^data/review/'; then
-    python3 checkpoint_db.py || exit 1
-    python3 -m corpus.review_sync export || exit 1
+    python3 -m corpus.storage.checkpoint_db || exit 1
+    python3 -m corpus.review.review_sync export || exit 1
     git add data/review
 fi

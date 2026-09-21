@@ -8,7 +8,7 @@ only ever say what it was told to.
 What is synced here is text -- data/review/<act>/<table>.jsonl, one line
 per provision -- so these fixtures stand up the same shape. The export
 that produces it is stubbed out, because it needs the project's own
-database and this file is about git. corpus/review_sync.py's tests are
+database and this file is about git. corpus/review/review_sync.py's tests are
 where the export itself is held to account, including the one that
 matters most: that review work with no export still shows as pending.
 """
@@ -17,7 +17,7 @@ import subprocess
 
 import pytest
 
-from corpus import sync
+from corpus.review import sync
 
 
 def _git(repo, *args):
@@ -66,7 +66,7 @@ def _review(repo, text, act="demo-act", path=None):
 
 def _line(text, index=1, act="demo-act"):
     """One provision's review, in the shape the exporter writes it."""
-    return json.dumps({"act": act, "source_node_index": index,
+    return json.dumps({"act": act, "node_id": f"s{index}", "source_node_index": index,
                        "type": "section", "text": text}, sort_keys=True) + "\n"
 
 
@@ -509,7 +509,7 @@ def test_a_pull_lets_go_of_the_database_before_replacing_it(repo, remote, tmp_pa
     than rewrites it. A connection left open here would go on reading the
     old file after a successful pull -- which looks like a pull that did
     nothing, forever."""
-    from corpus import db
+    from corpus.storage import db
 
     opened = {}
     monkeypatch.setattr(db, "_connections", opened)

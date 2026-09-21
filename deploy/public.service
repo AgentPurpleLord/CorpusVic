@@ -11,7 +11,7 @@ WorkingDirectory=/opt/corpusvic
 # serving the corpus to anyone who asks -- pass --open below to publish
 # openly on purpose.
 EnvironmentFile=-/opt/corpusvic/deploy/site.env
-ExecStart=/opt/corpusvic/.venv/bin/python3 public.py --host 127.0.0.1 --port 8001
+ExecStart=/opt/corpusvic/.venv/bin/python3 -m corpus.web.public --host 127.0.0.1 --port 8001
 # always, not on-failure: unlike the dashboard there is no restart button
 # here, and a public site should come back from a clean exit too.
 Restart=always

@@ -46,7 +46,7 @@ jobs:
       # database at all. Without this the build succeeds and publishes an
       # archive of an empty corpus.
       - name: Build the database from the review files
-        run: python -m corpus.review_sync import
+        run: python -m corpus.review.review_sync import
 
       # SITE_PASSWORD gates the whole site behind an unlock page while
       # it's being tested: set it as a repository secret to turn the gate
@@ -55,7 +55,7 @@ jobs:
       - name: Build the static site
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
-        run: python export_static_site.py --out _site
+        run: python -m corpus.exporters.export_static_site --out _site
 
       - uses: actions/configure-pages@v5
 

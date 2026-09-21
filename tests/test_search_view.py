@@ -9,7 +9,8 @@ refused.
 """
 import pytest
 
-from corpus import search, search_view
+from corpus.search import search
+from corpus.search import search_view
 
 
 def _hit(**overrides):

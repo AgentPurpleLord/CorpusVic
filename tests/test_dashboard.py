@@ -5,6 +5,10 @@ subprocess calls and a reverse proxy to a child review.py process) are
 deliberately not covered here -- they were exercised end to end against a
 live server instead (curl and Playwright), same approach test_review.py
 takes for review.py's own endpoints."""
+import corpus.storage.db
+import corpus.publishing.reader
+import corpus.review.sync
+import corpus.search.search
 import json
 import sqlite3
 import sys
@@ -13,8 +17,9 @@ from pathlib import Path
 
 import pytest
 
-import dashboard
-from corpus import db, diffing
+from corpus.web import dashboard
+from corpus.domain import diffing
+from corpus.storage import db
 from conftest import make_node
 
 
@@ -104,8 +109,8 @@ def test_act_status_is_reviewed_once_every_unit_is_committed(tmp_path, monkeypat
     _write_parsed(tmp_path, "crimes-act", nodes)
 
     committed = [
-        dict(nodes[0], _source_node_index=0, _unit_end_index=0),
-        dict(nodes[1], _source_node_index=1, _unit_end_index=1),
+        dict(nodes[0], _node_id="s0", _source_node_index=0, _unit_end_index=0),
+        dict(nodes[1], _node_id="s1", _source_node_index=1, _unit_end_index=1),
     ]
     db.save_verified("crimes-act", committed, base_dir=tmp_path)
 
@@ -119,7 +124,7 @@ def test_act_status_is_in_progress_when_only_some_units_are_committed(tmp_path, 
     nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
     _write_parsed(tmp_path, "crimes-act", nodes)
 
-    committed = [dict(nodes[0], _source_node_index=0, _unit_end_index=0)]
+    committed = [dict(nodes[0], _node_id="s0", _source_node_index=0, _unit_end_index=0)]
     db.save_verified("crimes-act", committed, base_dir=tmp_path)
 
     status = dashboard.act_status("crimes-act")
@@ -256,18 +261,18 @@ def test_validate_parse_params_rejects_bad_input(kind, profile, start_page, end_
 
 def test_build_parse_command_for_an_em_ignores_every_other_option():
     cmd = dashboard._build_parse_command(Path("acts/some-bill-em.pdf"), "em", "profile", "5", "10")
-    assert cmd == [sys.executable, "run_em_pipeline.py", "acts/some-bill-em.pdf"]
+    assert cmd == [sys.executable, "-m", "corpus.parsing.run_em_pipeline", "acts/some-bill-em.pdf"]
 
 
 def test_build_parse_command_for_a_bill_sets_document_type():
     cmd = dashboard._build_parse_command(Path("acts/some-bill.pdf"), "bill", "", "", "")
-    assert cmd == [sys.executable, "run_pipeline.py", "acts/some-bill.pdf", "--document-type", "bill"]
+    assert cmd == [sys.executable, "-m", "corpus.parsing.run_pipeline", "acts/some-bill.pdf", "--document-type", "bill"]
 
 
 def test_build_parse_command_includes_profile_and_page_range_when_given():
     cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "my-profile", "5", "20")
     assert cmd == [
-        sys.executable, "run_pipeline.py", "acts/x.pdf", "--document-type", "act",
+        sys.executable, "-m", "corpus.parsing.run_pipeline", "acts/x.pdf", "--document-type", "act",
         "--profile", "my-profile", "--start-page", "5", "--end-page", "20",
     ]
 
@@ -285,7 +290,7 @@ def test_find_source_pdf_returns_none_when_missing(tmp_path, monkeypatch):
 
 
 def test_repo_relative_strips_the_checkout_path(tmp_path, monkeypatch):
-    """The path handed to run_pipeline.py ends up verbatim in the
+    """The path handed to run_pipeline ends up verbatim in the
     committed data/parsed/<slug>.json -- it has to stay repo-relative
     so it doesn't bake in one machine's checkout location."""
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
@@ -303,7 +308,7 @@ def test_act_status_names_the_profile_the_act_should_be_parsed_with(tmp_path, mo
     """By name, not merely whether one exists: the re-parse dialog
     pre-fills this field, and it used to fill it with the slug -- which
     for a versioned Act names no profile at all."""
-    from corpus import profiles
+    from corpus.domain import profiles
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     profiles_dir = tmp_path / "corpus" / "profiles"
@@ -364,7 +369,7 @@ def test_act_status_splits_a_versioned_slug_into_its_work_and_version(tmp_path, 
 def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatch):
     # How an Act numbers its Parts is a fact about the Act, not about one
     # reprint of it -- one profile serves all its versions.
-    from corpus import profiles
+    from corpus.domain import profiles
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     profiles_dir = tmp_path / "corpus" / "profiles"
@@ -653,10 +658,10 @@ def test_the_push_endpoint_reports_a_refusal_as_a_conflict(monkeypatch):
     server fault: the page has to be able to say what happened and stay
     usable, which a 500 does not."""
     from fastapi.testclient import TestClient
-    from corpus import sync
+    from corpus.review import sync
 
     dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard.sync, "push",
+    monkeypatch.setattr(corpus.review.sync, "push",
                         lambda *a, **k: (_ for _ in ()).throw(sync.SyncError("the remote has 2 commits")))
     client = TestClient(dashboard.app)
 
@@ -671,7 +676,7 @@ def test_the_push_endpoint_uses_a_dated_message_when_given_none(monkeypatch):
 
     dashboard._DASHBOARD_USERNAME = None
     seen = {}
-    monkeypatch.setattr(dashboard.sync, "push",
+    monkeypatch.setattr(corpus.review.sync, "push",
                         lambda repo, message: seen.setdefault("message", message) and None
                         or {"pushed": True, "committed": True, "message": "ok", "status": {}})
     client = TestClient(dashboard.app)
@@ -686,7 +691,7 @@ def test_the_push_endpoint_keeps_a_message_the_reviewer_typed(monkeypatch):
 
     dashboard._DASHBOARD_USERNAME = None
     seen = {}
-    monkeypatch.setattr(dashboard.sync, "push",
+    monkeypatch.setattr(corpus.review.sync, "push",
                         lambda repo, message: seen.setdefault("message", message) and None
                         or {"pushed": True, "committed": True, "message": "ok", "status": {}})
     client = TestClient(dashboard.app)
@@ -713,10 +718,10 @@ def test_the_sync_endpoints_are_behind_the_login(_at_admin):
 
 def test_the_pull_endpoint_reports_a_refusal_as_a_conflict(monkeypatch):
     from fastapi.testclient import TestClient
-    from corpus import sync
+    from corpus.review import sync
 
     dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard.sync, "pull",
+    monkeypatch.setattr(corpus.review.sync, "pull",
                         lambda *a, **k: (_ for _ in ()).throw(sync.SyncError("3 uncommitted change(s)")))
     client = TestClient(dashboard.app)
 
@@ -733,7 +738,7 @@ def test_discarding_needs_the_word_typed_out(monkeypatch):
 
     dashboard._DASHBOARD_USERNAME = None
     called = []
-    monkeypatch.setattr(dashboard.sync, "discard", lambda *a, **k: called.append(True) or {})
+    monkeypatch.setattr(corpus.review.sync, "discard", lambda *a, **k: called.append(True) or {})
     client = TestClient(dashboard.app)
 
     for body in ({}, {"confirm": ""}, {"confirm": "yes"}, {"confirm": "Discard it"}):
@@ -750,8 +755,8 @@ def test_the_status_says_when_the_running_code_is_stale(monkeypatch):
     from fastapi.testclient import TestClient
 
     dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard.sync, "status", lambda repo: {"branch": "main", "error": None})
-    monkeypatch.setattr(dashboard.sync, "head", lambda repo: "b" * 40)
+    monkeypatch.setattr(corpus.review.sync, "status", lambda repo: {"branch": "main", "error": None})
+    monkeypatch.setattr(corpus.review.sync, "head", lambda repo: "b" * 40)
     monkeypatch.setattr(dashboard, "_RUNNING_HEAD", "a" * 40)
     client = TestClient(dashboard.app)
 
@@ -768,8 +773,8 @@ def test_an_unreadable_head_is_not_reported_as_stale(monkeypatch):
     from fastapi.testclient import TestClient
 
     dashboard._DASHBOARD_USERNAME = None
-    monkeypatch.setattr(dashboard.sync, "status", lambda repo: {"branch": "main", "error": None})
-    monkeypatch.setattr(dashboard.sync, "head", lambda repo: None)
+    monkeypatch.setattr(corpus.review.sync, "status", lambda repo: {"branch": "main", "error": None})
+    monkeypatch.setattr(corpus.review.sync, "head", lambda repo: None)
     monkeypatch.setattr(dashboard, "_RUNNING_HEAD", "a" * 40)
     client = TestClient(dashboard.app)
 
@@ -842,7 +847,7 @@ def test_the_offered_profiles_leave_out_the_template():
     document is parsed with -- offering it invites a parse against an
     empty profile, which is worse than no profile because it looks
     deliberate."""
-    from corpus.profiles import available_profiles
+    from corpus.domain.profiles import available_profiles
 
     names = available_profiles()
 
@@ -983,7 +988,7 @@ def test_rebuilding_runs_the_export_script(monkeypatch):
 
     assert client.post("/api/site/rebuild").status_code == 200
 
-    assert seen["cmd"][1:] == ["export_static_site.py", "--out", "_site"]
+    assert seen["cmd"][1:] == ["-m", "corpus.exporters.export_static_site", "--out", "_site"]
     # No --password and no --no-password: the script takes the passphrase
     # from deploy/site.env and refuses to replace a gated build with an
     # open one, so this button cannot be the thing that unpublishes the
@@ -1108,7 +1113,7 @@ def test_publishing_a_work_from_the_dashboard(tmp_path, monkeypatch):
 
     assert res.status_code == 200
     assert res.json()["published_works"] == ["crimes-act"]
-    assert dashboard.db.published_works(tmp_path) == {"crimes-act"}
+    assert corpus.storage.db.published_works(tmp_path) == {"crimes-act"}
 
 
 def test_taking_a_work_off_the_public_site(tmp_path, monkeypatch):
@@ -1118,7 +1123,7 @@ def test_taking_a_work_off_the_public_site(tmp_path, monkeypatch):
     res = client.post("/api/publication", json={"work": "crimes-act", "published": False})
 
     assert res.json()["published_works"] == []
-    assert dashboard.db.published_works(tmp_path) == set()
+    assert corpus.storage.db.published_works(tmp_path) == set()
 
 
 def test_a_publication_request_has_to_name_a_work(tmp_path, monkeypatch):
@@ -1135,9 +1140,9 @@ def test_the_decision_covers_every_reprint_of_a_work(tmp_path, monkeypatch):
     for version in (110, 114):
         (tmp_path / "data" / "parsed" / f"criminal-procedure-act-v{version}.json").write_text(
             "{}", encoding="utf-8")
-    dashboard.db.set_publication("criminal-procedure-act", True, tmp_path)
+    corpus.storage.db.set_publication("criminal-procedure-act", True, tmp_path)
 
-    publication = dashboard.db.load_publication(tmp_path)
+    publication = corpus.storage.db.load_publication(tmp_path)
     for version in (110, 114):
         assert dashboard.act_status(f"criminal-procedure-act-v{version}", publication)["published"] is True
 
@@ -1152,7 +1157,7 @@ def test_seeding_records_what_was_already_being_served(tmp_path, monkeypatch):
 
     dashboard._seed_publication_if_new()
 
-    assert dashboard.db.published_works(tmp_path) == {"crimes-act", "criminal-procedure-act"}
+    assert corpus.storage.db.published_works(tmp_path) == {"crimes-act", "criminal-procedure-act"}
 
 
 def test_seeding_leaves_a_later_document_off(tmp_path, monkeypatch):
@@ -1167,7 +1172,7 @@ def test_seeding_leaves_a_later_document_off(tmp_path, monkeypatch):
     (tmp_path / "data" / "parsed" / "evidence-act.json").write_text("{}", encoding="utf-8")
     dashboard._seed_publication_if_new()
 
-    assert dashboard.db.published_works(tmp_path) == {"crimes-act"}
+    assert corpus.storage.db.published_works(tmp_path) == {"crimes-act"}
     assert dashboard.act_status("evidence-act")["published"] is False
 
 
@@ -1200,7 +1205,7 @@ def test_publishing_a_work_starts_a_rebuild(tmp_path, monkeypatch):
 
 def test_a_failed_rebuild_is_reported_rather_than_swallowed(tmp_path, monkeypatch):
     client = _dashboard_at(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard.search, "rebuild",
+    monkeypatch.setattr(corpus.search.search, "rebuild",
                         lambda *a, **k: (_ for _ in ()).throw(OSError("no space left on device")))
     dashboard._search_state.update({"running": False, "error": None, "stats": None})
 
@@ -1219,10 +1224,10 @@ def test_an_index_built_by_an_older_builder_counts_as_stale(tmp_path, monkeypatc
     quietly absent is worse than one that is visibly broken, so the
     schema stamp is compared alongside the data signature."""
     client = _dashboard_at(tmp_path, monkeypatch)
-    dashboard.search.rebuild(tmp_path, source=dashboard)
+    corpus.search.search.rebuild(tmp_path, source=dashboard)
     assert client.get("/api/search/status").json()["stale"] is False
 
-    conn = sqlite3.connect(str(dashboard.search.index_path(tmp_path)))
+    conn = sqlite3.connect(str(corpus.search.search.index_path(tmp_path)))
     with conn:
         conn.execute("UPDATE meta SET value = '0' WHERE key = 'schema_version'")
     conn.close()
@@ -1556,7 +1561,7 @@ def test_a_browse_page_carries_no_search_box(monkeypatch, tmp_path):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     dashboard._DASHBOARD_USERNAME = None
     (tmp_path / "data" / "parsed").mkdir(parents=True)
-    monkeypatch.setattr(dashboard.reader, "contents_page", lambda *a, **k: "<p>contents</p>")
+    monkeypatch.setattr(corpus.publishing.reader, "contents_page", lambda *a, **k: "<p>contents</p>")
     monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Test Act")
     monkeypatch.setattr(dashboard, "related_documents", lambda slug: [])
     (tmp_path / "data" / "parsed" / "test-act.json").write_text("{}", encoding="utf-8")

@@ -25,7 +25,7 @@ whole-document audit run offline. Nothing in there decides anything.
 
     corpus/         the library: extract, parse, review, export
     corpus/ai/      the parts that use a model, and only those
-    corpus/profiles/  per-Act pattern overrides
+    corpus/domain/rules/  per-Act pattern overrides
     data/parsed/    the parser's output, one JSON file per document
     data/review/    every decision a human made about it, as text
     data/legislation.db   the same decisions, in the store three
@@ -49,15 +49,103 @@ Python, and almost none of it needs a restart: the stylesheets are served
 off disk and the templates are re-read when they change, so it is edit,
 save, reload.
 
+## Telling the parser what to look for
+
+What each level of an Act looks like on the page is written down in
+`corpus/domain/rules/recognition/victorian-act.yaml`, as conditions
+rather than as code. Each block is a sentence out of
+`corpus/domain/domain.md` -- "Sections are identified by a bolded section
+numbers and a heading", "(a) ... indented once from a subsection" --
+quoted above the conditions it produced.
+
+A condition reads one thing off the printed line: `bold`, `bold_italic`,
+`min_size_ratio` and `max_size_ratio` (size against this document's own
+body text), `min_indent` and `max_indent`, `indented_from_parent`,
+`centred`, `parent_types`, `after_clean_break`, and `pattern` for the
+text itself. Each has a `not_` form for what a type must *not* look like.
+Anything not set is not looked at.
+
+An Act that does something of its own gets a file of its own next to the
+base, named after it, overriding block by block and condition by
+condition.
+
+Two commands, and no need to re-run a PDF for either:
+
+    python -m corpus.parsing.show_profile crimes-act --explain "(c) to determine how"
+
+prints every type the line was weighed against and the one condition that
+ruled each one out -- with the line's real size, weight and position,
+read out of the extracted document.
+
+    python -m corpus.parsing.check_rules
+
+re-judges every provision already parsed and reports where the rules and
+the recorded parse disagree. It is a comparison, not a verdict: either
+side can be the one that is wrong.
+
+## How a provision is named
+
+Review work is attached to provisions, and a provision is named by what
+it is rather than by where it sits in the parse:
+
+    pt2/div1/s97              Part 2, Division 1, section 97
+    s97/d/i                   section 97(d)(i)
+    s15/definition-injury/a   paragraph (a) of the definition of "injury"
+    s97/d+note-1aa            a note a reviewer added after s 97(d)
+
+`corpus/parsing/identity.py` builds these. The reason for them is
+measurable: between two reprints of the Criminal Procedure Act, a
+position in the node list still points at the same provision 9% to 18%
+of the time, and a name does 97% to 100%.
+
+Where a parse gives one name to two provisions -- almost always because
+it read a wrapped citation as a fresh subsection -- the first keeps the
+plain name and the rest carry a short digest of their own wording. That
+happens to 1.7% of provisions, and each one is worth looking at.
+
+The name is what the seven review tables are keyed by, and the position
+stays beside it as a record of where the provision sat in the parse a row
+was written against. Whatever has a parse loaded works in positions --
+within one parse a position is exact and cheap -- and turns them into
+names at the edge of the database.
+
+    python -m corpus.storage.node_names           what it would name
+    python -m corpus.storage.node_names --write   name them
+
+names the review rows written before the column existed, from the parse
+their position still points into. It reports anything it cannot name and
+never guesses. Opening a database it has not been run on is refused
+rather than half-migrated, and says so.
+
+A row about a provision the current parse does not contain is never
+attached to whatever now sits at its old position, and never dropped
+either: the review server keeps it as it is, says how many there are at
+startup, and gives it back if the provision returns.
+
 ## Reviewing against the page
 
 `review.py` shows the PDF with a box drawn over every provision the
-parser found, and those boxes are the controls. Right-click one to go to
-it, to edit or move or delete it, or to redraw it -- and once it is
-drawn where the provision actually is, **Read this piece from its box**
-takes the provision's words from under it. So a provision the parser
-split in the wrong place is corrected by pointing at the right words
-rather than by retyping them.
+parser found, and those boxes are the controls. It opens on the page.
+
+Each box carries a tick and a flag in the margin beside it, so a
+provision is accepted or flagged from the page itself; the box turns
+green or amber as you go, and **Accept page** decides everything still
+outstanding on the page in one go. A page of a printed Act routinely
+carries the tail of one Section, the whole of the next and the head of a
+third, and having read all of it there is no reason to decide it in
+three.
+
+Right-click a box to go to it, to edit or move or delete it, or to
+redraw it -- and once it is drawn where the provision actually is,
+**Read this piece from its box** takes the provision's words from under
+it. So a provision the parser split in the wrong place is corrected by
+pointing at the right words rather than by retyping them.
+
+    python -m corpus.review.review <act> --read-only
+
+serves the whole tool without letting anything change it -- for reading
+the corpus, or for driving the interface, without writing a decision
+nobody made.
 
 A provision can carry several boxes, which is how one printed in more
 than one place is marked up -- across a column or a page break, or a
@@ -81,6 +169,21 @@ published flag, set from the dashboard and stored alongside the review
 work, so it travels with a push. Nothing reaches the site by having been
 parsed.
 
+**A provision is a page, and reading on is a scroll.** Every provision
+has its own address serving its own complete page -- which is what makes
+the site worth indexing, and what a citation points at. Reach the end of
+one and the next arrives under it, to the end of the Division, with the
+address bar following as each one passes. A Division because that is the
+unit an Act is written in and its end is the author's own; past one,
+reading on is a link rather than a scroll.
+
+Nothing about what is served changes: the text, the breadcrumb and the
+heading are all in what the server sent, reading on only ever adds what
+was already a click away through the "next" link it follows, and each
+page names itself as the copy at its own address. So a page read to the
+end and a page fetched by a crawler are the same document. It works the
+same on the static archive, which has no server to ask.
+
 **The review work travels as text, and the database is derived from it.**
 `data/review/<act>/<table>.jsonl` is one file per act per table and one
 line per row -- so a diff names the provisions a commit changed, and two
@@ -102,7 +205,7 @@ is good at the first and cannot do the second at all.
 
 A fresh clone therefore has the text and no database:
 
-    python3 -m corpus.review_sync import
+    python3 -m corpus.review.review_sync import
 
 A `git pull` from a terminal is only half of a pull: it brings the text
 and leaves the database behind it, so follow it with the import above.
@@ -116,7 +219,7 @@ asks about what is pending -- which is the part that had to be right,
 because with the database gitignored a day's reviewing produces no
 pending change until an export runs, and "Everything is pushed" over
 unpushed work would be a quieter failure than the merge refusals it
-replaced. `python3 -m corpus.review_sync check` exports, imports into a
+replaced. `python3 -m corpus.review.review_sync check` exports, imports into a
 scratch database and compares every row, on demand.
 
 **Defined terms are hyperlinked back to where they are defined**, and

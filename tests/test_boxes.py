@@ -12,9 +12,9 @@ The coordinates are the real ones off Criminal Procedure Act s 6, page
 """
 import pytest
 
-from corpus.extract import lines_in_rects, text_in_rects
-from corpus.profiles import load_profile
-from corpus.rule_parser import read_box
+from corpus.parsing.extract import lines_in_rects, text_in_rects
+from corpus.domain.profiles import load_profile
+from corpus.parsing.rule_parser import read_box
 
 from conftest import line
 

@@ -45,3 +45,12 @@ Roughly in the order a document moves through:
 This package was called `ai_pipeline`, which said the opposite of what is
 true of almost all of it.
 """
+from pathlib import Path
+
+# Where the project's own files live: acts/, data/, static/, deploy/.
+#
+# Derived from this package rather than from each module's own location,
+# because a module's depth inside corpus/ changes when it is moved and
+# the project root does not. Anything reaching for a project file asks
+# here instead of counting `.parent`s.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
