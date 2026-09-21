@@ -1,4 +1,23 @@
 """
+Per the OCPC Guide on Drafting of Legislation:
+
+An Act itself is divided, but so too is a Section. Therefore, a Hierarchy exists:
+0 = Document
+1 = Chapter
+2 = Part
+3 = Division
+4 = Subdivision
+5 = Section
+6 = Subsection
+7 = Paragraph
+8 = Subparagraph
+9 = Sub-subparagraphs
+
+Any item within the hierarchy can skip a level going down. E.g. An Act can be devoid of
+Chapters, but contain Parts. A Section doesn't need to contain Subsection and may only contain
+Paragraphs. etc.
+
+
 The legislative hierarchy: the ordered list of container levels (Chapter,
 Part, Division, ...), and helpers for reasoning about which level is
 deeper than which.
@@ -39,8 +58,15 @@ rarest of these levels (drafters avoid it where they can), but real Acts
 do use it in sections that have been heavily amended.
 """
 
-HIERARCHY_ORDER = [
-    "schedule",
+from dataclasses import dataclass, field
+
+@dataclass(frozen=True)
+class Hierarchy:
+    levels: tuple[str, ...]
+    def rank(self, type_id: str) -> int:
+        ...
+
+default_hierarchy = Hierarchy((
     "chapter",
     "part",
     "division",
@@ -49,8 +75,8 @@ HIERARCHY_ORDER = [
     "subsection",
     "paragraph",
     "subparagraph",
-    "sub_subparagraph",
-]
+    "sub-subparagraph",
+))
 
 
 # The two types that sit at the same depth as a section: an Act's
