@@ -391,7 +391,8 @@ def _copy_template(out: Path) -> None:
 
 def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = False,
           gate: "SiteGate | None" = None, site_prefix: "str | None" = None,
-          search_url: "str | None" = None, preview_source: str = "static") -> str:
+          search_url: "str | None" = None, preview_source: str = "static",
+          canonical: "str | None" = None) -> str:
     """A finished page: the body, then the site footer. Every published
     page is built through here rather than calling page_shell directly,
     because the footer is the site's legal notice and the failure to
@@ -407,6 +408,7 @@ def _page(title: str, body: str, base_url: "str | None" = None, reader: bool = F
     which is why both default to the archive's answer."""
     return html_view.page_shell(
         title, body + _footer_html(), base_url=base_url, reader=reader,
+        canonical=canonical,
         # With no server to render a hover card on demand, the archive's
         # cards are pre-built (see _write_previews) and the page says so.
         preview_source=preview_source,
@@ -503,7 +505,8 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             continue  # not expected -- page_index only ever names real sections
         links |= _link_targets(body, base_path)
         _write(doc_dir / "section" / section_slug / "index.html",
-               _page(title, body, base_url, reader=True, gate=gate), gate)
+               _page(title, body, base_url, reader=True, gate=gate,
+                     canonical=f"{base_url}/section/{section_slug}/"), gate)
 
     endnotes_body = reader.endnotes_page(dashboard, slug, base_url)
     if endnotes_body is not None:

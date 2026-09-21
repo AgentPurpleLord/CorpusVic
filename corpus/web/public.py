@@ -21,11 +21,16 @@ from corpus.web import dashboard
 from corpus.search import search
 from corpus.search import search_view
 from corpus.publishing import html_view, reader, site_env
+from corpus import PROJECT_ROOT
 from corpus.storage import db
 from corpus.publishing.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL
 from corpus.parsing.versions import split_document_slug
 
-BASE_DIR = Path(__file__).parent
+# The project, not this module's own folder. data/, deploy/ and the
+# published corpus all hang off the root, and counting .parents from a
+# module that has since moved into a package is how this came to point at
+# corpus/web/ -- where there is no database, so the site served nothing.
+BASE_DIR = PROJECT_ROOT
 
 COOKIE_NAME = "corpus_site"
 SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 30
@@ -268,7 +273,8 @@ def _resolve(site_slug: str) -> str:
 
 
 def _page(title: str, body: str, base_url: "str | None" = None,
-          reader_layout: bool = False, query: str = "") -> HTMLResponse:
+          reader_layout: bool = False, query: str = "",
+          canonical: "str | None" = None) -> HTMLResponse:
     """Built through the archive's own page wrapper, so the site's legal
     notice cannot be left off a page by forgetting it here. What differs
     is that this side has a server: hover cards are rendered on demand
@@ -277,7 +283,7 @@ def _page(title: str, body: str, base_url: "str | None" = None,
 
     return HTMLResponse(finished_page(
         title, body, base_url=base_url, reader=reader_layout,
-        search_url="/search", preview_source="api"))
+        search_url="/search", preview_source="api", canonical=canonical))
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +337,8 @@ def section(site_slug: str, section_slug: str):
         show_review_badge=False, notice=_unverified_notice(slug, section_slug))
     if body is None:
         raise HTTPException(404, f"No such provision in {site_slug!r}.")
-    return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}", reader_layout=True)
+    return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}", reader_layout=True,
+                 canonical=f"/browse/{site_slug}/section/{section_slug}")
 
 
 @app.get("/browse/{site_slug}/endnotes", response_class=HTMLResponse)

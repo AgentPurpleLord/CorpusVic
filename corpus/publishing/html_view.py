@@ -1110,6 +1110,26 @@ def render_section(
     # {base_url}/#{fragment} form _build_linkifier_html builds for prose
     # "Part 3" references, so the two cannot disagree about where a Part
     # lives.
+    # How far reading on can carry, and what to call the end of it.
+    #
+    # A Division, because that is the unit an Act is written in: the
+    # provisions inside one are meant to be read together, and the
+    # boundary is the author's own. Falling back to the Part where an Act
+    # has no Divisions, so this is not silently nothing on an Act
+    # structured only by Parts. Neither, and the page stays a page.
+    scope = (next((b for b in reversed(breadcrumb) if b["node"]["type"] == "division"), None)
+             or next((b for b in reversed(breadcrumb) if b["node"]["type"] == "part"), None))
+    scope_attrs = ""
+    if scope is not None:
+        scope_attrs = (f' data-scope="{_esc(scope["eid"])}"'
+                       f' data-scope-label="{_esc(_display_title(scope["node"]["type"], scope["node"].get("number"), scope["node"].get("heading")))}"')
+    # Everything one provision is, in one element, so reading on can lift
+    # the next one out of its own page and set it down after this. The
+    # page around it -- the reading bar, the outline, the nav below -- is
+    # the chrome of whichever page was served and is never duplicated.
+    out.append(f'<article class="reader-section" data-section="{_esc(section_slug)}"'
+               f' data-title="{_esc(title)}"{scope_attrs}>')
+
     index_slugs = ctx["index_slugs"]
     crumb_bits = [f'<a href="{base_url}/">{_esc(ctx["index_link_text"])}</a>']
     for b in breadcrumb:
@@ -1179,7 +1199,8 @@ def render_section(
         # contributes a cell.
         notes = _margin_notes_html(unit_node, base_url, amendment_index) if unit["clause_index"] == 0 else ""
         out.append(f'<div class="prov-notes">{notes}</div>')
-    out.append("</div>")
+    out.append("</div>")   # .provisions
+    out.append("</article>")
 
     out.append(_section_nav_html(sections, match_index, base_url, filenames_by_eid, ctx["index_link_text"]))
     out.append("</div>")   # .reader-main
@@ -1546,7 +1567,7 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
                base_url: str | None = None, reader: bool = False,
                preview_source: str = "api", site_salt: str | None = None,
                site_prefix: str | None = None, search_url: str | None = None,
-               search_query: str = "") -> str:
+               search_query: str = "", canonical: str | None = None) -> str:
     """One page, built into static/site/page.html -- see that file for
     what each placeholder is.
 
@@ -1573,6 +1594,11 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
     404s is worse than no box. It is a plain GET form, so search works
     with JavaScript off.
 
+    canonical is this page's own address, written into the head. Reading
+    on changes the address bar as a section scrolls past (see
+    static/site/readon.js), so each page saying which address it is the
+    copy at keeps that answer the same however it was arrived at.
+
     site_prefix is what the asset URLs and the Home link are built from
     for a page that has no base_url to derive them from -- the published
     site's own landing page, which belongs to no document. Without it that
@@ -1586,6 +1612,11 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
     prefix = _site_prefix(base_url or "") if site_prefix is None else site_prefix
     replacements = {
         "{{TITLE}}": _esc(title),
+        # Which address this page is *the* copy at. Reading on changes
+        # the address bar as a reader scrolls, so saying it here rather
+        # than leaving it to be inferred is what keeps the answer the
+        # same however the page was arrived at.
+        "{{CANONICAL}}": (f'<link rel="canonical" href="{_esc(canonical)}">' if canonical else ""),
         "{{ASSETS}}": _esc(f"{prefix}/assets"),
         "{{HOME}}": _esc(f"{prefix}/"),
         "{{BODY_ATTRS}}": body_attrs,

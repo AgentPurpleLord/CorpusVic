@@ -117,6 +117,28 @@
 }
 
 /* --- the provisions either side ------------------------------------- */
+/* Reading on (static/site/readon.js). The provision that arrives is the
+   same in every respect but one: it needs a line above it, because two
+   provisions running together with nothing between them read as one. */
+.reader-section + .reader-section {
+  border-top: 1px solid var(--border);
+  margin-top: 42px;
+  padding-top: 34px;
+}
+/* The first provision already has the page's breadcrumb above it; on the
+   ones that follow it is the only thing saying where they sit. */
+.reader-section + .reader-section .breadcrumb { margin-bottom: 10px; }
+.read-on-end {
+  margin: 40px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9em;
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .page-reader .section-nav { display: flex; align-items: baseline; gap: 18px; }
 .section-nav .nav-up { margin-left: auto; margin-right: auto; color: var(--muted); }
 .section-nav .nav-next { text-align: right; }

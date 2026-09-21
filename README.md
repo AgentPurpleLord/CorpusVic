@@ -169,6 +169,21 @@ published flag, set from the dashboard and stored alongside the review
 work, so it travels with a push. Nothing reaches the site by having been
 parsed.
 
+**A provision is a page, and reading on is a scroll.** Every provision
+has its own address serving its own complete page -- which is what makes
+the site worth indexing, and what a citation points at. Reach the end of
+one and the next arrives under it, to the end of the Division, with the
+address bar following as each one passes. A Division because that is the
+unit an Act is written in and its end is the author's own; past one,
+reading on is a link rather than a scroll.
+
+Nothing about what is served changes: the text, the breadcrumb and the
+heading are all in what the server sent, reading on only ever adds what
+was already a click away through the "next" link it follows, and each
+page names itself as the copy at its own address. So a page read to the
+end and a page fetched by a crawler are the same document. It works the
+same on the static archive, which has no server to ask.
+
 **The review work travels as text, and the database is derived from it.**
 `data/review/<act>/<table>.jsonl` is one file per act per table and one
 line per row -- so a diff names the provisions a commit changed, and two
