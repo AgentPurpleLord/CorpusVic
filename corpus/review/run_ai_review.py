@@ -85,7 +85,13 @@ def main():
         if cleared:
             print(f"Cleared {cleared} previously-scanned unit(s) -- starting over.")
 
-    already_scanned = {row["node_index"] for row in db.load_ai_scan_findings(args.act)}
+    # Resume by name: a unit already looked at stays looked at across a
+    # re-parse that moved it. index_of turns those names back into the
+    # positions pending_units works in.
+    index_of = {node["id"]: index for index, node in enumerate(nodes)
+                if node is not None and node.get("id")}
+    already_scanned = {index_of[row["node_id"]] for row in db.load_ai_scan_findings(args.act)
+                       if row["node_id"] in index_of}
     todo = pending_units(nodes, units, already_scanned)
     if not todo:
         print(f"Nothing to scan -- every unit of {args.act!r} has already been looked at. Pass --restart to redo it.")
@@ -113,11 +119,14 @@ def main():
         for i, unit in enumerate(batch):
             root = unit_root(unit)
             result = flagged.get(i)
+            name = nodes[root]["id"]
             if result is None:
-                db.save_ai_scan_finding(args.act, root, severity="clean", message="", model=backend.model)
+                db.save_ai_scan_finding(args.act, name, node_index=root,
+                                        severity="clean", message="", model=backend.model)
             else:
                 db.save_ai_scan_finding(
-                    args.act, root, severity=result["severity"], message=result["concern"], model=backend.model,
+                    args.act, name, node_index=root, severity=result["severity"],
+                    message=result["concern"], model=backend.model,
                 )
                 concerns += 1
         scanned += len(batch)

@@ -20,7 +20,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from corpus.parsing.identity import disambiguate, inserted_id, node_ids
+from corpus.parsing.identity import inserted_ids, node_ids
 from corpus.storage import db
 
 # Which column in each table holds the position.
@@ -52,27 +52,12 @@ def _inserted_names(conn, act: str, names: list) -> dict:
     given lower indices as they are made, so index order is the order
     they can be resolved in).
     """
-    inserts = list(conn.execute(
+    rows = conn.execute(
         "SELECT node_index, after_index, node_json FROM structure_edits "
         "WHERE act = ? AND node_json IS NOT NULL AND node_index >= ? "
-        "ORDER BY node_index", (act, len(names))))
-
-    by_index, taken = {}, set(names)
-    for row in inserts:
-        node = json.loads(row["node_json"])
-        anchor_index = row["after_index"]
-        if anchor_index is not None and 0 <= anchor_index < len(names):
-            anchor = names[anchor_index]
-        elif anchor_index in by_index:
-            anchor = by_index[anchor_index]
-        else:
-            # The front of the document, or an anchor that no longer
-            # exists. Either way there is nothing to hang the name off.
-            anchor = "inserted"
-        name = disambiguate(inserted_id(anchor, node), taken, node)
-        taken.add(name)
-        by_index[row["node_index"]] = name
-    return by_index
+        "ORDER BY node_index", (act, len(names)))
+    return inserted_ids(names, [(r["node_index"], r["after_index"], json.loads(r["node_json"]))
+                                for r in rows])
 
 
 def name_rows(base_dir: "str | Path | None" = None, write: bool = False) -> dict:
@@ -82,7 +67,7 @@ def name_rows(base_dir: "str | Path | None" = None, write: bool = False) -> dict
     can be run again after a parse without disturbing what it named
     before.
     """
-    conn = db._connect(base_dir)
+    conn = db._connect(base_dir, rekey=False)
     named, inserted, unnamed = Counter(), Counter(), Counter()
     missing_parse = set()
     cache: dict = {}
@@ -112,10 +97,86 @@ def name_rows(base_dir: "str | Path | None" = None, write: bool = False) -> dict
             if write:
                 conn.execute(f"UPDATE {table} SET node_id = ? WHERE rowid = ?",
                              (name, row["rowid"]))
+    anchors = _name_anchors(conn, cache, write, base_dir, missing_parse)
     if write:
         conn.commit()
     return {"named": dict(named), "inserted": dict(inserted), "unnamed": dict(unnamed),
-            "missing_parse": sorted(missing_parse)}
+            "anchors": anchors, "missing_parse": sorted(missing_parse)}
+
+
+def _name_anchors(conn, cache: dict, write: bool, base_dir, missing_parse: set) -> dict:
+    """Name the provision each structural edit was put after.
+
+    An edit's anchor was a position too, and it is a reference to a
+    provision like any other -- see db.structure_edits.after_id.
+    """
+    named = unresolved = 0
+    for row in list(conn.execute(
+            "SELECT rowid, act, after_index FROM structure_edits "
+            "WHERE after_id IS NULL AND after_index IS NOT NULL")):
+        act = row["act"]
+        if act not in cache:
+            names = _names_for(act, base_dir)
+            if names is None:
+                missing_parse.add(act)
+            cache[act] = (names, _inserted_names(conn, act, names) if names else {})
+        names, inserts = cache[act]
+        position = row["after_index"]
+        if names is not None and 0 <= position < len(names):
+            name = names[position]
+        elif position in inserts:
+            name = inserts[position]
+        elif position == -1:
+            # structure.DOCUMENT_START: the front of the document, which
+            # is a real anchor rather than a missing one.
+            name = ""
+        else:
+            unresolved += 1
+            continue
+        named += 1
+        if write:
+            conn.execute("UPDATE structure_edits SET after_id = ? WHERE rowid = ?", (name, row["rowid"]))
+    return {"named": named, "unresolved": unresolved}
+
+
+def rename_inserts(base_dir: "str | Path | None" = None, write: bool = False) -> dict:
+    """Bring the names of added provisions back in line with what they
+    follow.
+
+    The first naming pass took the inserts in index order, which is not
+    the order they hang off each other -- a reviewer who adds a provision
+    and then adds another above it gives the second a higher index and
+    the first a higher anchor. Those came out named "inserted+..." with
+    no anchor at all. Re-runnable: an insert whose name is already right
+    is left alone.
+    """
+    conn = db._connect(base_dir, rekey=False)
+    renamed = {}
+    acts = [row[0] for row in conn.execute(
+        "SELECT DISTINCT act FROM structure_edits WHERE node_json IS NOT NULL")]
+    for act in acts:
+        names = _names_for(act, base_dir)
+        if names is None:
+            continue
+        rows = list(conn.execute(
+            "SELECT node_index, after_index, node_json, node_id FROM structure_edits "
+            "WHERE act = ? AND node_json IS NOT NULL AND node_index >= ?", (act, len(names))))
+        wanted = inserted_ids(names, [(r["node_index"], r["after_index"], json.loads(r["node_json"]))
+                                      for r in rows])
+        for row in rows:
+            new = wanted[row["node_index"]]
+            if new == row["node_id"]:
+                continue
+            renamed[f"{act}:{row['node_id']}"] = new
+            if write:
+                for table in POSITION_COLUMN:
+                    conn.execute(f"UPDATE {table} SET node_id = ? WHERE act = ? AND node_id = ?",
+                                 (new, act, row["node_id"]))
+                conn.execute("UPDATE structure_edits SET after_id = ? WHERE act = ? AND after_id = ?",
+                             (new, act, row["node_id"]))
+    if write:
+        conn.commit()
+    return renamed
 
 
 def main():
@@ -125,6 +186,7 @@ def main():
     args = ap.parse_args()
 
     report = name_rows(write=args.write)
+    renamed = rename_inserts(write=args.write)
     verb = "named" if args.write else "would name"
     total = sum(report["named"].values()) + sum(report["inserted"].values())
     print(f"{verb} {total} row(s)")
@@ -134,10 +196,19 @@ def main():
         print(f"\nof those, added by a reviewer and named against the provision they follow:")
         for table, count in sorted(report["inserted"].items()):
             print(f"  {count:6d}  {table}")
+    anchors = report["anchors"]
+    if anchors["named"]:
+        print(f"\n{verb} the provision {anchors['named']} structural edit(s) were put after")
+    if anchors["unresolved"]:
+        print(f"  {anchors['unresolved']} anchor(s) point at no node in the current parse, left alone")
     if report["unnamed"]:
         print("\nleft alone -- their position points at no node in the current parse:")
         for table, count in sorted(report["unnamed"].items()):
             print(f"  {count:6d}  {table}")
+    if renamed:
+        print(f"\n{verb} {len(renamed)} added provision(s) after the one they actually follow:")
+        for old, new in sorted(renamed.items()):
+            print(f"  {old.split(':', 1)[1]}\n    -> {new}")
     if report["missing_parse"]:
         print(f"\nno parse on disk for: {', '.join(report['missing_parse'])}")
 

@@ -60,14 +60,20 @@ class LinkError(ValueError):
 _SCHEMA = """
 -- node_id, on this table and the six below it, is the provision's own
 -- name -- "pt2/div1/s97/d/i" -- built by corpus/parsing/identity.py from
--- what the provision is rather than where it sits. A position survives a
--- re-parse of the Criminal Procedure Act between 9% and 18% of the time;
--- a name survives between 97% and 100%. The position stays alongside it
--- while everything that reads these tables is still keyed by it.
+-- what the provision is rather than where it sits, and it is what these
+-- tables are keyed by. A position survives a re-parse of the Criminal
+-- Procedure Act between 9% and 18% of the time; a name survives between
+-- 97% and 100%.
+--
+-- node_index stays beside it, but as a record of where the provision sat
+-- in the parse these rows were written against, not as a key. Whatever
+-- has a parse loaded works in positions, because within one parse a
+-- position is exact and cheap; it turns them into names at the edge of
+-- this module and never stores one.
 CREATE TABLE IF NOT EXISTS verified (
     act TEXT NOT NULL,
-    source_node_index INTEGER NOT NULL,
-    node_id TEXT,
+    node_id TEXT NOT NULL,
+    source_node_index INTEGER,
     type TEXT NOT NULL,
     number TEXT,
     heading TEXT,
@@ -82,15 +88,15 @@ CREATE TABLE IF NOT EXISTS verified (
     verified_at TEXT,
     needs_followup INTEGER NOT NULL DEFAULT 0,
     unit_end_index INTEGER,
-    PRIMARY KEY (act, source_node_index)
+    PRIMARY KEY (act, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_verified_act ON verified(act);
 
 CREATE TABLE IF NOT EXISTS links (
     id TEXT PRIMARY KEY,
     act TEXT NOT NULL,
-    node_index INTEGER NOT NULL,
-    node_id TEXT,
+    node_id TEXT NOT NULL,
+    node_index INTEGER,
     start INTEGER NOT NULL,
     end INTEGER NOT NULL,
     text TEXT,
@@ -116,8 +122,8 @@ CREATE INDEX IF NOT EXISTS idx_corrections_changed ON corrections(changed);
 
 CREATE TABLE IF NOT EXISTS blind_reviews (
     act TEXT NOT NULL,
-    node_index INTEGER NOT NULL,
-    node_id TEXT,
+    node_id TEXT NOT NULL,
+    node_index INTEGER,
     guessed_type TEXT NOT NULL,
     guessed_number TEXT,
     guessed_heading TEXT,
@@ -125,7 +131,7 @@ CREATE TABLE IF NOT EXISTS blind_reviews (
     matched_type INTEGER NOT NULL,
     matched_number INTEGER NOT NULL,
     reviewed_at TEXT NOT NULL,
-    PRIMARY KEY (act, node_index)
+    PRIMARY KEY (act, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 
@@ -138,14 +144,14 @@ CREATE INDEX IF NOT EXISTS idx_blind_reviews_act ON blind_reviews(act);
 -- -- see _HUMAN_WORK_TABLES below.
 CREATE TABLE IF NOT EXISTS ai_suggestions (
     act TEXT NOT NULL,
-    node_index INTEGER NOT NULL,
-    node_id TEXT,
+    node_id TEXT NOT NULL,
+    node_index INTEGER,
     answer TEXT NOT NULL,
     reasoning TEXT NOT NULL,
     confidence TEXT NOT NULL,
     model TEXT NOT NULL,
     requested_at TEXT NOT NULL,
-    PRIMARY KEY (act, node_index)
+    PRIMARY KEY (act, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ai_suggestions_act ON ai_suggestions(act);
 
@@ -173,13 +179,13 @@ CREATE INDEX IF NOT EXISTS idx_ai_suggestions_act ON ai_suggestions(act);
 -- part here. A "clean" row is never merged into diagnostics findings.
 CREATE TABLE IF NOT EXISTS ai_scan_findings (
     act TEXT NOT NULL,
-    node_index INTEGER NOT NULL,
-    node_id TEXT,
+    node_id TEXT NOT NULL,
+    node_index INTEGER,
     severity TEXT NOT NULL,
     message TEXT NOT NULL,
     model TEXT NOT NULL,
     scanned_at TEXT NOT NULL,
-    PRIMARY KEY (act, node_index)
+    PRIMARY KEY (act, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ai_scan_findings_act ON ai_scan_findings(act);
 
@@ -259,16 +265,19 @@ CREATE TABLE IF NOT EXISTS custom_types (
 -- parse gave it.
 CREATE TABLE IF NOT EXISTS structure_edits (
     act TEXT NOT NULL,
-    node_index INTEGER NOT NULL,
-    node_id TEXT,
-    -- The node this one follows. -1 (structure.DOCUMENT_START) is the
-    -- front of the document; NULL leaves a parse node where the parse
-    -- put it.
+    node_id TEXT NOT NULL,
+    node_index INTEGER,
+    -- The provision this one follows, by name. "" (the front of the
+    -- document) and NULL (leave a parse node where the parse put it)
+    -- both keep their meaning. after_index is the position that name
+    -- stood for in the parse this was written against, kept for reading
+    -- back, not for resolving.
+    after_id TEXT,
     after_index INTEGER,
     deleted INTEGER NOT NULL DEFAULT 0,
     node_json TEXT,
     created_at TEXT NOT NULL,
-    PRIMARY KEY (act, node_index)
+    PRIMARY KEY (act, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_structure_edits_act ON structure_edits(act);
 
@@ -286,8 +295,8 @@ CREATE INDEX IF NOT EXISTS idx_structure_edits_act ON structure_edits(act);
 -- and adjusting one is not a decision about its text.
 CREATE TABLE IF NOT EXISTS node_rects (
     act TEXT NOT NULL,
-    node_index INTEGER NOT NULL,
-    node_id TEXT,
+    node_id TEXT NOT NULL,
+    node_index INTEGER,
     -- [{"page": n, "x0": .., "y0": .., "x1": .., "y1": ..}, ...], in PDF
     -- points from the top-left of the page. An empty list means the
     -- reviewer said this provision has no box at all, which is not the
@@ -295,7 +304,7 @@ CREATE TABLE IF NOT EXISTS node_rects (
     -- and is deleted only to hand the provision back to the parser.
     rects_json TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    PRIMARY KEY (act, node_index)
+    PRIMARY KEY (act, node_id)
 );
 CREATE INDEX IF NOT EXISTS idx_node_rects_act ON node_rects(act);
 
@@ -360,6 +369,8 @@ _ADDED_COLUMNS = {
     for table in ("verified", "links", "blind_reviews", "ai_suggestions",
                   "ai_scan_findings", "structure_edits", "node_rects")
 }
+# A structural edit's anchor is a reference to a provision too.
+_ADDED_COLUMNS["structure_edits"] += (("after_id", "TEXT"),)
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
@@ -370,17 +381,70 @@ def _add_missing_columns(conn: sqlite3.Connection) -> None:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
 
 
-def _connect(base_dir: "str | Path | None" = None) -> sqlite3.Connection:
+# The tables whose key became the provision's name. A database written
+# before that is still keyed by position, and sqlite cannot change a
+# primary key in place -- the table is rebuilt from the schema above and
+# its rows copied across.
+_REKEYED = ("verified", "links", "blind_reviews", "ai_suggestions",
+            "ai_scan_findings", "structure_edits", "node_rects")
+
+
+class Unnamed(RuntimeError):
+    """Rows still keyed by position that have no name to be keyed by
+    instead. Raised rather than dropping them: they are somebody's review
+    work, and corpus/storage/node_names.py is what gives them a name."""
+
+
+def _rekey_tables(conn: sqlite3.Connection) -> list:
+    """Move any position-keyed table onto node_id, keeping every row."""
+    rebuilt = []
+    for table in _REKEYED:
+        info = list(conn.execute(f"PRAGMA table_info({table})"))
+        key = [row[1] for row in sorted((r for r in info if r[5]), key=lambda r: r[5])]
+        if "node_index" not in key and "source_node_index" not in key:
+            continue
+        unnamed = conn.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE node_id IS NULL").fetchone()[0]
+        if unnamed:
+            raise Unnamed(
+                f"{table} has {unnamed} row(s) with no node_id, so it cannot be keyed by one.\n\n"
+                "Either name them from the parse they were written against:\n\n"
+                "    python3 -m corpus.storage.node_names --write\n\n"
+                "or rebuild the database from the review files, which already carry the names:\n\n"
+                "    python3 -m corpus.review.review_sync import\n")
+        old = [row[1] for row in info]
+        conn.execute(f"ALTER TABLE {table} RENAME TO {table}_by_position")
+        conn.executescript(_SCHEMA)
+        new = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        carried = [c for c in old if c in new]
+        conn.execute(f"INSERT INTO {table} ({', '.join(carried)}) "
+                     f"SELECT {', '.join(carried)} FROM {table}_by_position")
+        conn.execute(f"DROP TABLE {table}_by_position")
+        rebuilt.append(table)
+    return rebuilt
+
+
+def _connect(base_dir: "str | Path | None" = None, *, rekey: bool = True) -> sqlite3.Connection:
+    """The database, upgraded to the current schema as it opens.
+
+    `rekey=False` opens a database still keyed by position without
+    moving it onto node_id -- which corpus/storage/node_names.py needs,
+    because it is the thing that gives those rows the names the move
+    requires.
+    """
     path = db_path(base_dir)
-    key = str(path.resolve())
+    resolved = str(path.resolve())
+    key = (resolved, rekey)
     conn = _connections.get(key)
     if conn is None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(key, check_same_thread=False)
+        conn = sqlite3.connect(resolved, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(_SCHEMA)
         _add_missing_columns(conn)
+        if rekey:
+            _rekey_tables(conn)
         conn.commit()
         _connections[key] = conn
     return conn
@@ -428,6 +492,7 @@ def _verified_row_to_dict(row: sqlite3.Row) -> dict:
         "page_start": row["page_start"], "page_end": row["page_end"],
         "char_start": row["char_start"], "char_end": row["char_end"], "source": row["source"],
         "_source_node_index": row["source_node_index"],
+        "_node_id": row["node_id"],
     }
     if row["path_json"] is not None:
         node["path"] = json.loads(row["path_json"])
@@ -444,7 +509,7 @@ def _verified_row_to_dict(row: sqlite3.Row) -> dict:
 
 def load_verified(act: str, base_dir: "str | Path | None" = None) -> list[dict]:
     rows = _connect(base_dir).execute(
-        "SELECT * FROM verified WHERE act = ? ORDER BY source_node_index", (act,)
+        "SELECT * FROM verified WHERE act = ? ORDER BY source_node_index, node_id", (act,)
     ).fetchall()
     return [_verified_row_to_dict(row) for row in rows]
 
@@ -460,11 +525,11 @@ def save_verified(act: str, verified: list[dict], base_dir: "str | Path | None" 
     with conn:
         conn.execute("DELETE FROM verified WHERE act = ?", (act,))
         conn.executemany(
-            f"INSERT INTO verified (act, source_node_index, {', '.join(_VERIFIED_COLUMNS)}) "
-            f"VALUES (?, ?, {', '.join('?' for _ in _VERIFIED_COLUMNS)})",
+            f"INSERT INTO verified (act, node_id, source_node_index, {', '.join(_VERIFIED_COLUMNS)}) "
+            f"VALUES (?, ?, ?, {', '.join('?' for _ in _VERIFIED_COLUMNS)})",
             [
                 (
-                    act, node.get("_source_node_index"), node["type"], node.get("number"), node.get("heading"),
+                    act, node["_node_id"], node.get("_source_node_index"), node["type"], node.get("number"), node.get("heading"),
                     node.get("text") or "", node.get("page_start"), node.get("page_end"),
                     node.get("char_start"), node.get("char_end"), node.get("source"),
                     json.dumps(node["path"]) if node.get("path") is not None else None,
@@ -623,7 +688,8 @@ def rename_act(old: str, new: str, base_dir: "str | Path | None" = None) -> dict
 
 def _link_row_to_dict(row: sqlite3.Row) -> dict:
     return {
-        "id": row["id"], "node_index": row["node_index"], "start": row["start"], "end": row["end"],
+        "id": row["id"], "node_id": row["node_id"], "node_index": row["node_index"],
+        "start": row["start"], "end": row["end"],
         "text": row["text"], "label": row["label"],
         "target": json.loads(row["target_json"]) if row["target_json"] is not None else None,
         "created_at": row["created_at"],
@@ -644,11 +710,12 @@ def save_links(act: str, links: list[dict]) -> None:
     with conn:
         conn.execute("DELETE FROM links WHERE act = ?", (act,))
         conn.executemany(
-            "INSERT INTO links (id, act, node_index, start, end, text, label, target_json, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO links (id, act, node_id, node_index, start, end, text, label, target_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (
-                    link["id"], act, link["node_index"], link["start"], link["end"], link.get("text"),
+                    link["id"], act, link["node_id"], link.get("node_index"),
+                    link["start"], link["end"], link.get("text"),
                     link["label"], json.dumps(link["target"]) if link.get("target") is not None else None,
                     link.get("created_at") or _now_iso(),
                 )
@@ -657,7 +724,8 @@ def save_links(act: str, links: list[dict]) -> None:
         )
 
 
-def add_link(act: str, node_index: int, start: int, end: int, label: str, node_text: str, target: dict | None = None) -> dict:
+def add_link(act: str, node_id: str, start: int, end: int, label: str, node_text: str,
+             target: dict | None = None, node_index: "int | None" = None) -> dict:
     """Checks and stores one span label, returning the saved record
     (with a fresh id and timestamp). `node_text` is the exact stored
     text of the node being labelled, passed in by the caller (which
@@ -679,6 +747,7 @@ def add_link(act: str, node_index: int, start: int, end: int, label: str, node_t
         raise LinkError(f"Span {start}:{end} is out of range for a {len(node_text)}-character node")
     record = {
         "id": uuid.uuid4().hex,
+        "node_id": node_id,
         "node_index": node_index,
         "start": start,
         "end": end,
@@ -690,10 +759,10 @@ def add_link(act: str, node_index: int, start: int, end: int, label: str, node_t
     conn = _connect()
     with conn:
         conn.execute(
-            "INSERT INTO links (id, act, node_index, start, end, text, label, target_json, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO links (id, act, node_id, node_index, start, end, text, label, target_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                record["id"], act, node_index, start, end, record["text"], label,
+                record["id"], act, node_id, node_index, start, end, record["text"], label,
                 json.dumps(target) if target is not None else None, record["created_at"],
             ),
         )
@@ -751,32 +820,32 @@ def _blind_review_row_to_dict(row: sqlite3.Row) -> dict:
     }
 
 
-def get_blind_review(act: str, node_index: int) -> "dict | None":
+def get_blind_review(act: str, node_id: str) -> "dict | None":
     row = _connect().execute(
-        "SELECT * FROM blind_reviews WHERE act = ? AND node_index = ?", (act, node_index)
+        "SELECT * FROM blind_reviews WHERE act = ? AND node_id = ?", (act, node_id)
     ).fetchone()
     return _blind_review_row_to_dict(row) if row is not None else None
 
 
 def save_blind_review(
-    act: str, node_index: int, *, guessed_type: str, guessed_number: "str | None", guessed_heading: "str | None",
-    reasoning: str, matched_type: bool, matched_number: bool,
+    act: str, node_id: str, *, guessed_type: str, guessed_number: "str | None", guessed_heading: "str | None",
+    reasoning: str, matched_type: bool, matched_number: bool, node_index: "int | None" = None,
 ) -> dict:
-    """One row per (act, node_index): resubmitting overwrites rather
+    """One row per (act, node_id): resubmitting overwrites rather
     than building up a history, since the point is a single honest first
     read, not a record of every time someone guessed again."""
     reviewed_at = _now_iso()
     conn = _connect()
     with conn:
         conn.execute(
-            "INSERT INTO blind_reviews (act, node_index, guessed_type, guessed_number, guessed_heading, "
-            "reasoning, matched_type, matched_number, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(act, node_index) DO UPDATE SET guessed_type=excluded.guessed_type, "
+            "INSERT INTO blind_reviews (act, node_id, node_index, guessed_type, guessed_number, guessed_heading, "
+            "reasoning, matched_type, matched_number, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_id) DO UPDATE SET guessed_type=excluded.guessed_type, "
             "guessed_number=excluded.guessed_number, guessed_heading=excluded.guessed_heading, "
             "reasoning=excluded.reasoning, matched_type=excluded.matched_type, "
             "matched_number=excluded.matched_number, reviewed_at=excluded.reviewed_at",
             (
-                act, node_index, guessed_type, guessed_number, guessed_heading, reasoning,
+                act, node_id, node_index, guessed_type, guessed_number, guessed_heading, reasoning,
                 1 if matched_type else 0, 1 if matched_number else 0, reviewed_at,
             ),
         )
@@ -811,15 +880,16 @@ def _ai_suggestion_row_to_dict(row: sqlite3.Row) -> dict:
     }
 
 
-def get_ai_suggestion(act: str, node_index: int) -> "dict | None":
+def get_ai_suggestion(act: str, node_id: str) -> "dict | None":
     row = _connect().execute(
-        "SELECT * FROM ai_suggestions WHERE act = ? AND node_index = ?", (act, node_index)
+        "SELECT * FROM ai_suggestions WHERE act = ? AND node_id = ?", (act, node_id)
     ).fetchone()
     return _ai_suggestion_row_to_dict(row) if row is not None else None
 
 
-def save_ai_suggestion(act: str, node_index: int, *, answer: str, reasoning: str, confidence: str, model: str) -> dict:
-    """One row per (act, node_index): re-asking overwrites rather than
+def save_ai_suggestion(act: str, node_id: str, *, answer: str, reasoning: str, confidence: str,
+                       model: str, node_index: "int | None" = None) -> dict:
+    """One row per (act, node_id): re-asking overwrites rather than
     accumulating a history, the same as save_blind_review -- a reviewer
     wants this node's current answer, not a log of every time they
     clicked the button."""
@@ -827,11 +897,11 @@ def save_ai_suggestion(act: str, node_index: int, *, answer: str, reasoning: str
     conn = _connect()
     with conn:
         conn.execute(
-            "INSERT INTO ai_suggestions (act, node_index, answer, reasoning, confidence, model, requested_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(act, node_index) DO UPDATE SET answer=excluded.answer, reasoning=excluded.reasoning, "
+            "INSERT INTO ai_suggestions (act, node_id, node_index, answer, reasoning, confidence, model, requested_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_id) DO UPDATE SET answer=excluded.answer, reasoning=excluded.reasoning, "
             "confidence=excluded.confidence, model=excluded.model, requested_at=excluded.requested_at",
-            (act, node_index, answer, reasoning, confidence, model, requested_at),
+            (act, node_id, node_index, answer, reasoning, confidence, model, requested_at),
         )
     return {"answer": answer, "reasoning": reasoning, "confidence": confidence, "model": model, "requested_at": requested_at}
 
@@ -843,7 +913,8 @@ def save_ai_suggestion(act: str, node_index: int, *, answer: str, reasoning: str
 
 def _ai_scan_finding_row_to_dict(row: sqlite3.Row) -> dict:
     return {
-        "node_index": row["node_index"], "severity": row["severity"], "message": row["message"],
+        "node_id": row["node_id"], "node_index": row["node_index"],
+        "severity": row["severity"], "message": row["message"],
         "model": row["model"], "scanned_at": row["scanned_at"],
     }
 
@@ -854,7 +925,7 @@ def load_ai_scan_findings(act: str) -> list[dict]:
     out; review.py's startup filters out everything *except* an actual
     concern (see main()'s own load of this)."""
     rows = _connect().execute(
-        "SELECT * FROM ai_scan_findings WHERE act = ? ORDER BY node_index", (act,)
+        "SELECT * FROM ai_scan_findings WHERE act = ? ORDER BY node_index, node_id", (act,)
     ).fetchall()
     return [_ai_scan_finding_row_to_dict(row) for row in rows]
 
@@ -872,8 +943,9 @@ def ai_scan_progress(act: str) -> dict:
     return {"scanned": row["scanned"], "concerns": row["concerns"]}
 
 
-def save_ai_scan_finding(act: str, node_index: int, *, severity: str, message: str, model: str) -> dict:
-    """One row per (act, node_index) -- see the table's own comment on
+def save_ai_scan_finding(act: str, node_id: str, *, severity: str, message: str, model: str,
+                         node_index: "int | None" = None) -> dict:
+    """One row per (act, node_id) -- see the table's own comment on
     why "clean" is stored as a real row rather than nothing. Re-scanning
     a unit (a fresh run_ai_review.py --restart) overwrites rather than
     accumulating, the same as every other cached AI answer here."""
@@ -881,13 +953,13 @@ def save_ai_scan_finding(act: str, node_index: int, *, severity: str, message: s
     conn = _connect()
     with conn:
         conn.execute(
-            "INSERT INTO ai_scan_findings (act, node_index, severity, message, model, scanned_at) "
-            "VALUES (?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(act, node_index) DO UPDATE SET severity=excluded.severity, message=excluded.message, "
+            "INSERT INTO ai_scan_findings (act, node_id, node_index, severity, message, model, scanned_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_id) DO UPDATE SET severity=excluded.severity, message=excluded.message, "
             "model=excluded.model, scanned_at=excluded.scanned_at",
-            (act, node_index, severity, message, model, scanned_at),
+            (act, node_id, node_index, severity, message, model, scanned_at),
         )
-    return {"node_index": node_index, "severity": severity, "message": message, "model": model, "scanned_at": scanned_at}
+    return {"node_id": node_id, "node_index": node_index, "severity": severity, "message": message, "model": model, "scanned_at": scanned_at}
 
 
 def clear_ai_scan_findings(act: str) -> int:
@@ -905,23 +977,30 @@ def clear_ai_scan_findings(act: str) -> int:
 # ---------------------------------------------------------------------
 # Structural edits (see corpus/structure.py)
 # ---------------------------------------------------------------------
-def load_structure_edits(act: str, base_dir: "str | Path | None" = None) -> dict[int, dict]:
-    """{node_index: {"after", "deleted", "node"}} -- exactly the shape
-    corpus.structure.document_order takes."""
+def load_structure_edits(act: str, base_dir: "str | Path | None" = None) -> dict[str, dict]:
+    """{node_id: {"after", "deleted", "node", "node_index"}}.
+
+    "after" is a name too: an edit says which provision this one follows,
+    and that is a reference to a provision like any other. review.py
+    turns both back into positions against the parse it has loaded --
+    see its own _edits_by_index.
+    """
     rows = _connect(base_dir).execute(
-        "SELECT * FROM structure_edits WHERE act = ? ORDER BY node_index", (act,)
+        "SELECT * FROM structure_edits WHERE act = ? ORDER BY node_index, node_id", (act,)
     ).fetchall()
     return {
-        row["node_index"]: {
-            "after": row["after_index"],
+        row["node_id"]: {
+            "after": row["after_id"],
             "deleted": bool(row["deleted"]),
             "node": json.loads(row["node_json"]) if row["node_json"] is not None else None,
+            "node_index": row["node_index"],
+            "created_at": row["created_at"],
         }
         for row in rows
     }
 
 
-def save_structure_edits(act: str, edits: dict[int, dict], base_dir: "str | Path | None" = None) -> None:
+def save_structure_edits(act: str, edits: dict[str, dict], base_dir: "str | Path | None" = None) -> None:
     """Replaces every structural edit stored for this document with
     exactly what is in `edits` now -- the same whole-list overwrite
     save_verified does, and for the same reason: review.py holds the
@@ -930,15 +1009,16 @@ def save_structure_edits(act: str, edits: dict[int, dict], base_dir: "str | Path
     with conn:
         conn.execute("DELETE FROM structure_edits WHERE act = ?", (act,))
         conn.executemany(
-            "INSERT INTO structure_edits (act, node_index, after_index, deleted, node_json, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO structure_edits (act, node_id, node_index, after_id, after_index, deleted, node_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (
-                    act, index, edit.get("after"), 1 if edit.get("deleted") else 0,
+                    act, node_id, edit.get("node_index"), edit.get("after"), edit.get("after_index"),
+                    1 if edit.get("deleted") else 0,
                     json.dumps(edit["node"]) if edit.get("node") is not None else None,
                     edit.get("created_at") or _now_iso(),
                 )
-                for index, edit in sorted(edits.items())
+                for node_id, edit in sorted(edits.items())
             ],
         )
 
@@ -999,30 +1079,30 @@ def clear_definition_override(act: str, term: str, base_dir: "str | Path | None"
 # ---------------------------------------------------------------------
 # Where a provision sits on the page, as a reviewer has drawn it
 # ---------------------------------------------------------------------
-def load_node_rects(act: str, base_dir: "str | Path | None" = None) -> dict[int, list[dict]]:
-    """{node_index: [rect, ...]} for every node a reviewer has drawn a
-    box on. Nodes absent from this keep the parser's own."""
+def load_node_rects(act: str, base_dir: "str | Path | None" = None) -> dict[str, list[dict]]:
+    """{node_id: [rect, ...]} for every provision a reviewer has drawn a
+    box on. Provisions absent from this keep the parser's own."""
     rows = _connect(base_dir).execute(
-        "SELECT node_index, rects_json FROM node_rects WHERE act = ? ORDER BY node_index", (act,)
+        "SELECT node_id, rects_json FROM node_rects WHERE act = ? ORDER BY node_id", (act,)
     ).fetchall()
-    return {row["node_index"]: json.loads(row["rects_json"]) for row in rows}
+    return {row["node_id"]: json.loads(row["rects_json"]) for row in rows}
 
 
-def save_node_rects(act: str, node_index: int, rects: "list[dict] | None",
-                    base_dir: "str | Path | None" = None) -> None:
+def save_node_rects(act: str, node_id: str, rects: "list[dict] | None",
+                    base_dir: "str | Path | None" = None, node_index: "int | None" = None) -> None:
     """Records the boxes a reviewer drew on one node. `None` deletes the
     row, handing that node back to whatever the parser said -- which is
     a different thing from an empty list, which says "no box here"."""
     conn = _connect(base_dir)
     with conn:
         if rects is None:
-            conn.execute("DELETE FROM node_rects WHERE act = ? AND node_index = ?", (act, node_index))
+            conn.execute("DELETE FROM node_rects WHERE act = ? AND node_id = ?", (act, node_id))
             return
         conn.execute(
-            "INSERT INTO node_rects (act, node_index, rects_json, updated_at) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(act, node_index) DO UPDATE SET rects_json = excluded.rects_json, "
-            "updated_at = excluded.updated_at",
-            (act, node_index, json.dumps(rects), _now_iso()),
+            "INSERT INTO node_rects (act, node_id, node_index, rects_json, updated_at) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(act, node_id) DO UPDATE SET rects_json = excluded.rects_json, "
+            "node_index = excluded.node_index, updated_at = excluded.updated_at",
+            (act, node_id, node_index, json.dumps(rects), _now_iso()),
         )
 
 

@@ -22,7 +22,7 @@ def test_save_and_load_verified_round_trips_every_field():
         make_node("subsection", "1", None, "text", verified_at="2024-01-01T00:00:00+00:00"),
         path={"section": "5", "subsection": "1"},
         history=[{"raw": "amended by No. 1/2000 s. 2"}],
-        _source_node_index=7,
+        _source_node_index=7, _node_id="s7",
         _unit_end_index=3,
     )
     db.save_verified("crimes-act", [node])
@@ -39,7 +39,7 @@ def test_save_and_load_verified_round_trips_every_field():
 
 
 def test_save_verified_omits_optional_fields_when_absent():
-    node = dict(make_node("section", "1", "Murder"), _source_node_index=0)
+    node = dict(make_node("section", "1", "Murder"), _source_node_index=0, _node_id="s0")
     db.save_verified("crimes-act", [node])
 
     [loaded] = db.load_verified("crimes-act")
@@ -51,7 +51,7 @@ def test_save_verified_omits_optional_fields_when_absent():
 
 
 def test_flagged_node_carries_needs_followup_not_verified_at():
-    node = dict(make_node("subsection", "1"), _source_node_index=0, needs_followup=True)
+    node = dict(make_node("subsection", "1"), _source_node_index=0, _node_id="s0", needs_followup=True)
     db.save_verified("crimes-act", [node])
 
     [loaded] = db.load_verified("crimes-act")
@@ -60,11 +60,11 @@ def test_flagged_node_carries_needs_followup_not_verified_at():
 
 
 def test_save_verified_replaces_this_acts_data_wholesale():
-    first = dict(make_node("section", "1"), _source_node_index=0)
+    first = dict(make_node("section", "1"), _source_node_index=0, _node_id="s0")
     db.save_verified("crimes-act", [first])
     assert len(db.load_verified("crimes-act")) == 1
 
-    second = dict(make_node("section", "2"), _source_node_index=1)
+    second = dict(make_node("section", "2"), _source_node_index=1, _node_id="s1")
     db.save_verified("crimes-act", [second])
 
     loaded = db.load_verified("crimes-act")
@@ -73,24 +73,24 @@ def test_save_verified_replaces_this_acts_data_wholesale():
 
 
 def test_save_verified_keeps_different_acts_separate():
-    db.save_verified("crimes-act", [dict(make_node("section", "1"), _source_node_index=0)])
-    db.save_verified("evidence-act", [dict(make_node("section", "9"), _source_node_index=0)])
+    db.save_verified("crimes-act", [dict(make_node("section", "1"), _source_node_index=0, _node_id="s0")])
+    db.save_verified("evidence-act", [dict(make_node("section", "9"), _source_node_index=0, _node_id="s0")])
 
     assert len(db.load_verified("crimes-act")) == 1
     assert len(db.load_verified("evidence-act")) == 1
     assert db.load_verified("crimes-act")[0]["number"] == "1"
 
 
-def test_load_verified_orders_by_source_node_index():
-    nodes = [dict(make_node("section", str(i)), _source_node_index=i) for i in (3, 1, 2)]
+def test_load_verified_comes_back_in_order():
+    nodes = [dict(make_node("section", str(i)), _source_node_index=i, _node_id=f"s{i}") for i in (3, 1, 2)]
     db.save_verified("crimes-act", nodes)
-    assert [n["_source_node_index"] for n in db.load_verified("crimes-act")] == [1, 2, 3]
+    assert [n["_node_id"] for n in db.load_verified("crimes-act")] == ["s1", "s2", "s3"]
 
 
 def test_base_dir_isolates_verified_data_from_the_current_directory(tmp_path):
     other_dir = tmp_path / "elsewhere"
     other_dir.mkdir()
-    db.save_verified("crimes-act", [dict(make_node("section", "1"), _source_node_index=0)], base_dir=other_dir)
+    db.save_verified("crimes-act", [dict(make_node("section", "1"), _source_node_index=0, _node_id="s0")], base_dir=other_dir)
 
     assert db.load_verified("crimes-act") == []  # nothing in the cwd-relative db
     assert len(db.load_verified("crimes-act", base_dir=other_dir)) == 1
@@ -110,17 +110,17 @@ def test_stats_with_no_corrections_yet():
 
 
 def test_get_blind_review_is_none_when_nothing_recorded():
-    assert db.get_blind_review("crimes-act", 5) is None
+    assert db.get_blind_review("crimes-act", "s5") is None
 
 
 def test_save_and_get_blind_review_round_trips():
     saved = db.save_blind_review(
-        "crimes-act", 5, guessed_type="paragraph", guessed_number="a", guessed_heading=None,
+        "crimes-act", "s5", guessed_type="paragraph", guessed_number="a", guessed_heading=None,
         reasoning="Looked like a lettered sub-item under (2).", matched_type=True, matched_number=False,
     )
     assert saved["reviewed_at"]  # stamped
 
-    loaded = db.get_blind_review("crimes-act", 5)
+    loaded = db.get_blind_review("crimes-act", "s5")
     assert loaded["guessed_type"] == "paragraph"
     assert loaded["guessed_number"] == "a"
     assert loaded["reasoning"] == "Looked like a lettered sub-item under (2)."
@@ -130,14 +130,14 @@ def test_save_and_get_blind_review_round_trips():
 
 def test_save_blind_review_overwrites_rather_than_accumulating():
     db.save_blind_review(
-        "crimes-act", 5, guessed_type="paragraph", guessed_number="a", guessed_heading=None,
+        "crimes-act", "s5", guessed_type="paragraph", guessed_number="a", guessed_heading=None,
         reasoning="first guess", matched_type=False, matched_number=False,
     )
     db.save_blind_review(
-        "crimes-act", 5, guessed_type="subparagraph", guessed_number="i", guessed_heading=None,
+        "crimes-act", "s5", guessed_type="subparagraph", guessed_number="i", guessed_heading=None,
         reasoning="reconsidered", matched_type=True, matched_number=True,
     )
-    loaded = db.get_blind_review("crimes-act", 5)
+    loaded = db.get_blind_review("crimes-act", "s5")
     assert loaded["guessed_type"] == "subparagraph"
     assert loaded["reasoning"] == "reconsidered"
 
@@ -166,18 +166,18 @@ def test_blind_review_stats_with_nothing_recorded_yet():
 
 
 def test_get_ai_suggestion_is_none_when_nothing_recorded():
-    assert db.get_ai_suggestion("crimes-act", 5) is None
+    assert db.get_ai_suggestion("crimes-act", "s5") is None
 
 
 def test_save_and_get_ai_suggestion_round_trips():
     saved = db.save_ai_suggestion(
-        "crimes-act", 5, answer="Likely the mis-numbered one.",
+        "crimes-act", "s5", answer="Likely the mis-numbered one.",
         reasoning="Its own text reads as a continuation of the previous paragraph.",
         confidence="medium", model="qwen2.5:7b-instruct",
     )
     assert saved["requested_at"]  # stamped
 
-    loaded = db.get_ai_suggestion("crimes-act", 5)
+    loaded = db.get_ai_suggestion("crimes-act", "s5")
     assert loaded["answer"] == "Likely the mis-numbered one."
     assert loaded["confidence"] == "medium"
     assert loaded["model"] == "qwen2.5:7b-instruct"
@@ -185,12 +185,12 @@ def test_save_and_get_ai_suggestion_round_trips():
 
 def test_save_ai_suggestion_overwrites_rather_than_accumulating():
     db.save_ai_suggestion(
-        "crimes-act", 5, answer="first answer", reasoning="r1", confidence="low", model="m1",
+        "crimes-act", "s5", answer="first answer", reasoning="r1", confidence="low", model="m1",
     )
     db.save_ai_suggestion(
-        "crimes-act", 5, answer="second answer", reasoning="r2", confidence="high", model="m2",
+        "crimes-act", "s5", answer="second answer", reasoning="r2", confidence="high", model="m2",
     )
-    loaded = db.get_ai_suggestion("crimes-act", 5)
+    loaded = db.get_ai_suggestion("crimes-act", "s5")
     assert loaded["answer"] == "second answer"
     assert loaded["model"] == "m2"
 
@@ -200,28 +200,28 @@ def test_load_ai_scan_findings_is_empty_for_an_act_with_none():
 
 
 def test_save_and_load_ai_scan_finding_round_trips():
-    saved = db.save_ai_scan_finding("crimes-act", 5, severity="warning", message="heading reads as a sentence", model="qwen2.5:7b-instruct")
+    saved = db.save_ai_scan_finding("crimes-act", "s5", severity="warning", message="heading reads as a sentence", model="qwen2.5:7b-instruct")
     assert saved["scanned_at"]  # stamped
 
     [loaded] = db.load_ai_scan_findings("crimes-act")
-    assert loaded["node_index"] == 5
+    assert loaded["node_id"] == "s5"
     assert loaded["severity"] == "warning"
     assert loaded["message"] == "heading reads as a sentence"
     assert loaded["model"] == "qwen2.5:7b-instruct"
 
 
 def test_save_ai_scan_finding_overwrites_rather_than_accumulating():
-    db.save_ai_scan_finding("crimes-act", 5, severity="warning", message="first", model="m1")
-    db.save_ai_scan_finding("crimes-act", 5, severity="clean", message="", model="m2")
+    db.save_ai_scan_finding("crimes-act", "s5", severity="warning", message="first", model="m1")
+    db.save_ai_scan_finding("crimes-act", "s5", severity="clean", message="", model="m2")
     [loaded] = db.load_ai_scan_findings("crimes-act")
     assert loaded["severity"] == "clean"
     assert loaded["model"] == "m2"
 
 
-def test_load_ai_scan_findings_is_ordered_by_node_index():
-    db.save_ai_scan_finding("crimes-act", 9, severity="clean", message="", model="m")
-    db.save_ai_scan_finding("crimes-act", 2, severity="clean", message="", model="m")
-    assert [row["node_index"] for row in db.load_ai_scan_findings("crimes-act")] == [2, 9]
+def test_load_ai_scan_findings_is_ordered_by_name():
+    db.save_ai_scan_finding("crimes-act", "s9", severity="clean", message="", model="m")
+    db.save_ai_scan_finding("crimes-act", "s2", severity="clean", message="", model="m")
+    assert [row["node_id"] for row in db.load_ai_scan_findings("crimes-act")] == ["s2", "s9"]
 
 
 def test_ai_scan_progress_with_nothing_scanned_yet():
@@ -229,22 +229,22 @@ def test_ai_scan_progress_with_nothing_scanned_yet():
 
 
 def test_ai_scan_progress_counts_scanned_units_and_only_non_clean_ones_as_concerns():
-    db.save_ai_scan_finding("crimes-act", 0, severity="clean", message="", model="m")
-    db.save_ai_scan_finding("crimes-act", 1, severity="warning", message="looks wrong", model="m")
-    db.save_ai_scan_finding("crimes-act", 2, severity="info", message="worth a look", model="m")
+    db.save_ai_scan_finding("crimes-act", "s0", severity="clean", message="", model="m")
+    db.save_ai_scan_finding("crimes-act", "s1", severity="warning", message="looks wrong", model="m")
+    db.save_ai_scan_finding("crimes-act", "s2", severity="info", message="worth a look", model="m")
     assert db.ai_scan_progress("crimes-act") == {"scanned": 3, "concerns": 2}
 
 
 def test_ai_scan_progress_is_scoped_to_one_act():
-    db.save_ai_scan_finding("crimes-act", 0, severity="warning", message="x", model="m")
-    db.save_ai_scan_finding("evidence-act", 0, severity="clean", message="", model="m")
+    db.save_ai_scan_finding("crimes-act", "s0", severity="warning", message="x", model="m")
+    db.save_ai_scan_finding("evidence-act", "s0", severity="clean", message="", model="m")
     assert db.ai_scan_progress("crimes-act") == {"scanned": 1, "concerns": 1}
     assert db.ai_scan_progress("evidence-act") == {"scanned": 1, "concerns": 0}
 
 
 def test_clear_ai_scan_findings_removes_only_that_acts_rows():
-    db.save_ai_scan_finding("crimes-act", 0, severity="clean", message="", model="m")
-    db.save_ai_scan_finding("evidence-act", 0, severity="clean", message="", model="m")
+    db.save_ai_scan_finding("crimes-act", "s0", severity="clean", message="", model="m")
+    db.save_ai_scan_finding("evidence-act", "s0", severity="clean", message="", model="m")
     removed = db.clear_ai_scan_findings("crimes-act")
     assert removed == 1
     assert db.load_ai_scan_findings("crimes-act") == []
@@ -297,13 +297,13 @@ def test_delete_custom_type_removes_only_that_one():
 
 def test_rename_act_moves_every_kind_of_stored_row(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0}])
-    db.add_link("cpa", 0, 0, 4, "act_citation", "text here")
+    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0, "_node_id": "s0"}])
+    db.add_link("cpa", "s0", 0, 4, "act_citation", "text here")
     db.add_correction("cpa", parser_output={"type": "section"}, human_output={"type": "section"}, changed=False)
-    db.save_blind_review("cpa", 0, guessed_type="section", guessed_number="1", guessed_heading=None,
+    db.save_blind_review("cpa", "s0", guessed_type="section", guessed_number="1", guessed_heading=None,
                          reasoning="reads like a section", matched_type=True, matched_number=True)
-    db.save_ai_suggestion("cpa", 0, answer="a", reasoning="r", confidence="low", model="m")
-    db.save_ai_scan_finding("cpa", 0, severity="warning", message="looks wrong", model="m")
+    db.save_ai_suggestion("cpa", "s0", answer="a", reasoning="r", confidence="low", model="m")
+    db.save_ai_scan_finding("cpa", "s0", severity="warning", message="looks wrong", model="m")
     db.save_parse_fingerprint("cpa", "abc123")
     db.add_custom_type("cpa", "penalty")
 
@@ -317,8 +317,8 @@ def test_rename_act_moves_every_kind_of_stored_row(tmp_path, monkeypatch):
     assert len(db.load_verified("cpa-v114")) == 1
     assert db.load_parse_fingerprint("cpa-v114") == "abc123"
     assert db.load_custom_types("cpa-v114") == ["penalty"]
-    assert db.load_links("cpa-v114")[0]["node_index"] == 0
-    assert db.get_ai_suggestion("cpa-v114", 0)["answer"] == "a"
+    assert db.load_links("cpa-v114")[0]["node_id"] == "s0"
+    assert db.get_ai_suggestion("cpa-v114", "s0")["answer"] == "a"
     assert db.load_ai_scan_findings("cpa-v114")[0]["message"] == "looks wrong"
 
 
@@ -326,8 +326,8 @@ def test_rename_act_refuses_to_merge_into_a_slug_that_already_has_work(tmp_path,
     # Two documents' review work interleaved by node position would be
     # worse than either alone, and unrecoverable afterwards.
     monkeypatch.chdir(tmp_path)
-    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0}])
-    db.save_verified("cpa-v114", [{"type": "section", "number": "9", "_source_node_index": 0}])
+    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0, "_node_id": "s0"}])
+    db.save_verified("cpa-v114", [{"type": "section", "number": "9", "_source_node_index": 0, "_node_id": "s0"}])
 
     with pytest.raises(ValueError, match="refusing to merge"):
         db.rename_act("cpa", "cpa-v114")
@@ -347,7 +347,7 @@ def test_rename_act_overwrites_the_destinations_own_parse_fingerprint(tmp_path, 
     never reviewed against. It must also not block the move: writing it is
     the first thing the pipeline does for a newly-parsed version."""
     monkeypatch.chdir(tmp_path)
-    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0}])
+    db.save_verified("cpa", [{"type": "section", "number": "1", "_source_node_index": 0, "_node_id": "s0"}])
     db.save_parse_fingerprint("cpa", "reviewed-against-this")
     db.save_parse_fingerprint("cpa-v114", "freshly-parsed")
 
@@ -357,18 +357,18 @@ def test_rename_act_overwrites_the_destinations_own_parse_fingerprint(tmp_path, 
 
 
 def _one_of_everything(act: str) -> None:
-    db.save_verified(act, [{"type": "section", "number": "1", "_source_node_index": 0}])
+    db.save_verified(act, [{"type": "section", "number": "1", "_source_node_index": 0, "_node_id": "s0"}])
     db.add_link(act, 0, 0, 4, "act_citation", "text here")
     db.add_correction(act, parser_output={"type": "section"}, human_output={"type": "note"}, changed=True)
-    db.save_blind_review(act, 0, guessed_type="section", guessed_number="1", guessed_heading=None,
+    db.save_blind_review(act, "s0", guessed_type="section", guessed_number="1", guessed_heading=None,
                          reasoning="reads like a section", matched_type=True, matched_number=True)
-    db.save_ai_suggestion(act, 0, answer="a", reasoning="r", confidence="low", model="m")
-    db.save_ai_scan_finding(act, 0, severity="warning", message="looks wrong", model="m")
+    db.save_ai_suggestion(act, "s0", answer="a", reasoning="r", confidence="low", model="m")
+    db.save_ai_scan_finding(act, "s0", severity="warning", message="looks wrong", model="m")
     db.add_orphaned_reviews(act, [{"type": "section", "number": "99"}])
     db.save_parse_fingerprint(act, "abc123")
     db.add_custom_type(act, "penalty")
-    db.save_structure_edits(act, {1: {"after": 0, "deleted": True, "node": None}})
-    db.save_node_rects(act, 0, [{"page": 1, "x0": 10.0, "y0": 20.0, "x1": 100.0, "y1": 40.0}])
+    db.save_structure_edits(act, {"s1": {"after": "s0", "deleted": True, "node": None}})
+    db.save_node_rects(act, "s0", [{"page": 1, "x0": 10.0, "y0": 20.0, "x1": 100.0, "y1": 40.0}])
 
 
 def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, monkeypatch):
@@ -387,8 +387,8 @@ def test_clear_act_review_drops_everything_keyed_to_a_node_position(tmp_path, mo
     }
     assert db.load_verified("cpa") == []
     assert db.load_links("cpa") == []
-    assert db.get_blind_review("cpa", 0) is None
-    assert db.get_ai_suggestion("cpa", 0) is None
+    assert db.get_blind_review("cpa", "s0") is None
+    assert db.get_ai_suggestion("cpa", "s0") is None
     assert db.load_ai_scan_findings("cpa") == []
     assert db.load_orphaned_reviews("cpa") == []
     assert db.load_structure_edits("cpa") == {}
@@ -432,15 +432,16 @@ def test_structure_edits_round_trip(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     inserted = make_node("subsection", "2", None, "a subsection the extractor dropped")
     db.save_structure_edits("cpa", {
-        4: {"after": 1, "deleted": False, "node": inserted},
-        2: {"after": 0, "deleted": True, "node": None},
-        3: {"after": 7, "deleted": False, "node": None},
+        "s3+subsection-2": {"after": "s1", "deleted": False, "node": inserted, "node_index": 4},
+        "s2": {"after": "s0", "deleted": True, "node": None, "node_index": 2},
+        "s3": {"after": "s7", "deleted": False, "node": None, "node_index": 3},
     })
 
-    assert db.load_structure_edits("cpa") == {
-        2: {"after": 0, "deleted": True, "node": None},
-        3: {"after": 7, "deleted": False, "node": None},
-        4: {"after": 1, "deleted": False, "node": inserted},
+    stored = db.load_structure_edits("cpa")
+    assert {name: (e["after"], e["deleted"], e["node"], e["node_index"]) for name, e in stored.items()} == {
+        "s2": ("s0", True, None, 2),
+        "s3": ("s7", False, None, 3),
+        "s3+subsection-2": ("s1", False, inserted, 4),
     }
 
 
@@ -449,7 +450,7 @@ def test_saving_structure_edits_replaces_the_whole_set(tmp_path, monkeypatch):
     the complete picture and writes it whenever any part changes, so a
     restore has to be able to remove a row by leaving it out."""
     monkeypatch.chdir(tmp_path)
-    db.save_structure_edits("cpa", {2: {"after": 0, "deleted": True, "node": None}})
+    db.save_structure_edits("cpa", {"s2": {"after": "s0", "deleted": True, "node": None}})
 
     db.save_structure_edits("cpa", {})
 
@@ -458,24 +459,23 @@ def test_saving_structure_edits_replaces_the_whole_set(tmp_path, monkeypatch):
 
 def test_structure_edits_are_per_document(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    db.save_structure_edits("cpa", {2: {"after": 0, "deleted": True, "node": None}})
+    db.save_structure_edits("cpa", {"s2": {"after": "s0", "deleted": True, "node": None}})
     db.save_structure_edits("interpretation", {})
 
-    assert set(db.load_structure_edits("cpa")) == {2}
+    assert set(db.load_structure_edits("cpa")) == {"s2"}
     assert db.load_structure_edits("interpretation") == {}
 
 
 def test_a_document_start_anchor_survives_the_round_trip(tmp_path, monkeypatch):
-    """-1 is a real anchor (the front of the document), not a missing
-    one -- it has to come back as itself and not as None."""
+    """The front of the document is a real anchor, not a missing one --
+    it has to come back as itself and not as None."""
     monkeypatch.chdir(tmp_path)
-    from corpus.review.structure import DOCUMENT_START
 
     db.save_structure_edits("cpa", {
-        3: {"after": DOCUMENT_START, "deleted": False, "node": make_node("part", "1")},
+        "inserted+pt1": {"after": "", "deleted": False, "node": make_node("part", "1")},
     })
 
-    assert db.load_structure_edits("cpa")[3]["after"] == DOCUMENT_START
+    assert db.load_structure_edits("cpa")["inserted+pt1"]["after"] == ""
 
 
 # ---------------------------------------------------------------------
@@ -488,17 +488,17 @@ def test_node_rects_round_trip(tmp_path, monkeypatch):
         {"page": 50, "x0": 190.1, "y0": 390.1, "x1": 454.3, "y1": 433.9},
         {"page": 50, "x0": 209.8, "y0": 490.8, "x1": 455.8, "y1": 513.2},
     ]
-    db.save_node_rects("cpa", 286, rects)
+    db.save_node_rects("cpa", "s286", rects)
 
-    assert db.load_node_rects("cpa") == {286: rects}
+    assert db.load_node_rects("cpa") == {"s286": rects}
 
 
 def test_drawing_a_box_again_replaces_the_one_before():
     """A reviewer redrawing a box is correcting it, not adding to it."""
-    db.save_node_rects("cpa", 286, [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
-    db.save_node_rects("cpa", 286, [{"page": 1, "x0": 5.0, "y0": 6.0, "x1": 7.0, "y1": 8.0}])
+    db.save_node_rects("cpa", "s286", [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
+    db.save_node_rects("cpa", "s286", [{"page": 1, "x0": 5.0, "y0": 6.0, "x1": 7.0, "y1": 8.0}])
 
-    assert db.load_node_rects("cpa")[286] == [{"page": 1, "x0": 5.0, "y0": 6.0, "x1": 7.0, "y1": 8.0}]
+    assert db.load_node_rects("cpa")["s286"] == [{"page": 1, "x0": 5.0, "y0": 6.0, "x1": 7.0, "y1": 8.0}]
 
 
 def test_no_box_and_no_opinion_about_the_box_are_different(tmp_path, monkeypatch):
@@ -506,16 +506,16 @@ def test_no_box_and_no_opinion_about_the_box_are_different(tmp_path, monkeypatch
     hands it back to whatever the parser read off the page. A reviewer
     can mean either."""
     monkeypatch.chdir(tmp_path)
-    db.save_node_rects("cpa", 5, [])
-    assert db.load_node_rects("cpa") == {5: []}
+    db.save_node_rects("cpa", "s5", [])
+    assert db.load_node_rects("cpa") == {"s5": []}
 
-    db.save_node_rects("cpa", 5, None)
+    db.save_node_rects("cpa", "s5", None)
     assert db.load_node_rects("cpa") == {}
 
 
 def test_boxes_are_per_document(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    db.save_node_rects("cpa", 1, [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
+    db.save_node_rects("cpa", "s1", [{"page": 1, "x0": 1.0, "y0": 2.0, "x1": 3.0, "y1": 4.0}])
 
     assert db.load_node_rects("interpretation") == {}
 

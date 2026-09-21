@@ -11,6 +11,7 @@ import pytest
 
 from corpus.storage import db
 from corpus.parsing.reparse import parse_fingerprint
+from corpus.review import review
 from corpus.review.review import (
     _is_elevated_risk,
     _now_iso,
@@ -50,8 +51,25 @@ def _write_parsed(act: str, nodes: list[dict], *, record_fingerprint: bool = Tru
         db.save_parse_fingerprint(act, fingerprint)
 
 
+def _names(act: str) -> dict:
+    """{index: name} for the parse written by _write_parsed."""
+    from corpus.parsing.identity import node_ids
+
+    parsed = json.loads((Path("data/parsed") / f"{act}.json").read_text(encoding="utf-8"))
+    return dict(enumerate(node_ids(parsed["nodes"], parsed.get("hierarchy") or None)))
+
+
 def _write_verified(act: str, verified: list[dict]) -> None:
-    save_verified(act, verified)
+    """Store review rows, naming each one from the parse it points into.
+
+    The fixtures below say which position a row is about; the name is
+    whatever that position is called, which is what review.py resolves
+    the row back by."""
+    names = _names(act)
+    save_verified(act, [
+        {**row, "_node_id": row.get("_node_id") or names.get(row.get("_source_node_index"))}
+        for row in verified
+    ])
 
 
 def test_group_into_units_covers_every_node_exactly_once():
@@ -597,6 +615,9 @@ def _setup_ai_precondition(monkeypatch, *, findings, node_count=1):
     monkeypatch.setattr(review, "_merged_away", set())
     monkeypatch.setattr(review, "_act", "test-act")
     monkeypatch.setattr(review, "_findings_by_node", {0: list(findings)} if findings else {})
+    # What _load_state would have worked out; the blind review this
+    # precondition looks for is stored under the name, not the position.
+    monkeypatch.setattr(review, "_node_ids", {i: f"s{i}" for i in range(node_count)})
     return review
 
 
@@ -632,7 +653,7 @@ def test_ai_precondition_refuses_before_a_blind_review_is_recorded(monkeypatch, 
 def test_ai_precondition_returns_the_finding_once_a_blind_review_exists(monkeypatch, isolate_corrections):
     review = _setup_ai_precondition(monkeypatch, findings=[{"severity": "warning", "message": "duplicate numbering"}])
     db.save_blind_review(
-        "test-act", 0, guessed_type="section", guessed_number="1", guessed_heading=None,
+        "test-act", "s0", guessed_type="section", guessed_number="1", guessed_heading=None,
         reasoning="looks like a section", matched_type=True, matched_number=True,
     )
 
@@ -666,7 +687,12 @@ def test_a_piece_reports_which_fields_no_longer_match_the_parse(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def _write_structure(act: str, edits: dict) -> None:
-    db.save_structure_edits(act, edits)
+    """Store structural edits, which the fixtures give by position and
+    the database keys by name (see review.stored_edits)."""
+    names = dict(_names(act))
+    for index in sorted(edits):
+        names.setdefault(index, f"inserted-{index}")
+    db.save_structure_edits(act, review.stored_edits(edits, names))
 
 
 def test_order_and_units_answers_in_node_indices_not_list_positions():

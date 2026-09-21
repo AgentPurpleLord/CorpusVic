@@ -109,8 +109,8 @@ def test_act_status_is_reviewed_once_every_unit_is_committed(tmp_path, monkeypat
     _write_parsed(tmp_path, "crimes-act", nodes)
 
     committed = [
-        dict(nodes[0], _source_node_index=0, _unit_end_index=0),
-        dict(nodes[1], _source_node_index=1, _unit_end_index=1),
+        dict(nodes[0], _node_id="s0", _source_node_index=0, _unit_end_index=0),
+        dict(nodes[1], _node_id="s1", _source_node_index=1, _unit_end_index=1),
     ]
     db.save_verified("crimes-act", committed, base_dir=tmp_path)
 
@@ -124,7 +124,7 @@ def test_act_status_is_in_progress_when_only_some_units_are_committed(tmp_path, 
     nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
     _write_parsed(tmp_path, "crimes-act", nodes)
 
-    committed = [dict(nodes[0], _source_node_index=0, _unit_end_index=0)]
+    committed = [dict(nodes[0], _node_id="s0", _source_node_index=0, _unit_end_index=0)]
     db.save_verified("crimes-act", committed, base_dir=tmp_path)
 
     status = dashboard.act_status("crimes-act")

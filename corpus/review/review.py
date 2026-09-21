@@ -153,6 +153,7 @@ from corpus.storage import db
 from corpus.ai.assist import build_suggestion
 from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
+from corpus.parsing import identity
 from corpus.parsing.identity import annotate_ids
 from corpus.parsing.extract import BodyLine, lines_in_rects
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
@@ -194,7 +195,13 @@ def load_parsed(act: str):
 
 
 load_verified = db.load_verified
-save_verified = db.save_verified
+
+
+def save_verified(act: str, verified: list[dict], base_dir: "str | Path | None" = None) -> None:
+    """Store the accepted pieces, including the ones this parse could not
+    place (see _unplaced_verified). db.save_verified replaces everything
+    stored for the Act, so anything left out here is deleted."""
+    db.save_verified(act, list(verified) + _unplaced_verified, base_dir)
 
 
 def positions_are_trustworthy(act: str, parse_fingerprint: "str | None") -> bool:
@@ -311,21 +318,108 @@ def _was_inserted(edits: dict[int, dict], index: int) -> bool:
     return edit is not None and edit.get("node") is not None
 
 
-def load_structure_edits(act: str, parse_fingerprint: "str | None", base_dir: "str | Path | None" = None) -> dict[int, dict]:
-    """This document's structural edits (corpus/structure.py), or
-    nothing at all when its stored positions can no longer be vouched for.
+def place_edits(nodes: list[dict], stored: dict) -> tuple[dict, dict]:
+    """Structural edits, stored by name, placed against this parse.
 
-    Every one of these edits names a node by its position in the parse --
-    "insert after node 412", "delete node 87" -- so against a parse those
-    positions no longer describe, applying them would move and delete
-    provisions at random. The same guard verified rows already get (see
-    positions_are_trustworthy), for the same reason. The rows stay in the
-    database untouched; the review server refuses further structural
-    edits in that state rather than overwriting them from an empty
-    starting point."""
+    Returns ({index: edit}, {name: edit}), the second holding the ones
+    that could not be placed -- an edit to a provision this parse does
+    not contain. Those are handed back rather than dropped, because
+    saving replaces the whole set and a dropped edit would be gone.
+
+    A provision a reviewer inserted is not in the parse at all, so it is
+    given an index above it, in the order the inserts were made. "after"
+    is a name too, resolved once everything has a position.
+    """
+    index_of = {node["id"]: index for index, node in enumerate(nodes) if node.get("id")}
+    next_index = len(nodes)
+    placed, unplaced = {}, {}
+
+    ordered = sorted(stored.items(),
+                     key=lambda pair: (pair[1].get("node_index") is None,
+                                       pair[1].get("node_index") or 0))
+    for node_id, edit in ordered:
+        if node_id in index_of:
+            index = index_of[node_id]
+        elif edit.get("node") is not None:
+            index = next_index
+            next_index += 1
+            index_of[node_id] = index
+        else:
+            unplaced[node_id] = edit
+            continue
+        placed[index] = {**edit, "node_id": node_id}
+
+    for edit in placed.values():
+        after = edit.get("after")
+        if after is None:
+            continue
+        edit["after"] = structure.DOCUMENT_START if after == "" else index_of.get(after)
+    return placed, unplaced
+
+
+def stored_edits(edits: dict, names: dict, unplaced: "dict | None" = None) -> dict:
+    """The inverse of place_edits: positions back into names, ready to
+    store. `names` is {index: name} for this parse and its inserts."""
+    out = dict(unplaced or {})
+    for index, edit in edits.items():
+        node_id = edit.get("node_id") or names.get(index)
+        if node_id is None:
+            continue
+        after = edit.get("after")
+        out[node_id] = {
+            **edit,
+            "node_index": index,
+            "after_index": after,
+            "after": "" if after == structure.DOCUMENT_START else names.get(after) if after is not None else None,
+        }
+    return out
+
+
+def names_by_index(nodes: list[dict], edits: dict) -> dict:
+    """{index: name} for a parse and the provisions inserted into it."""
+    names = {index: node["id"] for index, node in enumerate(nodes) if node.get("id")}
+    names.update({index: edit["node_id"] for index, edit in edits.items() if edit.get("node_id")})
+    return names
+
+
+def verified_by_index(verified: list[dict], names: dict) -> tuple[dict, list[dict]]:
+    """A reviewer's rows, against the positions of this parse.
+
+    Returns ({index: row}, unplaced). Each row names the provision it is
+    about, so a re-parse that moved the provision still finds it. A row
+    whose provision this parse does not contain goes into `unplaced`: it
+    is never attached to whatever now happens to sit at its old position,
+    and it is never dropped either, because saving replaces the whole
+    list and a dropped row would be gone.
+    """
+    index_of = {name: index for index, name in names.items()}
+    placed, unplaced = {}, []
+    for row in verified:
+        index = index_of.get(row.get("_node_id"))
+        if index is None:
+            unplaced.append(row)
+        else:
+            placed[index] = row
+    return placed, unplaced
+
+
+def load_structure_edits(act: str, parse_fingerprint: "str | None",
+                         base_dir: "str | Path | None" = None,
+                         nodes: "list[dict] | None" = None) -> dict:
+    """This document's structural edits (corpus/structure.py), placed
+    against the parse `nodes` -- or, without `nodes`, exactly as stored.
+
+    Each edit names the provision it is about, so a re-parse re-attaches
+    it wherever that provision now sits. The fingerprint guard stays for
+    the moves and deletions whose meaning is positional even so: an edit
+    that says "put this before that one" is about an order this parse may
+    no longer have."""
     if not positions_are_trustworthy(act, parse_fingerprint):
         return {}
-    return db.load_structure_edits(act, base_dir)
+    stored = db.load_structure_edits(act, base_dir)
+    if nodes is None:
+        return stored
+    return place_edits(nodes, stored)[0]
 
 
 def order_and_units(
@@ -365,11 +459,11 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
     edits are applied too, so what comes back is in the order they put it
     in, with what they inserted present and what they deleted gone."""
     nodes, unattached_notes, hierarchy, fingerprint = load_parsed(act)
-    edits = load_structure_edits(act, fingerprint)
+    edits = load_structure_edits(act, fingerprint, nodes=nodes)
     node_at = _node_at(nodes, edits)
     order, units = order_and_units(len(nodes), edits, node_at)
     verified = load_verified(act)
-    verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
+    verified_by_source_index, _unplaced = verified_by_index(verified, names_by_index(nodes, edits))
 
     # "Merged away" is an inference, not a record: nothing marks a node
     # the reviewer folded into another, so it's deduced from the node
@@ -406,11 +500,11 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
     over the *original* nodes, so a unit's own indices are also stable
     node_index values a caller can hand straight to db.save_ai_scan_finding."""
     nodes, _unattached_notes, _hierarchy, fingerprint = load_parsed(act)
-    edits = load_structure_edits(act, fingerprint)
+    edits = load_structure_edits(act, fingerprint, nodes=nodes)
     node_at = _node_at(nodes, edits)
     order, units = order_and_units(len(nodes), edits, node_at)
     verified = load_verified(act)
-    verified_by_source_index = {v["_source_node_index"]: v for v in verified if "_source_node_index" in v}
+    verified_by_source_index, _unplaced = verified_by_index(verified, names_by_index(nodes, edits))
 
     merged_away: set[int] = set()
     if positions_are_trustworthy(act, fingerprint):
@@ -425,10 +519,18 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
     # same reason a merged-away one does: the position still exists, the
     # provision doesn't.
     live = set(order)
+    names = names_by_index(nodes, edits)
     effective_nodes = [
         None if i in merged_away or i not in live else verified_by_source_index.get(i, node_at(i))
         for i in range(max([len(nodes) - 1, *edits], default=-1) + 1)
     ]
+    # Every node that comes back knows its own name, whether it came from
+    # the parse or from a reviewer's own accepted version of it -- a
+    # caller storing something against one (run_ai_review) needs the name,
+    # and a verified row carries it as _node_id rather than as id.
+    for i, node in enumerate(effective_nodes):
+        if node is not None and not node.get("id") and names.get(i):
+            node["id"] = names[i]
     return effective_nodes, units, fingerprint
 
 
@@ -782,6 +884,20 @@ _nodes: list[dict] = []
 # order; _nodes itself is never reordered, because a node's index is its
 # name everywhere else in this tool.
 _structure_edits: dict[int, dict] = {}
+# Each index's name (see corpus/parsing/identity.py), for the parse's own
+# nodes and for the provisions a reviewer inserted above them. Everything
+# stored is keyed by the name; everything held here is keyed by the
+# index, and this is what turns one into the other.
+_node_ids: dict[int, str] = {}
+# Structural edits about provisions this parse does not contain. Held so
+# that saving, which replaces the whole set, puts them back rather than
+# deleting somebody's work over a parse that moved on.
+_unplaced_edits: dict[str, dict] = {}
+# Accepted pieces about provisions this parse does not contain. Saving
+# replaces the whole list, so these are carried through it untouched --
+# a provision that comes back in a later reprint gets its review back
+# with it. Reported at startup, never silently discarded.
+_unplaced_verified: list[dict] = []
 # Boxes a reviewer has drawn or adjusted, keyed by node index. The parser
 # puts its own on every node it builds (rule_parser.add_rect); these win
 # where a person has said otherwise. See db.node_rects.
@@ -1080,8 +1196,47 @@ def _rebuild_structure() -> None:
                 row.pop("_unit_end_index")
             else:
                 row["_unit_end_index"] = moved_to
+    _name_new_inserts()
     save_verified(_act, _verified)
-    db.save_structure_edits(_act, _structure_edits)
+    _save_structure_edits()
+
+
+def _node_id(index: int) -> "str | None":
+    """This index's name, in this parse. None only for an index nothing
+    has placed, which a caller should treat as "nothing to store"."""
+    return _node_ids.get(index)
+
+
+def _name_new_inserts() -> None:
+    """Give a newly inserted provision its name, and refresh the map.
+
+    An insert is named against the provision it follows, so it has to
+    wait until it has one -- which is here, once the edit is adopted.
+    Named once and then left alone: moving a provision later does not
+    make it a different provision.
+    """
+    _node_ids.clear()
+    for index, node in enumerate(_nodes):
+        if node.get("id"):
+            _node_ids[index] = node["id"]
+    for index, edit in sorted(_structure_edits.items()):
+        if edit.get("node_id"):
+            _node_ids[index] = edit["node_id"]
+
+    taken = set(_node_ids.values()) | set(_unplaced_edits)
+    for index, edit in sorted(_structure_edits.items()):
+        if edit.get("node_id") or edit.get("node") is None:
+            continue
+        after = edit.get("after")
+        anchor = _node_ids.get(after, "inserted") if after != structure.DOCUMENT_START else "inserted"
+        name = identity.disambiguate(identity.inserted_id(anchor, edit["node"]), taken, edit["node"])
+        taken.add(name)
+        edit["node_id"] = name
+        _node_ids[index] = name
+
+
+def _save_structure_edits() -> None:
+    db.save_structure_edits(_act, stored_edits(_structure_edits, _node_ids, _unplaced_edits))
 
 
 def _require_structure_editable() -> None:
@@ -1136,6 +1291,7 @@ def _accept_node(i: int, flagged: bool) -> dict:
         node["verified_at"] = _now_iso()
         node.pop("needs_followup", None)
     node["_source_node_index"] = i
+    node["_node_id"] = _node_id(i)
 
     if _is_committed(i):
         target = _verified_by_source_index[i]
@@ -1230,7 +1386,7 @@ def _blind_review_gate_indices(indices: list[int]) -> list[int]:
     "I'm not confident, this needs follow-up", which is already the
     opposite of blindly agreeing -- adding friction to it would only
     punish exactly the caution this whole mechanism exists to encourage."""
-    return [i for i in indices if _is_elevated_risk(i) and db.get_blind_review(_act, i) is None]
+    return [i for i in indices if _is_elevated_risk(i) and db.get_blind_review(_act, _node_id(i)) is None]
 
 
 def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[int, list[dict]]) -> dict:
@@ -1257,8 +1413,8 @@ def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[in
         "history": node.get("history") or [],
         "source": node.get("source"),
         "elevated_risk": _is_elevated_risk(node_index),
-        "blind_review": db.get_blind_review(_act, node_index),
-        "ai_suggestion": db.get_ai_suggestion(_act, node_index),
+        "blind_review": db.get_blind_review(_act, _node_id(node_index)),
+        "ai_suggestion": db.get_ai_suggestion(_act, _node_id(node_index)),
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),
         "page_start": node.get("page_start"),
@@ -1793,7 +1949,7 @@ def set_node_rects_endpoint(node_index: int, req: RectsRequest):
         _node_rects.pop(node_index, None)
     else:
         _node_rects[node_index] = rects
-    db.save_node_rects(_act, node_index, rects)
+    db.save_node_rects(_act, _node_id(node_index), rects, node_index=node_index)
     return {"node_index": node_index, "rects": _rects_for(node_index), "drawn": node_index in _node_rects}
 
 
@@ -2325,7 +2481,7 @@ def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
     matched_type = req.type == actual["type"]
     matched_number = normalize(req.number) == normalize(actual.get("number"))
     record = db.save_blind_review(
-        _act, node_index, guessed_type=req.type, guessed_number=(req.number or None),
+        _act, _node_id(node_index), node_index=node_index, guessed_type=req.type, guessed_number=(req.number or None),
         guessed_heading=(req.heading or None), reasoning=req.reasoning.strip(),
         matched_type=matched_type, matched_number=matched_number,
     )
@@ -2348,7 +2504,7 @@ def _ai_suggestion_precondition(node_index: int) -> dict:
     _require_live(node_index)
     if not _is_elevated_risk(node_index):
         raise HTTPException(400, "This piece isn't flagged by diagnostics -- there's nothing here for a second opinion to weigh in on.")
-    if db.get_blind_review(_act, node_index) is None:
+    if db.get_blind_review(_act, _node_id(node_index)) is None:
         raise HTTPException(
             400,
             "Record your own independent assessment above first -- an AI suggestion is a second "
@@ -2389,8 +2545,9 @@ def ai_suggest_endpoint(node_index: int):
     except OllamaUnavailable as e:
         raise HTTPException(503, str(e)) from e
     record = db.save_ai_suggestion(
-        _act, node_index, answer=suggestion["answer"], reasoning=suggestion["reasoning"],
-        confidence=suggestion["confidence"], model=suggestion["model"],
+        _act, _node_id(node_index), node_index=node_index, answer=suggestion["answer"],
+        reasoning=suggestion["reasoning"], confidence=suggestion["confidence"],
+        model=suggestion["model"],
     )
     return {"node_index": node_index, "suggestion": record}
 
@@ -2598,6 +2755,7 @@ def accept_unit(unit_no: int, req: AcceptRequest):
         commit_unit(unit_nodes, unit_orig, _act, _verified, flagged=req.flagged, unit_index=unit_no)
         for i, v in zip(outstanding, _verified[before:]):
             v["_source_node_index"] = i
+            v["_node_id"] = _node_id(i)
             _verified_by_source_index[i] = v
             _pending_edits.pop(i, None)
         save_verified(_act, _verified)
@@ -2697,7 +2855,8 @@ def post_link(req: LinkRequest):
     span_text = node_text[req.start : req.end]
     target = resolve_link(req.label, span_text, _nodes, _definition_index)
     try:
-        return add_link(_act, req.node_index, req.start, req.end, req.label, node_text, target=target)
+        return add_link(_act, _node_id(req.node_index), req.start, req.end, req.label,
+                        node_text, target=target, node_index=req.node_index)
     except LinkError as e:
         raise HTTPException(400, str(e)) from e
 
@@ -2724,7 +2883,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     global _unattached_notes, _hierarchy, _relabel_types, _startup_resume_unit
     global _source_pdf_path, _act_title, _document_type, _positions_trusted
     global _pdf_doc, _structure_edits, _order, _structure_editable, _node_rects
-    global _printed_lines_cache, _profile_name
+    global _printed_lines_cache, _profile_name, _unplaced_edits
 
     _act = act
     _unit_of_index.clear()
@@ -2755,13 +2914,23 @@ def _load_state(act: str, restart: bool = False) -> None:
     # them would restart the review against a structure nothing else
     # remembers agreeing to.
     _structure_editable = positions_are_trustworthy(act, _parse_fingerprint)
-    _structure_edits = {} if restart else load_structure_edits(act, _parse_fingerprint)
     if restart:
+        _structure_edits, _unplaced_edits = {}, {}
         db.save_structure_edits(act, {})
+    else:
+        stored = load_structure_edits(act, _parse_fingerprint)
+        _structure_edits, _unplaced_edits = place_edits(_nodes, stored)
+    _name_new_inserts()
     # Gated the same way, and for the same reason: a box is recorded
     # against a node *position*, so against a parse those positions no
     # longer describe it would be drawn over the wrong provision.
-    _node_rects = db.load_node_rects(act) if (_structure_editable and not restart) else {}
+    _node_rects = {}
+    if _structure_editable and not restart:
+        _index_of_name = {name: index for index, name in _node_ids.items()}
+        for node_id, rects in db.load_node_rects(act).items():
+            index = _index_of_name.get(node_id)
+            if index is not None:
+                _node_rects[index] = rects
     _order, _units = order_and_units(len(_nodes), _structure_edits, _parse_node)
     for u, indices in enumerate(_units):
         for i in indices:
@@ -2791,9 +2960,17 @@ def _load_state(act: str, restart: bool = False) -> None:
                 })
 
     _verified = [] if restart else load_verified(act)
-    for v in _verified:
-        if "_source_node_index" in v:
-            _verified_by_source_index[v["_source_node_index"]] = v
+    placed, _unplaced_verified[:] = verified_by_index(_verified, _node_ids)
+    # _verified is what the session works with, so it holds only what this
+    # parse can place; the rest travels in _unplaced_verified. Compared by
+    # identity rather than value, because two rows can be equal.
+    kept = {id(row) for row in placed.values()}
+    _verified[:] = [row for row in _verified if id(row) in kept]
+    _verified_by_source_index.update(placed)
+    for index, row in _verified_by_source_index.items():
+        # The position a row is about, in this parse rather than in the
+        # one it was written against.
+        row["_source_node_index"] = index
     if not _verified and _parse_fingerprint:
         # Nothing reviewed yet, so whatever gets accepted from here on
         # belongs to this parse -- record that now, rather than leaving
@@ -2832,6 +3009,12 @@ def main():
     import uvicorn
 
     print(f"Serving {args.act}: {len(_nodes)} nodes, {len(_units)} units.")
+    if _unplaced_verified:
+        print(
+            f"Note: {len(_unplaced_verified)} reviewed piece(s) are about provisions this parse "
+            "doesn't contain, so they aren't shown. They are kept as they are, not deleted, and "
+            "come back if the provision does."
+        )
     if _verified and not _positions_trusted:
         print(
             f"Note: {len(_verified)} reviewed piece(s) were stored against a parse this one can't be matched to, "

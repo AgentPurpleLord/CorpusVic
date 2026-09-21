@@ -179,3 +179,60 @@ def disambiguate(name: str, taken: set, node: dict) -> str:
     while f"{qualified}-{ordinal}" in taken:
         ordinal += 1
     return f"{qualified}-{ordinal}"
+
+
+def inserted_ids(names: list, inserts) -> dict:
+    """Names for the provisions a reviewer added to a document.
+
+    `names` is the parse's own names, in order. `inserts` is
+    (index, after_index, node) for each added provision.
+
+    Resolved by what each one follows rather than in index order,
+    because those are not the same: a reviewer who adds a provision and
+    then adds another one *above* it gives the second a higher index and
+    the first a higher anchor. Taking them in index order left the first
+    with no anchor to hang off. Each pass names every insert whose anchor
+    is known; the passes stop when one adds nothing.
+
+    Returns {index: name}. An insert whose anchor is the front of the
+    document, or is gone, or is part of a cycle, hangs off "inserted".
+    """
+    by_index, taken = {}, set(names)
+    pending = list(inserts)
+    while pending:
+        ready = [row for row in pending
+                 if (row[1] is not None and 0 <= row[1] < len(names)) or row[1] in by_index]
+        if not ready:
+            # Nothing left can reach an anchor, so the rest hang off the
+            # front rather than being left unnamed.
+            ready = pending
+        for index, after, node in sorted(ready):
+            if after is not None and 0 <= after < len(names):
+                anchor = names[after]
+            else:
+                anchor = by_index.get(after, "inserted")
+            name = disambiguate(inserted_id(anchor, node), taken, node)
+            taken.add(name)
+            by_index[index] = name
+        done = {row[0] for row in ready}
+        pending = [row for row in pending if row[0] not in done]
+    return by_index
+
+
+def document_ids(nodes: list, edits: "dict | None" = None,
+                 hierarchy_order: "list[str] | None" = None) -> dict:
+    """{index: name} for a document as a reviewer sees it -- the parse,
+    plus whatever they have added to it.
+
+    `edits` is corpus.storage.db.load_structure_edits' shape,
+    {index: {"after", "deleted", "node"}}.
+    """
+    names = node_ids(nodes, hierarchy_order)
+    by_index = {index: name for index, name in enumerate(names)}
+    inserts = sorted(
+        (index, edit.get("after"), edit["node"])
+        for index, edit in (edits or {}).items()
+        if edit.get("node") is not None and index >= len(names)
+    )
+    by_index.update(inserted_ids(names, inserts))
+    return by_index

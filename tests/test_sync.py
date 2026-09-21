@@ -66,7 +66,7 @@ def _review(repo, text, act="demo-act", path=None):
 
 def _line(text, index=1, act="demo-act"):
     """One provision's review, in the shape the exporter writes it."""
-    return json.dumps({"act": act, "source_node_index": index,
+    return json.dumps({"act": act, "node_id": f"s{index}", "source_node_index": index,
                        "type": "section", "text": text}, sort_keys=True) + "\n"
 
 

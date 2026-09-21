@@ -42,7 +42,8 @@ def _act() -> list[dict]:
 
 
 def _reviewed(node: dict, index: int, **extra) -> dict:
-    return dict(node, verified_at="2024-01-01T00:00:00+00:00", _source_node_index=index, **extra)
+    return dict(node, verified_at="2024-01-01T00:00:00+00:00",
+                _source_node_index=index, _node_id=f"s{index}", **extra)
 
 
 # ---------------------------------------------------------------------
@@ -411,7 +412,7 @@ def test_a_reparse_discards_structural_edits(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     old_nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
     save_parse_fingerprint("crimes-act", parse_fingerprint(old_nodes))
-    save_structure_edits("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+    save_structure_edits("crimes-act", {"s1": {"after": "s0", "deleted": True, "node": None}})
     new_nodes = [make_node("section", "1", "Murder"), make_node("note", None, None, "a note"),
                  make_node("section", "2", "Manslaughter")]
 
@@ -429,7 +430,7 @@ def test_a_reparse_keeps_the_text_of_an_inserted_piece(tmp_path, monkeypatch):
     old_nodes = [make_node("section", "1", "Murder")]
     save_parse_fingerprint("crimes-act", parse_fingerprint(old_nodes))
     typed_in = make_node("subsection", "1", None, "a subsection the extractor dropped")
-    save_structure_edits("crimes-act", {1: {"after": 0, "deleted": False, "node": typed_in}})
+    save_structure_edits("crimes-act", {"s1": {"after": "s0", "deleted": False, "node": typed_in}})
     new_nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
 
     apply_remap("crimes-act", new_nodes, group_into_units(new_nodes))
@@ -445,7 +446,7 @@ def test_structural_edits_are_reported_even_with_no_review_rows_to_remap(tmp_pat
     monkeypatch.chdir(tmp_path)
     old_nodes = [make_node("section", "1", "Murder")]
     save_parse_fingerprint("crimes-act", parse_fingerprint(old_nodes))
-    save_structure_edits("crimes-act", {0: {"after": 5, "deleted": False, "node": None}})
+    save_structure_edits("crimes-act", {"s0": {"after": "s5", "deleted": False, "node": None}})
     new_nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
 
     report = apply_remap("crimes-act", new_nodes, group_into_units(new_nodes))
@@ -461,7 +462,7 @@ def test_reparsing_the_very_same_parse_leaves_structural_edits_alone(tmp_path, m
     monkeypatch.chdir(tmp_path)
     nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
     save_parse_fingerprint("crimes-act", parse_fingerprint(nodes))
-    save_structure_edits("crimes-act", {1: {"after": 0, "deleted": True, "node": None}})
+    save_structure_edits("crimes-act", {"s1": {"after": "s0", "deleted": True, "node": None}})
 
     assert apply_remap("crimes-act", nodes, group_into_units(nodes)) is None
-    assert set(load_structure_edits("crimes-act")) == {1}
+    assert set(load_structure_edits("crimes-act")) == {"s1"}

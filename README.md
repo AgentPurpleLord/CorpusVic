@@ -103,12 +103,24 @@ it read a wrapped citation as a fresh subsection -- the first keeps the
 plain name and the rest carry a short digest of their own wording. That
 happens to 1.7% of provisions, and each one is worth looking at.
 
+The name is what the seven review tables are keyed by, and the position
+stays beside it as a record of where the provision sat in the parse a row
+was written against. Whatever has a parse loaded works in positions --
+within one parse a position is exact and cheap -- and turns them into
+names at the edge of the database.
+
     python -m corpus.storage.node_names           what it would name
     python -m corpus.storage.node_names --write   name them
 
 names the review rows written before the column existed, from the parse
 their position still points into. It reports anything it cannot name and
-never guesses.
+never guesses. Opening a database it has not been run on is refused
+rather than half-migrated, and says so.
+
+A row about a provision the current parse does not contain is never
+attached to whatever now sits at its old position, and never dropped
+either: the review server keeps it as it is, says how many there are at
+startup, and gives it back if the provision returns.
 
 ## Reviewing against the page
 
