@@ -97,9 +97,45 @@ def test_the_shell_loads_the_script():
 
 # --- what the script is careful about ------------------------------------
 
-def test_it_does_nothing_without_a_scope():
-    """A provision in no Division has nothing to read on to."""
-    assert "!first.dataset.scope" in READON_JS.read_text(encoding="utf-8")
+def test_it_runs_to_the_ends_of_the_act():
+    """It used to stop at the Division. An Act is meant to be read like a
+    book, so the only thing that ends a read is running out of Act."""
+    js = READON_JS.read_text(encoding="utf-8")
+    assert "dataset.scope !== scope" not in js, "no boundary stops the read"
+    # What does stop it: no link to follow.
+    assert "if (!href) { done[where] = true; return false; }" in js
+
+
+def test_it_reads_backwards_as_well_as_forwards():
+    """Opening a provision part-way through an Act from the contents used
+    to leave nothing above it."""
+    js = READON_JS.read_text(encoding="utf-8")
+    assert "nav-prev" in js and "prevHref" in js
+    assert 'extend("prev")' in js or 'fill("prev")' in js
+
+
+def test_it_compensates_the_scroll_when_it_puts_something_above():
+    """Inserting above the viewport moves everything below it down, and
+    the page would jump out from under the reader."""
+    js = READON_JS.read_text(encoding="utf-8")
+    assert "scrollHeight" in js
+    assert "window.scrollBy(" in js
+
+
+def test_it_keeps_a_buffer_rather_than_fetching_one_at_a_time():
+    """The pop-in was a provision being asked for only once the reader had
+    arrived at the end of the one before it."""
+    js = READON_JS.read_text(encoding="utf-8")
+    assert "BUFFER" in js
+    assert "for (var i = 0; i < BUFFER; i++)" in js
+
+
+def test_a_division_ending_is_marked_by_its_id_not_its_label():
+    """Every Part of an Act has a Division 1, so comparing printed labels
+    would miss the break between one Part's last Division and the next
+    Part's first."""
+    js = READON_JS.read_text(encoding="utf-8")
+    assert "before.dataset.scope === after.dataset.scope" in js
 
 
 def test_it_replaces_the_address_rather_than_pushing_it():
@@ -111,16 +147,11 @@ def test_it_replaces_the_address_rather_than_pushing_it():
     assert "pushState(" not in js
 
 
-def test_it_stops_at_the_scope_boundary():
-    js = READON_JS.read_text(encoding="utf-8")
-    assert "section.dataset.scope !== scope" in js
-
-
-def test_it_follows_the_last_provisions_next_link_not_the_first():
+def test_it_follows_the_outermost_provisions_link_not_the_first():
     """Following the first page's link forever would fetch the same
-    provision over and over."""
+    provision over and over, at either end."""
     js = READON_JS.read_text(encoding="utf-8")
-    assert "loaded[loaded.length - 1]" in js
+    assert "loaded[loaded.length - 1]" in js and "loaded[0]" in js
 
 
 def test_it_leaves_a_reader_who_asked_not_to_be_moved_alone():

@@ -20,7 +20,18 @@
   // Explanatory Memorandum, and those are exactly the links most worth
   // previewing.
   var ROOT = BASE.slice(0, BASE.lastIndexOf("/"));
-  var OPEN_DELAY = 500;   // long enough that skimming past a link doesn't trigger one
+  var OPEN_DELAY = 250;   // long enough that skimming past a link doesn't trigger one
+  // Only links inside the legislative text get a card. The breadcrumb,
+  // the next/prev links and the "explained in" chips are navigation: a
+  // reader following one means to go there, and a card over the thing
+  // they are about to click is in the way. The outline is the same, and
+  // is on the contents page now.
+  //
+  // .prov, not .provisions: the amendment notes in the margin are cells
+  // of that same grid, and they are apparatus rather than the Act's own
+  // words. Their links go to the endnotes, which is not a provision to
+  // preview anyway, so this only makes explicit what was already true.
+  var PREVIEWABLE = ".prov";
   // A card closes when the pointer has actually left it, not the instant
   // it crosses the edge. Legal text is read slowly and pointers wander,
   // and a card that vanished on a stray pixel had to be re-opened by
@@ -238,7 +249,7 @@
 
   document.addEventListener("mouseover", function (e) {
     var a = e.target.closest ? e.target.closest("a[href]") : null;
-    if (a && a.closest(".page")) scheduleShow(a);
+    if (a && a.closest(PREVIEWABLE)) scheduleShow(a);
     else if (!e.target.closest || !e.target.closest(".linkpeek")) scheduleHide();
   });
   document.addEventListener("mouseout", function (e) {
@@ -248,9 +259,16 @@
   card.addEventListener("mouseleave", scheduleHide);
   document.addEventListener("focusin", function (e) {
     var a = e.target.closest ? e.target.closest("a[href]") : null;
-    if (a && a.closest(".page")) scheduleShow(a);
+    if (a && a.closest(PREVIEWABLE)) scheduleShow(a);
   });
   document.addEventListener("focusout", scheduleHide);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") hide(); });
+  // A click anywhere that isn't the card dismisses it, without waiting
+  // out CLOSE_DELAY. Clicking is a reader saying they are done with it --
+  // including the click on the link the card is about, which is about to
+  // take them there anyway.
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest(".linkpeek")) hide();
+  });
   window.addEventListener("scroll", function () { if (activeLink) place(activeLink); }, { passive: true });
 })();

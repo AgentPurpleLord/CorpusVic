@@ -656,7 +656,12 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             if not list_open:
                 out.append('<ul class="section-list">')
                 list_open = True
-            out.append(f'<li><a href="{href}">{_esc(label)}</a></li>')
+            # Anchored by the same slug its own page is addressed by, so
+            # a link to a provision's place in these contents and a link
+            # to the provision itself are the same name with and without
+            # the "section/" in front.
+            entry_id = _strip_md(filenames_by_eid[tree_node["eid"]])
+            out.append(f'<li id="{_esc(entry_id)}"><a href="{href}">{_esc(label)}</a></li>')
             return
         if t in (*structural_types, "heading_group"):
             close_list()
@@ -672,7 +677,17 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         walk(root)
     close_list()
 
-    return "\n".join(out)
+    # The skeleton beside the contents, so a contents page running to
+    # hundreds of provisions can be moved around rather than only
+    # scrolled. This is the reading page's outline, moved: a provision's
+    # own page is now the provision and nothing else.
+    outline = _index_outline_html(ctx, act_title, base_url, bool(parsed.get("endnotes")))
+    if not outline:
+        return "\n".join(out)
+    return (
+        f'<div class="reader-cols">{outline}'
+        f'<div class="reader-main">{chr(10).join(out)}</div></div>'
+    )
 
 
 def _crossrefs_html(crossrefs: list[dict]) -> str:
@@ -835,102 +850,63 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
 # ---------------------------------------------------------------------------
 # The section reading view
 # ---------------------------------------------------------------------------
-# A section page carries three pieces of furniture the contents and
-# Endnotes pages don't: an outline of the rest of the document beside the
-# text, a bar of reading controls above it, and the provisions either side
-# of this one below it. See static/site/reader.css and reader.js for the
-# other half of each.
+# A section page carries two pieces of furniture the Endnotes page does
+# not: a bar of reading controls above the text, and the provisions either
+# side of this one below it. See static/site/reader.css and reader.js for
+# the other half of each.
+#
+# It used to carry a third, an outline of the rest of the document beside
+# the text. That is on the contents page now (_index_outline_html): a
+# reader on a provision is reading it, and the breadcrumb, the next and
+# previous links and reading on already reach everywhere the outline did.
 
 
-def _outline_entry(tree_node: dict, base_url: str, filenames_by_eid: dict[str, str],
-                   target_filename: str) -> str:
-    """One section in the outline, marked when it is the page you're on --
-    aria-current, so it reads as "you are here" to a screen reader and not
-    merely as a different colour."""
-    filename = filenames_by_eid[tree_node["eid"]]
-    node = tree_node["node"]
-    label = (
-        _display_title(node["type"], node.get("number"), node.get("heading"))
-        if node["type"] == "schedule" else index_label(node)
-    )
-    current = ' aria-current="page"' if filename == target_filename else ""
-    return (
-        f'<li class="outline-leaf"><a href="{base_url}/section/{_strip_md(filename)}"{current}>'
-        f"{_esc(label)}</a></li>"
-    )
+def _index_outline_html(ctx: dict, act_title: str, base_url: str,
+                        has_endnotes: bool = False) -> str:
+    """The Act's own skeleton, beside its contents.
 
+    Chapters, Parts and Divisions only -- the things a reader moves
+    between in a contents page that runs to hundreds of provisions. Every
+    line is an anchor into this same page, so following one scrolls the
+    contents rather than leaving them; the provisions themselves are
+    already listed in the column beside this, one click from their own
+    page. Listing them here as well would put the page beside itself.
 
-def _outline_html(ctx: dict, act_title: str, breadcrumb: list[dict], target_filename: str,
-                  base_url: str, has_endnotes: bool = False) -> str:
-    """The provisions around the one you're reading -- and only those.
-
-    Just the branch this page sits on: the Part it is in, the Division
-    within that, and the sections beside it. Not the other Parts, not the
-    Schedules, not the whole Act. An outline that listed everything would
-    be a second contents page in every sidebar (the Criminal Procedure Act
-    alone would put over a thousand links on every page of itself), and
-    what a reader wants beside a provision is its immediate neighbourhood.
-    Going further than that is what the contents page and the Home button
-    are for, and both are linked at the top of this.
-
-    A structural line links to its heading on the contents page (the same
-    anchor render_index gives it), because a Part is not a page here. The
-    outline also names the document, which a section page otherwise never
-    states: the heading is the provision's, and "Act index" doesn't say
-    which index."""
+    The anchors are the ones render_index already puts on its headings,
+    and the ones a provision page's breadcrumb already links back to, so
+    the three cannot disagree about where a Part lives.
+    """
     structural_types = ctx["structural_types"]
-    filenames_by_eid = ctx["filenames_by_eid"]
     index_slugs = ctx["index_slugs"]
-    open_eids = {b["eid"] for b in breadcrumb}
 
-    def children_html(tree_node: dict, siblings_of_this_page: bool) -> str:
+    def branch(tree_node: dict) -> str:
         items = []
         for child in tree_node["children"]:
             node = child["node"]
-            t = node["type"]
-            if t in SECTION_LEVEL_TYPES or (t == "schedule" and schedule_is_pageable(child)):
-                # Only where these are the provisions beside the one being
-                # read. Listed unconditionally, a Schedule that is a page
-                # in its own right (schedule_is_pageable -- the Criminal
-                # Procedure Act's Schedule 3, whose content is prose
-                # rather than numbered clauses) sits at the top level of
-                # the tree next to the Chapters, matched here, and so
-                # appeared in the sidebar of all 620 of that Act's section
-                # pages. Deeper leaves were never wrong, because they are
-                # only reached by recursing into an open Part or Division;
-                # the top level has no such gate and needed one.
-                if siblings_of_this_page:
-                    items.append(_outline_entry(child, base_url, filenames_by_eid, target_filename))
+            if node["type"] not in (*structural_types, "heading_group"):
                 continue
-            # A Part or Division that isn't on the way to this page is not
-            # the immediate context, so it isn't listed at all.
-            if t not in (*structural_types, "heading_group") or child["eid"] not in open_eids:
-                continue
-            title = _display_title(t, node.get("number"), node.get("heading"))
+            title = _display_title(node["type"], node.get("number"), node.get("heading"))
             slug = index_slugs.get(child["eid"])
-            href = f"{base_url}/#{_esc(slug)}" if slug else f"{base_url}/"
-            items.append(
-                f'<li class="outline-struct"><a href="{href}">{_esc(title)}</a>'
-                # Reached only because this child is open, so its own
-                # leaves are the ones beside the page being read.
-                f"{children_html(child, True)}</li>"
-            )
+            # No slug, no link -- an anchor that scrolls nowhere looks
+            # like the page failed. Same rule the breadcrumb follows.
+            label = f'<a href="#{_esc(slug)}">{_esc(title)}</a>' if slug else _esc(title)
+            items.append(f'<li class="outline-struct">{label}{branch(child)}</li>')
         return f'<ul class="outline-list">{"".join(items)}</ul>' if items else ""
 
-    # A page with no structural ancestors is itself a top-level provision
-    # (a flat Act's sections, or a Schedule that is its own page), and
-    # then the top level is its neighbourhood. Otherwise it is not.
     body = "".join(
-        children_html({"children": [root], "node": {"type": ""}, "eid": ""}, not breadcrumb)
+        branch({"children": [root], "node": {"type": ""}, "eid": ""})
         for root in ctx["tree_roots"]
     )
+    if not body:
+        # A flat Act with no Parts has no skeleton to show, and an empty
+        # column beside the contents is worse than no column.
+        return ""
     endnotes = (
         f'<a class="outline-endnotes" href="{base_url}/endnotes">Endnotes</a>' if has_endnotes else ""
     )
     return (
         '<nav class="outline" aria-label="Contents">'
         f'<a class="outline-doc" href="{base_url}/">{_esc(act_title)}</a>'
-        f'<a class="outline-contents" href="{base_url}/">{_esc(ctx["index_link_text"])}</a>'
         f"{endnotes}{body}</nav>"
     )
 
@@ -1086,15 +1062,14 @@ def render_section(
     title = page_title(node)
     verification = _collect_verification([tree_node])
 
-    # The page's own chrome, outside the text column: the reading controls
-    # above, the outline of the rest of the document beside. Both are
-    # built from what this page already knows, so neither needs the caller
-    # to pass anything new.
+    # One column, and the law in it. The outline that used to sit beside
+    # the text now sits beside the contents instead (_index_outline_html):
+    # a reader on a provision is reading it, and the breadcrumb, the
+    # next/prev links and reading on already carry them everywhere the
+    # outline did. The reading controls stay, because they are about how
+    # this text is set rather than about where else to go.
     out = [
         _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
-        '<div class="reader-cols">',
-        _outline_html(ctx, act_title, breadcrumb, target_filename, base_url,
-                      bool(parsed.get("endnotes"))),
         '<div class="reader-main">',
     ]
     if notice:
@@ -1204,7 +1179,6 @@ def render_section(
 
     out.append(_section_nav_html(sections, match_index, base_url, filenames_by_eid, ctx["index_link_text"]))
     out.append("</div>")   # .reader-main
-    out.append("</div>")   # .reader-cols
 
     return "\n".join(out)
 

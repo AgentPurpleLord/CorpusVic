@@ -326,7 +326,9 @@ def contents(site_slug: str):
             if d["slug"] in _published_slugs()
         ],
     )
-    return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}")
+    # The contents are what carries an outline column now, so this is the
+    # page laid out in two; a provision's own page is one column of text.
+    return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}", reader_layout=True)
 
 
 @app.get("/browse/{site_slug}/section/{section_slug}", response_class=HTMLResponse)
@@ -337,7 +339,7 @@ def section(site_slug: str, section_slug: str):
         show_review_badge=False, notice=_unverified_notice(slug, section_slug))
     if body is None:
         raise HTTPException(404, f"No such provision in {site_slug!r}.")
-    return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}", reader_layout=True,
+    return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}",
                  canonical=f"/browse/{site_slug}/section/{section_slug}")
 
 
