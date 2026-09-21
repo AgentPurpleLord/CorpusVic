@@ -899,6 +899,18 @@ def test_the_skeleton_names_the_document():
     assert ">Test Act</a>" in _index_outline()
 
 
+def _dead_anchors(body: str) -> list:
+    """Lines in the outline pointing at an id the page does not have."""
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+    ids = set(re.findall(r'id="([^"]+)"', body))
+    return [a[1:] for a in re.findall(r'href="(#[^"]+)"', outline) if a[1:] not in ids]
+
+
+def test_every_line_in_the_skeleton_lands_somewhere():
+    """An anchor that scrolls nowhere looks like the page is broken."""
+    assert _dead_anchors(render_index(_parsed(_three_part_act()), "Test Act", "/browse/a")) == []
+
+
 def test_every_entry_in_the_contents_is_anchorable():
     """Each provision's place in the contents is addressed by the same
     name its own page is, so the two cannot drift apart."""
@@ -1281,6 +1293,19 @@ def test_a_prose_schedule_is_a_page_of_its_own_in_the_contents():
 
     assert "Persons who may witness" in body
     assert "/browse/a/section/" in body
+
+
+def test_the_skeleton_anchors_a_prose_schedule_to_its_contents_entry():
+    """It is an entry in the list, not a heading over one, so the heading
+    anchor the outline would otherwise use is never rendered. Linking to
+    it anyway left 28 lines across 13 documents scrolling nowhere -- the
+    Schedules, and every heading inside one, which the contents do not
+    list either."""
+    body = render_index(_parsed(_act_with_a_prose_schedule()), "Test Act", "/browse/a")
+
+    assert _dead_anchors(body) == []
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+    assert "Persons who may witness" in outline, "still named in the skeleton"
 
 
 def test_a_flat_acts_sections_are_all_in_its_contents():

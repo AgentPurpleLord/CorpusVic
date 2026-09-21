@@ -872,12 +872,27 @@ def _index_outline_html(ctx: dict, act_title: str, base_url: str,
     already listed in the column beside this, one click from their own
     page. Listing them here as well would put the page beside itself.
 
-    The anchors are the ones render_index already puts on its headings,
-    and the ones a provision page's breadcrumb already links back to, so
-    the three cannot disagree about where a Part lives.
+    Where each line points has to be decided the same way the contents
+    beside it decide what to render, or the outline links to anchors that
+    are not there. A Schedule long enough to be its own page (see
+    hierarchy.schedule_is_pageable) is an entry in the contents list, not
+    a heading over one, so it is anchored by the entry's own id and
+    nothing inside it is listed -- the contents do not list it either.
+    Everything else is a heading, anchored by the slug render_index puts
+    on it, which is also what a provision page's breadcrumb links back to.
     """
     structural_types = ctx["structural_types"]
     index_slugs = ctx["index_slugs"]
+    filenames_by_eid = ctx["filenames_by_eid"]
+
+    def anchor(tree_node: dict) -> "tuple[str | None, bool]":
+        """The id to link to, and whether to look inside."""
+        node = tree_node["node"]
+        if node["type"] in SECTION_LEVEL_TYPES or (
+                node["type"] == "schedule" and schedule_is_pageable(tree_node)):
+            name = filenames_by_eid.get(tree_node["eid"])
+            return (_strip_md(name) if name else None), False
+        return index_slugs.get(tree_node["eid"]), True
 
     def branch(tree_node: dict) -> str:
         items = []
@@ -886,11 +901,12 @@ def _index_outline_html(ctx: dict, act_title: str, base_url: str,
             if node["type"] not in (*structural_types, "heading_group"):
                 continue
             title = _display_title(node["type"], node.get("number"), node.get("heading"))
-            slug = index_slugs.get(child["eid"])
+            slug, descend = anchor(child)
             # No slug, no link -- an anchor that scrolls nowhere looks
             # like the page failed. Same rule the breadcrumb follows.
             label = f'<a href="#{_esc(slug)}">{_esc(title)}</a>' if slug else _esc(title)
-            items.append(f'<li class="outline-struct">{label}{branch(child)}</li>')
+            inside = branch(child) if descend else ""
+            items.append(f'<li class="outline-struct">{label}{inside}</li>')
         return f'<ul class="outline-list">{"".join(items)}</ul>' if items else ""
 
     body = "".join(
