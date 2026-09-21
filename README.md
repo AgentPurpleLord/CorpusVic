@@ -49,6 +49,40 @@ Python, and almost none of it needs a restart: the stylesheets are served
 off disk and the templates are re-read when they change, so it is edit,
 save, reload.
 
+## Telling the parser what to look for
+
+What each level of an Act looks like on the page is written down in
+`corpus/domain/rules/recognition/victorian-act.yaml`, as conditions
+rather than as code. Each block is a sentence out of
+`corpus/domain/domain.md` -- "Sections are identified by a bolded section
+numbers and a heading", "(a) ... indented once from a subsection" --
+quoted above the conditions it produced.
+
+A condition reads one thing off the printed line: `bold`, `bold_italic`,
+`min_size_ratio` and `max_size_ratio` (size against this document's own
+body text), `min_indent` and `max_indent`, `indented_from_parent`,
+`centred`, `parent_types`, `after_clean_break`, and `pattern` for the
+text itself. Each has a `not_` form for what a type must *not* look like.
+Anything not set is not looked at.
+
+An Act that does something of its own gets a file of its own next to the
+base, named after it, overriding block by block and condition by
+condition.
+
+Two commands, and no need to re-run a PDF for either:
+
+    python -m corpus.parsing.show_profile crimes-act --explain "(c) to determine how"
+
+prints every type the line was weighed against and the one condition that
+ruled each one out -- with the line's real size, weight and position,
+read out of the extracted document.
+
+    python -m corpus.parsing.check_rules
+
+re-judges every provision already parsed and reports where the rules and
+the recorded parse disagree. It is a comparison, not a verdict: either
+side can be the one that is wrong.
+
 ## Reviewing against the page
 
 `review.py` shows the PDF with a box drawn over every provision the
