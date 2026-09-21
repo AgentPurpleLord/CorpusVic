@@ -20,24 +20,35 @@ jobs:
       - name: Run test suite
         run: pytest -v
 
+      # The Authorised Versions are Crown copyright and are not in the
+      # repository, so a runner has no PDF to parse. Reported rather than
+      # skipped in silence: this step is the completeness check, and a
+      # green run that did not do it should say so.
       - name: Run the full pipeline against every sample Act (completeness check)
         run: |
+          if [ -z "$(find acts -name '*.pdf' 2>/dev/null)" ]; then
+            echo "::notice::No Act PDFs in the checkout, so the pipeline was not run."
+            echo "They are Crown copyright and not distributed (see .gitignore)."
+            exit 0
+          fi
           # An Act with a profile of its own (the Criminal Procedure and
           # Evidence Acts both number their Parts "5.1"/"3.2" rather than
           # in roman numerals) picks it up from its own name -- no flag.
           for act in crimes-act interpretation evidence-act; do
-            python run_pipeline.py "acts/$act.pdf"
+            python -m corpus.parsing.run_pipeline "acts/$act.pdf"
           done
           # The Criminal Procedure Act is version-tracked, so its PDFs live
           # in a directory of their own and each parses under the work's
           # name and its own Authorised Version number. Both ends of the
           # range are run: the oldest and the one in force.
-          python run_pipeline.py acts/criminal-procedure-act/cpa-110.pdf
-          python run_pipeline.py acts/criminal-procedure-act/cpa-114.pdf
+          python -m corpus.parsing.run_pipeline acts/criminal-procedure-act/cpa-110.pdf
+          python -m corpus.parsing.run_pipeline acts/criminal-procedure-act/cpa-114.pdf
 
+      # Reads data/parsed/, which is committed, so this runs whether or
+      # not the PDFs were there to re-parse.
       - name: Export Markdown and AKN for every sample Act
         run: |
           for act in crimes-act interpretation evidence-act criminal-procedure-act-v114; do
-            python export_markdown.py "$act"
-            python export_akn.py "$act"
+            python -m corpus.exporters.export_markdown "$act"
+            python -m corpus.exporters.export_akn "$act"
           done
