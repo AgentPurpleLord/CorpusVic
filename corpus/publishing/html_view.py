@@ -794,19 +794,10 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
     last one was, so the control answers the first question without
     being opened.
 
-    unavailable says the versions of this Act were read by different
-    parsers, so they cannot be compared yet (see dashboard._timeline).
-    Said plainly rather than by showing nothing: "no changes" and "not
-    comparable" are different answers, and on a register of the law the
-    difference matters.
+    unavailable remains blank as the user doesn't need to be awre of this.
     """
     if unavailable:
-        return (
-            '<div class="timeline-unavailable">How this provision has changed across versions '
-            "can't be shown yet: the versions of this Act held here were read by different "
-            "versions of the parser, and comparing them would report the parsers' own "
-            "disagreements as amendments. Re-parse every version to restore it.</div>"
-        )
+        return ""
     if not entries:
         return ""
     newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
