@@ -32,7 +32,7 @@ the question.
 | Colours, light **and** dark | `static/site/tokens.css` |
 | Fonts | `static/site/tokens.css` — `--sans`, `--reading`, `@font-face` |
 | Buttons, the header bar, search box, breadcrumbs, results, footer layout | `static/site/page.css` |
-| The reading column — provision text, margins, the outline | `static/site/reader.css` |
+| The reading column — provision text, margins, the contents outline | `static/site/reader.css` |
 | Page structure — the site name, header order, what loads | `static/site/page.html` |
 | **Footer wording** | `static/site/footer.html` |
 | Landing page | `export_static_site.py` → `_landing_page_html` |

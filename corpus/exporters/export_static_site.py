@@ -493,7 +493,9 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
                 else _partial_notice_html(len(checked_pages), len(all_pages))),
     )
     links |= _link_targets(index_body, base_path)
-    _write(doc_dir / "index.html", _page(title, index_body, base_url, gate=gate), gate)
+    # Two columns here, because the contents carry the outline now; one
+    # column on a provision's own page, which is the text and nothing else.
+    _write(doc_dir / "index.html", _page(title, index_body, base_url, reader=True, gate=gate), gate)
 
     for _node_index, section_slug in page_index["by_node_index"].items():
         body = reader.section_page(
@@ -505,7 +507,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
             continue  # not expected -- page_index only ever names real sections
         links |= _link_targets(body, base_path)
         _write(doc_dir / "section" / section_slug / "index.html",
-               _page(title, body, base_url, reader=True, gate=gate,
+               _page(title, body, base_url, gate=gate,
                      canonical=f"{base_url}/section/{section_slug}/"), gate)
 
     endnotes_body = reader.endnotes_page(dashboard, slug, base_url)

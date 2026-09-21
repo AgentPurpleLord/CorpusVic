@@ -847,44 +847,86 @@ def _three_part_act() -> list[dict]:
     ]
 
 
-def _outline_of(section_slug: str, **kwargs) -> str:
-    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", section_slug, **kwargs)
+def _index_outline() -> str:
+    body = render_index(_parsed(_three_part_act()), "Test Act", "/browse/a")
     return body.split('<nav class="outline"')[1].split("</nav>")[0]
 
 
-def test_the_outline_is_only_the_branch_you_are_reading():
-    """The immediate neighbourhood, not the Act: a whole contents list in
-    every sidebar would be a second contents page (the Criminal Procedure
-    Act alone would put over a thousand links on every page of itself)."""
-    outline = _outline_of("s10")
+def test_a_provision_page_is_the_provision_and_nothing_beside_it():
+    """The outline used to sit beside every provision. A reader on one is
+    reading it, and the breadcrumb, the next/previous links and reading on
+    already reach everywhere the outline did."""
+    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
 
-    # The Part and Division this section is in...
-    assert "Part 2 - Offences" in outline and "Division 1 - Assault" in outline
-    # ...and the sections beside it, with this one marked.
-    assert "11 Aggravated assault" in outline
-    assert outline.count('aria-current="page"') == 1
-    # Nothing else: not another Division's sections, not another Part's,
-    # and not the other Parts themselves.
-    assert "20 Theft" not in outline
-    assert "30 Powers" not in outline
-    assert "Part 1 - Preliminary" not in outline
-    assert "Part 3 - Enforcement" not in outline
-    assert "Division 2 - Theft" not in outline
+    assert '<nav class="outline"' not in body
+    assert '<div class="reader-cols">' not in body, "one column, not two"
+    # What a reader does need on a provision is still there.
+    assert 'class="breadcrumb"' in body
+    assert '<nav class="section-nav"' in body
 
 
-def test_the_outline_still_offers_the_way_back_out():
-    """Going further than the immediate context is what these are for, so
-    they have to be there whatever the outline is showing."""
-    outline = _outline_of("s10")
+def test_the_contents_carry_the_acts_skeleton():
+    """Moved here, where a contents list running to hundreds of provisions
+    is worth being able to move around."""
+    outline = _index_outline()
 
-    assert 'class="outline-doc" href="/browse/a/"' in outline
-    assert 'class="outline-contents" href="/browse/a/">Act index' in outline
+    assert "Part 1 - Preliminary" in outline
+    assert "Part 2 - Offences" in outline
+    assert "Division 1 - Assault" in outline
+    assert "Part 3 - Enforcement" in outline
 
 
-def test_the_outline_names_the_document():
-    """Otherwise a section page never says which Act it is: the heading is
-    the provision's, and "Act index" doesn't say which index."""
-    assert ">Test Act</a>" in _outline_of("s10")
+def test_the_skeleton_scrolls_the_contents_rather_than_leaving_them():
+    """The whole point of it being here: following a line moves the page
+    you are on, instead of navigating into a provision."""
+    outline = _index_outline()
+
+    assert 'href="#' in outline
+    assert "/browse/a/section/" not in outline, "no line here leaves the contents"
+
+
+def test_the_skeleton_does_not_list_the_provisions_themselves():
+    """They are already in the column beside it, one click from their own
+    page. Listing them here would put the page beside itself -- and the
+    Criminal Procedure Act alone would put over a thousand links in it."""
+    outline = _index_outline()
+
+    assert "10 Common assault" not in outline
+    assert "11 Aggravated assault" not in outline
+
+
+def test_the_skeleton_names_the_document():
+    assert ">Test Act</a>" in _index_outline()
+
+
+def _dead_anchors(body: str) -> list:
+    """Lines in the outline pointing at an id the page does not have."""
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+    ids = set(re.findall(r'id="([^"]+)"', body))
+    return [a[1:] for a in re.findall(r'href="(#[^"]+)"', outline) if a[1:] not in ids]
+
+
+def test_every_line_in_the_skeleton_lands_somewhere():
+    """An anchor that scrolls nowhere looks like the page is broken."""
+    assert _dead_anchors(render_index(_parsed(_three_part_act()), "Test Act", "/browse/a")) == []
+
+
+def test_every_entry_in_the_contents_is_anchorable():
+    """Each provision's place in the contents is addressed by the same
+    name its own page is, so the two cannot drift apart."""
+    body = render_index(_parsed(_three_part_act()), "Test Act", "/browse/a")
+
+    assert '<li id="s10"><a href="/browse/a/section/s10">' in body
+
+
+def test_a_flat_act_gets_no_empty_column():
+    """An Act with no Parts has no skeleton to show, and an empty column
+    beside the contents is worse than no column."""
+    nodes = [make_node("section", "1", "Purposes", "The purposes of this Act are—")]
+    body = render_index(_parsed(nodes), "Flat Act", "/browse/a")
+
+    assert '<nav class="outline"' not in body
+    assert '<div class="reader-cols">' not in body
 
 
 def test_the_nearby_provisions_are_named():
@@ -973,21 +1015,17 @@ def test_a_comment_in_the_page_itself_is_left_alone():
     assert "<!-- kept -->" in page_shell("T", "<p>a <!-- kept --> note</p>")
 
 
-def test_the_outline_reads_the_same_for_every_provision():
+def test_the_contents_read_the_same_for_every_provision():
     """Every provision the parser found is published with its text, so
-    nothing in the outline is held back and nothing is marked as held
+    nothing in the contents is held back and nothing is marked as held
     back. What a reader needs to know -- whether a human has checked the
     provision in front of them -- is a fact about that provision, said on
     it (see render_section's `notice`), not a mark beside its neighbours
-    in a sidebar."""
-    body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
-    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+    in a list."""
+    body = render_index(_parsed(_three_part_act()), "Test Act", "/browse/a")
 
-    assert '<a href="/browse/a/section/s11">' in outline
-    assert "not yet published" not in outline
-    # The page you are on is still the one marked, which is the only
-    # distinction the outline draws.
-    assert 'section/s10" aria-current="page">' in outline
+    assert '<a href="/browse/a/section/s11">' in body
+    assert "not yet published" not in body
 
 
 def test_a_notice_is_set_above_the_provisions_own_heading():
@@ -1247,42 +1285,37 @@ def _act_with_a_prose_schedule() -> list[dict]:
     ]
 
 
-def _schedule_outline_of(section_slug: str) -> str:
-    body = render_section(_parsed(_act_with_a_prose_schedule()), "Test Act", "/browse/a", section_slug)
-    return body.split('<nav class="outline"')[1].split("</nav>")[0]
+def test_a_prose_schedule_is_a_page_of_its_own_in_the_contents():
+    """A Schedule whose content is prose rather than numbered clauses is
+    addressed as a page (hierarchy.schedule_is_pageable), so the contents
+    link to it like any other provision."""
+    body = render_index(_parsed(_act_with_a_prose_schedule()), "Test Act", "/browse/a")
+
+    assert "Persons who may witness" in body
+    assert "/browse/a/section/" in body
 
 
-def test_a_schedule_is_not_in_the_outline_of_a_section_page():
-    outline = _schedule_outline_of("s1")
+def test_the_skeleton_anchors_a_prose_schedule_to_its_contents_entry():
+    """It is an entry in the list, not a heading over one, so the heading
+    anchor the outline would otherwise use is never rendered. Linking to
+    it anyway left 28 lines across 13 documents scrolling nowhere -- the
+    Schedules, and every heading inside one, which the contents do not
+    list either."""
+    body = render_index(_parsed(_act_with_a_prose_schedule()), "Test Act", "/browse/a")
 
-    assert "Purposes" in outline, "its own neighbourhood is still there"
-    assert "Persons who may witness" not in outline
-
-
-def test_a_schedule_is_in_the_outline_of_its_own_page():
-    """It is the page you are on, so it is the one thing the outline has
-    to show -- and it has no siblings to show beside it."""
-    from corpus.publishing.html_view import build_page_index
-
-    index = build_page_index(_parsed(_act_with_a_prose_schedule()), "Test Act")
-    page = next(p for i, p in index["by_node_index"].items()
-                if _act_with_a_prose_schedule()[i]["type"] == "schedule")
-    outline = _schedule_outline_of(page)
-
-    assert "Persons who may witness" in outline
-    assert 'aria-current="page"' in outline
+    assert _dead_anchors(body) == []
+    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+    assert "Persons who may witness" in outline, "still named in the skeleton"
 
 
-def test_a_top_level_section_still_sees_its_siblings():
-    """The gate is on whether the top level is your neighbourhood, not on
-    the top level as such: an Act whose sections hang straight off the
-    root must still list them."""
+def test_a_flat_acts_sections_are_all_in_its_contents():
+    """An Act whose sections hang straight off the root still lists every
+    one of them, with no Parts to group them under."""
     nodes = [
         make_node("section", "1", "Purposes", "The purposes of this Act are—"),
         make_node("section", "2", "Commencement", "This Act comes into operation—"),
     ]
-    body = render_section(_parsed(nodes), "Flat Act", "/browse/a", "s1")
-    outline = body.split('<nav class="outline"')[1].split("</nav>")[0]
+    body = render_index(_parsed(nodes), "Flat Act", "/browse/a")
 
-    assert "1 Purposes" in outline
-    assert "2 Commencement" in outline
+    assert "1 Purposes" in body
+    assert "2 Commencement" in body
