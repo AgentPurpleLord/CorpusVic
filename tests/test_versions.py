@@ -4,6 +4,10 @@ a PDF is off its own front matter.
 The fixtures below are the real first-page text of the Acts in acts/,
 reduced to the block that matters. Every Authorised Version prints it the
 same way; a Bill and an Explanatory Memorandum print none of it."""
+from pathlib import Path
+
+import pytest
+
 from corpus.parsing.versions import (
     current_version,
     describe,
@@ -114,6 +118,20 @@ def test_discover_versions_of_a_directory_that_does_not_exist(tmp_path):
     assert discover_versions(tmp_path / "nope") == []
 
 
+# The Authorised Versions are Crown copyright and are not distributed
+# with this repository (see .gitignore), so the one test that reads them
+# has nothing to read wherever they have not been fetched -- a fresh
+# clone, or CI. Skipped there rather than failing, and skipped by name so
+# a run says which coverage it did not get; it still runs on a working
+# copy that has them.
+_CPA_VERSIONS = Path("acts/criminal-procedure-act")
+needs_the_pdfs = pytest.mark.skipif(
+    not list(_CPA_VERSIONS.glob("*.pdf")),
+    reason=f"{_CPA_VERSIONS}/*.pdf is not in the repository -- fetch the Authorised Versions to run this",
+)
+
+
+@needs_the_pdfs
 def test_discover_versions_reads_the_real_criminal_procedure_act():
     """The five Authorised Versions in acts/criminal-procedure-act/,
     ordered by the Act's own version number rather than by filename or
