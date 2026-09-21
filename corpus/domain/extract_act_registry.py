@@ -27,7 +27,12 @@ from pathlib import Path
 
 import fitz
 
-PDF_PATH = Path(__file__).parent / "em" / "List-of-Acts-in-chronological-order.pdf"
+from corpus import PROJECT_ROOT
+
+# The source PDF is a project file at the repo root; the registry it
+# builds belongs beside the module that loads it (act_registry.py), which
+# is why only one of these two is anchored to PROJECT_ROOT.
+PDF_PATH = PROJECT_ROOT / "em" / "List-of-Acts-in-chronological-order.pdf"
 OUT_PATH = Path(__file__).parent / "act_registry.json"
 
 # Column bands by x0 -- measured off the actual PDF, consistent across

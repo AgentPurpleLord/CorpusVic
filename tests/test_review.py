@@ -912,3 +912,63 @@ def test_a_document_with_no_profile_at_all_is_not_invented_one():
     from corpus.review.review import load_parse_profile
 
     assert load_parse_profile("no-such-act-anywhere") is None
+
+
+# ---------------------------------------------------------------------------
+# Re-parsing a section
+# ---------------------------------------------------------------------------
+# This ran "run_pipeline.py" by filename. That was true while the script
+# sat at the repository root and silently false once it moved into
+# corpus/parsing/, so the button failed with python complaining about a
+# file -- the same shape of breakage as the stale pre-commit hook, found
+# the same way: only by pressing it.
+
+def test_re_parsing_runs_the_pipeline_as_a_module_not_as_a_file():
+    from corpus.review.review import reparse_command
+
+    cmd = reparse_command("act", "acts/crimes-act.pdf")
+
+    assert cmd[1:] == ["-m", "corpus.parsing.run_pipeline", "acts/crimes-act.pdf"]
+    assert not any(part.endswith(".py") for part in cmd[1:]), "a filename moves; a module does not"
+
+
+def test_a_bill_is_re_parsed_as_a_bill():
+    from corpus.review.review import reparse_command
+
+    assert reparse_command("bill", "acts/a-bill.pdf")[-2:] == ["--document-type", "bill"]
+
+
+def test_an_explanatory_memorandum_goes_to_its_own_pipeline():
+    """run_pipeline only accepts "act" or "bill", so --document-type em
+    was refused by its own argument parser -- the EM case was broken a
+    second way, underneath the missing file."""
+    from corpus.review.review import reparse_command
+
+    cmd = reparse_command("em", "acts/an-em.pdf")
+
+    assert cmd[1:] == ["-m", "corpus.parsing.run_em_pipeline", "acts/an-em.pdf"]
+    assert "--document-type" not in cmd
+
+
+def test_every_parser_it_names_is_one_this_project_has():
+    """The check that would have caught both halves: the module exists,
+    and where a document type is passed, that parser accepts it."""
+    import importlib.util
+    import inspect
+    import re
+
+    from corpus.review.review import reparse_command
+
+    for document_type in ("act", "bill", "em"):
+        cmd = reparse_command(document_type, "acts/x.pdf")
+        module = cmd[cmd.index("-m") + 1]
+        spec = importlib.util.find_spec(module)
+        assert spec, f"{module} is named by the re-parse button but does not exist"
+        if "--document-type" not in cmd:
+            continue
+        source = Path(spec.origin).read_text(encoding="utf-8")
+        choices = re.search(r'"--document-type",\s*choices=\[([^\]]*)\]', source)
+        assert choices, f"{module} no longer takes --document-type"
+        accepted = re.findall(r'"([^"]+)"', choices.group(1))
+        assert cmd[cmd.index("--document-type") + 1] in accepted, (
+            f"{module} accepts {accepted} -- passing anything else is refused by argparse")

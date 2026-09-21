@@ -105,7 +105,7 @@ _backups/
 #   .venv/   the Python environment. Not secret, just thousands of files
 #            that belong to the machine rather than the repository.
 #
-# The pre-commit hook (deploy/pre-commit.hook.example) refuses a staged
+# The pre-commit hook (deploy/githooks/pre-commit) refuses a staged
 # private key as well, because an ignore rule only helps while it is
 # there and `git add -f` walks straight past it.
 #

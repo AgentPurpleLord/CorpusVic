@@ -14,7 +14,14 @@ server but the passphrase was not, and an ungated build is not an error
 import os
 from pathlib import Path
 
-SITE_ENV_FILE = Path(__file__).resolve().parent.parent / "deploy" / "site.env"
+from corpus import PROJECT_ROOT
+
+# From the package root, not by counting `.parent`s from this file: this
+# module moved into corpus/publishing/ and the count did not follow it, so
+# the passphrase was looked for at corpus/deploy/site.env and never found.
+# An ungated build is a supported configuration, so nothing complained --
+# the gate simply came off.
+SITE_ENV_FILE = PROJECT_ROOT / "deploy" / "site.env"
 VARIABLE = "SITE_PASSWORD"
 
 

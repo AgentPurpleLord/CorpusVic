@@ -21,7 +21,6 @@ box has to spare beside a web server.
 """
 import argparse
 import hashlib
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -94,7 +93,6 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="fetch again over what is there")
     args = ap.parse_args()
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
     from corpus.search import embeddings
 
     directory = target_dir(args.base_dir)

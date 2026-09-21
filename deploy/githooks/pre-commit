@@ -1,12 +1,18 @@
 #!/bin/sh
 # Two jobs, both of them about what a commit from this checkout carries.
 #
-# Git hooks don't travel with a clone, which is why this lives here as a
-# tracked template instead of directly at .git/hooks/pre-commit -- install
-# it once per environment:
+# Git hooks don't travel with a clone, so this is a tracked file that git
+# is pointed at rather than a copy inside .git/ -- once per environment:
 #
-#   cp deploy/pre-commit.hook.example .git/hooks/pre-commit
-#   chmod +x .git/hooks/pre-commit
+#   git config core.hooksPath deploy/githooks
+#
+# It used to be a template copied to .git/hooks/pre-commit, and the copy
+# went stale: the restructure renamed the modules below, the server's copy
+# kept calling the old paths, and every commit the dashboard tried to make
+# was refused. A pull updates this file; it could not update that one.
+#
+# (core.hooksPath replaces the hooks directory wholesale, so any other
+# hook in .git/hooks/ stops running once it is set.)
 #
 # See deploy/README.md's "Working from a remote dev environment" section.
 
@@ -67,7 +73,16 @@ done
 # Only when review files are already part of the commit, so that a code
 # commit never quietly sweeps up a day's reviewing.
 if echo "$staged" | grep -q '^data/review/'; then
-    python3 -m corpus.storage.checkpoint_db || exit 1
-    python3 -m corpus.review.review_sync export || exit 1
+    # The venv's python where there is one. On the server the service runs
+    # .venv/bin/python3 (deploy/dashboard.service), but systemd's default
+    # PATH does not include it, so a bare `python3` here is a different
+    # interpreter from the one everything else uses.
+    root=$(git rev-parse --show-toplevel)
+    PY="$root/.venv/bin/python3"
+    [ -x "$PY" ] || PY=python3
+    # Always `-m`, never a file path: that is what lets these modules move
+    # without this hook having to be reinstalled.
+    "$PY" -m corpus.storage.checkpoint_db || exit 1
+    "$PY" -m corpus.review.review_sync export || exit 1
     git add data/review
 fi

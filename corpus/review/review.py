@@ -2853,6 +2853,26 @@ def clear_unit_endpoint(unit_no: int):
     return {"unit_no": unit_no, "cleared": cleared, "status": _unit_status(unit_no)}
 
 
+def reparse_command(document_type: "str | None", pdf_path: str) -> list[str]:
+    """How to parse this document again, from the outside.
+
+    By module, never by filename. This used to run "run_pipeline.py",
+    which was true while that script sat at the repository root and
+    silently false afterwards: the button failed with python complaining
+    about a file nobody had moved on purpose.
+
+    An Explanatory Memorandum has its own pipeline. run_pipeline only
+    knows "act" and "bill" -- passing it --document-type em was refused by
+    its own argument parser -- which is the same split dashboard.py's
+    _parse_command makes."""
+    if document_type == "em":
+        return [sys.executable, "-m", "corpus.parsing.run_em_pipeline", pdf_path]
+    cmd = [sys.executable, "-m", "corpus.parsing.run_pipeline", pdf_path]
+    if document_type == "bill":
+        cmd += ["--document-type", "bill"]
+    return cmd
+
+
 @app.post("/api/units/{unit_no}/reparse")
 def reparse_unit_endpoint(unit_no: int):
     """Parses this document again and brings just this section back
@@ -2861,9 +2881,9 @@ def reparse_unit_endpoint(unit_no: int):
     There is no such thing as parsing one section on its own: the parser
     reads the document as one stream of lines, and where a section starts
     depends on everything before it. So the whole document is parsed --
-    which for a 530-page Act is about two seconds -- and run_pipeline.py's
+    which for a 530-page Act is about two seconds -- and the pipeline's
     own re-anchoring carries every stored decision across onto the
-    provision it describes (see corpus/reparse.py). Then the
+    provision it describes (see corpus/parsing/reparse.py). Then the
     decisions for *this* section are dropped, so it is the one part of the
     document that comes back fresh.
 
@@ -2880,9 +2900,7 @@ def reparse_unit_endpoint(unit_no: int):
     root = _parse_node(_units[unit_no][0])
     identity = (root["type"], root.get("number"), root.get("heading"))
 
-    cmd = [sys.executable, "run_pipeline.py", _source_pdf_path]
-    if _document_type in ("bill", "em"):
-        cmd += ["--document-type", _document_type]
+    cmd = reparse_command(_document_type, _source_pdf_path)
     result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=900)
     if result.returncode != 0:
         raise HTTPException(500, f"Re-parsing {_act} failed:\n{result.stdout}{result.stderr}"[:2000])
