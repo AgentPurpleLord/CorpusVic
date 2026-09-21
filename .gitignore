@@ -126,3 +126,6 @@ id_rsa*
 id_ed25519*
 id_ecdsa*
 !*.pub
+
+# Cannot re-publish authorised Acts
+acts/
