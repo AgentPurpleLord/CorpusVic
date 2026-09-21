@@ -392,11 +392,12 @@ sudo -u dashboard git remote set-url origin git@github.com:AgentPurpleLord/Corpu
 sudo -u dashboard git config user.name "Corpus VPS"
 sudo -u dashboard git config user.email "you@example.com"
 # The database is opened in WAL mode, so a recent write can still be
-# sitting in the -wal file rather than the committed one. This hook
-# checkpoints it on every commit so you never push a half-written
-# database.
-sudo -u dashboard cp deploy/pre-commit.hook.example .git/hooks/pre-commit
-sudo -u dashboard chmod +x .git/hooks/pre-commit
+# sitting in the -wal file rather than the committed one. The hook in
+# deploy/githooks checkpoints it on every commit so you never push a
+# half-written database. Pointing git at the tracked directory, rather
+# than copying the hook into .git/, is what keeps it current: see
+# "Install the hook" below.
+sudo -u dashboard git config core.hooksPath deploy/githooks
 ```
 
 Confirm the whole path works while nothing is at stake:
@@ -1178,13 +1179,30 @@ python -m corpus.storage.checkpoint_db
 ```
 
 **Install the hook** -- once per environment, and on the server too.
-Git hooks don't travel with a clone, so a tracked template is the only
-way to ship one:
+Git hooks don't travel with a clone, so git has to be pointed at the
+tracked one:
 
 ```bash
-cp deploy/pre-commit.hook.example .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
+git config core.hooksPath deploy/githooks
 ```
+
+This used to be `cp deploy/pre-commit.hook.example .git/hooks/pre-commit`,
+and the copy is what went wrong: the restructure renamed the modules the
+hook runs, the server's copy kept calling the old paths, and every commit
+the dashboard's **Push** button tried to make was refused -- with Pull
+stuck behind it, because a pull won't run over uncommitted review work. A
+pull updates a tracked file and cannot update a copy inside `.git/`.
+
+If a checkout still has the old copy, remove it, or it will keep running
+instead of nothing at all:
+
+```bash
+git config core.hooksPath deploy/githooks
+rm -f .git/hooks/pre-commit
+```
+
+Note that `core.hooksPath` replaces the hooks directory wholesale, so any
+other hook you keep in `.git/hooks/` stops running once it is set.
 
 It does the checkpoint-and-export above by itself, and it refuses to
 commit a private key -- by content rather than by filename, and anything

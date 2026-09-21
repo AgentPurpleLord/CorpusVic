@@ -83,6 +83,14 @@ _NON_INTERACTIVE = {
 # and the host goes.
 _CREDENTIALS_RE = re.compile(r"(?<=://)[^/@]*@")
 
+# What a stale pre-commit hook sounds like. It runs two of this project's
+# own modules, so a hook installed before they moved fails one of two
+# ways: python cannot find the file it was given ("can't open file
+# '/opt/corpusvic/checkpoint_db.py'"), or cannot import the module it was
+# named ("No module named corpus.review_sync"). Either arrives here as
+# git's stderr from a refused commit, saying nothing about hooks at all.
+_STALE_HOOK_RE = re.compile(r"can't open file .*\.py|No module named ['\"]?corpus")
+
 
 class SyncError(RuntimeError):
     """Something git said no to, phrased for whoever pressed the button."""
@@ -124,6 +132,17 @@ def explain(message: str) -> str:
             "the service later finds a checkout it cannot write to. Run git as the owner "
             "instead (`sudo -u dashboard git ...`), and if the ownership is already mixed, "
             "put it back with `sudo chown -R dashboard:dashboard /opt/corpusvic`."
+        )
+    if _STALE_HOOK_RE.search(message):
+        return (
+            message
+            + "\n\nThat is the pre-commit hook, and it is out of date. The hook used to be "
+            "copied into .git/hooks/, where a pull cannot reach it, so a checkout set up "
+            "before the modules moved is still calling their old names -- and every commit "
+            "from here is refused, which is why Pull is stuck too. Point git at the tracked "
+            "one instead:\n\n"
+            "    git config core.hooksPath deploy/githooks\n"
+            "    rm -f .git/hooks/pre-commit"
         )
     return message
 
@@ -305,19 +324,36 @@ def refresh_review_files(repo: Path) -> None:
     from corpus.review import review_sync
 
     try:
-        checkpoint_database()
+        checkpoint_database(repo)
         review_sync.export(repo)
     except Exception as e:  # noqa: BLE001 -- a status page must still render
         raise SyncError(f"Couldn't write the review files: {e}") from e
 
 
-def checkpoint_database() -> None:
+def checkpoint_database(repo: Path) -> None:
     """Folds the write-ahead log into the database file, so what gets
-    committed is the whole state. See corpus/storage/checkpoint_db.py."""
+    committed is the whole state. See corpus/storage/checkpoint_db.py.
+
+    `repo` is not decoration. db.db_path() resolves against the current
+    working directory when it is not given one, so without this the
+    checkpoint opened whatever `./data/legislation.db` the process
+    happened to be standing next to -- creating an empty one if there was
+    none, which the export that follows would then write over the real
+    review files. It only ever worked because the service sets
+    WorkingDirectory (deploy/dashboard.service)."""
+    import sqlite3
+
     from corpus.storage import db
 
-    conn = db._connect()
-    busy, _log, _done = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+    # As a SyncError, not as whatever sqlite raised. pull() calls this
+    # first thing, and dashboard.py catches SyncError, OSError and
+    # subprocess errors -- a bare sqlite3.Error is none of those, so it
+    # reached the page as a 500 with no detail at all.
+    try:
+        conn = db._connect(repo)
+        busy, _log, _done = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+    except sqlite3.Error as e:
+        raise SyncError(f"Couldn't open the review database to checkpoint it: {e}") from e
     if busy:
         raise SyncError(
             "The database is still being written to, so it can't be safely committed yet. "
@@ -347,7 +383,7 @@ def push(repo: Path, message: str) -> dict:
 
     committed = False
     if state["pending"]:
-        checkpoint_database()
+        checkpoint_database(repo)
         _git_ok(repo, "add", "--", *TRACKED_PATHS)
         # Staged rather than -a, so a push only ever carries data/ even
         # when something else in the tree has been edited.
@@ -430,7 +466,7 @@ def pull(repo: Path) -> dict:
     # Before reading what has changed, not after: a write still sitting
     # in the write-ahead log is a change git cannot see, and the export
     # that status() runs would miss it.
-    checkpoint_database()
+    checkpoint_database(repo)
     state = status(repo)
     if state["error"]:
         raise SyncError(state["error"])
@@ -537,7 +573,7 @@ def discard(repo: Path) -> dict:
     if not pending:
         return {"discarded": False, "message": "Nothing to discard -- data/ matches the last commit."}
 
-    checkpoint_database()
+    checkpoint_database(repo)
     backup = None
     source = repo / "data" / "legislation.db"
     if source.exists():

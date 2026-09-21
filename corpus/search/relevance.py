@@ -118,7 +118,6 @@ def main():
     this one does not. Two runs of this, before and after, is what a
     claim about relevance has to be made of."""
     import argparse
-    import sys
     import time
 
     ap = argparse.ArgumentParser(description="Score search against data/search_eval.yaml.")
@@ -126,7 +125,6 @@ def main():
     ap.add_argument("--limit", type=int, default=DEFAULT_CUTOFF)
     args = ap.parse_args()
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from corpus import search
 
     base = Path(args.base_dir)

@@ -74,7 +74,7 @@ def _line(text, index=1, act="demo-act"):
 def _no_real_database(monkeypatch):
     """Both of these open the project's own database, which these tests
     have nothing to do with."""
-    monkeypatch.setattr(sync, "checkpoint_database", lambda: None)
+    monkeypatch.setattr(sync, "checkpoint_database", lambda repo: None)
     monkeypatch.setattr(sync, "refresh_review_files", lambda repo: None)
 
 
@@ -135,7 +135,7 @@ def test_the_checkpoint_runs_before_the_commit(repo, monkeypatch):
     so. The repository ships a pre-commit hook that checkpoints, but
     hooks do not travel with a clone."""
     order = []
-    monkeypatch.setattr(sync, "checkpoint_database", lambda: order.append("checkpoint"))
+    monkeypatch.setattr(sync, "checkpoint_database", lambda repo: order.append("checkpoint"))
     real_git_ok = sync._git_ok
     monkeypatch.setattr(sync, "_git_ok",
                         lambda r, *a: (order.append(a[0]), real_git_ok(r, *a))[1])
@@ -332,6 +332,49 @@ def test_dubious_ownership_is_explained_rather_than_passed_on(repo, monkeypatch)
 
 def test_an_ordinary_git_error_is_left_as_git_put_it():
     assert sync.explain("fatal: couldn't find remote ref main") == "fatal: couldn't find remote ref main"
+
+
+# The failure this whole arrangement is about. The hook used to be copied
+# into .git/hooks/, where a pull cannot reach it, so the restructure that
+# renamed the modules left every installed copy calling the old names. A
+# commit from the dashboard was refused, and what the page showed was
+# python complaining about a file -- nothing about hooks, and no way in
+# from there.
+
+@pytest.mark.parametrize("said", [
+    # The hook's old first line, once the script left the repo root.
+    "python3: can't open file '/opt/corpusvic/checkpoint_db.py': [Errno 2] No such file or directory",
+    # And its old second line, once the module moved inside the package.
+    "/usr/bin/python3: No module named corpus.review_sync",
+])
+def test_a_stale_pre_commit_hook_is_named_as_one(said):
+    explained = sync.explain(said)
+
+    assert said in explained, "python's own words are kept"
+    assert "pre-commit hook" in explained
+    assert "core.hooksPath deploy/githooks" in explained, "and how to put it right"
+
+
+def test_a_commit_refused_by_the_hook_explains_itself(repo, monkeypatch):
+    """End to end, because what the page shows is whatever push raises."""
+    import subprocess as sp
+
+    real = sp.run
+    _review(repo, "second")   # something to commit, or push never gets that far
+
+    def refuse_the_commit(cmd, **kwargs):
+        if len(cmd) > 1 and cmd[1] == "commit":
+            return sp.CompletedProcess(
+                cmd, 1, "",
+                "python3: can't open file '/srv/checkpoint_db.py': [Errno 2] No such file or directory")
+        return real(cmd, **kwargs)
+
+    monkeypatch.setattr(sync.subprocess, "run", refuse_the_commit)
+
+    with pytest.raises(sync.SyncError) as raised:
+        sync.push(repo, "Review progress")
+
+    assert "core.hooksPath deploy/githooks" in str(raised.value)
 
 
 # ---------------------------------------------------------------------------
