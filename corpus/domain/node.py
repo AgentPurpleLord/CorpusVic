@@ -42,13 +42,13 @@ class NodeTypeRegistry:
 
         self._types[node_type.id] = node_type
 
-    def get(self, type_id, str) -> NodeType:
+    def get(self, type_id: str) -> NodeType:
         try:
             return self._types[type_id]
         except KeyError:
             raise ValueError(
                 f"Unknown node type: {type_id}"
-            )
+            ) from None
 
     def exists(self, type_id: str) -> bool:
         return type_id in self._types

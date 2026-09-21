@@ -7,6 +7,7 @@ behind the gate. A route added later cannot quietly opt out of either,
 which is the whole reason this is a separate application from the
 dashboard rather than a prefix inside it.
 """
+import corpus.search.search
 import pytest
 from fastapi.testclient import TestClient
 

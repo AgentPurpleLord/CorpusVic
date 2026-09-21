@@ -39,7 +39,7 @@ from corpus.review.link_targets import load_known_acts
 
 
 def load_nodes(slug: str) -> list[dict]:
-    path = Path("../../data/parsed") / f"{slug}.json"
+    path = Path("data/parsed") / f"{slug}.json"
     if not path.exists():
         raise SystemExit(f"No parsed output found at {path} -- run run_pipeline.py/run_em_pipeline.py first.")
     return json.loads(path.read_text(encoding="utf-8"))["nodes"]
@@ -56,7 +56,7 @@ def main():
     act_nodes = load_nodes(args.act_slug)
 
     bill_links = match_bill_to_act(bill_nodes, act_nodes)
-    out_dir = Path("../../data/bill_links")
+    out_dir = Path("data/bill_links")
     out_dir.mkdir(parents=True, exist_ok=True)
     bill_out = out_dir / f"{args.bill_slug}-to-{args.act_slug}.json"
     # Written as a document with its own header rather than a bare list:

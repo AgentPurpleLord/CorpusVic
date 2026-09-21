@@ -10,7 +10,7 @@ import sqlite3
 
 import pytest
 
-from corpus import search
+from corpus.search import search
 from corpus.search import query
 from corpus.publishing import html_view
 from corpus.storage import db

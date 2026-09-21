@@ -32,7 +32,7 @@ from corpus.storage import db
 
 
 def migrate_verified() -> int:
-    verified_dir = Path("../../data/verified")
+    verified_dir = Path("data/verified")
     if not verified_dir.exists():
         return 0
     count = 0
@@ -48,7 +48,7 @@ def migrate_verified() -> int:
 
 
 def migrate_links() -> int:
-    links_dir = Path("../../data/links")
+    links_dir = Path("data/links")
     if not links_dir.exists():
         return 0
     count = 0
@@ -64,7 +64,7 @@ def migrate_links() -> int:
 
 
 def migrate_corrections() -> int:
-    path = Path("../../data/corrections.jsonl")
+    path = Path("data/corrections.jsonl")
     if not path.exists():
         return 0
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]

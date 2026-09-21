@@ -71,6 +71,7 @@ One thing the live dashboard offers that this doesn't attempt:
     this pipeline hasn't parsed at all, which is what it would have said
     anyway.
 """
+from corpus import PROJECT_ROOT
 import argparse
 import base64
 import html
@@ -228,7 +229,7 @@ def publishes_anything(slug: str) -> bool:
     return bool(dashboard._page_index(slug)["by_node_index"])
 
 
-CNAME_FILE = Path(__file__).parent / "CNAME"
+CNAME_FILE = PROJECT_ROOT / "CNAME"
 
 
 def custom_domain() -> "str | None":
@@ -552,7 +553,7 @@ def _footer_html() -> str:
     Read per call rather than at import: html_view.template_html
     re-reads on mtime, so an edit shows on the next page load without
     restarting the server."""
-    from corpus import html_view
+    from corpus.publishing import html_view
 
     return html_view.template_html("footer.html")
 

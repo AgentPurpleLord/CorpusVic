@@ -38,7 +38,7 @@ import argparse
 from corpus.storage import db
 from corpus.ai.scan import BATCH_SIZE, iter_unit_batches, scan_batch, unit_root
 from corpus.ai.backend import DEFAULT_MODEL, OLLAMA_HOST, OllamaBackend, OllamaUnavailable
-from review import build_effective_nodes_indexed, positions_are_trustworthy
+from corpus.review.review import build_effective_nodes_indexed, positions_are_trustworthy
 
 
 def pending_units(nodes: list, units: list[list[int]], already_scanned: set[int]) -> list[list[int]]:

@@ -28,7 +28,7 @@ from pathlib import Path
 import fitz
 
 PDF_PATH = Path(__file__).parent / "em" / "List-of-Acts-in-chronological-order.pdf"
-OUT_PATH = Path(__file__).parent / "corpus" / "act_registry.json"
+OUT_PATH = Path(__file__).parent / "act_registry.json"
 
 # Column bands by x0 -- measured off the actual PDF, consistent across
 # all 213 pages (old colonial entries and modern ones alike differ only

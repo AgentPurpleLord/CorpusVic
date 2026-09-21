@@ -11,7 +11,7 @@ lower it to make a change pass.
 """
 import pytest
 
-from corpus import search
+from corpus.search import search
 from corpus.search import relevance
 
 # Where the search stood when this file was written: MRR 0.2946, four of

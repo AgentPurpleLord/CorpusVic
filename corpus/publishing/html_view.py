@@ -68,6 +68,7 @@ matching relies on text patterns (see definitions.py), not a
 guarantee -- an unmatched or ambiguous mention is left as plain text
 rather than linked to the wrong place.
 """
+from corpus import PROJECT_ROOT
 import html
 import re
 from pathlib import Path
@@ -1492,7 +1493,7 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
 # server. TEMPLATE_DIR is served as "/assets": by dashboard.py and
 # review.py for the live browse pages, and copied into the build by
 # export_static_site.py for the published site.
-TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "static" / "site"
+TEMPLATE_DIR = PROJECT_ROOT / "static" / "site"
 
 _template_cache: dict[str, tuple[float, str]] = {}
 

@@ -5,12 +5,12 @@ style differ from the rest without needing a code change.
 The base patterns below match the drafting style shared by every Act
 checked so far (Crimes, Evidence, Criminal Procedure, Interpretation). A
 new Act with a different numbering style doesn't need new code -- just
-add a YAML file at corpus/profiles/<act-slug>.yaml overriding the
+add a YAML file at corpus/domain/rules/<act-slug>.yaml overriding the
 patterns that differ (pass --profile <act-slug> to run_pipeline.py to
 use it). For example, the Criminal Procedure Act numbers its Parts
 "5.1", "5.2" instead of roman numerals, which the default "part" pattern
-doesn't allow for -- see corpus/profiles/criminal-procedure-act.yaml
-for the actual fix, and corpus/profiles/TEMPLATE.yaml for a fully-
+doesn't allow for -- see corpus/domain/rules/criminal-procedure-act.yaml
+for the actual fix, and corpus/domain/rules/TEMPLATE.yaml for a fully-
 commented starting point to copy for a new Act.
 
 These files are YAML rather than JSON specifically because every value
@@ -63,7 +63,7 @@ import yaml
 from corpus.domain.hierarchy import HIERARCHY_ORDER
 from corpus.parsing.versions import _DOCUMENT_SLUG_RE
 
-PROFILES_DIR = Path(__file__).parent / "profiles"
+PROFILES_DIR = Path(__file__).parent / "rules"
 
 # The bracket-numbered levels at the bottom of the hierarchy -- always
 # part of the model. A profile's `hierarchy:` override can reorder or
@@ -215,7 +215,7 @@ def profile_for(act_slug: str, base_dir: "str | Path | None" = None) -> "str | N
     of an Act -- how it numbers its Parts is a fact about the Act), then
     one named after the slug itself.
     """
-    base = Path(base_dir) if base_dir else Path("..")
+    base = Path(base_dir) if base_dir else Path(".")
     parsed = base / "data" / "parsed" / f"{act_slug}.json"
     if parsed.exists():
         try:

@@ -6,6 +6,9 @@ review.py's and dashboard.py's own module docstrings): it's a thin
 wrapper over already-tested render functions, checked end to end instead
 by actually running the script against real data (see the project's own
 manual smoke-testing convention)."""
+import corpus.exporters.export_static_site
+import corpus.publishing.html_view
+import corpus.web.dashboard
 import base64
 import json
 import re
@@ -339,7 +342,7 @@ def test_the_footer_is_read_from_the_file_so_it_can_be_edited(tmp_path, monkeypa
     export_static_site.py while an editable footer.html sat beside the
     stylesheets loaded by nothing -- so editing the obvious file did
     nothing, silently."""
-    from corpus import html_view
+    from corpus.publishing import html_view
 
     original = (html_view.TEMPLATE_DIR / "footer.html").read_text(encoding="utf-8")
     try:
@@ -867,7 +870,7 @@ def test_rebuilding_a_gated_site_with_no_passphrase_is_refused(tmp_path, monkeyp
     from corpus.exporters.export_static_site import resolve_password
 
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
-    monkeypatch.setattr("export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
+    monkeypatch.setattr("corpus.exporters.export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
 
     with pytest.raises(SystemExit) as refused:
         resolve_password(None, False, _gated_site(tmp_path))
@@ -889,7 +892,7 @@ def test_an_ungated_site_rebuilds_ungated_without_complaint(tmp_path, monkeypatc
     from corpus.exporters.export_static_site import resolve_password
 
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
-    monkeypatch.setattr("export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
+    monkeypatch.setattr("corpus.exporters.export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
     (tmp_path / "index.html").write_text("<h1>Open</h1>", encoding="utf-8")
 
     assert resolve_password(None, False, tmp_path) is None
@@ -911,7 +914,7 @@ def test_the_servers_file_is_preferred_to_the_command_line(tmp_path, monkeypatch
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
     path = tmp_path / "site.env"
     path.write_text("SITE_PASSWORD=from the file\n", encoding="utf-8")
-    monkeypatch.setattr("export_static_site.SITE_ENV_FILE", path)
+    monkeypatch.setattr("corpus.exporters.export_static_site.SITE_ENV_FILE", path)
 
     assert resolve_password("typed on the line", False, tmp_path) == "from the file"
 

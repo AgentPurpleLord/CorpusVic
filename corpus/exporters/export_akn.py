@@ -25,7 +25,7 @@ from corpus.review.review import build_current_nodes
 
 
 def load_nodes_for_export(act: str) -> dict:
-    parsed_path = Path("../../data/parsed") / f"{act}.json"
+    parsed_path = Path("data/parsed") / f"{act}.json"
     if not parsed_path.exists():
         raise SystemExit(f"No parsed output found at {parsed_path} -- run run_pipeline.py first.")
     base = json.loads(parsed_path.read_text(encoding="utf-8"))

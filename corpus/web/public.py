@@ -17,8 +17,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-import dashboard
-from corpus import search
+from corpus.web import dashboard
+from corpus.search import search
 from corpus.search import search_view
 from corpus.publishing import html_view, reader, site_env
 from corpus.storage import db

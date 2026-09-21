@@ -5,6 +5,10 @@ subprocess calls and a reverse proxy to a child review.py process) are
 deliberately not covered here -- they were exercised end to end against a
 live server instead (curl and Playwright), same approach test_review.py
 takes for review.py's own endpoints."""
+import corpus.storage.db
+import corpus.publishing.reader
+import corpus.review.sync
+import corpus.search.search
 import json
 import sqlite3
 import sys
@@ -304,7 +308,7 @@ def test_act_status_names_the_profile_the_act_should_be_parsed_with(tmp_path, mo
     """By name, not merely whether one exists: the re-parse dialog
     pre-fills this field, and it used to fill it with the slug -- which
     for a versioned Act names no profile at all."""
-    from corpus import profiles
+    from corpus.domain import profiles
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     profiles_dir = tmp_path / "corpus" / "profiles"
@@ -365,7 +369,7 @@ def test_act_status_splits_a_versioned_slug_into_its_work_and_version(tmp_path, 
 def test_a_profile_is_found_under_the_work_not_each_version(tmp_path, monkeypatch):
     # How an Act numbers its Parts is a fact about the Act, not about one
     # reprint of it -- one profile serves all its versions.
-    from corpus import profiles
+    from corpus.domain import profiles
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     profiles_dir = tmp_path / "corpus" / "profiles"

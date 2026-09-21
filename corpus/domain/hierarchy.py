@@ -24,7 +24,7 @@ deeper than which.
 
 The default order below covers every Victorian Act checked so far. A
 particular Act can override it from its own profile (a `hierarchy:` list
-in corpus/profiles/<act-slug>.yaml) -- for example, the Criminal
+in corpus/domain/rules/<act-slug>.yaml) -- for example, the Criminal
 Procedure Act groups its Parts under Chapters, so its profile puts
 "chapter" on top and adds a `chapter:` pattern. See profiles.py's
 `load_hierarchy`.
@@ -60,13 +60,38 @@ do use it in sections that have been heavily amended.
 
 from dataclasses import dataclass, field
 
+
 @dataclass(frozen=True)
 class Hierarchy:
+    """One document's level order, shallowest first.
+
+    Frozen because a parse and everything read back from it must agree on
+    the order; an Act whose levels differ gets its own Hierarchy rather
+    than mutating this one."""
+
     levels: tuple[str, ...]
+
     def rank(self, type_id: str) -> int:
-        ...
+        """How deep this level sits. 0 is shallowest.
+
+        Raises for a level this hierarchy does not have, rather than
+        returning a sentinel depth: a caller comparing two levels needs
+        to know it asked about one that isn't here."""
+        try:
+            return self.ranks()[type_id]
+        except KeyError:
+            raise ValueError(f"{type_id!r} is not a level of this hierarchy") from None
+
+    def ranks(self) -> dict[str, int]:
+        """Every level's depth, including the aliases make_ranks adds."""
+        return make_ranks(list(self.levels))
+
+    def contains(self, type_id: str) -> bool:
+        return type_id in self.ranks()
+
 
 default_hierarchy = Hierarchy((
+    "schedule",
     "chapter",
     "part",
     "division",
@@ -75,8 +100,12 @@ default_hierarchy = Hierarchy((
     "subsection",
     "paragraph",
     "subparagraph",
-    "sub-subparagraph",
+    "sub_subparagraph",
 ))
+
+# The same order as a plain list, which is the shape every parse carries
+# and every caller that takes a hierarchy expects.
+HIERARCHY_ORDER = list(default_hierarchy.levels)
 
 
 # The two types that sit at the same depth as a section: an Act's

@@ -362,7 +362,7 @@ def apply_remap(
     Structural edits (corpus/structure.py) do not survive a
     re-parse, and are discarded here -- see _discard_structure_edits.
     """
-    from .storage import db
+    from corpus.storage import db
 
     fingerprint = parse_fingerprint(new_nodes)
     unchanged = db.load_parse_fingerprint(act, base_dir) == fingerprint
@@ -404,7 +404,7 @@ def _discard_structure_edits(act: str, base_dir: "str | Path | None" = None) -> 
     its provision is gone from the new parse. Nothing a human wrote is
     deleted here.
     """
-    from .storage import db
+    from corpus.storage import db
 
     edits = db.load_structure_edits(act, base_dir)
     if not edits:
@@ -438,7 +438,7 @@ def apply_carry_forward(
     an old reprint that was never reviewed doesn't get checked before a
     more recent one that was.
     """
-    from .storage import db
+    from corpus.storage import db
     from .versions import split_document_slug
 
     if db.load_verified(new_slug, base_dir):

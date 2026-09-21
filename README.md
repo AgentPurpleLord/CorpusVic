@@ -25,7 +25,7 @@ whole-document audit run offline. Nothing in there decides anything.
 
     corpus/         the library: extract, parse, review, export
     corpus/ai/      the parts that use a model, and only those
-    corpus/profiles/  per-Act pattern overrides
+    corpus/domain/rules/  per-Act pattern overrides
     data/parsed/    the parser's output, one JSON file per document
     data/review/    every decision a human made about it, as text
     data/legislation.db   the same decisions, in the store three

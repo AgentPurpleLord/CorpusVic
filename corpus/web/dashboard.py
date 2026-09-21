@@ -62,6 +62,7 @@ export_markdown.py/run_bill_linking.py scripts (capturing their stdout/
 stderr to show as a log) rather than reimplementing their logic here --
 they're already the tested, documented entry points for those jobs.
 """
+from corpus import PROJECT_ROOT
 import argparse
 import hashlib
 import hmac
@@ -90,7 +91,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus import search
+from corpus.search import search
 from corpus.review import review_sync, sync
 from corpus.publishing import html_view, reader
 from corpus.storage import db
@@ -100,12 +101,12 @@ from corpus.domain.amendments import build_amendment_index, summarise_by_act
 from corpus.domain.commentary import build_commentary_index
 from corpus.parsing.extract import slugify
 from corpus.review.link_targets import load_known_acts
-from corpus.profiles import available_profiles, profile_for
+from corpus.domain.profiles import available_profiles, profile_for
 from corpus.ai.backend import OllamaBackend, pull_model
 from corpus.parsing.versions import document_slug, read_front_matter, split_document_slug
 from corpus.review.review import _resume_point, build_current_nodes, group_into_units
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = PROJECT_ROOT
 STATIC_DIR = BASE_DIR / "static"
 _SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 

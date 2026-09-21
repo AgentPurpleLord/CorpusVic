@@ -69,7 +69,7 @@ Accepting or flagging a unit writes it into data/legislation.db and logs
 each decision (what the parser produced vs. what a human approved) there
 too -- a record of where the parser actually gets things wrong, which is
 the signal to add a profile override for that Act
-(corpus/profiles.py) rather than correcting the same pattern by hand
+(corpus/domain/rules.py) rather than correcting the same pattern by hand
 for the rest of the Act. An edit made directly to an already-reviewed piece
 (browsing back to fix something) persists and logs immediately, since
 there's no later Accept step to do it for. Progress is saved
@@ -131,6 +131,7 @@ The text view stays exactly as it was, and is still where most of the
 work happens. What the page adds is everything that is about *position*,
 which text beside a picture could only ever be guessed at.
 """
+from corpus import PROJECT_ROOT
 import argparse
 import bisect
 import json
@@ -154,13 +155,13 @@ from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
 from corpus.parsing.extract import BodyLine, lines_in_rects
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
-from corpus.profiles import load_profile, profile_for
+from corpus.domain.profiles import load_profile, profile_for
 from corpus.parsing.rule_parser import read_box
 from corpus.review.link_annotations import LABELS, LinkError, add_link, delete_link, load_links
 from corpus.review.link_targets import build_definition_index, resolve_link
 from corpus.domain.schema import NODE_TYPES, types_for_document
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = PROJECT_ROOT
 STATIC_DIR = BASE_DIR / "static"
 
 # ---------------------------------------------------------------------------
@@ -180,7 +181,7 @@ def load_parsed(act: str):
     """(nodes, unattached_notes, hierarchy, fingerprint). The fingerprint
     identifies the parse itself (see corpus/reparse.py) and is None
     for output written before run_pipeline.py recorded one."""
-    path = Path("../../data/parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -210,7 +211,7 @@ def positions_are_trustworthy(act: str, parse_fingerprint: "str | None") -> bool
 
 
 def load_diagnostics(act: str) -> list[dict]:
-    path = Path("../../data/diagnostics") / f"{act}.json"
+    path = Path("data/diagnostics") / f"{act}.json"
     if not path.exists():
         return []
     return json.loads(path.read_text(encoding="utf-8"))
@@ -224,7 +225,7 @@ def load_source_pdf_path(act: str) -> str | None:
     endpoint). None if this Act's parsed output predates that field, or
     the PDF has since moved/been deleted -- the page-image endpoint 404s
     in that case rather than the server failing to start."""
-    path = Path("../../data/parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("source")
@@ -255,7 +256,7 @@ def load_printed_lines(act: str, pdf_path: "str | None") -> list:
     the PDF again. The fallback matters for a clone that has the parse
     but not the extraction -- data/extracted is regenerable, so it isn't
     committed -- and costs one pass over the PDF, once per session."""
-    path = Path("../../data/extracted") / f"{act}.json"
+    path = Path("data/extracted") / f"{act}.json"
     if path.exists():
         pages = json.loads(path.read_text(encoding="utf-8"))
         return [BodyLine(**line) for page in pages for line in page.get("body_lines", [])]
@@ -271,7 +272,7 @@ def load_document_type(act: str) -> "str | None":
     run_pipeline.py/run_em_pipeline.py recorded it. None for a parse from
     before that field existed -- see schema.types_for_document, which
     treats that as "offer everything" rather than guessing."""
-    path = Path("../../data/parsed") / f"{act}.json"
+    path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8")).get("document_type")

@@ -39,7 +39,7 @@ def main():
     print(f"Extracting text from {pdf_path} ...")
     pages = extract_pages(str(pdf_path))
 
-    extracted_dir = Path("../../data/extracted")
+    extracted_dir = Path("data/extracted")
     extracted_dir.mkdir(parents=True, exist_ok=True)
     (extracted_dir / f"{em_slug}.json").write_text(json.dumps(pages_to_dicts(pages), indent=2), encoding="utf-8")
 
@@ -48,7 +48,7 @@ def main():
     for w in result.warnings:
         print(f"  ! {w}")
 
-    parsed_dir = Path("../../data/parsed")
+    parsed_dir = Path("data/parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
     out_path = parsed_dir / f"{em_slug}.json"
     out_path.write_text(

@@ -9,7 +9,7 @@ refused.
 """
 import pytest
 
-from corpus import search
+from corpus.search import search
 from corpus.search import search_view
 
 
