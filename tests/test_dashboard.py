@@ -261,18 +261,18 @@ def test_validate_parse_params_rejects_bad_input(kind, profile, start_page, end_
 
 def test_build_parse_command_for_an_em_ignores_every_other_option():
     cmd = dashboard._build_parse_command(Path("acts/some-bill-em.pdf"), "em", "profile", "5", "10")
-    assert cmd == [sys.executable, "run_em_pipeline.py", "acts/some-bill-em.pdf"]
+    assert cmd == [sys.executable, "-m", "corpus.parsing.run_em_pipeline", "acts/some-bill-em.pdf"]
 
 
 def test_build_parse_command_for_a_bill_sets_document_type():
     cmd = dashboard._build_parse_command(Path("acts/some-bill.pdf"), "bill", "", "", "")
-    assert cmd == [sys.executable, "run_pipeline.py", "acts/some-bill.pdf", "--document-type", "bill"]
+    assert cmd == [sys.executable, "-m", "corpus.parsing.run_pipeline", "acts/some-bill.pdf", "--document-type", "bill"]
 
 
 def test_build_parse_command_includes_profile_and_page_range_when_given():
     cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "my-profile", "5", "20")
     assert cmd == [
-        sys.executable, "run_pipeline.py", "acts/x.pdf", "--document-type", "act",
+        sys.executable, "-m", "corpus.parsing.run_pipeline", "acts/x.pdf", "--document-type", "act",
         "--profile", "my-profile", "--start-page", "5", "--end-page", "20",
     ]
 
@@ -290,7 +290,7 @@ def test_find_source_pdf_returns_none_when_missing(tmp_path, monkeypatch):
 
 
 def test_repo_relative_strips_the_checkout_path(tmp_path, monkeypatch):
-    """The path handed to run_pipeline.py ends up verbatim in the
+    """The path handed to run_pipeline ends up verbatim in the
     committed data/parsed/<slug>.json -- it has to stay repo-relative
     so it doesn't bake in one machine's checkout location."""
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
@@ -988,7 +988,7 @@ def test_rebuilding_runs_the_export_script(monkeypatch):
 
     assert client.post("/api/site/rebuild").status_code == 200
 
-    assert seen["cmd"][1:] == ["export_static_site.py", "--out", "_site"]
+    assert seen["cmd"][1:] == ["-m", "corpus.exporters.export_static_site", "--out", "_site"]
     # No --password and no --no-password: the script takes the passphrase
     # from deploy/site.env and refuses to replace a gated build with an
     # open one, so this button cannot be the thing that unpublishes the

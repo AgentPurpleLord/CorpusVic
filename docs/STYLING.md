@@ -14,7 +14,7 @@ disk, and the HTML templates are re-read whenever their mtime changes
 To see your changes locally:
 
 ```bash
-python3 public.py --open --port 8001      # then http://127.0.0.1:8001
+python3 -m corpus.web.public --open --port 8001      # then http://127.0.0.1:8001
 ```
 
 `--open` skips the passphrase, which is what you want on your own

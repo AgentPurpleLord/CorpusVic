@@ -1154,7 +1154,7 @@ git clone https://github.com/AgentPurpleLord/CorpusVic.git
 cd CorpusVic
 pip install -r requirements-gui.txt
 python3 -m corpus.review.review_sync import       # build the database from the text
-python review.py criminal-procedure-act    # your review progress is already there
+python -m corpus.review.review criminal-procedure-act    # your review progress is already there
 ```
 
 **That import step is the one thing a fresh clone needs**, because the

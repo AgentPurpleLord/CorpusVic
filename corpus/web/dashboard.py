@@ -262,7 +262,7 @@ def _ensure_review_process(slug: str) -> int:
 
     port = _free_port()
     proc = subprocess.Popen(
-        [sys.executable, "review.py", slug, "--port", str(port)],
+        [sys.executable, "-m", "corpus.review.review", slug, "--port", str(port)],
         cwd=str(BASE_DIR),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -1079,7 +1079,10 @@ def _process_is_ours(pid: int) -> "str | None":
         cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().decode("utf-8", "replace")
     except OSError:
         return f"Couldn't read the command line of process {pid}."
-    if "public.py" not in cmdline:
+    # The module moved into corpus/web/; a checkout that predates the
+    # move still launches it by filename, and both spellings are the
+    # public site.
+    if "corpus.web.public" not in cmdline and "public.py" not in cmdline:
         return f"Process {pid} does not look like the public site."
     return None
 
@@ -1421,7 +1424,7 @@ def site_rebuild():
     _SITE_BUILD_LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(_SITE_BUILD_LOG, "w", encoding="utf-8") as log_file:
         proc = subprocess.Popen(
-            [sys.executable, "export_static_site.py", "--out", _SITE_OUT],
+            [sys.executable, "-m", "corpus.exporters.export_static_site", "--out", _SITE_OUT],
             cwd=str(BASE_DIR), stdout=log_file, stderr=subprocess.STDOUT,
         )
     _site_build.update({"proc": proc, "started": datetime.now(timezone.utc).isoformat()})
@@ -1691,8 +1694,8 @@ def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: st
     they point at differs."""
     source = _repo_relative(pdf_path)
     if kind == "em":
-        return [sys.executable, "run_em_pipeline.py", source]
-    cmd = [sys.executable, "run_pipeline.py", source, "--document-type", "bill" if kind == "bill" else "act"]
+        return [sys.executable, "-m", "corpus.parsing.run_em_pipeline", source]
+    cmd = [sys.executable, "-m", "corpus.parsing.run_pipeline", source, "--document-type", "bill" if kind == "bill" else "act"]
     if profile.strip():
         cmd += ["--profile", profile.strip()]
     if start_page.strip():
@@ -1839,7 +1842,7 @@ def reparse_act(
 @app.post("/api/acts/{slug}/export/akn")
 def export_akn(slug: str):
     _validate_slug(slug)
-    result = subprocess.run([sys.executable, "export_akn.py", slug], cwd=str(BASE_DIR), capture_output=True, text=True, timeout=300)
+    result = subprocess.run([sys.executable, "-m", "corpus.exporters.export_akn", slug], cwd=str(BASE_DIR), capture_output=True, text=True, timeout=300)
     return {"ok": result.returncode == 0, "log": result.stdout + result.stderr}
 
 
@@ -1847,7 +1850,7 @@ def export_akn(slug: str):
 def export_markdown(slug: str):
     _validate_slug(slug)
     result = subprocess.run(
-        [sys.executable, "export_markdown.py", slug], cwd=str(BASE_DIR), capture_output=True, text=True, timeout=300
+        [sys.executable, "-m", "corpus.exporters.export_markdown", slug], cwd=str(BASE_DIR), capture_output=True, text=True, timeout=300
     )
     return {"ok": result.returncode == 0, "log": result.stdout + result.stderr}
 
@@ -1876,7 +1879,7 @@ def download_markdown(slug: str):
 def bill_link(bill_slug: str = Form(...), act_slug: str = Form(...), em_slug: str = Form("")):
     _validate_slug(bill_slug)
     _validate_slug(act_slug)
-    cmd = [sys.executable, "run_bill_linking.py", bill_slug, act_slug]
+    cmd = [sys.executable, "-m", "corpus.review.run_bill_linking", bill_slug, act_slug]
     if em_slug.strip():
         _validate_slug(em_slug.strip())
         cmd += ["--em", em_slug.strip()]
@@ -1927,7 +1930,7 @@ def start_ai_scan(slug: str, restart: bool = False):
 
     _AI_SCAN_LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = _ai_scan_log_path(slug)
-    cmd = [sys.executable, "run_ai_review.py", slug]
+    cmd = [sys.executable, "-m", "corpus.review.run_ai_review", slug]
     if restart:
         cmd.append("--restart")
     with open(log_path, "w", encoding="utf-8") as log_file:
