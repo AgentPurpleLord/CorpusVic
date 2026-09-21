@@ -2711,6 +2711,11 @@ def accept_node(node_index: int, req: AcceptRequest):
         "node_index": node_index,
         "verified_at": node.get("verified_at"),
         "needs_followup": bool(node.get("needs_followup")),
+        # The piece's own status, worked out the one way it is worked
+        # out -- the box drawn over it on the page is coloured by this
+        # too, and deriving it a second time in the browser is how the
+        # two came to disagree.
+        "status": _piece_status(node_index),
         "unit_status": _unit_status(_unit_of_index[node_index]),
     }
 

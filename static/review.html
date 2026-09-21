@@ -2174,6 +2174,10 @@ async function decideUnit(flagged) {
     toast(flagged ? "Flagged for follow-up." : "Accepted.");
     await loadUnit(currentUnitNo);
     updateUnitRowStatus(currentUnitNo, result.status);
+    // Every piece in the unit changed, so the boxes are refetched rather
+    // than patched one by one. Safe to rebuild the overlay here: the
+    // click was on a button in the panel, not on the page.
+    await loadPageBoxes();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2274,6 +2278,24 @@ function applyPieceDecision(result) {
   if (existing) container.replaceChild(buildPiece(piece, idx), existing);
   renderUnitFooter();
   updateUnitRowStatus(currentUnitNo, result.unit_status);
+  setBoxStatus(result.node_index, result.status);
+}
+
+// A piece's status is drawn in four places: its row here, the unit
+// footer, the sidebar, and the box over it on the PDF. The box was the
+// one nothing updated, so accepting a piece left it blue until the page
+// was reloaded.
+function setBoxStatus(nodeIndex, status) {
+  if (!pageBoxes || !status) return;
+  const box = pageBoxes.boxes.find((b) => b.node_index === nodeIndex);
+  if (!box || box.status === status) return;
+  box.status = status;
+  // The group is already on the page, so the attribute the CSS reads is
+  // all that has to change -- rebuilding the overlay would tear out the
+  // element the pointer is on, which is what renderOverlay's own comment
+  // warns about.
+  const g = overlayEl().querySelector(`.box-group[data-node-index="${nodeIndex}"]`);
+  if (g) g.setAttribute("data-status", status);
 }
 
 // One sidebar row's status, without rebuilding the list. The row may not
