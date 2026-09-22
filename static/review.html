@@ -311,7 +311,7 @@
     fill: var(--box-stroke); paint-order: stroke; stroke: #fff; stroke-width: 2.5px;
     pointer-events: none; user-select: none; opacity: 0;
   }
-  .box-selected .box-label { opacity: 1; }
+  .box-hot .box-label, .box-selected .box-label { opacity: 1; }
   /* An amendment note, where the Act prints it, joined to the provision
      it amends by the line the page itself implies by putting them side
      by side. */
@@ -327,11 +327,14 @@
      would mean dragging the wrong one. Only the box in hand has grips. */
   .box-handle { fill: #fff; stroke: var(--box-stroke); stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: nwse-resize; opacity: 0; pointer-events: none; }
   .box-selected .box-handle { opacity: 1; pointer-events: auto; }
-  /* Accept and flag, on the box itself. Shown only on the box being
-     pointed at, for the same reason the label is: a page carrying a
-     pair of buttons on every provision is unreadable. */
-  .box-action { opacity: 0; pointer-events: none; cursor: pointer; }
-  .box-selected .box-action { opacity: 1; pointer-events: auto; }
+  /* Accept and flag, on the box itself, on every box at once: a reviewer
+     working down a page should not have to find out which provisions can
+     be decided from here. Held back rather than hidden -- full strength
+     only on the box being pointed at -- because two buttons beside every
+     provision at full contrast is a margin louder than the Act. They sit
+     outside the box's right edge, so nothing here covers the words. */
+  .box-action { opacity: 0.45; pointer-events: auto; cursor: pointer; }
+  .box-hot .box-action, .box-selected .box-action, .box-action:hover { opacity: 1; }
   .box-action-bg { fill: #fff; stroke: var(--box-stroke); stroke-width: 1; vector-effect: non-scaling-stroke; }
   .box-action-mark {
     font-family: var(--font-ui); font-size: 9px; font-weight: 700;
@@ -971,7 +974,8 @@ function loadPdfPage(pageNo) {
 const SVG_NS = "http://www.w3.org/2000/svg";
 let boxesOn = localStorage.getItem("reviewPdfBoxes") !== "off";
 let pageBoxes = null;          // the /boxes payload for currentPageNo
-let hotNodeIndex = null;       // the piece under the pointer, or selected
+let selectedNodeIndex = null;  // the piece chosen by a click, until another
+let hoverNodeIndex = null;     // the piece under the pointer, this instant
 let boxDraft = null;           // { nodeIndex, mode: "replace" | "add" }
 let noteBeingMoved = null;     // a margin note waiting to be pointed at a box
 
@@ -1078,14 +1082,15 @@ function renderOverlay() {
   for (const box of [...pageBoxes.boxes].sort((a, b) => boxArea(b) - boxArea(a))) {
     const g = svgEl("g", { "data-status": box.status, "data-node-index": box.node_index },
       `box-group ${box.drawn ? "box-drawn" : "box-parsed"}`
-      + (box.node_index === hotNodeIndex ? " box-selected" : ""));
+      + (box.node_index === selectedNodeIndex ? " box-selected" : "")
+      + (box.node_index === hoverNodeIndex ? " box-hot" : ""));
     box.rects.forEach((r, i) => {
       const shape = svgEl("rect", rectAttrs(r), "box-shape");
       // The menu opens on the rectangle, not the group: a piece can carry
       // several boxes, and "delete this box" has to know which one.
       shape.addEventListener("contextmenu", (e) => {
         e.preventDefault(); e.stopPropagation();
-        setHotNode(box.node_index, true);
+        setSelected(box.node_index);
         showBoxMenu(e.clientX, e.clientY, box, i);
       });
       g.appendChild(shape);
@@ -1112,14 +1117,13 @@ function renderOverlay() {
       });
       g.appendChild(boxActions(box, first));
     }
-    g.addEventListener("mouseenter", () => setHotNode(box.node_index, false));
-    g.addEventListener("mouseleave", () => setHotNode(null, false));
+    g.addEventListener("mouseenter", () => setHover(box.node_index));
+    g.addEventListener("mouseleave", () => setHover(null));
     g.addEventListener("click", (e) => {
       e.stopPropagation();
       if (noteBeingMoved) { attachNoteToNode(box.node_index); return; }
       goToPiece(box.node_index);
     });
-    if (box.node_index === hotNodeIndex) g.classList.add("box-selected");
     svg.appendChild(g);
   }
 
@@ -1146,24 +1150,68 @@ function renderOverlay() {
     });
     svg.appendChild(g);
   }
+
+  if (revealSelectedOnRender) {
+    revealSelectedOnRender = false;
+    revealSelected();
+  }
 }
 
 // Both directions: pointing at a box lights the piece, and pointing at a
 // piece lights the box. Which is the whole reason for drawing them.
-function setHotNode(nodeIndex, sticky) {
-  if (!sticky && hotNodeIndex != null && boxIsSticky) return;
-  hotNodeIndex = nodeIndex;
-  boxIsSticky = sticky;
+//
+// Two states, not one. They used to share a variable with a "sticky" flag,
+// and the first click set it -- after which every hover was discarded, so
+// for the rest of the session a provision's label could only be brought up
+// by clicking it. A choice should outlast the pointer leaving it; it should
+// not stop the pointer saying what it is over.
+function setHover(nodeIndex) {
+  hoverNodeIndex = nodeIndex;
+  paintHotState();
+}
+
+function setSelected(nodeIndex) {
+  selectedNodeIndex = nodeIndex;
+  paintHotState();
+}
+
+// Choosing a provision from the panel: the reverse of clicking its box,
+// which has always chosen the piece. If we are looking at another page,
+// turn to it -- choosing something and seeing nothing happen reads as the
+// click not having worked.
+function selectPieceOnPage(piece) {
+  setSelected(piece.node_index);
+  if (piece.page_start != null && piece.page_start !== currentPageNo) {
+    // loadPdfPage probes the image first and cannot be awaited, so the
+    // reveal is left for the overlay to do once it has rebuilt.
+    revealSelectedOnRender = true;
+    jumpToPiecePage(piece.page_start);
+    return;
+  }
+  revealSelected();
+}
+
+let revealSelectedOnRender = false;
+
+function revealSelected() {
+  const g = selectedNodeIndex == null ? null
+    : overlayEl().querySelector(`.box-group[data-node-index="${selectedNodeIndex}"]`);
+  if (g) g.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function paintHotState() {
   for (const div of document.querySelectorAll(".piece")) {
-    div.classList.toggle("piece-hot", Number(div.dataset.nodeIndex) === nodeIndex);
+    const i = Number(div.dataset.nodeIndex);
+    div.classList.toggle("piece-hot", i === hoverNodeIndex || i === selectedNodeIndex);
   }
   // Classes only, never a rebuild: the element being pointed at has to
   // survive being pointed at.
   for (const g of overlayEl().querySelectorAll(".box-group")) {
-    g.classList.toggle("box-selected", Number(g.dataset.nodeIndex) === nodeIndex);
+    const i = Number(g.dataset.nodeIndex);
+    g.classList.toggle("box-selected", i === selectedNodeIndex);
+    g.classList.toggle("box-hot", i === hoverNodeIndex);
   }
 }
-let boxIsSticky = false;
 
 async function goToPiece(nodeIndex) {
   const here = currentUnit && currentUnit.pieces.some((p) => p.node_index === nodeIndex);
@@ -1177,7 +1225,7 @@ async function goToPiece(nodeIndex) {
     div.scrollIntoView({ block: "center", behavior: "smooth" });
     div.classList.add("piece-hot");
   }
-  setHotNode(nodeIndex, true);
+  setSelected(nodeIndex);
 }
 
 // ---------------------------------------------------------------------
@@ -1496,7 +1544,7 @@ attachDrawing();
 // Clicking the page itself, off any box, drops whatever was half-done.
 document.getElementById("pdf-stage").addEventListener("click", () => {
   if (boxDraft || noteBeingMoved) return;   // mouseup on the draw handles those
-  if (boxIsSticky) setHotNode(null, false);
+  setSelected(null);
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && (boxDraft || noteBeingMoved)) cancelPageAction();
@@ -1963,9 +2011,18 @@ function buildPiece(piece, idx) {
       ${verifiedHtml}
     `;
     div.addEventListener("mouseenter", () => {
-      if (!boxIsSticky) setHotNode(piece.node_index, false);
+      setHover(piece.node_index);
     });
-    div.addEventListener("mouseleave", () => { if (!boxIsSticky) setHotNode(null, false); });
+    div.addEventListener("mouseleave", () => setHover(null));
+    div.addEventListener("click", (e) => {
+      // A piece's own controls have their own jobs, and its text is
+      // drag-selected to mark a correction (see the #pieces mouseup
+      // handler) -- neither is a click that means "show me this box".
+      if (e.target.closest("button, a, input, textarea, select, label")) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && div.contains(sel.anchorNode)) return;
+      selectPieceOnPage(piece);
+    });
     div.querySelector(".edit-piece-btn").onclick = () => openEditModal(piece.node_index);
     const structureBtn = div.querySelector(".structure-btn");
     if (structureBtn) {
