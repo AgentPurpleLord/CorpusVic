@@ -174,12 +174,43 @@ def _decide(rows: list[dict], build_key) -> dict[int, tuple[int, str]]:
     return decided
 
 
+# What a row holds about the provision itself, as opposed to what a
+# reviewer decided about it. Refreshing an unapproved row replaces
+# exactly these and leaves `needs_followup` alone.
+_NODE_CONTENT_KEYS = ("type", "number", "heading", "text", "page_start", "page_end",
+                      "char_start", "char_end", "source", "path", "history")
+
+
+def _refresh_from_node(row: dict, node: dict) -> None:
+    """Puts the new parse's reading of a provision into a row nobody
+    approved.
+
+    A stored row overrides the parser output wherever it sits (see
+    review.build_current_nodes), and that is true whether or not anyone
+    ever accepted it -- so a provision flagged as wrongly parsed went on
+    showing its wrong text for ever, and the improved parse never
+    surfaced for the very provisions marked as needing it. The flag stays
+    on, so it is still in the queue; only the words change."""
+    for key in _NODE_CONTENT_KEYS:
+        if key in node:
+            row[key] = node[key]
+        else:
+            row.pop(key, None)
+    row.pop("verified_at", None)
+    row.pop("_text_changed", None)
+
+
 def _apply_decisions(rows: list[dict], decided: dict[int, tuple[int, str]], new_nodes: list[dict],
-                     units: "list[list[int]] | None") -> tuple[list[dict], dict]:
+                     units: "list[list[int]] | None",
+                     keep_accepted: bool = False) -> tuple[list[dict], dict]:
     """Rewrites `rows` onto the positions `_decide` chose, and reports
     what happened -- the last step both remap_verified and
-    carry_forward_review need once matching is done."""
-    report = {"matched": 0, "moved": 0, "text_changed": 0, "orphaned": 0, "orphans": [], "changed": []}
+    carry_forward_review need once matching is done.
+
+    `keep_accepted` re-parses only what nobody approved: see
+    remap_verified for why that is worth having and what it costs."""
+    report = {"matched": 0, "moved": 0, "text_changed": 0, "orphaned": 0, "orphans": [], "changed": [],
+              "kept": 0, "refreshed": 0}
     remapped: list[dict] = []
     for position, original in enumerate(rows):
         row = {k: v for k, v in original.items() if k != "_unit_end_index"}
@@ -197,12 +228,23 @@ def _apply_decisions(rows: list[dict], decided: dict[int, tuple[int, str]], new_
             report["moved"] += 1
         row["_source_node_index"] = index
         report["matched"] += 1
-        if tier == "changed":
-            row.pop("verified_at", None)
-            row["needs_followup"] = True
-            row["_text_changed"] = True
-            report["text_changed"] += 1
-            report["changed"].append(_label(row))
+        if keep_accepted and not original.get("verified_at"):
+            # Nobody approved this one, so it is exactly what the re-parse
+            # is for: take the new parser's reading of it.
+            _refresh_from_node(row, new_nodes[index])
+            report["refreshed"] += 1
+        elif tier == "changed":
+            if keep_accepted:
+                # Approved, and the parser now reads it differently. The
+                # reviewer's words stand: that is the whole point of the
+                # mode, and their row is what every reader already shows.
+                report["kept"] += 1
+            else:
+                row.pop("verified_at", None)
+                row["needs_followup"] = True
+                row["_text_changed"] = True
+                report["text_changed"] += 1
+                report["changed"].append(_label(row))
         remapped.append(row)
 
     remapped.sort(key=lambda r: r.get("_source_node_index", len(new_nodes)))
@@ -212,7 +254,8 @@ def _apply_decisions(rows: list[dict], decided: dict[int, tuple[int, str]], new_
 
 
 def remap_verified(
-    rows: list[dict], new_nodes: list[dict], units: "list[list[int]] | None" = None
+    rows: list[dict], new_nodes: list[dict], units: "list[list[int]] | None" = None,
+    keep_accepted: bool = False,
 ) -> tuple[list[dict], dict]:
     """Re-points stored review rows at their provisions in a new parse.
 
@@ -230,6 +273,12 @@ def remap_verified(
         them to look again.
       * A row whose provision is gone is kept, with `_orphaned` set, and
         counted. It's a human's work, and it doesn't get deleted.
+
+    `keep_accepted` changes the middle case, for the reviewer who wants a
+    better parser over the rest of a document without paying for it in
+    finished work: an approved row keeps its acceptance, and an
+    unapproved row is re-read from the new parse instead (see
+    _refresh_from_node).
 
     Where a parse holds several identical provisions (say, a Schedule
     that reprints an Act's own numbering), whichever candidate is
@@ -252,7 +301,7 @@ def remap_verified(
         structural.setdefault(structural_identity(node), []).append(index)
 
     decided = _decide(rows, (("exact", exact, node_identity), ("changed", structural, structural_identity)))
-    return _apply_decisions(rows, decided, new_nodes, units)
+    return _apply_decisions(rows, decided, new_nodes, units, keep_accepted)
 
 
 def _cross_version_identity(node: dict, schedule: "str | None") -> tuple:
@@ -327,6 +376,11 @@ def describe_remap(report: dict) -> str:
         bits.append(f"{report['moved']} moved position")
     if report["text_changed"]:
         bits.append(f"{report['text_changed']} whose wording changed -- acceptance withdrawn, flagged for another look")
+    if report.get("kept"):
+        bits.append(f"{report['kept']} approved piece(s) whose wording the parser now reads differently -- "
+                    "acceptance kept, as asked")
+    if report.get("refreshed"):
+        bits.append(f"{report['refreshed']} unapproved piece(s) re-read from this parse")
     if report["orphaned"]:
         bits.append(f"{report['orphaned']} no longer in the parse (kept, marked orphaned)")
     if "units_marked" in report:
@@ -344,9 +398,17 @@ def apply_remap(
     new_nodes: list[dict],
     units: "list[list[int]] | None" = None,
     base_dir: "str | Path | None" = None,
+    keep_accepted: bool = False,
 ) -> "dict | None":
     """Re-attaches an Act's stored review work to a parse that's just
     been redone, and records which parse it now belongs to.
+
+    `keep_accepted` re-parses only what nobody approved: an approved
+    provision keeps its text and its tick even where the parser now reads
+    it differently, and an unapproved one -- flagged or never looked at --
+    is re-read from this parse. Off by default, because withdrawing
+    acceptance from words a reviewer never saw is the safer thing to do
+    when nobody has said otherwise.
 
     Returns the remap report, or None when there was no review work to
     move (the normal case for a first parse) or when the new parse is
@@ -375,7 +437,7 @@ def apply_remap(
         return {"matched": 0, "moved": 0, "text_changed": 0, "orphaned": 0,
                 "structure_edits_dropped": dropped} if dropped else None
 
-    remapped, report = remap_verified(rows, new_nodes, units)
+    remapped, report = remap_verified(rows, new_nodes, units, keep_accepted)
     db.add_orphaned_reviews(act, [r for r in remapped if r.get("_orphaned")], base_dir)
     db.save_verified(act, [r for r in remapped if not r.get("_orphaned")], base_dir)
     db.save_parse_fingerprint(act, fingerprint, base_dir)

@@ -54,6 +54,7 @@ from corpus.domain.definitions import (
     split_definition_clauses,
 )
 from corpus.parsing.extract import reflow
+from corpus.domain.act_scope import scope_by_unit
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks, schedule_is_pageable
 
 SECTIONS_DIR = "sections"
@@ -604,8 +605,17 @@ def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], d
     parts.append(f"(?P<divref>{_DIVISION_REF_RE})")
     master = re.compile("|".join(parts), re.IGNORECASE)
 
-    def replace(m: re.Match, current_file: str, current_fragment: str | None, index_href: str) -> str:
+    def replace(m: re.Match, current_file: str, current_fragment: str | None, index_href: str,
+                scope: "str | None") -> str:
         text = m.group(0)
+        if scope and m.lastgroup in ("secref", "partref", "divref"):
+            # A lead-in handed this provision to another Act (issue #57,
+            # corpus/domain/act_scope.py). This export writes one document,
+            # with links relative to its own files, so there is nowhere
+            # here for a Crimes Act section to point. Left as plain text:
+            # the whole issue is that resolving it against this Act
+            # produced a link that looked right and went to the wrong law.
+            return text
         if m.lastgroup == "def":
             info = definitions.get(text.lower())
             if not info:
@@ -628,8 +638,9 @@ def _build_linkifier(section_files: dict[str, str], part_eids: dict[str, str], d
             return f"[{text}]({index_href}#{fragment})" if fragment else text
         return text
 
-    def linkify(text: str, current_file: str, current_fragment: str | None = None, index_href: str = "../index.md") -> str:
-        return master.sub(lambda m: replace(m, current_file, current_fragment, index_href), text)
+    def linkify(text: str, current_file: str, current_fragment: str | None = None,
+                index_href: str = "../index.md", scope: "str | None" = None) -> str:
+        return master.sub(lambda m: replace(m, current_file, current_fragment, index_href, scope), text)
 
     return linkify
 
@@ -656,13 +667,17 @@ def _render_body(
     out: list[str],
     in_definitions: bool = False,
 ) -> None:
-    for unit in _iter_body_units(tree_node, 0, in_definitions):
+    units = list(_iter_body_units(tree_node, 0, in_definitions))
+    # Which Act each reference belongs to, decided across the whole
+    # section before any one line is linked (issue #57).
+    scopes = scope_by_unit(units)
+    for unit, scope in zip(units, scopes):
         if unit["header_text"] is not None:
             out.append(f"{'#' * unit['level']} {unit['header_text']}")
             out.append("")
         if unit["text"] is not None:
             key = (unit["tree_node"]["eid"], unit["clause_index"])
-            body = linkify(unit["text"], current_file, slugs.get(key))
+            body = linkify(unit["text"], current_file, slugs.get(key), scope=scope)
             if _is_bulleted_item(unit):
                 # A Markdown list item, indented by its nesting depth,
                 # so a sub-list nests instead of flattening out. The

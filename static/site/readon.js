@@ -28,13 +28,17 @@
   var BUFFER = 3;
   // Far enough out that the buffer starts refilling while there is still
   // most of a screen to read.
-  var MARGIN = 1200;
+  var MARGIN = { next: 1200, prev: 600 };
 
   // Every provision on the page, in reading order, with the address it
   // came from. loaded[0] is the topmost.
   var loaded = [{ el: first, url: location.pathname + location.search }];
   var busy = { next: false, prev: false };
   var done = { next: false, prev: false };
+  // The provision in front of the reader, and whether they have moved at
+  // all yet. Both are read where something is put in above them.
+  var reading = first;
+  var scrolled = false;
 
   function edge(where) {
     return where === "next" ? loaded[loaded.length - 1] : loaded[0];
@@ -55,23 +59,63 @@
   }
   markLinks(first, document);
 
-  // A Division's end is marked where it falls rather than stopping the
-  // read: an Act is written in Divisions and it is worth seeing one end,
-  // but a reader going on to the next is reading, not navigating.
+  // Where a provision sits: every structural level above it, outermost
+  // first, as render_section wrote them (see html_view._scope_label).
+  function scopes(el) {
+    try {
+      return JSON.parse(el.dataset.scopes || "[]");
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // A Part's or a Division's end is marked where it falls rather than
+  // stopping the read: an Act is written in Parts and Divisions and it is
+  // worth seeing one end, but a reader going on to the next is reading,
+  // not navigating. What begins is announced too -- a heading is how the
+  // printed Act says a new Part has started, and without one a reader
+  // scrolling past the boundary has only the breadcrumb to tell them.
   //
-  // Told apart by the scope's own id, not by its printed label: every
-  // Part of an Act has a Division 1, so labels repeat and comparing them
-  // would miss the break between one Part's last Division and the next
-  // Part's first.
-  function divisionBreak(before, after) {
+  // Levels are told apart by their own ids, not by their printed labels:
+  // every Part of an Act has a Division 1, so labels repeat and comparing
+  // them would miss the break between one Part's last Division and the
+  // next Part's first.
+  function transition(before, after) {
     if (!before || !after) return null;
-    if (before.dataset.scope === after.dataset.scope) return null;
-    var label = before.dataset.scopeLabel;
-    if (!label) return null;
-    var mark = document.createElement("p");
-    mark.className = "read-on-end";
-    mark.textContent = "End of " + label;
-    return mark;
+    var ending = scopes(before);
+    var starting = scopes(after);
+    var common = 0;
+    while (common < ending.length && common < starting.length
+           && ending[common].id === starting[common].id) common++;
+    if (common === ending.length && common === starting.length) return null;
+
+    var out = document.createDocumentFragment();
+    // Innermost first, which is the order they actually end in: a
+    // Division closes, and the Part it is the last Division of closes
+    // with it.
+    for (var i = ending.length - 1; i >= common; i--) {
+      var mark = document.createElement("p");
+      mark.className = "read-on-end";
+      mark.textContent = "End of " + ending[i].label;
+      out.appendChild(mark);
+    }
+    // Outermost first, the order the Act prints them in.
+    for (var j = common; j < starting.length; j++) {
+      var head = document.createElement("header");
+      head.className = "read-on-scope";
+      var label = document.createElement("p");
+      label.className = "scope-label";
+      label.textContent = starting[j].label;
+      head.appendChild(label);
+      if (starting[j].heading) {
+        var heading = document.createElement("h2");
+        heading.className = "scope-heading";
+        heading.textContent = starting[j].heading;
+        head.appendChild(heading);
+      }
+      out.appendChild(head);
+    }
+    return out.childNodes.length ? out : null;
   }
 
   async function fetchSection(href) {
@@ -95,7 +139,7 @@
       var arriving = document.importNode(got.section, true);
 
       if (where === "next") {
-        var breakAfter = divisionBreak(from.el, arriving);
+        var breakAfter = transition(from.el, arriving);
         if (breakAfter) main.insertBefore(breakAfter, nav);
         main.insertBefore(arriving, nav);
         loaded.push({ el: arriving, url: href });
@@ -107,15 +151,23 @@
       } else {
         // Putting something above the viewport moves everything below it
         // down, so the page would jump out from under the reader.
-        // Measured and compensated rather than left to the browser's own
-        // scroll anchoring, which not every browser does and none does
-        // identically.
-        var before = document.documentElement.scrollHeight;
-        var breakBefore = divisionBreak(arriving, from.el);
+        //
+        // Measured on the provision being read rather than on the
+        // document's height: the height moves when anything at all on the
+        // page reflows -- a font arriving, an image, a details opening --
+        // and a correction computed from it then moves the reader by
+        // whatever that was. Where the thing under their eye was, and
+        // where it ended up, is the only measurement that cannot drift.
+        // reader.css turns the browser's own scroll anchoring off over
+        // this, so this correction is the only one applied.
+        var anchor = (reading && main.contains(reading)) ? reading : from.el;
+        var was = anchor.getBoundingClientRect().top;
+        var breakBefore = transition(arriving, from.el);
         main.insertBefore(arriving, from.el);
         if (breakBefore) main.insertBefore(breakBefore, from.el);
         loaded.unshift({ el: arriving, url: href });
-        window.scrollBy(0, document.documentElement.scrollHeight - before);
+        var moved = anchor.getBoundingClientRect().top - was;
+        if (moved) window.scrollTo(0, window.scrollY + moved);
       }
       watch(arriving);
       return true;
@@ -139,18 +191,26 @@
   }
 
   function nearEnd(where) {
+    // Nothing is fetched upwards until the reader has moved. Landing on a
+    // provision from the contents used to put three more above it at the
+    // moment of arrival -- compensated, but still the whole page shifting
+    // under someone who has just started reading. They are asked for the
+    // moment a scroll shows the reader is going somewhere.
+    if (where === "prev" && !scrolled) return false;
     var el = edge(where).el;
     var box = el.getBoundingClientRect();
     return where === "next"
-      ? box.bottom < window.innerHeight + MARGIN
-      : box.top > -MARGIN;
+      ? box.bottom < window.innerHeight + MARGIN.next
+      : box.top > -MARGIN.prev;
   }
 
-  // Which provision is being read, so the address bar names it.
+  // Which provision is being read, so the address bar names it -- and
+  // what a load above the viewport is measured against (see extend).
   // replaceState rather than pushState: scrolling is not navigation, and
   // filling someone's Back button with provisions they scrolled past
   // would trap them on the page.
   function showing(entry) {
+    reading = entry.el;
     if (location.pathname === entry.url.split("#")[0]) return;
     history.replaceState(null, "", entry.url);
     if (entry.el.dataset.title) document.title = entry.el.dataset.title;
@@ -178,10 +238,14 @@
     });
   }
 
-  window.addEventListener("scroll", check, { passive: true });
+  window.addEventListener("scroll", function () {
+    scrolled = true;
+    check();
+  }, { passive: true });
   window.addEventListener("resize", check, { passive: true });
-  // A provision opened part-way through an Act has nothing above it, and
+  // A provision opened part-way through an Act has nothing under it, and
   // the reader who came from the contents wanted to land inside the Act
-  // rather than at the top of an excerpt.
+  // rather than at the end of an excerpt. What comes before it waits for
+  // them to scroll (see nearEnd).
   check();
 })();

@@ -35,8 +35,8 @@ details. Each margin note on a Section page links into it, naming the
 Act behind its citation, because a note only ever says "No. 68/2009"
 and no reader keeps a hundred Act numbers in their head.
 
-A Section page also carries an "Explained in" bar: the Bill clause it
-was enacted from and the Explanatory Memorandum's note on it, worked
+A Section page also carries a bar of related documents: the Bill clause
+it was enacted from and the Explanatory Memorandum's note on it, worked
 out by corpus/commentary.py from run_bill_linking.py's link
 records and handed here as ready-made chips. They're ordinary links
 into those documents' own browse pages, so hovering one answers "what
@@ -70,16 +70,18 @@ rather than linked to the wrong place.
 """
 from corpus import PROJECT_ROOT
 import html
+import json
 import re
 from pathlib import Path
 
-from corpus.exporters.akn_export import build_hierarchy_tree
+from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
 from corpus.domain.diffing import provision_identity
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
 from corpus.domain.act_registry import load_act_registry
 from corpus.review.link_targets import load_known_acts
+from corpus.domain.act_scope import ACT_TITLE_SPAN_RE, scope_by_unit
 from corpus.exporters.markdown_export import (
     _DIVISION_REF_RE,
     _PART_REF_RE,
@@ -218,37 +220,44 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     }
 
 
-# An Act or Bill's name as it would actually appear inline in a
-# sentence: a run of Capitalised words (allowing a handful of lowercase
-# connectors -- "of", "the", "and", ... -- since a title routinely
-# carries them, "Justice Legislation Amendment (Sexual Offences and
-# Other Matters) Act 2022") that ends in "Act"/"Bill" and a year. This
-# is never matched on its own: a citation this loose would catch plenty
-# of prose that merely happens to end that way ("A person authorised by
-# or under section 229 of the Transport ... Act 1983" would swallow the
-# whole clause if the connector list were too generous, or a bare
-# capital letter were allowed to start it) -- what makes it safe is
-# that a match is thrown away unless it's then found *word for word* in
-# known_acts.yaml or act_registry.json (see _build_linkifier_html), so
-# an over-matched or truncated span (most of them, in practice -- a
-# parenthesised subtitle breaks the word-by-word chain this pattern
-# requires) just fails to link rather than linking to the wrong place.
-# This is also why the registry's roughly 8000 titles are never turned
-# into one giant matching pattern the way known_acts.yaml's own handful
-# are elsewhere in this function: one small fixed pattern here, then a
-# dict lookup for each candidate it happens to find, costs nothing
-# close to compiling a pattern that size on every page.
-_ACT_TITLE_WORD = r"[A-Z][\w'()-]*"
-_ACT_TITLE_CONNECTOR = r"(?:of|the|and|for|in|on|to|by|or)"
-# The whole span is wrapped in (?-i:...): master (below) is compiled
-# case-insensitively for the sake of def/secref/partref/divref, and
-# under that flag [A-Z] would also match a lowercase letter -- which is
-# exactly the capitalisation check this pattern exists to enforce, so
-# it has to opt back out of that flag explicitly rather than inherit it.
-_ACT_TITLE_SPAN_RE = (
-    rf"(?-i:\b{_ACT_TITLE_WORD}(?:\s+(?:{_ACT_TITLE_WORD}|{_ACT_TITLE_CONNECTOR}))*"
-    rf"\s+(?:Act|Bill)\s+(?:18|19|20)\d{{2}}\b)"
-)
+# An Act or Bill's name as it appears inline. Defined once in
+# corpus/domain/act_scope.py, which also decides when a provision hands
+# the ones nested under it over to the Act it names (issue #57). Never
+# trusted on its own: a match is kept only if it is found word for word
+# in known_acts.yaml or act_registry.json, so an over-matched span fails
+# to link rather than linking to the wrong place.
+_ACT_TITLE_SPAN_RE = ACT_TITLE_SPAN_RE
+
+
+def _foreign_context(slug: str) -> "dict | None":
+    """The context of another Act this pipeline has parsed, so a
+    reference handed to it by a lead-in (see corpus/domain/act_scope.py)
+    can be resolved against that Act's own sections rather than guessed.
+
+    Guessing is the thing to avoid here: _section_filename de-duplicates
+    a collision with a "_2" suffix, so a slug built from the number alone
+    is right until quietly it isn't. None where the parse isn't on disk,
+    which leaves the reference unlinked -- never linked wrong."""
+    hit = _FOREIGN_CACHE.get(slug)
+    if hit is not None:
+        return hit or None
+    path = PROJECT_ROOT / "data" / "parsed" / f"{slug}.json"
+    if not path.exists():
+        # A reprinted Act is held per version ("criminal-procedure-act-v114")
+        # while the site addresses it by its bare slug. Any version answers
+        # the question being asked here -- where its sections live.
+        versions = sorted(( PROJECT_ROOT / "data" / "parsed").glob(f"{slug}-v*.json"))
+        if not versions:
+            _FOREIGN_CACHE[slug] = {}
+            return None
+        path = versions[-1]
+    parsed = json.loads(path.read_text(encoding="utf-8"))
+    context = _build_context(parsed, load_known_acts().get(slug, slug))
+    _FOREIGN_CACHE[slug] = context
+    return context
+
+
+_FOREIGN_CACHE: dict = {}
 
 
 def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str, own_title: "str | None" = None):
@@ -291,7 +300,40 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     def section_href(filename: str) -> str:
         return f"{base_url}/section/{_strip_md(filename)}"
 
-    def replace(m: re.Match, current_file: str, current_fragment: str | None) -> str:
+    def foreign_ref(text: str, kind: str, scope: str) -> str:
+        """A reference a lead-in handed to another Act (issue #57).
+
+        The one thing that must never happen here is falling through to
+        this Act's own maps: a list introduced by "...of the Crimes Act
+        1958-" is Crimes Act sections, and resolving them here produced a
+        link that looked right and went to the wrong law."""
+        known = known_acts_by_lower.get(scope.lower())
+        if known:
+            slug = known[0]
+            context = _foreign_context(slug)
+            if context is None:
+                return text   # that Act isn't parsed here; unlinked beats wrong
+            elsewhere = f"{_site_prefix(base_url)}/browse/{slug}"
+            if kind == "secref":
+                num = re.search(r"\d+[A-Za-z]*", text).group(0)
+                filename = context["section_files"].get(num.lower())
+                if not filename:
+                    return text   # no such section over there
+                return f'<a href="{elsewhere}/section/{_strip_md(filename)}">{text}</a>'
+            num = text.split(None, 1)[1]
+            eids = context["part_eids"] if kind == "partref" else context["division_eids"]
+            fragment = eids.get(num.lower())
+            return f'<a href="{elsewhere}/#{fragment}">{text}</a>' if fragment else text
+        registry = registry_by_lower.get(scope.lower())
+        if registry:
+            # Detected, named, and not parsed here: the standing resolver
+            # says so, which beats both a wrong link and silence.
+            href = _legislation_href(registry[1], base_url)
+            return (f'<a class="unresolved" href="{href}" '
+                    f'title="Not yet parsed into this pipeline">{text}</a>')
+        return text
+
+    def replace(m: re.Match, current_file: str, current_fragment: str | None, scope: "str | None") -> str:
         text = m.group(0)
         if m.lastgroup == "def":
             info = definitions.get(text.lower())
@@ -303,6 +345,8 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             if info.get("fragment"):
                 href = f"{href}#{info['fragment']}"
             return f'<a href="{href}">{text}</a>'
+        if scope and m.lastgroup in ("secref", "partref", "divref"):
+            return foreign_ref(text, m.lastgroup, scope)
         if m.lastgroup == "secref":
             num = re.search(r"\d+[A-Za-z]*", text).group(0)
             filename = section_files.get(num.lower())
@@ -334,8 +378,14 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             return text
         return text
 
-    def linkify(escaped_text: str, current_file: str, current_fragment: str | None = None) -> str:
-        return master.sub(lambda m: replace(m, current_file, current_fragment), escaped_text)
+    def linkify(escaped_text: str, current_file: str, current_fragment: str | None = None,
+                scope: "str | None" = None) -> str:
+        """`scope` is the Act a lead-in above this provision handed it to
+        (corpus/domain/act_scope.py). An Act naming itself governs
+        nothing -- its own references belong here."""
+        if scope and own_title and scope.lower() == own_title.lower():
+            scope = None
+        return master.sub(lambda m: replace(m, current_file, current_fragment, scope), escaped_text)
 
     return linkify
 
@@ -453,6 +503,49 @@ def _provision_html(node_type: str, header_text: "str | None", text_html: "str |
     return (
         f'<div class="{" ".join(classes)}"{id_attr} style="--depth:{depth}">'
         f'{"".join(bits)}</div>'
+    )
+
+
+# What the printed Act heads a note or an example with, and what the
+# parser eats: the recognition rules match the bold "Note" line to find
+# the thing, and the word itself is not kept on the node (see
+# domain/rules/recognition/victorian-act.yaml). Put back here, where the
+# page is set, because without it a note is a paragraph indistinguishable
+# from the law it hangs off.
+_CAPTIONED_TYPES = {"note": ("Note", "Notes"), "example": ("Example", "Examples")}
+
+
+def _caption_html(units: list[dict], i: int, base_depth: int = 0) -> str:
+    """The bold heading over a run of notes or examples, where units[i]
+    is the first of one -- "" anywhere else.
+
+    Plural from the length of the run, as the Act prints it: one note is
+    headed "Note", several are headed "Notes" and then numbered."""
+    def kind(unit):
+        node = unit["tree_node"]["node"]
+        return node["type"] if node["type"] in _CAPTIONED_TYPES else None
+
+    here = kind(units[i])
+    if here is None:
+        return ""
+    depth = units[i]["depth"]
+    # A run is what a reader sees as one block: same type, same depth,
+    # uninterrupted. Anything nested under a note (rare, but a note can
+    # carry its own paragraphs) sits deeper and neither starts a run nor
+    # breaks the count.
+    if i and kind(units[i - 1]) == here and units[i - 1]["depth"] == depth:
+        return ""
+    run = 0
+    for unit in units[i:]:
+        if kind(unit) != here or unit["depth"] != depth:
+            break
+        run += 1
+    singular, plural = _CAPTIONED_TYPES[here]
+    label = plural if run > 1 else singular
+    return (
+        f'<div class="prov prov-caption prov-caption-{_esc(here)}"'
+        f' style="--depth:{max(depth - base_depth, 0)}">'
+        f'<span class="prov-text">{label}</span></div>'
     )
 
 
@@ -697,7 +790,11 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
     link into that document's own page, so hovering one previews it the
     same way every other link on the page does; the caller
     (dashboard.py, via corpus/commentary.py) works out what
-    belongs here."""
+    belongs here.
+
+    The chips alone, with no label over them: each one names the
+    document it goes to, so a word introducing them said nothing the
+    chips did not already say."""
     if not crossrefs:
         return ""
     chips = "".join(
@@ -783,7 +880,7 @@ def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | No
 
 
 def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
-                    version_urls: "dict | None" = None, unavailable: bool = False) -> str:
+                    version_urls: "dict | None" = None) -> str:
     """A provision's history across the versions of the Act held here,
     or "" where it has none.
 
@@ -794,10 +891,12 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
     last one was, so the control answers the first question without
     being opened.
 
-    unavailable remains blank as the user doesn't need to be awre of this.
+    Nothing to show is shown as nothing -- including where the versions
+    held here cannot be compared at all (dashboard._timeline's
+    mixed_parsers, which hands back no entries). A reader of the law has
+    no stake in which parser read which reprint, and a paragraph about
+    it above the section is a paragraph in the way.
     """
-    if unavailable:
-        return ""
     if not entries:
         return ""
     newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
@@ -1012,13 +1111,21 @@ def _section_nav_html(sections: list, match_index: int, base_url: str,
     )
 
 
+def _scope_label(node: dict) -> str:
+    """What a structural level is called on its own: "Part III",
+    "Division 1", "Subdivision (1)" -- the name without its heading,
+    which reading on sets separately from it."""
+    kind = node["type"].capitalize()
+    number = node.get("number")
+    return f"{kind} {_format_num(node['type'], number)}" if number else kind
+
+
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
     timeline: list[dict] | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
-    show_review_badge: bool = True, timeline_unavailable: bool = False,
-    notice: "str | None" = None,
+    show_review_badge: bool = True, notice: "str | None" = None,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -1092,19 +1199,25 @@ def render_section(
     # {base_url}/#{fragment} form _build_linkifier_html builds for prose
     # "Part 3" references, so the two cannot disagree about where a Part
     # lives.
-    # How far reading on can carry, and what to call the end of it.
+    # Where this provision sits, whole: every structural level above it,
+    # outermost first. Reading on compares one provision's chain with the
+    # next one's to say what ended and what began (static/site/readon.js)
+    # -- which needs the whole chain, not the innermost level of it,
+    # because a section can end a Division and its Part at once and a
+    # single scope can only report one of the two.
     #
-    # A Division, because that is the unit an Act is written in: the
-    # provisions inside one are meant to be read together, and the
-    # boundary is the author's own. Falling back to the Part where an Act
-    # has no Divisions, so this is not silently nothing on an Act
-    # structured only by Parts. Neither, and the page stays a page.
-    scope = (next((b for b in reversed(breadcrumb) if b["node"]["type"] == "division"), None)
-             or next((b for b in reversed(breadcrumb) if b["node"]["type"] == "part"), None))
-    scope_attrs = ""
-    if scope is not None:
-        scope_attrs = (f' data-scope="{_esc(scope["eid"])}"'
-                       f' data-scope-label="{_esc(_display_title(scope["node"]["type"], scope["node"].get("number"), scope["node"].get("heading")))}"')
+    # Compared by eid, never by label: every Part of an Act has a
+    # Division 1, so labels repeat and comparing them would miss the
+    # break between one Part's last Division and the next Part's first.
+    # Label and heading stay apart because the marker and the header set
+    # them differently.
+    scopes = [
+        {"id": b["eid"],
+         "label": _scope_label(b["node"]),
+         "heading": b["node"].get("heading") or ""}
+        for b in breadcrumb
+    ]
+    scope_attrs = f' data-scopes="{_esc(json.dumps(scopes))}"' if scopes else ""
     # Everything one provision is, in one element, so reading on can lift
     # the next one out of its own page and set it down after this. The
     # page around it -- the reading bar, the outline, the nav below -- is
@@ -1135,8 +1248,7 @@ def render_section(
             superseded.get("version"), superseded.get("current"),
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
-    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls,
-                               unavailable=timeline_unavailable))
+    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
     out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads the way the Act itself does: each provision
@@ -1157,22 +1269,37 @@ def render_section(
         '<button type="button" class="copy-section" id="copy-section-btn">Copy section</button>'
     )
     out.append('<div class="provisions">')
-    for unit in _iter_body_units(tree_node):
+    # Materialised rather than walked, because a note's own heading is
+    # decided by how many notes follow it (see _caption_html).
+    units = list(_iter_body_units(tree_node))
+    # Which Act a reference belongs to is decided across the whole section
+    # before any one line is linked: a lead-in hands every provision
+    # nested under it to the Act it names (issue #57).
+    scopes = scope_by_unit(units)
+    for i, unit in enumerate(units):
         unit_tree_node = unit["tree_node"]
         unit_node = unit_tree_node["node"]
         key = (unit_tree_node["eid"], unit["clause_index"])
         slug = slugs.get(key)
         id_attr = f' id="{_esc(slug)}"' if slug else ""
 
+        caption = _caption_html(units, i)
+        if caption:
+            # Its own empty margin cell, for the same reason every
+            # provision has one: the two columns are auto-placed rows of
+            # one grid.
+            out.append(caption)
+            out.append('<div class="prov-notes"></div>')
+
         if unit_node["type"] == "table":
             out.append(_table_html(
                 unit_node, unit["depth"], id_attr,
-                lambda cell: linkify(_esc(cell), target_filename, slug),
+                lambda cell, scope=scopes[i]: linkify(_esc(cell), target_filename, slug, scope),
             ))
         else:
             out.append(_provision_html(
                 unit_node["type"], unit["header_text"],
-                None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
+                None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug, scopes[i]),
                 unit["depth"], id_attr,
             ))
         # One margin cell per provision, empty or not: the two columns
@@ -1429,15 +1556,20 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
                 subtitle = page_title(node)
         else:
             base_depth = 0
+            start = 0
             selected = units
 
         truncated = len(selected) > _PREVIEW_MAX_UNITS
         selected = selected[:_PREVIEW_MAX_UNITS]
         html_bits, chars = [], 0
-        for unit in selected:
+        for offset, unit in enumerate(selected):
             if chars >= _PREVIEW_MAX_CHARS:
                 truncated = True
                 break
+            # The card sets a note the way the page does, heading and
+            # all: a preview that quietly dropped it would show the note
+            # as the provision's own words.
+            html_bits.append(_caption_html(units, start + offset, base_depth))
             html_bits.append(_preview_prov_html(unit, base_depth))
             chars += len(unit["text"] or unit["header_text"] or "")
         return {"document": act_title, "title": title, "subtitle": subtitle, "html": "".join(html_bits), "truncated": truncated}

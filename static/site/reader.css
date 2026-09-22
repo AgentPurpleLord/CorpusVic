@@ -99,6 +99,15 @@
 /* Reading on (static/site/readon.js). The provision that arrives is the
    same in every respect but one: it needs a line above it, because two
    provisions running together with nothing between them read as one. */
+
+/* Reading on measures what a load above the viewport moved and corrects
+   for it itself. The browser's own scroll anchoring corrects for the
+   same thing, on its own reckoning, and the two together moved the
+   reader twice -- the page sliding up or down away from the provision
+   they had just opened. One correction, and it is the one that knows
+   which provision is being read. */
+.reader-main { overflow-anchor: none; }
+
 .reader-section + .reader-section {
   border-top: 1px solid var(--border);
   margin-top: 42px;
@@ -107,15 +116,49 @@
 /* The first provision already has the page's breadcrumb above it; on the
    ones that follow it is the only thing saying where they sit. */
 .reader-section + .reader-section .breadcrumb { margin-bottom: 10px; }
+/* "End of Part III" belongs to the Part that has just ended, so it sits
+   with it, above the rule. The rule used to be drawn over these words,
+   which put a line between a Part's last provision and the words saying
+   that Part had ended -- and so read as an announcement about what came
+   next rather than a sign-off on what came before. Nothing here draws
+   one: the rule belongs to whatever follows the last of them. */
 .read-on-end {
-  margin: 40px 0 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
+  margin: 36px 0 0;
   color: var(--muted);
   font-size: 0.9em;
   text-align: center;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+/* A Division ending and the Part it was the last Division of are one
+   sign-off, not two. */
+.read-on-end + .read-on-end { margin-top: 4px; }
+
+/* The Part or Division being entered, announced the way the Act's own
+   pages announce one -- a reader scrolling across the boundary had only
+   the breadcrumb to tell them. Reading on builds it
+   (static/site/readon.js) from the chain each provision carries. */
+.read-on-scope {
+  border-top: 1px solid var(--border);
+  margin: 16px 0 30px;
+  padding-top: 30px;
+  text-align: center;
+}
+.scope-label {
+  margin: 0 0 4px;
+  font-family: var(--sans); font-size: 11.5px;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.scope-heading {
+  margin: 0;
+  font-family: var(--reading); font-size: 1.35em; font-weight: 600; line-height: 1.25;
+}
+/* An ending with nothing announced after it -- the rule still separates
+   it from the provision that follows. */
+.read-on-end + .reader-section {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 30px;
 }
 
 /* Unscoped: the next/previous links are on a provision's page, which is

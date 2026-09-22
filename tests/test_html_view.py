@@ -245,14 +245,17 @@ def test_a_crumb_with_no_heading_of_its_own_stays_plain_text():
     assert "division-1---offences" not in crumb
 
 
-def test_render_section_renders_the_explained_in_chips():
+def test_render_section_renders_the_related_document_chips():
+    """The chips and nothing over them: each one names the document it
+    goes to, so a label introducing them said nothing they didn't."""
     crossrefs = [
         {"kind": "bill", "label": "Bill clause 5", "href": "/browse/b/section/c5", "title": "the clause"},
         {"kind": "em", "label": "EM on clause 5", "href": "/browse/b-em/section/c5"},
     ]
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3", crossrefs=crossrefs)
 
-    assert '<span class="crossrefs-label">Explained in</span>' in body
+    assert "crossrefs-label" not in body
+    assert "Explained in" not in body
     assert '<a class="crossref crossref-bill" href="/browse/b/section/c5" title="the clause">Bill clause 5</a>' in body
     assert '<a class="crossref crossref-em" href="/browse/b-em/section/c5">EM on clause 5</a>' in body
 
@@ -261,6 +264,56 @@ def test_render_section_without_crossrefs_renders_no_bar():
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
 
     assert "crossrefs" not in body
+
+
+# --- notes and examples are announced, as the Act announces them --------
+# The parser reads the bold "Note" line to recognise the thing and keeps
+# nothing of the word, so without this a note is a paragraph
+# indistinguishable from the provision it hangs off.
+
+def _act_with_notes() -> list[dict]:
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "3", "Commencement", "This Act comes into operation—"),
+        make_node("note", None, None, "Section 10 of the Interpretation Act applies."),
+        make_node("section", "4", "Application", "This Act applies to—"),
+        make_node("note", "1", None, "The first thing to know."),
+        make_node("note", "2", None, "The second thing to know."),
+        make_node("example", None, None, "A person who does the thing."),
+    ]
+
+
+def test_a_single_note_is_headed_note():
+    body = render_section(_parsed(_act_with_notes()), "Test Act", "/browse/a", "s3")
+
+    assert '<span class="prov-text">Note</span>' in body
+    assert body.index('>Note<') < body.index("Section 10 of the Interpretation Act")
+
+
+def test_a_run_of_notes_is_headed_once_and_in_the_plural():
+    body = render_section(_parsed(_act_with_notes()), "Test Act", "/browse/a", "s4")
+
+    assert body.count("prov-caption-note") == 1
+    assert '<span class="prov-text">Notes</span>' in body
+
+
+def test_examples_are_headed_the_same_way_and_separately_from_notes():
+    body = render_section(_parsed(_act_with_notes()), "Test Act", "/browse/a", "s4")
+
+    assert '<span class="prov-text">Example</span>' in body
+    assert body.index("prov-caption-example") > body.index("The second thing to know")
+
+
+def test_a_heading_is_a_row_of_the_same_grid_as_the_notes_under_it():
+    """The provisions and their margin notes are auto-placed rows of one
+    grid (see page.css), so a row that contributes no margin cell puts
+    every note below it out of step with its provision -- and a copied
+    section reads as the page does only because the heading is a .prov
+    like any other (static/site/copy.js)."""
+    body = render_section(_parsed(_act_with_notes()), "Test Act", "/browse/a", "s4")
+
+    caption = re.search(r'<div class="prov prov-caption[^>]*>.*?</div>\n(.*)', body).group(1)
+    assert caption.startswith('<div class="prov-notes">')
 
 
 def test_build_page_index_maps_provisions_to_their_pages():
@@ -1112,17 +1165,15 @@ def test_nothing_in_a_provision_is_positioned_outside_it():
     assert "text-indent" not in css, "a hanging indent can paint outside the box it belongs to"
 
 
-def test_the_timeline_says_when_it_cannot_compare_versions():
-    """"No changes" and "not comparable" are different answers, and on a
-    register of the law the difference matters. Two versions read by
-    different parsers would report the parsers' own disagreements as
-    amendments -- so nothing is reported, and it says so."""
+def test_a_provision_with_no_timeline_shows_nothing_at_all():
+    """Including where the versions held here cannot be compared (see
+    dashboard._timeline's mixed_parsers, which then hands back no
+    entries): a reader of the law has no stake in which parser read which
+    reprint, and a paragraph about it above the section is a paragraph in
+    the way."""
     from corpus.publishing.html_view import render_timeline
 
     assert render_timeline([], "/browse/a") == ""
-    unavailable = render_timeline([], "/browse/a", unavailable=True)
-    assert "can't be shown yet" in unavailable
-    assert "Re-parse every version" in unavailable
 
 
 def test_an_act_offers_its_bill_and_em_from_its_own_contents():
