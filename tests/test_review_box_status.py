@@ -240,3 +240,72 @@ def test_writes_are_allowed_when_it_is_not_read_only(one_section):
     assert review._READ_ONLY is False
     response = TestClient(review.app).post("/api/nodes/1/accept", json={"flagged": False})
     assert response.status_code != 403
+
+
+# --- pointing at a box, and choosing one --------------------------------
+# Hover and selection used to share one variable with a "sticky" flag, and
+# the first click set it. Every hover after that was discarded, so for the
+# rest of the session a provision's label could only be brought up by
+# clicking it -- and hovering a piece in the panel stopped lighting its
+# box. Two states, so a choice outlasts the pointer without silencing it.
+
+def test_hover_and_selection_are_no_longer_the_same_thing():
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+
+    assert "boxIsSticky" not in page, "the sticky flag is what swallowed every hover"
+    assert "let selectedNodeIndex" in page and "let hoverNodeIndex" in page
+
+
+def test_a_box_says_what_it_is_when_pointed_at_not_only_when_clicked():
+    """The label is drawn to the left of the box; what was missing was
+    anything revealing it on hover once something had been clicked."""
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+
+    assert re.search(r"\.box-hot \.box-label[^{]*\{[^}]*opacity: 1", page)
+
+
+def test_the_hover_style_is_actually_reachable_now():
+    """`.box-hot` sat in the stylesheet with nothing in the JS setting it."""
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+
+    assert 'classList.toggle("box-hot"' in page
+
+
+def test_the_tick_and_flag_are_on_every_box():
+    """They were opacity: 0 until a box was selected, so there was no way
+    to see from the page which provisions could be decided from it."""
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+    rule = re.search(r"\n  \.box-action \{([^}]*)\}", page).group(1)
+
+    assert "opacity: 0;" not in rule, "still hidden until selected"
+    assert "pointer-events: auto" in rule, "visible but not clickable is worse than hidden"
+
+
+def test_but_held_back_until_the_box_is_pointed_at():
+    """Two buttons beside every provision at full contrast is a margin
+    louder than the Act."""
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+    resting = float(re.search(r"\n  \.box-action \{[^}]*opacity: ([\d.]+)", page).group(1))
+
+    assert 0 < resting < 1
+    assert re.search(r"\.box-(hot|selected) \.box-action[^{]*\{[^}]*opacity: 1", page)
+
+
+def test_choosing_a_piece_shows_its_box_on_the_page():
+    """The reverse of clicking a box, which has always chosen the piece."""
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+    body = re.search(r"function selectPieceOnPage\(piece\) \{(.*?)\n\}", page, re.S).group(1)
+
+    assert "setSelected(piece.node_index)" in body
+    assert "jumpToPiecePage(piece.page_start)" in body, "a box on another page cannot be shown without turning to it"
+
+
+def test_selecting_text_in_a_piece_is_not_a_click_on_it():
+    """A piece's text is drag-selected to mark a correction (the #pieces
+    mouseup handler). Treating that as "show me this box" would turn every
+    correction into a page turn."""
+    page = REVIEW_HTML.read_text(encoding="utf-8")
+    handler = re.search(r'div\.addEventListener\("click", \(e\) => \{(.*?)\n    \}\);', page, re.S).group(1)
+
+    assert "getSelection" in handler and "isCollapsed" in handler
+    assert "button" in handler, "a piece's own controls have their own jobs"
