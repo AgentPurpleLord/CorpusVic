@@ -81,6 +81,7 @@ from corpus.domain.diffing import provision_identity
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
 from corpus.domain.act_registry import load_act_registry
 from corpus.review.link_targets import load_known_acts
+from corpus.domain.act_scope import ACT_TITLE_SPAN_RE, scope_by_unit
 from corpus.exporters.markdown_export import (
     _DIVISION_REF_RE,
     _PART_REF_RE,
@@ -219,37 +220,44 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     }
 
 
-# An Act or Bill's name as it would actually appear inline in a
-# sentence: a run of Capitalised words (allowing a handful of lowercase
-# connectors -- "of", "the", "and", ... -- since a title routinely
-# carries them, "Justice Legislation Amendment (Sexual Offences and
-# Other Matters) Act 2022") that ends in "Act"/"Bill" and a year. This
-# is never matched on its own: a citation this loose would catch plenty
-# of prose that merely happens to end that way ("A person authorised by
-# or under section 229 of the Transport ... Act 1983" would swallow the
-# whole clause if the connector list were too generous, or a bare
-# capital letter were allowed to start it) -- what makes it safe is
-# that a match is thrown away unless it's then found *word for word* in
-# known_acts.yaml or act_registry.json (see _build_linkifier_html), so
-# an over-matched or truncated span (most of them, in practice -- a
-# parenthesised subtitle breaks the word-by-word chain this pattern
-# requires) just fails to link rather than linking to the wrong place.
-# This is also why the registry's roughly 8000 titles are never turned
-# into one giant matching pattern the way known_acts.yaml's own handful
-# are elsewhere in this function: one small fixed pattern here, then a
-# dict lookup for each candidate it happens to find, costs nothing
-# close to compiling a pattern that size on every page.
-_ACT_TITLE_WORD = r"[A-Z][\w'()-]*"
-_ACT_TITLE_CONNECTOR = r"(?:of|the|and|for|in|on|to|by|or)"
-# The whole span is wrapped in (?-i:...): master (below) is compiled
-# case-insensitively for the sake of def/secref/partref/divref, and
-# under that flag [A-Z] would also match a lowercase letter -- which is
-# exactly the capitalisation check this pattern exists to enforce, so
-# it has to opt back out of that flag explicitly rather than inherit it.
-_ACT_TITLE_SPAN_RE = (
-    rf"(?-i:\b{_ACT_TITLE_WORD}(?:\s+(?:{_ACT_TITLE_WORD}|{_ACT_TITLE_CONNECTOR}))*"
-    rf"\s+(?:Act|Bill)\s+(?:18|19|20)\d{{2}}\b)"
-)
+# An Act or Bill's name as it appears inline. Defined once in
+# corpus/domain/act_scope.py, which also decides when a provision hands
+# the ones nested under it over to the Act it names (issue #57). Never
+# trusted on its own: a match is kept only if it is found word for word
+# in known_acts.yaml or act_registry.json, so an over-matched span fails
+# to link rather than linking to the wrong place.
+_ACT_TITLE_SPAN_RE = ACT_TITLE_SPAN_RE
+
+
+def _foreign_context(slug: str) -> "dict | None":
+    """The context of another Act this pipeline has parsed, so a
+    reference handed to it by a lead-in (see corpus/domain/act_scope.py)
+    can be resolved against that Act's own sections rather than guessed.
+
+    Guessing is the thing to avoid here: _section_filename de-duplicates
+    a collision with a "_2" suffix, so a slug built from the number alone
+    is right until quietly it isn't. None where the parse isn't on disk,
+    which leaves the reference unlinked -- never linked wrong."""
+    hit = _FOREIGN_CACHE.get(slug)
+    if hit is not None:
+        return hit or None
+    path = PROJECT_ROOT / "data" / "parsed" / f"{slug}.json"
+    if not path.exists():
+        # A reprinted Act is held per version ("criminal-procedure-act-v114")
+        # while the site addresses it by its bare slug. Any version answers
+        # the question being asked here -- where its sections live.
+        versions = sorted(( PROJECT_ROOT / "data" / "parsed").glob(f"{slug}-v*.json"))
+        if not versions:
+            _FOREIGN_CACHE[slug] = {}
+            return None
+        path = versions[-1]
+    parsed = json.loads(path.read_text(encoding="utf-8"))
+    context = _build_context(parsed, load_known_acts().get(slug, slug))
+    _FOREIGN_CACHE[slug] = context
+    return context
+
+
+_FOREIGN_CACHE: dict = {}
 
 
 def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, str], division_eids: dict[str, str], definitions: dict[str, dict], base_url: str, secref_re: str, own_title: "str | None" = None):
@@ -292,7 +300,40 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
     def section_href(filename: str) -> str:
         return f"{base_url}/section/{_strip_md(filename)}"
 
-    def replace(m: re.Match, current_file: str, current_fragment: str | None) -> str:
+    def foreign_ref(text: str, kind: str, scope: str) -> str:
+        """A reference a lead-in handed to another Act (issue #57).
+
+        The one thing that must never happen here is falling through to
+        this Act's own maps: a list introduced by "...of the Crimes Act
+        1958-" is Crimes Act sections, and resolving them here produced a
+        link that looked right and went to the wrong law."""
+        known = known_acts_by_lower.get(scope.lower())
+        if known:
+            slug = known[0]
+            context = _foreign_context(slug)
+            if context is None:
+                return text   # that Act isn't parsed here; unlinked beats wrong
+            elsewhere = f"{_site_prefix(base_url)}/browse/{slug}"
+            if kind == "secref":
+                num = re.search(r"\d+[A-Za-z]*", text).group(0)
+                filename = context["section_files"].get(num.lower())
+                if not filename:
+                    return text   # no such section over there
+                return f'<a href="{elsewhere}/section/{_strip_md(filename)}">{text}</a>'
+            num = text.split(None, 1)[1]
+            eids = context["part_eids"] if kind == "partref" else context["division_eids"]
+            fragment = eids.get(num.lower())
+            return f'<a href="{elsewhere}/#{fragment}">{text}</a>' if fragment else text
+        registry = registry_by_lower.get(scope.lower())
+        if registry:
+            # Detected, named, and not parsed here: the standing resolver
+            # says so, which beats both a wrong link and silence.
+            href = _legislation_href(registry[1], base_url)
+            return (f'<a class="unresolved" href="{href}" '
+                    f'title="Not yet parsed into this pipeline">{text}</a>')
+        return text
+
+    def replace(m: re.Match, current_file: str, current_fragment: str | None, scope: "str | None") -> str:
         text = m.group(0)
         if m.lastgroup == "def":
             info = definitions.get(text.lower())
@@ -304,6 +345,8 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             if info.get("fragment"):
                 href = f"{href}#{info['fragment']}"
             return f'<a href="{href}">{text}</a>'
+        if scope and m.lastgroup in ("secref", "partref", "divref"):
+            return foreign_ref(text, m.lastgroup, scope)
         if m.lastgroup == "secref":
             num = re.search(r"\d+[A-Za-z]*", text).group(0)
             filename = section_files.get(num.lower())
@@ -335,8 +378,14 @@ def _build_linkifier_html(section_files: dict[str, str], part_eids: dict[str, st
             return text
         return text
 
-    def linkify(escaped_text: str, current_file: str, current_fragment: str | None = None) -> str:
-        return master.sub(lambda m: replace(m, current_file, current_fragment), escaped_text)
+    def linkify(escaped_text: str, current_file: str, current_fragment: str | None = None,
+                scope: "str | None" = None) -> str:
+        """`scope` is the Act a lead-in above this provision handed it to
+        (corpus/domain/act_scope.py). An Act naming itself governs
+        nothing -- its own references belong here."""
+        if scope and own_title and scope.lower() == own_title.lower():
+            scope = None
+        return master.sub(lambda m: replace(m, current_file, current_fragment, scope), escaped_text)
 
     return linkify
 
@@ -1223,6 +1272,10 @@ def render_section(
     # Materialised rather than walked, because a note's own heading is
     # decided by how many notes follow it (see _caption_html).
     units = list(_iter_body_units(tree_node))
+    # Which Act a reference belongs to is decided across the whole section
+    # before any one line is linked: a lead-in hands every provision
+    # nested under it to the Act it names (issue #57).
+    scopes = scope_by_unit(units)
     for i, unit in enumerate(units):
         unit_tree_node = unit["tree_node"]
         unit_node = unit_tree_node["node"]
@@ -1241,12 +1294,12 @@ def render_section(
         if unit_node["type"] == "table":
             out.append(_table_html(
                 unit_node, unit["depth"], id_attr,
-                lambda cell: linkify(_esc(cell), target_filename, slug),
+                lambda cell, scope=scopes[i]: linkify(_esc(cell), target_filename, slug, scope),
             ))
         else:
             out.append(_provision_html(
                 unit_node["type"], unit["header_text"],
-                None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug),
+                None if unit["text"] is None else linkify(_esc(unit["text"]), target_filename, slug, scopes[i]),
                 unit["depth"], id_attr,
             ))
         # One margin cell per provision, empty or not: the two columns
