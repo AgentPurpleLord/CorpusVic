@@ -5,6 +5,7 @@ every provision is its own URL serving its own complete page. Reading on
 only ever adds what was already a click away, so what a crawler is served
 at a URL and what a reader ends up looking at stay the same document.
 """
+import html as html_lib
 import json
 import re
 from pathlib import Path
@@ -29,8 +30,7 @@ def render(parsed, section_slug):
     return html_view.render_section(
         parsed, "Crimes Act 1958", "/browse/crimes-act", section_slug,
         crossrefs=[], amendment_index={}, timeline=[], version_urls={},
-        superseded=None, version_dates={}, show_review_badge=False,
-        timeline_unavailable=False, notice=None)
+        superseded=None, version_dates={}, show_review_badge=False, notice=None)
 
 
 # --- what the page says about itself ------------------------------------
@@ -41,26 +41,41 @@ def test_a_provision_is_one_element_that_can_be_lifted(crimes_act):
     assert html.count("</article>") == 1
 
 
+def scopes(html):
+    """The chain of structural levels a rendered provision carries."""
+    raw = re.search(r'data-scopes="([^"]*)"', html).group(1)
+    return json.loads(html_lib.unescape(raw))
+
+
 def test_it_names_itself_its_title_and_how_far_reading_on_can_go(crimes_act):
     html = render(crimes_act, "s3")
     article = re.search(r'<article class="reader-section"[^>]*>', html).group(0)
     assert 'data-section="s3"' in article
     assert 'data-title="3 Punishment for murder"' in article
-    assert 'data-scope="part_i__div_1"' in article
-    assert "Division 1" in article
+    assert [s["id"] for s in scopes(article)][:2] == ["part_i", "part_i__div_1"]
+
+
+def test_a_provision_carries_every_level_above_it_not_just_the_nearest(crimes_act):
+    """A section can end a Division and its Part at once, and reading on
+    can only say so if it is told about both. Outermost first, each level
+    named apart from its heading -- the end marker sets one and the
+    header sets both."""
+    chain = scopes(render(crimes_act, "s3"))
+    assert [s["label"] for s in chain] == ["Part I", "Division 1", "Subdivision (1)"]
+    assert chain[1]["heading"] == "Offences against the person"
 
 
 def test_provisions_in_one_division_share_a_scope(crimes_act):
-    scopes = {re.search(r'data-scope="([^"]*)"', render(crimes_act, s)).group(1)
+    chains = {tuple(s["id"] for s in scopes(render(crimes_act, s)))
               for s in ("s314", "s315")}
-    assert scopes == {"part_i__div_6"}
+    assert chains == {("part_i", "part_i__div_6")}
 
 
 def test_the_next_division_is_a_different_scope(crimes_act):
-    """The boundary reading on stops at."""
-    here = re.search(r'data-scope="([^"]*)"', render(crimes_act, "s315")).group(1)
-    beyond = re.search(r'data-scope="([^"]*)"', render(crimes_act, "s316")).group(1)
-    assert here != beyond
+    """The boundary reading on marks."""
+    here = scopes(render(crimes_act, "s315"))
+    beyond = scopes(render(crimes_act, "s316"))
+    assert here[-1]["id"] != beyond[-1]["id"]
 
 
 def test_the_nav_below_stays_outside_the_liftable_part(crimes_act):
@@ -116,10 +131,29 @@ def test_it_reads_backwards_as_well_as_forwards():
 
 def test_it_compensates_the_scroll_when_it_puts_something_above():
     """Inserting above the viewport moves everything below it down, and
-    the page would jump out from under the reader."""
+    the page would jump out from under the reader.
+
+    Measured on the provision being read, not on the document's height:
+    the height moves whenever anything at all reflows, and a correction
+    computed from it moves the reader by whatever that was."""
     js = READON_JS.read_text(encoding="utf-8")
-    assert "scrollHeight" in js
-    assert "window.scrollBy(" in js
+    assert "anchor.getBoundingClientRect().top" in js
+    assert "window.scrollTo(0, window.scrollY + moved)" in js
+    assert "scrollHeight" not in js
+
+
+def test_only_one_thing_corrects_the_scroll():
+    """The browser's own scroll anchoring corrects for the same insert on
+    its own reckoning, and the two together moved the reader twice."""
+    css = (SITE / "reader.css").read_text(encoding="utf-8")
+    assert "overflow-anchor: none" in css
+
+
+def test_nothing_is_loaded_above_a_reader_who_has_not_moved_yet():
+    """Landing on a provision from the contents used to put three more
+    above it at the moment of arrival."""
+    js = READON_JS.read_text(encoding="utf-8")
+    assert 'if (where === "prev" && !scrolled) return false;' in js
 
 
 def test_it_keeps_a_buffer_rather_than_fetching_one_at_a_time():
@@ -135,7 +169,28 @@ def test_a_division_ending_is_marked_by_its_id_not_its_label():
     would miss the break between one Part's last Division and the next
     Part's first."""
     js = READON_JS.read_text(encoding="utf-8")
-    assert "before.dataset.scope === after.dataset.scope" in js
+    assert "ending[common].id === starting[common].id" in js
+
+
+def test_it_marks_every_level_that_ends_and_heads_every_level_that_begins():
+    """A section can be the last of a Division and of its Part at once,
+    and the Part beginning under it is what a reader most needs naming."""
+    js = READON_JS.read_text(encoding="utf-8")
+    # The endings innermost first, the beginnings outermost first.
+    assert "for (var i = ending.length - 1; i >= common; i--)" in js
+    assert "for (var j = common; j < starting.length; j++)" in js
+    assert '"End of " + ending[i].label' in js
+    assert 'head.className = "read-on-scope"' in js
+
+
+def test_the_end_of_a_part_comes_before_the_rule_not_after_it():
+    """Directly after a Part's last provision is the line saying the Part
+    has ended; the rule closes the two of them off together."""
+    css = (SITE / "reader.css").read_text(encoding="utf-8")
+    end_rule = re.search(r"\.read-on-end \{(.*?)\}", css, re.S).group(1)
+    assert "border-top" not in end_rule
+    assert "border-top: 1px solid var(--border);" in re.search(
+        r"\.read-on-end \+ \.reader-section \{(.*?)\}", css, re.S).group(1)
 
 
 def test_it_replaces_the_address_rather_than_pushing_it():

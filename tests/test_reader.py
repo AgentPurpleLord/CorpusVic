@@ -19,7 +19,7 @@ class FakeSource:
 
     def __init__(self, nodes=None, endnotes=None, superseded=None,
                  crossrefs=None, timeline=None, version_urls=None,
-                 mixed_parsers=False, definition_overrides=None):
+                 definition_overrides=None):
         self.nodes = nodes if nodes is not None else [
             make_node("part", "1", "Preliminary"),
             make_node("section", "3", "Definitions", "In this Act—"),
@@ -30,7 +30,6 @@ class FakeSource:
         self._crossrefs = crossrefs or []
         self._timeline_entries = timeline or []
         self._version_urls = version_urls or {}
-        self._mixed_parsers = mixed_parsers
         self.definition_overrides = definition_overrides or []
         self.asked = []
 
@@ -82,10 +81,6 @@ class FakeSource:
     def _version_dates(self, slug):
         self._record("version_dates")
         return {}
-
-    def _timeline(self, work):
-        self._record("timeline")
-        return {"mixed_parsers": self._mixed_parsers}
 
 
 # ---------------------------------------------------------------------

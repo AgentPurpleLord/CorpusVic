@@ -32,7 +32,6 @@ rather than imported so that this module has no opinion about who is
 asking, and so a test can hand it a stand-in.
 """
 from corpus.publishing import html_view
-from corpus.parsing.versions import split_document_slug
 
 
 def _identity(value):
@@ -125,8 +124,6 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
         superseded=site(source._superseded(slug)),
         version_dates=source._version_dates(slug),
         show_review_badge=show_review_badge,
-        timeline_unavailable=source._timeline(
-            split_document_slug(slug)[0]).get("mixed_parsers", False),
         notice=notice,
     )
 

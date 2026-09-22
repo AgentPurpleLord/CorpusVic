@@ -35,8 +35,8 @@ details. Each margin note on a Section page links into it, naming the
 Act behind its citation, because a note only ever says "No. 68/2009"
 and no reader keeps a hundred Act numbers in their head.
 
-A Section page also carries an "Explained in" bar: the Bill clause it
-was enacted from and the Explanatory Memorandum's note on it, worked
+A Section page also carries a bar of related documents: the Bill clause
+it was enacted from and the Explanatory Memorandum's note on it, worked
 out by corpus/commentary.py from run_bill_linking.py's link
 records and handed here as ready-made chips. They're ordinary links
 into those documents' own browse pages, so hovering one answers "what
@@ -70,10 +70,11 @@ rather than linked to the wrong place.
 """
 from corpus import PROJECT_ROOT
 import html
+import json
 import re
 from pathlib import Path
 
-from corpus.exporters.akn_export import build_hierarchy_tree
+from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
 from corpus.domain.diffing import provision_identity
@@ -456,6 +457,49 @@ def _provision_html(node_type: str, header_text: "str | None", text_html: "str |
     )
 
 
+# What the printed Act heads a note or an example with, and what the
+# parser eats: the recognition rules match the bold "Note" line to find
+# the thing, and the word itself is not kept on the node (see
+# domain/rules/recognition/victorian-act.yaml). Put back here, where the
+# page is set, because without it a note is a paragraph indistinguishable
+# from the law it hangs off.
+_CAPTIONED_TYPES = {"note": ("Note", "Notes"), "example": ("Example", "Examples")}
+
+
+def _caption_html(units: list[dict], i: int, base_depth: int = 0) -> str:
+    """The bold heading over a run of notes or examples, where units[i]
+    is the first of one -- "" anywhere else.
+
+    Plural from the length of the run, as the Act prints it: one note is
+    headed "Note", several are headed "Notes" and then numbered."""
+    def kind(unit):
+        node = unit["tree_node"]["node"]
+        return node["type"] if node["type"] in _CAPTIONED_TYPES else None
+
+    here = kind(units[i])
+    if here is None:
+        return ""
+    depth = units[i]["depth"]
+    # A run is what a reader sees as one block: same type, same depth,
+    # uninterrupted. Anything nested under a note (rare, but a note can
+    # carry its own paragraphs) sits deeper and neither starts a run nor
+    # breaks the count.
+    if i and kind(units[i - 1]) == here and units[i - 1]["depth"] == depth:
+        return ""
+    run = 0
+    for unit in units[i:]:
+        if kind(unit) != here or unit["depth"] != depth:
+            break
+        run += 1
+    singular, plural = _CAPTIONED_TYPES[here]
+    label = plural if run > 1 else singular
+    return (
+        f'<div class="prov prov-caption prov-caption-{_esc(here)}"'
+        f' style="--depth:{max(depth - base_depth, 0)}">'
+        f'<span class="prov-text">{label}</span></div>'
+    )
+
+
 def _table_html(node: dict, depth: int, id_attr: str = "", render_cell=None) -> str:
     """A table, as a real table.
 
@@ -697,7 +741,11 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
     link into that document's own page, so hovering one previews it the
     same way every other link on the page does; the caller
     (dashboard.py, via corpus/commentary.py) works out what
-    belongs here."""
+    belongs here.
+
+    The chips alone, with no label over them: each one names the
+    document it goes to, so a word introducing them said nothing the
+    chips did not already say."""
     if not crossrefs:
         return ""
     chips = "".join(
@@ -706,7 +754,7 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
         f'{_esc(ref["label"])}</a>'
         for ref in crossrefs
     )
-    return f'<div class="crossrefs"><span class="crossrefs-label">Explained in</span>{chips}</div>'
+    return f'<div class="crossrefs">{chips}</div>'
 
 
 # ---------------------------------------------------------------------------
@@ -783,7 +831,7 @@ def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | No
 
 
 def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
-                    version_urls: "dict | None" = None, unavailable: bool = False) -> str:
+                    version_urls: "dict | None" = None) -> str:
     """A provision's history across the versions of the Act held here,
     or "" where it has none.
 
@@ -794,19 +842,12 @@ def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict |
     last one was, so the control answers the first question without
     being opened.
 
-    unavailable says the versions of this Act were read by different
-    parsers, so they cannot be compared yet (see dashboard._timeline).
-    Said plainly rather than by showing nothing: "no changes" and "not
-    comparable" are different answers, and on a register of the law the
-    difference matters.
+    Nothing to show is shown as nothing -- including where the versions
+    held here cannot be compared at all (dashboard._timeline's
+    mixed_parsers, which hands back no entries). A reader of the law has
+    no stake in which parser read which reprint, and a paragraph about
+    it above the section is a paragraph in the way.
     """
-    if unavailable:
-        return (
-            '<div class="timeline-unavailable">How this provision has changed across versions '
-            "can't be shown yet: the versions of this Act held here were read by different "
-            "versions of the parser, and comparing them would report the parsers' own "
-            "disagreements as amendments. Re-parse every version to restore it.</div>"
-        )
     if not entries:
         return ""
     newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
@@ -1021,13 +1062,21 @@ def _section_nav_html(sections: list, match_index: int, base_url: str,
     )
 
 
+def _scope_label(node: dict) -> str:
+    """What a structural level is called on its own: "Part III",
+    "Division 1", "Subdivision (1)" -- the name without its heading,
+    which reading on sets separately from it."""
+    kind = node["type"].capitalize()
+    number = node.get("number")
+    return f"{kind} {_format_num(node['type'], number)}" if number else kind
+
+
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
     timeline: list[dict] | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
-    show_review_badge: bool = True, timeline_unavailable: bool = False,
-    notice: "str | None" = None,
+    show_review_badge: bool = True, notice: "str | None" = None,
 ) -> str | None:
     """Renders the Section whose assign_filenames-computed id matches
     section_slug (the same string render_index links to), or None if no
@@ -1101,19 +1150,25 @@ def render_section(
     # {base_url}/#{fragment} form _build_linkifier_html builds for prose
     # "Part 3" references, so the two cannot disagree about where a Part
     # lives.
-    # How far reading on can carry, and what to call the end of it.
+    # Where this provision sits, whole: every structural level above it,
+    # outermost first. Reading on compares one provision's chain with the
+    # next one's to say what ended and what began (static/site/readon.js)
+    # -- which needs the whole chain, not the innermost level of it,
+    # because a section can end a Division and its Part at once and a
+    # single scope can only report one of the two.
     #
-    # A Division, because that is the unit an Act is written in: the
-    # provisions inside one are meant to be read together, and the
-    # boundary is the author's own. Falling back to the Part where an Act
-    # has no Divisions, so this is not silently nothing on an Act
-    # structured only by Parts. Neither, and the page stays a page.
-    scope = (next((b for b in reversed(breadcrumb) if b["node"]["type"] == "division"), None)
-             or next((b for b in reversed(breadcrumb) if b["node"]["type"] == "part"), None))
-    scope_attrs = ""
-    if scope is not None:
-        scope_attrs = (f' data-scope="{_esc(scope["eid"])}"'
-                       f' data-scope-label="{_esc(_display_title(scope["node"]["type"], scope["node"].get("number"), scope["node"].get("heading")))}"')
+    # Compared by eid, never by label: every Part of an Act has a
+    # Division 1, so labels repeat and comparing them would miss the
+    # break between one Part's last Division and the next Part's first.
+    # Label and heading stay apart because the marker and the header set
+    # them differently.
+    scopes = [
+        {"id": b["eid"],
+         "label": _scope_label(b["node"]),
+         "heading": b["node"].get("heading") or ""}
+        for b in breadcrumb
+    ]
+    scope_attrs = f' data-scopes="{_esc(json.dumps(scopes))}"' if scopes else ""
     # Everything one provision is, in one element, so reading on can lift
     # the next one out of its own page and set it down after this. The
     # page around it -- the reading bar, the outline, the nav below -- is
@@ -1144,8 +1199,7 @@ def render_section(
             superseded.get("version"), superseded.get("current"),
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
-    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls,
-                               unavailable=timeline_unavailable))
+    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
     out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads the way the Act itself does: each provision
@@ -1166,12 +1220,23 @@ def render_section(
         '<button type="button" class="copy-section" id="copy-section-btn">Copy section</button>'
     )
     out.append('<div class="provisions">')
-    for unit in _iter_body_units(tree_node):
+    # Materialised rather than walked, because a note's own heading is
+    # decided by how many notes follow it (see _caption_html).
+    units = list(_iter_body_units(tree_node))
+    for i, unit in enumerate(units):
         unit_tree_node = unit["tree_node"]
         unit_node = unit_tree_node["node"]
         key = (unit_tree_node["eid"], unit["clause_index"])
         slug = slugs.get(key)
         id_attr = f' id="{_esc(slug)}"' if slug else ""
+
+        caption = _caption_html(units, i)
+        if caption:
+            # Its own empty margin cell, for the same reason every
+            # provision has one: the two columns are auto-placed rows of
+            # one grid.
+            out.append(caption)
+            out.append('<div class="prov-notes"></div>')
 
         if unit_node["type"] == "table":
             out.append(_table_html(
@@ -1438,15 +1503,20 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
                 subtitle = page_title(node)
         else:
             base_depth = 0
+            start = 0
             selected = units
 
         truncated = len(selected) > _PREVIEW_MAX_UNITS
         selected = selected[:_PREVIEW_MAX_UNITS]
         html_bits, chars = [], 0
-        for unit in selected:
+        for offset, unit in enumerate(selected):
             if chars >= _PREVIEW_MAX_CHARS:
                 truncated = True
                 break
+            # The card sets a note the way the page does, heading and
+            # all: a preview that quietly dropped it would show the note
+            # as the provision's own words.
+            html_bits.append(_caption_html(units, start + offset, base_depth))
             html_bits.append(_preview_prov_html(unit, base_depth))
             chars += len(unit["text"] or unit["header_text"] or "")
         return {"document": act_title, "title": title, "subtitle": subtitle, "html": "".join(html_bits), "truncated": truncated}

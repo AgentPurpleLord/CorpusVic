@@ -84,8 +84,7 @@ def render_section(parsed, slug):
     return html_view.render_section(
         parsed, "Crimes Act 1958", "/browse/crimes-act", slug,
         crossrefs=[], amendment_index={}, timeline=[], version_urls={},
-        superseded=None, version_dates={}, show_review_badge=False,
-        timeline_unavailable=False, notice=None)
+        superseded=None, version_dates={}, show_review_badge=False, notice=None)
 
 
 def render_index(parsed):

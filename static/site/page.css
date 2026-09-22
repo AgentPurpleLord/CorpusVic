@@ -156,6 +156,23 @@ a:hover { text-decoration: underline; }
   text-align: left;
   font-size: 0.94em;
 }
+/* A note or an example, set the way the Act prints one: headed, and in
+   smaller type than the law it hangs off. The heading is put back by
+   html_view._caption_html -- the parser reads the bold "Note" line to
+   find the thing and doesn't keep the word -- and without it, and without
+   this, a note read as one more paragraph of the provision. */
+.prov-caption {
+  font-family: var(--sans); font-weight: 700; font-size: 12.5px;
+  letter-spacing: 0.02em;
+  margin-top: 14px; margin-bottom: 4px;
+}
+.prov-note > .prov-text,
+.prov-example > .prov-text {
+  font-size: 0.9em;
+  text-align: left;
+}
+.prov-note, .prov-example { margin-bottom: 8px; }
+
 .prov-heading {
   display: block;
   font-family: var(--sans); font-weight: 600; font-size: 14px;
@@ -236,7 +253,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    the EM say about this?") is one a reader wants answered without
    leaving the section. */
 .crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
-.crossrefs-label { font-size: 11.5px; color: var(--muted); }
 .crossref {
   font-size: 11.5px; padding: 2px 9px; border-radius: 0;
   border: 1px solid var(--border); background: var(--panel); color: var(--fg);
@@ -271,13 +287,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
 .tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
 .tl-note { display: block; }
-/* "Not comparable yet" is not "nothing changed" -- see
-   render_timeline. Set as a quiet notice rather than a warning: it is
-   about this tool's own state, not about the law. */
-.timeline-unavailable {
-  font-family: var(--sans); font-size: 12.5px; color: var(--muted);
-  border-left: 2px solid var(--border); padding: 6px 10px; margin: 0 0 14px;
-}
 .tl-diff {
   font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
   max-height: 20em; overflow-y: auto;
