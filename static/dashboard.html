@@ -458,10 +458,25 @@
            decisions describe provisions that no longer exist in that
            shape -- and then resetting them one at a time is the only
            other way out. -->
-      <label id="parse-discard-label" style="display:none">
-        <input type="checkbox" id="parse-discard-checkbox" style="width:auto; margin-right:6px;">
-        Start the review again &mdash; discard every stored decision for this document
-      </label>
+      <div id="parse-mode-group" style="display:none">
+        <label style="display:flex">
+          <input type="radio" name="mode" value="carry" checked style="width:auto; margin-right:6px;">
+          Carry my review across &mdash; anything the parser now reads differently comes back for another look
+        </label>
+        <label style="display:flex">
+          <input type="radio" name="mode" value="keep" style="width:auto; margin-right:6px;">
+          Re-parse only what I haven't approved &mdash; approved provisions keep their text and their tick
+        </label>
+        <label style="display:flex">
+          <input type="radio" name="mode" value="discard" style="width:auto; margin-right:6px;">
+          Start the review again &mdash; discard every stored decision for this document
+        </label>
+      </div>
+      <div id="parse-keep-note" class="warning" style="display:none">
+        A flagged piece is re-read from the new parse, so its stored wording is replaced &mdash; that is
+        what makes an improved parse visible for the pieces you marked as wrong. It stays flagged and
+        unreviewed, so it is still in your queue.
+      </div>
       <div id="parse-discard-note" class="warning" style="display:none">
         Accepted pieces, flags, link annotations, independent assessments and AI scan findings for this
         document will be deleted. This cannot be undone. The log of past corrections and your own custom
@@ -1419,25 +1434,31 @@ function openParseModal(slug) {
   const warn = document.getElementById("parse-warning");
   const confirmLabel = document.getElementById("parse-confirm-label");
   const confirmCheckbox = document.getElementById("parse-confirm-checkbox");
-  const discardLabel = document.getElementById("parse-discard-label");
-  const discardCheckbox = document.getElementById("parse-discard-checkbox");
+  const modeGroup = document.getElementById("parse-mode-group");
   const discardNote = document.getElementById("parse-discard-note");
+  const keepNote = document.getElementById("parse-keep-note");
+  const keepAcceptedWarning = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. `
+    + "Everything you have approved keeps its text and its tick, even where this parse reads it "
+    + "differently. Everything else -- flagged or never reviewed -- is re-read from the new parse.";
   confirmCheckbox.checked = false;
-  discardCheckbox.checked = false;
   discardNote.style.display = "none";
-  // Only offered where there is something to discard.
-  discardLabel.style.display = s.parsed && reviewed > 0 ? "flex" : "none";
-  discardCheckbox.onchange = () => {
-    discardNote.style.display = discardCheckbox.checked ? "block" : "none";
-    // A re-parse that keeps the work and one that throws it away are
-    // different enough decisions that the confirmation has to say which
-    // it is being given for.
-    confirmCheckbox.checked = false;
-    warn.textContent = discardCheckbox.checked
-      ? `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Every one of those decisions `
-        + "will be deleted and the Act will come back with nothing reviewed at all."
-      : keepWarning;
-  };
+  keepNote.style.display = "none";
+  // Only offered where there is review work for the choice to be about.
+  modeGroup.style.display = s.parsed && reviewed > 0 ? "block" : "none";
+  modeGroup.querySelectorAll("input[name=mode]").forEach((radio) => {
+    radio.checked = radio.value === "carry";
+    radio.onchange = () => {
+      discardNote.style.display = radio.value === "discard" ? "block" : "none";
+      keepNote.style.display = radio.value === "keep" ? "block" : "none";
+      // These are different enough decisions that the confirmation has to
+      // say which one it is being given for.
+      confirmCheckbox.checked = false;
+      warn.textContent = radio.value === "discard"
+        ? `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Every one of those decisions `
+          + "will be deleted and the Act will come back with nothing reviewed at all."
+        : radio.value === "keep" ? keepAcceptedWarning : keepWarning;
+    };
+  });
   if (s.parsed && reviewed > 0) {
     warn.style.display = "block";
     warn.textContent = keepWarning;
@@ -1470,7 +1491,9 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
   try {
     const fd = new FormData(form);
     fd.set("confirm", document.getElementById("parse-confirm-checkbox").checked ? "true" : "false");
-    fd.set("discard", document.getElementById("parse-discard-checkbox").checked ? "true" : "false");
+    const mode = document.querySelector("#parse-mode-group input[name=mode]:checked");
+    fd.set("mode", mode ? mode.value : "carry");
+    fd.delete("discard");
     const res = await fetch(`api/acts/${slug}/reparse`, { method: "POST", body: fd });
     const data = await res.json();
     if (res.status === 409) {

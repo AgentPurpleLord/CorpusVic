@@ -277,6 +277,30 @@ def test_build_parse_command_includes_profile_and_page_range_when_given():
     ]
 
 
+# Re-parsing only what nobody approved: the mode has to reach the parser,
+# because the whole difference it makes is decided there (see
+# corpus/parsing/reparse.py). A mode the dashboard swallows would look
+# exactly like a mode that did nothing.
+
+def test_keeping_approved_work_is_asked_for_on_the_command_line():
+    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "", "", "", True)
+    assert cmd[-1] == "--keep-accepted"
+
+
+def test_and_is_not_asked_for_otherwise():
+    """The default re-parse is unchanged -- it still withdraws acceptance
+    from wording nobody has read."""
+    cmd = dashboard._build_parse_command(Path("acts/x.pdf"), "act", "", "", "")
+    assert "--keep-accepted" not in cmd
+
+
+def test_an_em_takes_no_notice_of_it():
+    """run_em_pipeline has no such flag; handing it one would fail the
+    parse rather than ignore it."""
+    cmd = dashboard._build_parse_command(Path("acts/x-em.pdf"), "em", "", "", "", True)
+    assert "--keep-accepted" not in cmd
+
+
 def test_find_source_pdf_matches_by_slug(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     (tmp_path / "acts").mkdir()
@@ -1571,3 +1595,45 @@ def test_a_browse_page_carries_no_search_box(monkeypatch, tmp_path):
 
     assert "contents" in body
     assert "sitesearch" not in body
+
+
+# The endpoint's own reading of which mode was asked for. Worth pinning
+# separately from the command it builds: the 409 is the last thing that
+# describes the change before it happens, and describing the wrong one is
+# how somebody confirms something they did not mean.
+
+def _reparse(monkeypatch, tmp_path, **form):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "acts").mkdir(exist_ok=True)
+    (tmp_path / "acts" / "demo-act.pdf").write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(dashboard, "act_status",
+                        lambda slug: {"parsed": True, "reviewed_units": 7, "unit_count": 9})
+    return TestClient(dashboard.app).post("/api/acts/demo-act/reparse", data=form)
+
+
+def test_keeping_approved_work_still_asks_before_it_runs(monkeypatch, tmp_path):
+    """It changes less than the other two, but it still rewrites every
+    unapproved row."""
+    res = _reparse(monkeypatch, tmp_path, mode="keep")
+
+    assert res.status_code == 409
+    detail = res.json()["detail"]
+    assert "keeps its text and its tick" in detail
+    assert "re-read from the new parse" in detail
+
+
+def test_the_old_discard_flag_still_means_discard(monkeypatch, tmp_path):
+    """Sent by anything that predates the three-way choice."""
+    res = _reparse(monkeypatch, tmp_path, discard="true")
+
+    assert res.status_code == 409
+    assert "cannot be undone" in res.json()["detail"]
+
+
+def test_asking_for_a_mode_that_does_not_exist_is_refused(monkeypatch, tmp_path):
+    """Rather than quietly falling back to one of the real ones."""
+    res = _reparse(monkeypatch, tmp_path, mode="keep-everything-forever")
+
+    assert res.status_code == 400

@@ -466,3 +466,115 @@ def test_reparsing_the_very_same_parse_leaves_structural_edits_alone(tmp_path, m
 
     assert apply_remap("crimes-act", nodes, group_into_units(nodes)) is None
     assert set(load_structure_edits("crimes-act")) == {"s1"}
+
+
+# ---------------------------------------------------------------------
+# Re-parsing only what nobody approved
+# ---------------------------------------------------------------------
+# Improving the parser used to cost a slice of finished review: every
+# provision the new parser read differently had its acceptance withdrawn,
+# including ones somebody had read word for word and approved. And a
+# provision *flagged* as wrongly parsed kept showing its old text for
+# ever, because a stored row overrides the parser output whether or not
+# anyone accepted it -- so the improved parse never surfaced for exactly
+# the provisions marked as needing it.
+
+def _rewritten(nodes: list[dict]) -> list[dict]:
+    """The same Act, with the parser now reading section 2 differently."""
+    changed = [dict(n) for n in nodes]
+    changed[2] = dict(changed[2], text="This Act comes into operation on 1 July.")
+    return changed
+
+
+def test_an_approved_provision_keeps_its_acceptance():
+    nodes = _act()
+    rows = [_reviewed(nodes[2], 2)]
+
+    remapped, report = remap_verified(rows, _rewritten(nodes), keep_accepted=True)
+
+    assert remapped[0]["verified_at"] == "2024-01-01T00:00:00+00:00"
+    assert not remapped[0].get("needs_followup")
+    assert report["kept"] == 1
+    assert report["text_changed"] == 0
+
+
+def test_its_own_words_are_what_it_keeps():
+    """The reviewer's text is what every reader shows, and it stays the
+    reviewer's -- this mode does not quietly adopt the new parse for a
+    provision somebody approved."""
+    nodes = _act()
+    rows = [_reviewed(nodes[2], 2)]
+
+    remapped, _ = remap_verified(rows, _rewritten(nodes), keep_accepted=True)
+
+    assert remapped[0]["text"] == "This Act comes into operation on 1 January."
+
+
+def test_the_default_still_withdraws_acceptance():
+    """The safe behaviour is not quietly changed for every existing
+    caller: without asking, words nobody read do not keep a tick."""
+    nodes = _act()
+    rows = [_reviewed(nodes[2], 2)]
+
+    remapped, report = remap_verified(rows, _rewritten(nodes))
+
+    assert "verified_at" not in remapped[0]
+    assert remapped[0]["needs_followup"] is True
+    assert report["text_changed"] == 1
+    assert report["kept"] == 0
+
+
+def test_a_flagged_provision_is_re_read_from_the_new_parse():
+    """The half that was invisible: a flagged row overrode the parse, so
+    improving the parser changed nothing a reader could see."""
+    nodes = _act()
+    flagged = dict(nodes[2], _source_node_index=2, _node_id="s2", needs_followup=True)
+    flagged.pop("verified_at", None)
+
+    remapped, report = remap_verified([flagged], _rewritten(nodes), keep_accepted=True)
+
+    assert remapped[0]["text"] == "This Act comes into operation on 1 July."
+    assert report["refreshed"] == 1
+
+
+def test_a_flagged_provision_stays_in_the_queue():
+    nodes = _act()
+    flagged = dict(nodes[2], _source_node_index=2, _node_id="s2", needs_followup=True)
+
+    remapped, _ = remap_verified([flagged], _rewritten(nodes), keep_accepted=True)
+
+    assert remapped[0]["needs_followup"] is True
+    assert "verified_at" not in remapped[0]
+
+
+def test_a_flagged_provision_keeps_its_old_text_by_default():
+    """Stated so the change is visible: this is what it did before, and
+    still does unless the mode is asked for."""
+    nodes = _act()
+    flagged = dict(nodes[2], _source_node_index=2, _node_id="s2", needs_followup=True)
+
+    remapped, _ = remap_verified([flagged], _rewritten(nodes))
+
+    assert remapped[0]["text"] == "This Act comes into operation on 1 January."
+
+
+def test_an_orphan_is_still_kept_and_marked():
+    """Somebody's work is never deleted, whichever mode this runs in."""
+    nodes = _act()
+    rows = [_reviewed(nodes[3], 3)]
+    without_definitions = nodes[:3]
+
+    remapped, report = remap_verified(rows, without_definitions, keep_accepted=True)
+
+    assert remapped[0]["_orphaned"] is True
+    assert report["orphaned"] == 1
+
+
+def test_an_unchanged_approved_provision_is_untouched():
+    nodes = _act()
+    rows = [_reviewed(nodes[2], 2)]
+
+    remapped, report = remap_verified(rows, nodes, keep_accepted=True)
+
+    assert remapped[0]["verified_at"] == "2024-01-01T00:00:00+00:00"
+    assert report["kept"] == 0 and report["refreshed"] == 0

@@ -93,6 +93,10 @@ def main():
                     help="parse with the built-in patterns even if a profile exists for this document")
     ap.add_argument("--start-page", type=int, default=None, help="1-indexed; default: auto-detect end of Table of Provisions")
     ap.add_argument("--end-page", type=int, default=None)
+    ap.add_argument("--keep-accepted", action="store_true",
+                    help="re-parse only what nobody has approved: an approved provision keeps its "
+                         "text and its acceptance even where this parse reads it differently, and a "
+                         "flagged or unreviewed one is re-read from this parse")
     args = ap.parse_args()
 
     pdf_path = Path(args.pdf_path)
@@ -221,7 +225,7 @@ def main():
     # and a parser change that adds or re-splits one node shifts every
     # position after it. Move the rows onto the provisions they actually
     # describe instead, before anything reads them again.
-    remap = apply_remap(act_slug, nodes, group_into_units(nodes))
+    remap = apply_remap(act_slug, nodes, group_into_units(nodes), keep_accepted=args.keep_accepted)
     if remap is not None:
         print(f"Review progress: {describe_remap(remap)}")
         for label in remap["changed"][:5]:

@@ -1688,7 +1688,8 @@ def _repo_relative(path: Path) -> str:
         return str(path)  # outside the repo entirely -- nothing relative to say
 
 
-def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: str, end_page: str) -> list[str]:
+def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: str, end_page: str,
+                         keep_accepted: bool = False) -> list[str]:
     """Shared by new_act (a freshly uploaded PDF) and reparse_act (an
     already-uploaded one, re-run to pick up a profile or to regenerate
     after a parser change) -- same options either way, only which PDF path
@@ -1703,6 +1704,8 @@ def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: st
         cmd += ["--start-page", start_page.strip()]
     if end_page.strip():
         cmd += ["--end-page", end_page.strip()]
+    if keep_accepted:
+        cmd.append("--keep-accepted")
     return cmd
 
 
@@ -1776,6 +1779,7 @@ def reparse_act(
     end_page: str = Form(""),
     confirm: str = Form(""),
     discard: str = Form(""),
+    mode: str = Form(""),
 ):
     """Re-runs the pipeline against an already-uploaded PDF -- no new
     upload needed -- so an Act can be re-parsed with a profile it was
@@ -1794,7 +1798,19 @@ def reparse_act(
     work. Refuses (409) unless `confirm` is set, once there's any
     reviewed progress to re-anchor.
 
-    `discard` throws that progress away instead of carrying it across.
+    `mode` picks between three answers to "what happens to my review":
+
+      carry (default) -- re-anchor everything, and withdraw acceptance
+        wherever the parser now reads a provision differently.
+      keep -- re-parse only what nobody approved. An approved provision
+        keeps its text and its tick; a flagged or unreviewed one is
+        re-read from the new parse, which is the only way an improved
+        parse becomes visible for a piece flagged as wrongly parsed (its
+        stored row overrides the parser output either way -- see
+        review.build_current_nodes).
+      discard -- throw the review work away.
+
+    `discard` as a boolean predates `mode` and still means mode=discard.
     Re-anchoring is the right default -- it is somebody's work -- but it
     is the wrong answer after a parser change big enough that the old
     decisions describe provisions that no longer exist in that shape, and
@@ -1809,7 +1825,13 @@ def reparse_act(
     if pdf_path is None:
         raise HTTPException(404, f"No source PDF found for {slug!r} in acts/ -- add it via 'Add Act/Bill/EM' first.")
 
-    wants_discard = discard.strip().lower() == "true"
+    # "discard" predates the third mode and is still what the older
+    # callers send; it means the same thing as mode=discard.
+    chosen = (mode.strip().lower() or ("discard" if discard.strip().lower() == "true" else "carry"))
+    if chosen not in ("carry", "keep", "discard"):
+        raise HTTPException(400, f"Unknown re-parse mode {chosen!r} -- one of carry, keep, discard.")
+    wants_discard = chosen == "discard"
+    keep_accepted = chosen == "keep"
     status = act_status(slug)
     reviewed = status.get("reviewed_units") or 0
     if status["parsed"] and reviewed > 0 and confirm.strip().lower() != "true":
@@ -1824,12 +1846,16 @@ def reparse_act(
                 "Re-parsing regenerates the raw structure from the PDF; your reviewed pieces are carried "
                 "across onto the provisions they describe, but any whose wording the parser now reads "
                 "differently will have their acceptance withdrawn for you to look at again. Confirm to re-parse."
+            ) if not keep_accepted else (
+                "Everything you have approved keeps its text and its tick, even where this parse reads it "
+                "differently. Everything else -- flagged or never reviewed -- is re-read from the new parse, "
+                "which replaces the stored wording of any flagged piece. Confirm to re-parse."
             ),
         )
 
     cleared = db.clear_act_review(slug) if wants_discard else {}
     _act_title_cache.pop(slug, None)
-    cmd = _build_parse_command(pdf_path, kind, profile, start_page, end_page)
+    cmd = _build_parse_command(pdf_path, kind, profile, start_page, end_page, keep_accepted)
     ok, returncode, log = _run_parse_subprocess(cmd)
     if ok:
         # The parse this Act's review.py process (if any) loaded into
@@ -1837,7 +1863,8 @@ def reparse_act(
         # "Review" click rather than let it keep serving the old node
         # list against a database that may no longer line up with it.
         _kill_review_process(slug)
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "cleared": cleared}
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log,
+            "cleared": cleared, "mode": chosen}
 
 
 @app.post("/api/acts/{slug}/export/akn")
