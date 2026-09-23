@@ -50,7 +50,7 @@ def unit_key(nodes: list[dict], root: int, keys_by_index: dict) -> tuple:
 
 
 def unit_state(nodes: list[dict], units: list[list[int]], rows_by_index: dict, finished,
-               edits: "dict | None" = None) -> dict:
+               edits: "dict | None" = None, raw: "dict | None" = None) -> dict:
     """What one version's own review says about each of its units.
 
     `nodes` is the raw parse with ids, `units` the review units (as
@@ -63,7 +63,8 @@ def unit_state(nodes: list[dict], units: list[list[int]], rows_by_index: dict, f
     """
     edits = edits or {}
     edited = set(edits) | {e.get("after") for e in edits.values() if e.get("after") is not None}
-    keys_by_index = {p["node_index"]: key for key, p in diffing.provisions(nodes).items()}
+    raw = raw or raw_index(nodes)
+    keys_by_index = raw["keys_by_index"]
     state = {"units": {}, "key_of_id": {}, "raw": {}, "reviewed": set(), "blocked": set()}
     for u, unit in enumerate(units):
         root = unit[0]
@@ -80,7 +81,7 @@ def unit_state(nodes: list[dict], units: list[list[int]], rows_by_index: dict, f
         for i in parsed:
             if nodes[i].get("id"):
                 state["key_of_id"][nodes[i]["id"]] = key
-        state["raw"][key] = (nodes[root].get("heading"), diffing.unit_text(nodes, root))
+        state["raw"][key] = (nodes[root].get("heading"), raw["text"](root))
         if rows and (len(rows) == len(parsed) or u in finished):
             state["reviewed"].add(key)
         if any(i in edited for i in unit):
@@ -88,13 +89,48 @@ def unit_state(nodes: list[dict], units: list[list[int]], rows_by_index: dict, f
     return state
 
 
+def raw_index(nodes: list[dict]) -> dict:
+    """What a parse says before anybody reviews it: which provision each
+    root is, and each unit's words. Memoised per root, since most units
+    are asked about once."""
+    texts: dict = {}
+
+    def text(root: int) -> str:
+        if root not in texts:
+            texts[root] = diffing.unit_text(nodes, root)
+        return texts[root]
+
+    return {"keys_by_index": {p["node_index"]: key for key, p in diffing.provisions(nodes).items()},
+            "text": text}
+
+
+# {parse path -> (file stamp, parse, raw_index)}. A parse changes only
+# when it is re-run, and a review save -- which is what invalidates
+# everything built on top of this -- never touches it; reading and naming
+# five reprints again after every accepted provision was most of the cost
+# of the history.
+_parse_cache: dict = {}
+
+
+def _load_parse(path: Path) -> tuple[dict, dict]:
+    st = path.stat()
+    stamp = (st.st_mtime_ns, st.st_size)
+    cached = _parse_cache.get(str(path))
+    if cached and cached[0] == stamp:
+        return cached[1], cached[2]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    annotate_ids(data["nodes"], data.get("hierarchy") or None)
+    raw = raw_index(data["nodes"])
+    _parse_cache[str(path)] = (stamp, data, raw)
+    return data, raw
+
+
 def load_state(slug: str, base_dir=None) -> dict:
     """unit_state for one version, read the way review.py reads it."""
     from corpus.review import review
 
-    data = json.loads((Path(base_dir or ".") / "data" / "parsed" / f"{slug}.json").read_text(encoding="utf-8"))
+    data, raw = _load_parse(Path(base_dir or ".") / "data" / "parsed" / f"{slug}.json")
     nodes, unattached, fingerprint = data["nodes"], data.get("unattached_notes", []), data.get("fingerprint")
-    annotate_ids(nodes, data.get("hierarchy") or None)
     edits = review.load_structure_edits(slug, fingerprint, base_dir, nodes=nodes)
     node_at = review._node_at(nodes, edits)
     _order, units = review.order_and_units(len(nodes), edits, node_at)
@@ -102,7 +138,7 @@ def load_state(slug: str, base_dir=None) -> dict:
     rows_by_index, _unplaced = review.verified_by_index(verified, review.names_by_index(nodes, edits))
     finished = (review.finished_units(units, list(verified), markers_are_complete=True)
                 if review.positions_are_trustworthy(slug, fingerprint) else set())
-    state = unit_state(nodes, units, rows_by_index, finished, edits)
+    state = unit_state(nodes, units, rows_by_index, finished, edits, raw)
     state["unattached"] = unattached
     state["links"] = db.load_provision_links(slug, base_dir)
     state["parser_version"] = data.get("parser_version")
