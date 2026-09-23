@@ -1690,7 +1690,9 @@ def _pdf_page(slug: str, page_no: int):
     return doc[page_no - 1], doc.page_count
 
 
-@app.get("/api/docs/{slug}/pages/{page_no}")
+# Digits only: "{page_no}" alone also matches "46.png", and would take the
+# image requests below and refuse them as not a number.
+@app.get("/api/docs/{slug}/pages/{page_no:int}")
 def pdf_page_size(slug: str, page_no: int):
     page, count = _pdf_page(slug, page_no)
     return {"width": page.rect.width, "height": page.rect.height, "page_count": count}
@@ -2091,6 +2093,8 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
             dest = dest.with_name(f"{dest.stem}-v{meta['version']}.pdf")
         dest.parent.mkdir(parents=True, exist_ok=True)
         incoming.rename(dest)
+    except PermissionError as e:
+        raise _not_writable(dest.parent) from e
     finally:
         incoming.unlink(missing_ok=True)
 
@@ -2098,6 +2102,50 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+
+
+def _not_writable(folder: Path) -> HTTPException:
+    # A folder copied onto the server by another user than the dashboard's:
+    # the fix is on the server, so say what it is.
+    user = pwd.getpwuid(os.getuid()).pw_name
+    return HTTPException(500, f"The dashboard (user {user}) may not write to {folder}. On the server: "
+                              f"sudo chown -R {user}:{user} {BASE_DIR / 'acts'}")
+
+
+def _replace_version(work: str, version: int, content: bytes) -> dict:
+    """A held version fetched again -- its PDF missing, or a bad copy.
+    Re-parsed keeping what is approved (the Parse Menu's "keep"): a fresh
+    copy of the same reprint is no reason to withdraw anyone's work."""
+    slug = document_slug(work, version)
+    if slug not in _held(work):
+        raise HTTPException(404, f"Version {version} is not held, so there is nothing to replace.")
+    incoming = BASE_DIR / "acts" / f".incoming-{secrets.token_hex(4)}.pdf"
+    dest = _find_source_pdf(slug) or BASE_DIR / "acts" / work / f"{work}-v{version:03d}.pdf"
+    try:
+        incoming.parent.mkdir(parents=True, exist_ok=True)
+        incoming.write_bytes(content)
+        meta = read_front_matter(incoming)
+        if meta.get("version") != version:
+            raise HTTPException(400, f"The site lists this as version {version}, but the PDF says {meta.get('version')}.")
+        existing = _act_version(slug)
+        if existing.get("act_no") and (str(meta.get("act_no")), meta.get("year")) != (str(existing.get("act_no")), existing.get("year")):
+            raise HTTPException(400, f"This PDF is No. {meta.get('act_no')} of {meta.get('year')}, "
+                                     f"not No. {existing['act_no']} of {existing.get('year')} -- a different Act.")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(incoming, dest)
+    except PermissionError as e:
+        raise _not_writable(dest.parent) from e
+    finally:
+        incoming.unlink(missing_ok=True)
+
+    old = _page_docs.pop(slug, None)   # open on the file just replaced
+    if old is not None:
+        old.close()
+    _kill_work_review_processes(work)
+    _act_title_cache.pop(slug, None)
+    profile = _parse_field(slug, "profile") or ""
+    ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", "", keep_accepted=True))
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "replaced": True}
 
 
 def _site_versions(work: str) -> list[dict]:
@@ -2115,8 +2163,11 @@ def _site_versions(work: str) -> list[dict]:
 def work_versions_available(work: str):
     """What legislation.vic.gov.au holds of this Act, each marked if it is
     held here already."""
-    held = {split_document_slug(s)[1] for s in _held(work)}
-    return {"work": work, "versions": [{**v, "held": v["version"] in held} for v in _site_versions(work)]}
+    held = {split_document_slug(s)[1]: s for s in _held(work)}
+    return {"work": work, "versions": [
+        {**v, "held": v["version"] in held,
+         "pdf_missing": v["version"] in held and _find_source_pdf(held[v["version"]]) is None}
+        for v in _site_versions(work)]}
 
 
 # One fetch at a time for a work, in the background: a parse takes
@@ -2127,9 +2178,10 @@ _version_fetch_lock = threading.Lock()
 
 
 @app.post("/api/works/{work}/versions/fetch/{version}")
-def fetch_work_version(work: str, version: int):
+def fetch_work_version(work: str, version: int, replace: bool = False):
     """Starts fetching one version; GET .../versions/fetch says how it
-    went. One a request, so the page can say how far a long list has got."""
+    went. One a request, so the page can say how far a long list has got.
+    `replace` fetches a held one again (_replace_version)."""
     _held(work)
     with _version_fetch_lock:
         job = _version_fetches.get(work)
@@ -2137,7 +2189,7 @@ def fetch_work_version(work: str, version: int):
             raise HTTPException(409, f"Version {job['version']} is still being fetched.")
         job = {"version": version, "state": "running", "result": None, "error": None}
         _version_fetches[work] = job
-    threading.Thread(target=_fetch_version_job, args=(work, version, job), daemon=True).start()
+    threading.Thread(target=_fetch_version_job, args=(work, version, job, replace), daemon=True).start()
     return job
 
 
@@ -2150,11 +2202,11 @@ def fetch_work_version_status(work: str):
     return job
 
 
-def _fetch_version_job(work: str, version: int, job: dict) -> None:
+def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False) -> None:
     # Whatever goes wrong is the job's answer, in words: an unexpected
     # error would otherwise reach the page only as a failed request.
     try:
-        job["result"] = _fetch_version(work, version)
+        job["result"] = _fetch_version(work, version, replace)
         job["state"] = "done"
     except HTTPException as e:
         job.update(state="failed", error=str(e.detail))
@@ -2164,7 +2216,7 @@ def _fetch_version_job(work: str, version: int, job: dict) -> None:
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
 
 
-def _fetch_version(work: str, version: int) -> dict:
+def _fetch_version(work: str, version: int, replace: bool = False) -> dict:
     """Downloads one version from the site and adds it as an uploaded one
     is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
@@ -2176,6 +2228,8 @@ def _fetch_version(work: str, version: int) -> dict:
         raise HTTPException(502, f"Could not download version {version}: {e}")
     if not content.startswith(b"%PDF"):
         raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
+    if replace:
+        return _replace_version(work, version, content)
     return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
 
 

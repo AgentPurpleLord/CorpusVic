@@ -74,6 +74,7 @@
   #versions-panel .vlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 10px;
          max-height: 220px; overflow-y: auto; padding: 6px; border: 1px solid var(--border); background: var(--bg); }
   #versions-panel small { color: var(--muted); }
+  #versions-panel small.missing { color: var(--flagged); font-weight: 600; }
   #toast { position: fixed; bottom: 16px; right: 16px; background: var(--fg); color: var(--bg); padding: 8px 12px; display: none; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } #list { max-height: 35vh; } .cols { grid-template-columns: 1fr; } }
 </style>
@@ -263,7 +264,8 @@ async function showPdf(key, v, at, page) {
   const pages = [page - 1, page, page + 1].filter((p) => p >= 1 && p <= size.page_count);
   scroll.innerHTML = pages.map((p) => `<div class="stage" data-page="${p}"
       style="width: ${pdfZoom * 100}%; aspect-ratio: ${size.width} / ${size.height}">
-      <img src="${docs(slug)}/pages/${p}.png?zoom=${pdfZoom}" alt="Version ${v}, page ${p}">
+      <img src="${docs(slug)}/pages/${p}.png?zoom=${pdfZoom}" alt="Version ${v}, page ${p}"
+        onerror="this.parentElement.insertAdjacentHTML('beforeend', '<div class=&quot;none&quot; style=&quot;position:absolute;top:40%;width:100%;text-align:center&quot;>This page could not be drawn.</div>')">
       <svg preserveAspectRatio="none" viewBox="0 0 ${size.width} ${size.height}">${hl.filter((r) => r.page === p).map((r) =>
         `<rect class="hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("")}</svg>
       <span class="pno">page ${p}</span></div>`).join("");
@@ -365,26 +367,28 @@ document.getElementById("fetch-versions").onclick = async () => {
   try {
     const data = await jsonOf(await fetch(API + "/versions/available"));
     panel.innerHTML = `<div class="vlist">${data.versions.slice().reverse().map((v) => `<label>
-        <input type="checkbox" value="${v.version}" ${v.held ? "checked disabled" : v.pdf_url ? "" : "disabled"}>
+        <input type="checkbox" value="${v.version}" data-held="${v.held ? 1 : ""}" ${v.pdf_url ? "" : "disabled"}>
         v${v.version} <small>${esc(v.effective || "")}${v.held ? " &middot; held" : v.note ? ` &middot; ${esc(v.note)}` : ""}</small>
+        ${v.pdf_missing ? `<small class="missing">&middot; PDF missing</small>` : ""}
       </label>`).join("")}</div>
-      <div class="decide"><button class="btn primary" id="fetch-ticked">Fetch and parse the ticked versions</button></div>`;
+      <div class="decide"><button class="btn primary" id="fetch-ticked">Fetch and parse the ticked versions</button>
+        <small class="none">A held version ticked is fetched again: its PDF replaced and re-parsed, keeping what you have approved.</small></div>`;
     document.getElementById("fetch-ticked").onclick = fetchTicked;
   } catch (e) { panel.textContent = e.message; }
 };
 
 async function fetchTicked(e) {
   const ticked = [...document.querySelectorAll("#versions-panel input:checked:not(:disabled)")]
-    .map((i) => Number(i.value)).sort((a, b) => a - b);
+    .map((i) => ({ v: Number(i.value), again: !!i.dataset.held })).sort((a, b) => a.v - b.v);
   if (!ticked.length) { toast("Tick the versions to fetch first.", true); return; }
   e.target.disabled = true;
   const log = document.getElementById("log");
   log.style.display = "block";
   log.textContent = "";
-  for (const [n, v] of ticked.entries()) {
-    log.textContent += `v${v} (${n + 1} of ${ticked.length}): downloading and parsing\u2026\n`;
+  for (const [n, { v, again }] of ticked.entries()) {
+    log.textContent += `v${v} (${n + 1} of ${ticked.length}): ${again ? "fetching again" : "downloading"} and parsing\u2026\n`;
     try {
-      let job = await jsonOf(await fetch(`${API}/versions/fetch/${v}`, { method: "POST" }));
+      let job = await jsonOf(await fetch(`${API}/versions/fetch/${v}${again ? "?replace=true" : ""}`, { method: "POST" }));
       while (job.state === "running") {
         await new Promise((r) => setTimeout(r, 3000));
         job = await jsonOf(await fetch(`${API}/versions/fetch`));

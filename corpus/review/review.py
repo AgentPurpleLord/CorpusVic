@@ -1750,7 +1750,8 @@ def _version_doc(version: int) -> fitz.Document:
     return _version_docs[version]
 
 
-@app.get("/api/versions/{version}/pages/{page_no}")
+# Digits only, or it takes the ".png" requests below too.
+@app.get("/api/versions/{version}/pages/{page_no:int}")
 def get_version_page(version: int, page_no: int):
     """A page's size in PDF points, which the boxes drawn over it are
     measured in, and how many pages that version's PDF has."""

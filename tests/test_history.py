@@ -135,7 +135,8 @@ def test_history_review_fetches_the_ticked_versions_one_at_a_time():
     page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
 
     assert 'fetch(API + "/versions/available")' in page
-    assert "for (const [n, v] of ticked.entries())" in page and "fetch(`${API}/versions/fetch/${v}`" in page
+    assert "for (const [n, { v, again }] of ticked.entries())" in page
+    assert '`${API}/versions/fetch/${v}${again ? "?replace=true" : ""}`' in page, "a held version ticked is fetched again"
     assert 'while (job.state === "running")' in page, "a parse outlasts a request, so the job is asked after"
     assert "res.json()" not in page, "every reply read through jsonOf, which reports one that isn't JSON"
 
@@ -212,3 +213,25 @@ def test_each_version_shows_its_pages_scrolled_to_the_piece():
     assert 'showPdf("old", i.from, i.old_at);' in page and 'showPdf("new", i.to, i.new_at);' in page
     assert "/pages/${p}/find?q=" in page and "scroll.scrollTop =" in page
     assert "aspect-ratio: ${size.width} / ${size.height}" in page
+
+
+def test_the_page_images_are_reached_through_the_router(tmp_path, monkeypatch):
+    """The size route once took every ".png" request and refused it, so the
+    panes drew blank pages; calling the functions directly never showed it."""
+    import fitz
+    from fastapi.testclient import TestClient
+    import corpus.web.dashboard as dashboard
+
+    pdf = tmp_path / "v1.pdf"
+    doc = fitz.open()
+    doc.new_page(width=300, height=400).insert_text((40, 200), "A person may appeal.", fontsize=10)
+    doc.save(pdf)
+    monkeypatch.setattr(dashboard, "_find_source_pdf", lambda slug: pdf)
+    monkeypatch.setattr(dashboard, "_DASHBOARD_USERNAME", None)
+    dashboard._page_docs.clear()
+    client = TestClient(dashboard.app)
+
+    assert client.get("/api/docs/act-v1/pages/1").json()["page_count"] == 1
+    image = client.get("/api/docs/act-v1/pages/1.png?zoom=1.5")
+    assert image.status_code == 200 and image.content[:4] == b"\x89PNG"
+    assert client.get("/api/docs/act-v1/pages/1/find", params={"q": "A person may appeal."}).json()["rects"]
