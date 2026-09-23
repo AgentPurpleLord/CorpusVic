@@ -254,6 +254,9 @@
     background: var(--warning-bg); color: var(--warning-fg); border: 1px solid var(--warning-border);
     border-radius: 0; padding: 8px 10px; font-size: 12.5px; margin-bottom: 6px;
   }
+  #parse-versions { border: 1px solid var(--border); max-height: 220px; overflow-y: auto; padding: 2px 8px 8px; }
+  .modal label.parse-version { margin: 6px 0 0; gap: 4px; }
+  .parse-pick { display: flex; gap: 6px; margin-top: 6px; }
   .modal label:has(input[type=checkbox]) {
     display: flex; align-items: center; font-size: 13px; color: var(--fg); margin: 12px 0 0;
   }
@@ -425,12 +428,19 @@
   </div>
 </div>
 
-<!-- Parse / Re-parse an already-uploaded PDF -->
+<!-- Parse menu: one per Act, over whichever of its versions are ticked.
+     Every version gets the same settings, parsed one after another. -->
 <div class="overlay" id="parse-modal">
   <div class="modal">
-    <h2>Parse <span id="parse-slug"></span></h2>
-    <div id="parse-warning" class="warning" style="display:none"></div>
+    <h2>Parse menu &mdash; <span id="parse-work"></span></h2>
     <form id="parse-form">
+      <label>Versions to parse</label>
+      <div id="parse-versions"></div>
+      <div class="parse-pick">
+        <button type="button" class="btn small" onclick="tickParseVersions(true)">All</button>
+        <button type="button" class="btn small" onclick="tickParseVersions(false)">None</button>
+      </div>
+
       <label>Kind</label>
       <select name="kind" id="parse-kind" onchange="onParseKindChange()">
         <option value="act">Act</option>
@@ -447,7 +457,8 @@
         <input type="text" name="profile" list="profile-options" autocomplete="off"
                placeholder="Leave blank to work it out from the document">
 
-        <div class="row">
+        <!-- Pages are one PDF's own, so they are offered only for one. -->
+        <div class="row" id="parse-pages">
           <div>
             <label>Start page (optional)</label>
             <input type="number" name="start_page" min="1">
@@ -490,6 +501,7 @@
         types are kept &mdash; neither is tied to a position in the parse.
       </div>
 
+      <div id="parse-warning" class="warning" style="display:none"></div>
       <label id="parse-confirm-label" style="display:none">
         <input type="checkbox" id="parse-confirm-checkbox" style="width:auto; margin-right:6px;">
         I understand -- replace the existing parse anyway
@@ -786,10 +798,11 @@ function actCardHtml(s) {
   const dlMd = s.markdown_exported
     ? `<a class="btn small" href="api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
 
-  const parseBtnLabel = s.parsed ? "Re-parse…" : "Parse…";
-  const parseBtn = s.has_pdf
-    ? `<button class="btn small" onclick="openParseModal('${s.slug}')">${parseBtnLabel}</button>`
-    : `<button class="btn small" disabled title="No source PDF in acts/">${parseBtnLabel}</button>`;
+  // One menu per Act, over all its versions: the card shows only the
+  // newest, and an older reprint had no way to be re-parsed at all.
+  const parseBtn = ACTS.some((a) => a.work === s.work && a.has_pdf)
+    ? `<button class="btn small" onclick="openParseMenu('${s.work}')">Parse Menu</button>`
+    : `<button class="btn small" disabled title="No source PDF in acts/">Parse Menu</button>`;
 
   // An Act states the date its own parse incorporates amendments to
   // (never "Authorised Version" -- this pipeline's own reading of it,
@@ -1481,115 +1494,139 @@ async function runExport(slug, kind, btn) {
   }
 }
 
-let parseModalSlug = null;
+let parseMenuWork = null;
 
-function openParseModal(slug) {
-  parseModalSlug = slug;
-  const s = ACTS.find((a) => a.slug === slug) || {};
-  document.getElementById("parse-slug").textContent = slug;
+function versionsOf(work) {
+  return ACTS.filter((a) => a.work === work).sort((a, b) => (a.version || 0) - (b.version || 0));
+}
+
+function versionName(s) {
+  return s.version != null ? `v${s.version}` : s.slug;
+}
+
+function tickedVersions() {
+  return [...document.querySelectorAll("#parse-versions input:checked")]
+    .map((box) => ACTS.find((a) => a.slug === box.value)).filter(Boolean);
+}
+
+function tickParseVersions(on) {
+  document.querySelectorAll("#parse-versions input:not(:disabled)").forEach((box) => { box.checked = on; });
+  paintParseMenu();
+}
+
+// `ticked`: the slugs to start ticked -- the newest version, unless the
+// review tool asked for a particular one (see openRequestedReparse).
+function openParseMenu(work, ticked, mode) {
+  parseMenuWork = work;
+  const versions = versionsOf(work);
+  const newest = versions.filter((v) => v.has_pdf).slice(-1).map((v) => v.slug);
+  const start = new Set(ticked || newest);
+  document.getElementById("parse-work").textContent = work;
   document.getElementById("parse-log-wrap").style.display = "none";
   document.getElementById("parse-log").textContent = "";
   document.getElementById("parse-form").reset();
+  document.getElementById("parse-versions").innerHTML = versions.map((v) => {
+    const state = !v.has_pdf ? "no source PDF"
+      : !v.parsed ? "not parsed yet"
+      : `${v.reviewed_units || 0} of ${v.unit_count} units reviewed`;
+    const asAt = v.version_as_at ? ` &middot; as at ${escapeHtml(v.version_as_at)}` : "";
+    return `<label class="parse-version"><input type="checkbox" value="${escapeHtml(v.slug)}"
+        ${v.has_pdf ? "" : "disabled"} ${start.has(v.slug) && v.has_pdf ? "checked" : ""}
+        onchange="paintParseMenu()" style="width:auto; margin-right:6px;">
+      <strong>${escapeHtml(versionName(v))}</strong>${asAt} &middot; ${state}</label>`;
+  }).join("");
+  const latest = versions[versions.length - 1] || {};
+  if (latest.kind) document.getElementById("parse-kind").value = latest.kind;
+  // By name, never the slug: "criminal-procedure-act-v114" is not a
+  // profile, and a parse given it quietly came back worse.
+  if (latest.profile) document.querySelector("#parse-form input[name=profile]").value = latest.profile;
+  document.querySelectorAll("#parse-mode-group input[name=mode]").forEach((radio) => {
+    radio.checked = radio.value === (mode || "carry");
+    radio.onchange = paintParseMenu;
+  });
+  onParseKindChange();
+  paintParseMenu();
+  openModal("parse-modal");
+}
 
-  const reviewed = s.reviewed_units || 0;
-  const keepWarning = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Re-parsing `
-    + "regenerates the raw structure from the PDF. Your reviewed pieces are carried across onto the "
-    + "provisions they describe, but any whose wording the parser now reads differently will have their "
-    + "acceptance withdrawn for you to look at again.";
+// What the ticked versions and the chosen mode mean for review work
+// already done -- named per version, since that is where the work is.
+function paintParseMenu() {
+  const ticked = tickedVersions();
+  const mode = (document.querySelector("#parse-mode-group input[name=mode]:checked") || {}).value || "carry";
+  const reviewed = ticked.filter((v) => v.parsed && (v.reviewed_units || 0) > 0);
+  document.getElementById("parse-pages").style.display = ticked.length === 1 ? "" : "none";
+  document.getElementById("parse-mode-group").style.display = reviewed.length ? "block" : "none";
+  document.getElementById("parse-keep-note").style.display = reviewed.length && mode === "keep" ? "block" : "none";
+  document.getElementById("parse-discard-note").style.display = reviewed.length && mode === "discard" ? "block" : "none";
   const warn = document.getElementById("parse-warning");
   const confirmLabel = document.getElementById("parse-confirm-label");
-  const confirmCheckbox = document.getElementById("parse-confirm-checkbox");
-  const modeGroup = document.getElementById("parse-mode-group");
-  const discardNote = document.getElementById("parse-discard-note");
-  const keepNote = document.getElementById("parse-keep-note");
-  const keepAcceptedWarning = `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. `
-    + "Everything you have approved keeps its text and its tick, even where this parse reads it "
-    + "differently. Everything else -- flagged or never reviewed -- is re-read from the new parse.";
-  confirmCheckbox.checked = false;
-  discardNote.style.display = "none";
-  keepNote.style.display = "none";
-  // Only offered where there is review work for the choice to be about.
-  modeGroup.style.display = s.parsed && reviewed > 0 ? "block" : "none";
-  modeGroup.querySelectorAll("input[name=mode]").forEach((radio) => {
-    radio.checked = radio.value === "carry";
-    radio.onchange = () => {
-      discardNote.style.display = radio.value === "discard" ? "block" : "none";
-      keepNote.style.display = radio.value === "keep" ? "block" : "none";
-      // These are different enough decisions that the confirmation has to
-      // say which one it is being given for.
-      confirmCheckbox.checked = false;
-      warn.textContent = radio.value === "discard"
-        ? `${slug} has ${reviewed} of ${s.unit_count} unit(s) already reviewed. Every one of those decisions `
-          + "will be deleted and the Act will come back with nothing reviewed at all."
-        : radio.value === "keep" ? keepAcceptedWarning : keepWarning;
-    };
-  });
-  if (s.parsed && reviewed > 0) {
+  const confirmBox = document.getElementById("parse-confirm-checkbox");
+  // A confirmation is given for one decision; changing the mode is a
+  // different one.
+  if (confirmLabel.dataset.mode !== mode) confirmBox.checked = false;
+  confirmLabel.dataset.mode = mode;
+  if (reviewed.length) {
+    const which = reviewed.map((v) => `${versionName(v)} (${v.reviewed_units} of ${v.unit_count} units)`).join(", ");
+    warn.textContent = `Already reviewed: ${which}. ` + (
+      mode === "discard" ? "Every one of those decisions will be deleted."
+      : mode === "keep" ? "Everything you approved keeps its text and its tick; everything else is re-read from the new parse."
+      : "Reviewed pieces are carried across, but any the parser now reads differently come back for another look.");
     warn.style.display = "block";
-    warn.textContent = keepWarning;
     confirmLabel.style.display = "flex";
   } else {
     warn.style.display = "none";
     confirmLabel.style.display = "none";
   }
-  // Pre-fill the profile this document should be parsed with, by name.
-  // Leaving it blank is fine now (run_pipeline works the same name out
-  // for itself), but filling it with the *slug* was not: a versioned Act
-  // got "criminal-procedure-act-v114", which is not a profile that
-  // exists, and the parse quietly came back worse.
-  if (s.profile) document.querySelector("#parse-form input[name=profile]").value = s.profile;
-  onParseKindChange();
-  openModal("parse-modal");
+  const btn = document.getElementById("parse-submit-btn");
+  btn.disabled = !ticked.length;
+  btn.textContent = ticked.length > 1 ? `Parse ${ticked.length} versions` : "Parse";
 }
 
+// One version after another, never at once: each is a full pipeline run,
+// and the log has to say which version said what.
 document.getElementById("parse-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
-  const slug = parseModalSlug;
+  const ticked = tickedVersions();
+  if (!ticked.length) return;
   const submitBtn = document.getElementById("parse-submit-btn");
   submitBtn.disabled = true;
-  submitBtn.textContent = "Parsing...";
   const logWrap = document.getElementById("parse-log-wrap");
   const logEl = document.getElementById("parse-log");
   logWrap.style.display = "block";
-  logEl.textContent = "Running -- this can take a little while for a large PDF...";
-  try {
-    const fd = new FormData(form);
-    fd.set("confirm", document.getElementById("parse-confirm-checkbox").checked ? "true" : "false");
-    const mode = document.querySelector("#parse-mode-group input[name=mode]:checked");
-    fd.set("mode", mode ? mode.value : "carry");
-    fd.delete("discard");
-    const res = await fetch(`api/acts/${slug}/reparse`, { method: "POST", body: fd });
-    const data = await res.json();
-    if (res.status === 409) {
-      logWrap.style.display = "none";
-      const warn = document.getElementById("parse-warning");
-      warn.style.display = "block";
-      warn.textContent = data.detail;
-      document.getElementById("parse-confirm-label").style.display = "flex";
-      toast("Check the box to confirm replacing the existing parse.", true);
-      return;
+  logEl.textContent = "";
+  const confirmed = document.getElementById("parse-confirm-checkbox").checked;
+  const mode = (document.querySelector("#parse-mode-group input[name=mode]:checked") || {}).value || "carry";
+  const failed = [];
+  for (const [n, v] of ticked.entries()) {
+    submitBtn.textContent = `Parsing ${versionName(v)} (${n + 1} of ${ticked.length})...`;
+    const head = `${logEl.textContent ? "\n\n" : ""}== ${versionName(v)} ==\n`;
+    logEl.textContent += head + "Running...";
+    let out;
+    try {
+      const fd = new FormData(form);
+      if (ticked.length > 1) { fd.delete("start_page"); fd.delete("end_page"); }
+      fd.set("confirm", confirmed ? "true" : "false");
+      fd.set("mode", mode);
+      fd.delete("discard");
+      const res = await fetch(`api/acts/${v.slug}/reparse`, { method: "POST", body: fd });
+      const data = await res.json();
+      const cleared = Object.entries(data.cleared || {});
+      out = (cleared.length ? `Discarded review data: ${cleared.map(([t, k]) => `${k} ${t}`).join(", ")}\n` : "")
+        + (data.log || data.detail || "(no output)");
+      if (!data.ok) failed.push(versionName(v));
+    } catch (err) {
+      out = String(err);
+      failed.push(versionName(v));
     }
-    const cleared = Object.entries(data.cleared || {});
-    logEl.textContent =
-      (cleared.length ? `Discarded review data: ${cleared.map(([t, n]) => `${n} ${t}`).join(", ")}\n\n` : "")
-      + (data.log || data.detail || "(no output)");
-    if (data.ok) {
-      toast(cleared.length ? `Parsed ${slug} -- review data discarded` : `Parsed ${slug}`);
-      closeModal("parse-modal");
-      loadActs();
-    } else if (res.ok) {
-      toast(`Parsing ${slug} failed -- see log below`, true);
-    } else {
-      toast(data.detail || "Request failed", true);
-    }
-  } catch (err) {
-    logEl.textContent = String(err);
-    toast(String(err), true);
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Parse";
+    logEl.textContent = logEl.textContent.slice(0, -"Running...".length) + out;
   }
+  await loadActs();
+  submitBtn.disabled = false;
+  paintParseMenu();
+  if (failed.length) toast(`Not parsed: ${failed.join(", ")} -- see the log`, true);
+  else { toast(`Parsed ${ticked.map(versionName).join(", ")}`); closeModal("parse-modal"); }
 });
 
 document.getElementById("add-form").addEventListener("submit", async (e) => {
@@ -1929,10 +1966,9 @@ function openRequestedReparse() {
   const slug = params.get("reparse");
   if (!slug) return;
   history.replaceState(null, "", location.pathname);
-  if (!ACTS.some((a) => a.slug === slug)) { toast(`No document ${slug} to re-parse.`, true); return; }
-  openParseModal(slug);
-  const radio = document.querySelector(`#parse-mode-group input[name=mode][value="${params.get("mode")}"]`);
-  if (radio) { radio.checked = true; radio.onchange(); }
+  const s = ACTS.find((a) => a.slug === slug);
+  if (!s) { toast(`No document ${slug} to re-parse.`, true); return; }
+  openParseMenu(s.work, [slug], params.get("mode"));
 }
 
 loadActs().then(openRequestedReparse);

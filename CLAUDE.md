@@ -25,7 +25,7 @@ so a fresh session doesn't have to go looking, plus how to work here.
 - Run other modules as `-m corpus.x.y`, never by filename.
 - The pre-commit hook is tracked at `deploy/githooks/pre-commit`. Point
   git at it once: `git config core.hooksPath deploy/githooks`.
-- Tests: `python -m pytest -q`. Baseline **1,466 passed, 1 skipped**.
+- Tests: `python -m pytest -q`. Baseline **1,471 passed, 1 skipped**.
 
 ## How to work here
 
