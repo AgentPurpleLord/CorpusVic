@@ -23,7 +23,7 @@ repeal and an insertion. A reviewer can say otherwise -- "s 464AA was
 carried from s 464A" -- and `links` is those decisions:
 {version: {new_key: key_in_the_version_before}}.
 """
-from corpus.domain import diffing
+from corpus.domain import amendments, diffing
 
 REVIEWED = "reviewed"      # this version's own rows cover the provision
 INHERITS = "inherits"      # same raw words as a version where it is reviewed
@@ -134,7 +134,9 @@ def provision_chains(docs: list[dict], links: "dict | None" = None) -> dict:
     "checked"}] in any order: `raw` is signatures() of the raw parse,
     `effective` is diffing.provisions() of what a reader is shown, and
     `checked` is the set of keys a human has vouched for in that version.
-    `loose_notes` (optional) is loose_notes() of that version.
+    `loose_notes` (optional) is loose_notes() of that version, and
+    `amending_acts` (optional) the citations in its Table of Amendments
+    (see _amended).
 
     Returns {"chains": [...], "by_key": {(version, key): chain number}}.
     A chain is {"wordings": [...]}, and a wording is one span of versions
@@ -179,6 +181,42 @@ def _stamp(doc: dict) -> dict:
     return {"version": doc["version"], "as_at": doc.get("as_at"), "as_at_printed": doc.get("as_at_printed")}
 
 
+def _cited(notes) -> set[str]:
+    return {f"{c['act_no']}/{c['year']}" if c.get("year") else str(c["act_no"])
+            for note in notes or [] for c in amendments.citations_in(note)}
+
+
+def _notes_for(doc: dict, key) -> list[str]:
+    return [*(doc["effective"][key].get("history") or []), *doc.get("loose_notes", {}).get(key, [])]
+
+
+def _amended(ordered: list[dict], a: int, members: dict, b: int) -> bool:
+    """Whether the Act itself says a provision changed between reprints a
+    and b, once the parser has said its text differs.
+
+    The parser's word alone isn't enough: the same words wrapped at a
+    different line end read "charge- sheet" in one reprint and
+    "charge-sheet" in the next, and on the Criminal Procedure Act 37 of 48
+    such differences had nothing in the Act behind them. So the
+    provision's own notes have to cite an amending Act they didn't before,
+    and the later reprint's Table of Amendments has to list it.
+
+    Not that the table has gained an Act: a reprint is also made when more
+    of an Act already listed commences. The CPA's 26 April 2026 reprint
+    added nothing to its table, and nine of its provisions were amended by
+    No. 1/2026, listed since the reprint before.
+
+    Where the later reprint has no parsed table, the text decides: a table
+    that failed to parse would otherwise hide every amendment behind it."""
+    listed = ordered[b].get("amending_acts")
+    if not listed:
+        return True
+    new = _cited(_notes_for(ordered[b], members[b])) - _cited(_notes_for(ordered[a], members[a]))
+    # An old note can cite by number alone ("No. 8679").
+    listed = {*listed, *(c.split("/")[0] for c in listed)}
+    return bool(new & listed)
+
+
 def _wordings(ordered: list[dict], members: dict) -> dict:
     first, last = min(members), max(members)
     spans: list[dict] = []
@@ -187,7 +225,9 @@ def _wordings(ordered: list[dict], members: dict) -> dict:
     for i in range(first, last + 1):
         doc, key = ordered[i], members[i]
         this = {"raw": doc["raw"].get(key), **{f: doc["effective"][key][f] for f in ("heading", "text")}}
-        if spans and not spans[-1].get("absent") and _same_wording(spans[-1]["probe"], this):
+        if spans and not spans[-1].get("absent") and (
+                _same_wording(spans[-1]["probe"], this)
+                or not _amended(ordered, spans[-1]["members"][-1], members, i)):
             spans[-1]["members"].append(i)
             continue
         spans.append({"absent": False, "members": [i], "probe": this})
