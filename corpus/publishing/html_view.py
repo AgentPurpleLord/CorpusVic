@@ -1252,6 +1252,10 @@ def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dic
         '<button type="button" class="ctl-btn" id="reader-smaller" title="Smaller text">A&minus;</button>'
         '<button type="button" class="ctl-btn" id="reader-bigger" title="Larger text">A+</button>'
         '<button type="button" class="ctl-btn" id="reader-notes" aria-pressed="true">Notes on</button>'
+        # Every provision's wordings at once, scrolled through sideways
+        # (static/site/history.js). On every page, not only ones with a
+        # history: reading on brings in provisions that have one.
+        '<button type="button" class="ctl-btn" id="reader-history" aria-pressed="false">History off</button>'
         "</div>"
     )
     return f'<div class="readerbar">{"".join(bits)}</div>'

@@ -170,6 +170,11 @@
         if (moved) window.scrollTo(0, window.scrollY + moved);
       }
       watch(arriving);
+      // Anything that sets a provision up on load has to hear about the
+      // ones that arrive afterwards too. history.js did not, so a repealed
+      // provision scrolled into showed its plain fallback list rather than
+      // its timeline.
+      document.dispatchEvent(new CustomEvent("readon:arrived", { detail: arriving }));
       return true;
     } catch (e) {
       // Offline, or the page moved. The links below still work.
