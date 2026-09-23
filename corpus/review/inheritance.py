@@ -20,7 +20,12 @@ section it is, since a reprint can move a Section between Divisions
 without changing a word of it, and the Division is part of the full
 name.
 """
+import json
+from pathlib import Path
+
 from corpus.domain import diffing, lineage
+from corpus.parsing.identity import annotate_ids
+from corpus.parsing.versions import split_document_slug
 from corpus.storage import db
 
 # The fields of a verified row that are a reviewer's decision about the
@@ -87,7 +92,9 @@ def load_state(slug: str, base_dir=None) -> dict:
     """unit_state for one version, read the way review.py reads it."""
     from corpus.review import review
 
-    nodes, unattached, _hierarchy, fingerprint = review.load_parsed(slug)
+    data = json.loads((Path(base_dir or ".") / "data" / "parsed" / f"{slug}.json").read_text(encoding="utf-8"))
+    nodes, unattached, fingerprint = data["nodes"], data.get("unattached_notes", []), data.get("fingerprint")
+    annotate_ids(nodes, data.get("hierarchy") or None)
     edits = review.load_structure_edits(slug, fingerprint, base_dir, nodes=nodes)
     node_at = review._node_at(nodes, edits)
     _order, units = review.order_and_units(len(nodes), edits, node_at)
@@ -98,7 +105,68 @@ def load_state(slug: str, base_dir=None) -> dict:
     state = unit_state(nodes, units, rows_by_index, finished, edits)
     state["unattached"] = unattached
     state["links"] = db.load_provision_links(slug, base_dir)
+    state["parser_version"] = data.get("parser_version")
+    state["meta"] = data.get("version") or {}
     return state
+
+
+def sibling_slugs(slug: str, base_dir=None) -> dict[int, str]:
+    """{version: slug} for every parsed version of this slug's work."""
+    work, version = split_document_slug(slug)
+    if version is None:
+        return {}
+    found = {}
+    for path in (Path(base_dir or ".") / "data" / "parsed").glob(f"{work}-v*.json"):
+        other_work, other_version = split_document_slug(path.stem)
+        if other_work == work and other_version is not None:
+            found[other_version] = path.stem
+    return found
+
+
+def reference_version(versions: list[int], version: int) -> "int | None":
+    """The version a reviewer's changes are shown against: the next one
+    toward current, or, for current itself, the one before it."""
+    position = versions.index(version)
+    if position + 1 < len(versions):
+        return versions[position + 1]
+    return versions[position - 1] if position else None
+
+
+def work_review(slug: str, base_dir=None) -> "dict | None":
+    """Everything the review tool needs to review one version as a
+    version of its work -- None for a document held in one version.
+
+    {"version", "versions": [{"version", "slug", "as_at_printed",
+    "to_review", "current", "parser_version"}], "states", "status",
+    "slugs", "reference"}."""
+    slugs = sibling_slugs(slug, base_dir)
+    _work, version = split_document_slug(slug)
+    if len(slugs) < 2 or version not in slugs:
+        return None
+    versions = sorted(slugs)
+    states = {v: load_state(slugs[v], base_dir) for v in versions}
+    status = resolve(versions, states)
+    return {
+        "version": version,
+        "versions": [{
+            "version": v, "slug": slugs[v],
+            "as_at_printed": states[v]["meta"].get("as_at_printed"),
+            "to_review": sum(1 for e in status[v].values() if e["status"] == lineage.TO_REVIEW),
+            "current": v == versions[-1],
+            "parser_version": states[v]["parser_version"],
+        } for v in versions],
+        "states": states, "status": status, "slugs": slugs,
+        "reference": reference_version(versions, version),
+    }
+
+
+def effective_nodes(slug: str, review_state: dict, version: int) -> list[dict]:
+    """One version's nodes with its own review and what it inherits."""
+    from corpus.review import review
+
+    nodes = review.build_current_nodes(slug)[0]
+    return overlay(nodes, review_state["states"][version], review_state["status"][version],
+                   review_state["states"])
 
 
 def resolve(versions: list[int], states: dict) -> dict:

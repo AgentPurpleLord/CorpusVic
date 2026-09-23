@@ -77,7 +77,7 @@ from pathlib import Path
 from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
-from corpus.domain.diffing import node_diff, provision_identity
+from corpus.domain.diffing import node_diff, normalise, provision_identity, word_diff
 from corpus.review.inheritance import relative_id
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
 from corpus.domain.act_registry import load_act_registry
@@ -880,11 +880,16 @@ def _wording_units(nodes: list[dict], hierarchy_order: list[str]) -> list[dict]:
     root = roots[0]
     root_name = root["node"].get("_node_id") or root["node"].get("id") or ""
     units = list(_iter_body_units(root))
+    # Aligned on each piece's own label -- "(b)", or the last part of its
+    # name for a piece with none -- rather than its full name, which
+    # carries the nesting a parse inferred: one reprint read (b) as under
+    # (ac) and the next did not, and full names made that a deletion and
+    # an insertion of identical words.
     for unit in units:
         node = unit["tree_node"]["node"]
         name = node.get("_node_id") or node.get("id")
-        rel = relative_id(name, root_name) if name else f'{node["type"]}:{unit["header_text"]}'
-        unit["align"] = (rel, unit["clause_index"])
+        rel = relative_id(name, root_name) if name else node["type"]
+        unit["align"] = (unit["header_text"] or rel.rsplit("/", 1)[-1], unit["clause_index"])
     return units
 
 
@@ -906,13 +911,21 @@ def _compare_html(older: list[dict], newer: list[dict]) -> str:
     and green means added -- never the other way about."""
     ops = node_diff([(u["align"], u["text"] or "") for u in older],
                     [(u["align"], u["text"] or "") for u in newer])
+    # The heading is amended in its own right ("S. 366 (Heading) amended
+    # by ..."), and a comparison that skipped it would say nothing changed.
+    heading = ""
+    old_heading, new_heading = (
+        (units[0]["tree_node"]["node"].get("heading") or "") if units else "" for units in (older, newer))
+    if old_heading != new_heading:
+        heading = (f'<div class="hist-heading">'
+                   f'{_diff_html(word_diff(normalise(old_heading), normalise(new_heading)))}</div>')
     units, texts, classes = [], [], []
     for op in ops:
         unit = newer[op["new"]] if op["new"] is not None else older[op["old"]]
         units.append(unit)
         texts.append(None if unit["text"] is None and not op["diff"] else _diff_html(op["diff"]))
         classes.append({"delete": "prov-gone", "insert": "prov-new"}.get(op["op"], ""))
-    return _units_html(units, texts, classes)
+    return heading + _units_html(units, texts, classes)
 
 
 def _span_label(wording: dict) -> str:

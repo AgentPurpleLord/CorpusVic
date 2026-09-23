@@ -39,7 +39,7 @@ def signatures(nodes: list[dict]) -> dict[tuple, tuple]:
     return {key: (p["heading"], p["text"]) for key, p in diffing.provisions(nodes).items()}
 
 
-def step(links: dict, versions: list[int], key: tuple, frm: int, to: int) -> "tuple | None":
+def step(links: dict, key: tuple, frm: int, to: int) -> tuple:
     """What `key` in version `frm` is called in the adjacent version `to`,
     through any carried-from link across that boundary."""
     if to > frm:
@@ -55,7 +55,7 @@ def _run(versions: list[int], raw: dict, links: dict, position: int, key: tuple,
     here = raw[versions[position]].get(key)
     i = position + direction
     while here is not None and 0 <= i < len(versions):
-        key = step(links, versions, key, versions[i - direction], versions[i])
+        key = step(links, key, versions[i - direction], versions[i])
         if raw[versions[i]].get(key) != here:
             return
         yield versions[i], key
@@ -164,7 +164,7 @@ def provision_chains(docs: list[dict], links: "dict | None" = None) -> dict:
             members = {start: key}
             k = key
             for i in range(start + 1, len(ordered)):
-                k = step(links, versions, k, versions[i - 1], versions[i])
+                k = step(links, k, versions[i - 1], versions[i])
                 if k not in ordered[i]["effective"]:
                     break
                 members[i] = k

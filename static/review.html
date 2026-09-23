@@ -201,6 +201,25 @@
   .status-dot.pending { background: var(--pending); }
   .status-dot.done { background: var(--done); }
   .status-dot.flagged { background: var(--flagged); }
+  /* Vouched for by another version of the work (see
+     corpus/review/inheritance.py): nothing to decide here. */
+  .status-dot.inherited, .status-dot.follows { background: transparent; border: 1px solid var(--pending); }
+  .unit-row.status-inherited, .unit-row.status-follows { opacity: 0.6; }
+  .status-badge.inherited, .status-badge.follows { background: var(--sidebar-bg); color: var(--muted); }
+  .box-group[data-status="inherited"] { --box-fill: #9ca3af; --box-stroke: #6b7280; }
+  #version-stat a { color: inherit; }
+  #version-stat .warn { color: var(--flagged); }
+  #lineage-panel { border: 1px solid var(--border); border-left: 3px solid var(--pending);
+    padding: 8px 12px; margin: 0 0 12px; font-size: 13px; }
+  #lineage-panel.to_review { border-left-color: var(--flagged); }
+  #lineage-panel .compare { margin-top: 8px; font-family: Georgia, serif; font-size: 15px; line-height: 1.45; }
+  #lineage-panel .prov { display: grid; grid-template-columns: 2.4em minmax(0, 1fr);
+    margin: 0 0 6px calc(var(--depth, 0) * 1.3em); }
+  #lineage-panel .prov-nolabel .prov-text, #lineage-panel .prov-heading .prov-num { grid-column: 1 / -1; }
+  #lineage-panel .hist-heading { font-weight: 600; margin-bottom: 6px; }
+  #lineage-panel .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
+  #lineage-panel .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: line-through; }
+  #lineage-panel .carry { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .unit-row .unit-title { font-weight: 600; }
   .unit-row .unit-sub { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -611,6 +630,7 @@
 <body>
 <header>
   <h1 id="act-title">Review</h1>
+  <span class="stat" id="version-stat"></span>
   <span class="stat" id="corrections-stat"></span>
   <span class="stat" id="unattached-stat" title="Click to open the history-notes panel" style="cursor:pointer"></span>
   <span class="stat" id="blind-review-stat" title="How often a reviewer's own first, independent guess matched the parser's answer"></span>
@@ -630,6 +650,7 @@
   <div id="sidebar">
     <div id="sidebar-controls">
       <div id="sidebar-filter">
+        <button data-filter="changes" hidden title="What differs from the version this one is compared with -- everything else another version vouches for">Changes</button>
         <button data-filter="all" class="active">All</button>
         <button data-filter="pending">Pending</button>
         <button data-filter="flagged">Flagged</button>
@@ -649,6 +670,7 @@
           <button class="btn small" id="next-btn">Next &rarr;</button>
         </div>
       </div>
+      <div id="lineage-panel" hidden></div>
       <div id="pieces"></div>
       <div id="deleted-pieces" hidden></div>
       <div id="unit-actions" style="display:none">
@@ -1030,7 +1052,7 @@ function boxActions(box, rect) {
   if (box.status !== "pending") {
     g.appendChild(Object.assign(
       svgEl("text", { x: left + size / 2, y: top + size / 2 }, "box-verdict"),
-      { textContent: box.status === "accepted" ? "\u2713" : "\u2691" },
+      { textContent: box.status === "accepted" ? "\u2713" : box.status === "flagged" ? "\u2691" : "=" },
     ));
     return g;
   }
@@ -1577,10 +1599,40 @@ async function loadMeta() {
     viewMode = "text";
     applyViewMode();
   }
+  renderVersionStat();
   const undoBtn = document.getElementById("undo-nest-btn");
   undoBtn.style.display = META.renest_undo ? "" : "none";
   if (META.renest_undo) undoBtn.title = `Restores piece ${META.renest_undo.node_index} back to type "${META.renest_undo.restores_type}"`;
   renderSidebar();
+}
+
+// Where this version sits among the work's others, and how much of it
+// is left to review. Every other version is its own review server, so
+// moving between them is a link, through the dashboard's /review/<slug>/.
+let versionFilterChosen = false;
+function renderVersionStat() {
+  const el = document.getElementById("version-stat");
+  const info = META.version_info;
+  const changesBtn = document.querySelector('#sidebar-filter button[data-filter="changes"]');
+  if (!info) { el.innerHTML = ""; changesBtn.hidden = true; return; }
+  changesBtn.hidden = false;
+  if (!versionFilterChosen) {
+    // Only what differs is this version's to review, so that is the view
+    // it opens on; the rest stays one click away under "All".
+    versionFilterChosen = true;
+    sidebarFilter = "changes";
+    document.querySelectorAll("#sidebar-filter button").forEach((b) => b.classList.toggle("active", b === changesBtn));
+  }
+  const i = info.versions.findIndex((v) => v.version === info.version);
+  const link = (v, text) => `<a href="../${encodeURIComponent(v.slug)}/" title="${escapeHtml(v.as_at_printed || "")}">${text}</a>`;
+  const prev = i > 0 ? link(info.versions[i - 1], `&#9664; v${info.versions[i - 1].version}`) : "";
+  const next = i < info.versions.length - 1
+    ? link(info.versions[i + 1], `v${info.versions[i + 1].version}${info.versions[i + 1].current ? " (current)" : ""} &#9654;`) : "";
+  const here = info.versions[i];
+  const warn = info.parser_differs
+    ? ` <span class="warn" title="The differences include the two parsers' own disagreements. Re-parse this version to leave only Parliament's.">&middot; read by a different parser than v${info.reference}</span>` : "";
+  el.innerHTML = `${prev} <strong>Version ${info.version}${here.current ? " (current)" : ""}</strong> &middot; `
+    + `${info.to_review} to review${info.reference != null ? ` against v${info.reference}` : ""} ${next}${warn}`;
 }
 
 // Which row is highlighted, and the status of the one being left and the
@@ -1637,7 +1689,9 @@ function renderSidebar() {
   const hasChildren = new Set(META.units.filter((u) => u.parent_unit_no != null).map((u) => u.parent_unit_no));
   list.innerHTML = "";
   for (const u of META.units) {
-    if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
+    if (sidebarFilter === "changes") {
+      if (u.status === "inherited" || u.status === "follows") continue;
+    } else if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
     if (q) {
       const hay = `${u.unit_no + 1} ${u.type} ${u.number || ""} ${u.heading || ""}`.toLowerCase();
       if (!hay.includes(q)) continue;
@@ -1813,6 +1867,7 @@ function renderUnit() {
   } else {
     titleEl.textContent = "Merged away entirely -- its content now lives in whichever piece it was merged into (see the sidebar)";
   }
+  renderLineage();
   const container = document.getElementById("pieces");
   container.innerHTML = "";
   currentUnit.pieces.forEach((piece, idx) => {
@@ -1820,6 +1875,52 @@ function renderUnit() {
   });
   renderDeletedPieces();
   renderUnitFooter();
+}
+
+// What the version this one is compared with says about the unit: that
+// another version already vouches for its words, or exactly how its
+// words differ -- the part a reviewer of an added version has to check.
+function renderLineage() {
+  const panel = document.getElementById("lineage-panel");
+  const l = currentUnit.lineage;
+  if (!l) { panel.hidden = true; return; }
+  panel.hidden = false;
+  panel.className = l.status;
+  let html;
+  if (l.status === "inherits") {
+    html = `Same words as <strong>Version ${l.source}</strong>, where this is reviewed, so it reads here as it was reviewed there. Accept it here only to decide it differently.`;
+  } else if (l.status === "follows") {
+    html = `Same words as <strong>Version ${l.source}</strong>. It is reviewed there, and this version will take that review.`;
+  } else if (l.status === "reviewed") {
+    html = "Reviewed in this version.";
+  } else if (l.compare) {
+    html = `Differs from <strong>Version ${l.reference}</strong> &mdash; struck through is what the older of the two had, marked what the newer has:<div class="compare">${l.compare}</div>`;
+  } else if (l.reference != null) {
+    html = `Version ${l.reference} has no ${escapeHtml(l.label)}: new in this version, or moved from elsewhere.`;
+  } else {
+    html = "Nothing to compare this with.";
+  }
+  if (l.carry_candidates && l.carry_candidates.length) {
+    const options = l.carry_candidates.map((c) => {
+      const chosen = l.carried_from && c.key.join() === l.carried_from.join();
+      return `<option value='${escapeHtml(JSON.stringify(c.key))}'${chosen ? " selected" : ""}>${escapeHtml(c.label)}</option>`;
+    }).join("");
+    html += `<div class="carry">Carried from <select id="carry-select"><option value="">(not carried &mdash; inserted)</option>${options}</select>
+      <button class="btn small" id="carry-save-btn">Save</button></div>`;
+  }
+  panel.innerHTML = html;
+  const save = document.getElementById("carry-save-btn");
+  if (save) save.onclick = async () => {
+    const value = document.getElementById("carry-select").value;
+    try {
+      currentUnit = await api(`api/units/${currentUnitNo}/carried-from`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: value ? JSON.parse(value) : null }),
+      });
+      toast(value ? "Recorded as carried from the version before." : "Recorded as inserted.");
+      renderLineage();
+    } catch (e) { toast(e.message, true); }
+  };
 }
 
 // Pieces deleted out of this unit, offered back. A deletion is a
@@ -2074,7 +2175,8 @@ function renderUnitFooter() {
   // flag is the entire point of having raised it. Only a fully accepted
   // unit has nothing left to decide at this level.
   document.getElementById("accept-btn").style.display = currentUnit.status === "done" ? "none" : "";
-  document.getElementById("flag-btn").style.display = currentUnit.status === "pending" ? "" : "none";
+  document.getElementById("flag-btn").style.display =
+    ["pending", "inherited", "follows"].includes(currentUnit.status) ? "" : "none";
 }
 
 // ---------------------------------------------------------------------
