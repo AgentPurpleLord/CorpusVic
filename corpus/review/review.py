@@ -942,6 +942,9 @@ _reference_nodes: "list[dict] | None" = None
 # {version: (its Table of Amendments' citations, amendments index)}, read
 # once per load -- the endnote a changed unit's margin note points at.
 _amending_acts: dict = {}
+# This work's instructions from the amending Acts fetched for it
+# (corpus/amending), read once per load: None until asked for.
+_instructions: "dict | None" = None
 _PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible with the page scaled to fit its panel
 # The zoom levels the panel's own +/- control steps through, as multiples
 # of _PAGE_RENDER_ZOOM. The page is re-rendered at the level being shown
@@ -3455,10 +3458,11 @@ def _load_versions() -> None:
     """Works out, once per load, which of this version's units another
     version vouches for (corpus/review/inheritance.py). A reviewer here
     sees those as done elsewhere and is shown only what differs."""
-    global _work_review, _reference_nodes, _amending_acts
+    global _work_review, _reference_nodes, _amending_acts, _instructions
     _unit_lineage.clear()
     _reference_nodes = None
     _amending_acts = {}
+    _instructions = None
     _work_review = inheritance.work_review(_act)
     if not _work_review:
         return
@@ -3531,6 +3535,89 @@ def _changed_pieces(older: list[dict], newer: list[dict], root: int, versions: t
                         "old_html": change["old_html"], "new_html": change["new_html"],
                         "older": versions[0], "newer": versions[1], "node_index": index})
     return {"changes": changes, "changed_pieces": changed}
+
+
+def _work_title() -> "str | None":
+    """This Act's title, as amending Acts name it. The source PDF gives it;
+    without the PDF, the Act's own first entry in its Table of Amendments
+    does."""
+    if _act_title and re.search(r" Act \d{4}$", _act_title):
+        return _act_title
+    path = Path("data/parsed") / f"{_act}.json"
+    if path.exists():
+        table = (json.loads(path.read_text(encoding="utf-8")).get("endnotes") or {}).get("amending_acts") or []
+        if table:
+            return table[0].get("title")
+    return None
+
+
+def _work_instructions() -> dict:
+    """{"by_key": {provision key: [instruction]}, "first": {citation: the
+    reprints its amendments first show in}} for this work."""
+    global _instructions
+    if _instructions is None:
+        from corpus.amending.fetch import instructions_path
+        from corpus.amending.scope import acts_between
+        _instructions = {"by_key": {}, "first": {}}
+        title = _work_title()
+        try:
+            acts = acts_between(_act, Path("."))
+        except (OSError, ValueError, KeyError):
+            acts = []
+        for act in acts:
+            path = instructions_path(act["citation"], Path("."))
+            if not title or not path.exists():
+                continue
+            _instructions["first"][act["citation"]] = set(act["versions"])
+            for ins in json.loads(path.read_text(encoding="utf-8")):
+                if ins.get("target_act") != title:
+                    continue
+                key = (("schedule", None, ins["schedule"]) if ins.get("schedule")
+                       else ("provision", None, (ins.get("section") or "").lower()))
+                _instructions["by_key"].setdefault(key, []).append(ins)
+    return _instructions
+
+
+def _target_label(ins: dict) -> str:
+    where = f"Sch {ins['schedule']} item" if ins.get("schedule") else "s"
+    number = ins["path"][0] if ins.get("schedule") and ins.get("path") else ins.get("section") or ""
+    rest = ins["path"][1:] if ins.get("schedule") else ins.get("path") or []
+    label = f"{where} {number}" + "".join(f"({p})" for p in rest)
+    return label + (" heading" if ins.get("heading") else "") + (
+        f", definition of {ins['definition']}" if ins.get("definition") else "")
+
+
+def _amending_evidence(keys: tuple, older: list[dict], newer: list[dict], newer_version: int, root: int) -> dict:
+    """What the amending Acts instructed for this section between the two
+    reprints, checked against how it changed -- or {} where no Act that
+    first shows in the newer reprint has been fetched, and the margin
+    notes are all there is to go on."""
+    from corpus.amending.match import match
+
+    work = _work_instructions()
+    acts = {c for c, versions in work["first"].items() if newer_version in versions}
+    if not acts:
+        return {}
+    candidates = [i for key in dict.fromkeys(keys) for i in work["by_key"].get(key, []) if i["act"] in acts]
+    result = match(candidates, older, newer)
+    numbers = {u["name"]: u["tree_node"]["node"].get("number") for u in (*older, *newer) if u.get("name")}
+
+    def piece(pair):
+        own = next((u for u in pair if u is not None and "_review_index" in u["tree_node"]["node"]), None)
+        shown = next((u for u in reversed(pair) if u is not None), None)
+        return (own["tree_node"]["node"]["_review_index"] if own else None,
+                html_view._piece_label(shown, numbers) if shown else None)
+
+    instructions = []
+    for ins in result["instructions"]:
+        node_index, at = piece(ins["pair"])
+        instructions.append({"act": ins["act"], "provision": ins["provision"], "raw": ins["raw"],
+                             "target": _target_label(ins), "action": ins["action"], "status": ins["status"],
+                             "at": "heading" if ins["at"] == "heading" else at,
+                             # A heading belongs to the section piece itself.
+                             "node_index": root if ins["at"] == "heading" else node_index})
+    return {"instructions": instructions,
+            "unexplained": [i for i in (piece(c["pair"])[0] for c in result["unexplained"]) if i is not None]}
 
 
 def _reference_view(reference: int, their_nodes: list[dict], their_units: list[dict],
@@ -3621,6 +3708,10 @@ def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict], indices: list[in
     out["slugs"] = {"this": _act, "reference": _work_review["slugs"][reference]}
     if provision is None:
         out["compare"] = None
+        # A section new in the newer reprint: the Act that inserted it
+        # names it by its own number.
+        if reference < version:
+            out.update(_amending_evidence((entry["key"],), [], mine, version, indices[0]))
     else:
         end = diffing.unit_end(_reference_nodes, provision["node_index"])
         their_nodes = _reference_nodes[provision["node_index"]:end]
@@ -3632,6 +3723,7 @@ def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict], indices: list[in
                                                 older, newer)
         out.update(_amendment_evidence(
             (version, entry["key"], unit_nodes), (reference, their_key, their_nodes)))
+        out.update(_amending_evidence((entry["key"], their_key), older, newer, max(version, reference), indices[0]))
     # Carrying from is recorded against the later of two versions, and
     # offered where the earlier one lacks this number.
     # Offered by the unit's own number, so a link already made stays

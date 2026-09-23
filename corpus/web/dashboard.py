@@ -1484,6 +1484,30 @@ class DefinitionOverrideRequest(BaseModel):
     section: "str | None" = None
 
 
+@app.post("/api/acts/{work}/amending")
+def fetch_amending_acts(work: str):
+    """Fetches and reads the amending Acts this work's held versions need
+    (corpus/amending/fetch.py), for the review tool to check each version's
+    changes against. One Act failing -- no network, a moved page -- is in
+    the log, and the rest still come."""
+    from corpus.amending.fetch import fetch
+
+    _validate_slug(work)
+    held = sorted((s for s in discover_slugs() if split_document_slug(s)[0] == work),
+                  key=lambda s: split_document_slug(s)[1] or 0)
+    if not held:
+        raise HTTPException(404, f"No document of work {work!r}")
+    lines: list[str] = []
+    try:
+        manifest = fetch(held[-1], BASE_DIR, log=lines.append)
+    except Exception as e:   # the parses themselves unreadable, say
+        return {"ok": False, "log": "\n".join(lines + [f"Failed: {e}"])}
+    # Every open review reads the instructions once, when it starts.
+    for slug in held:
+        _kill_review_process(slug)
+    return {"ok": True, "acts": len(manifest), "log": "\n".join(lines) or "No amending Acts are needed."}
+
+
 @app.get("/api/acts/{slug}/definitions")
 def list_definitions(slug: str):
     """Which words this document hyperlinks back to where they are

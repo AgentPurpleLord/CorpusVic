@@ -108,7 +108,7 @@ def test_the_right_words_under_the_wrong_paragraph_are_found_elsewhere():
 def test_a_change_no_instruction_made_is_unexplained():
     result = match([], _units("Definitions", ("f", "a charge- sheet")), _units("Definitions", ("f", "a charge-sheet")))
 
-    assert result["unexplained"] == ["1/f"]
+    assert [c["path"] for c in result["unexplained"]] == ["1/f"]
 
 
 def test_an_instruction_the_reprint_does_not_reflect_is_not_found():

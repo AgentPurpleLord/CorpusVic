@@ -62,18 +62,26 @@ def _already(ins: dict, a: str) -> bool:
 
 
 def match(instructions: list[dict], older: list[dict], newer: list[dict]) -> dict:
-    """{"instructions": each with "status" and "at" (the piece's path, or
-    None), "unexplained": paths of changed pieces no instruction matched}."""
+    """{"instructions": each with "status", "at" (the piece's path, or
+    None) and "pair" (that piece in (older, newer), either None where one
+    reprint lacks it), "unexplained": [{"path", "pair"}] for each changed
+    piece no instruction accounts for}. The pair is what lets a caller
+    reviewing either reprint find its own side of the piece."""
     ops = node_diff([(u["align"], u["text"] or "") for u in older], [(u["align"], u["text"] or "") for u in newer])
     pairs = [(older[op["old"]] if op["old"] is not None else None,
               newer[op["new"]] if op["new"] is not None else None) for op in ops]
     a_heading = clean(older[0]["root_heading"]) if older else ""
     b_heading = clean(newer[0]["root_heading"]) if newer else ""
     a_paths = {u.get("path") or "" for u in older}
+    pair_of = {}
+    for a, b in pairs:
+        for unit in (a, b):
+            if unit is not None:
+                pair_of[id(unit)] = (a, b)
     explained: set = set()
     out = []
     for ins in instructions:
-        status, at = "not found", None
+        status, at, landed = "not found", None, None
         target = _key(ins.get("path") or [])
         action = ins["action"]
         if ins.get("heading"):
@@ -93,6 +101,7 @@ def match(instructions: list[dict], older: list[dict], newer: list[dict]) -> dic
             if made and made in a_paths:
                 status = "earlier"
             elif made and any((b.get("path") or "") == made for b in added):
+                landed = next(b for b in added if (b.get("path") or "") == made)
                 status, at = "matched", made
             else:
                 number = (ins.get("number") or "").lower()
@@ -103,10 +112,12 @@ def match(instructions: list[dict], older: list[dict], newer: list[dict]) -> dic
                 grew = next((b for a, b in pairs if b is not None and words and words in _text(b)
                              and words not in _text(a)), None)
                 if hit is not None or grew is not None:
-                    status, at = "elsewhere", (hit if hit is not None else grew).get("path") or ""
+                    landed = hit if hit is not None else grew
+                    status, at = "elsewhere", landed.get("path") or ""
         elif action == "repeal":
             gone = [a for a, b in pairs if a is not None and (b is None or not _text(b).strip("* "))]
-            if any((a.get("path") or "") == target for a in gone):
+            landed = next((a for a in gone if (a.get("path") or "") == target), None)
+            if landed is not None:
                 status, at = "matched", target
         elif action in ("insert_definition", "replace_definition", "unparsed"):
             status = "unchecked"
@@ -118,16 +129,20 @@ def match(instructions: list[dict], older: list[dict], newer: list[dict]) -> dic
             own = target.rsplit("/", 1)[-1]
             numbered = [b for a, b in found if (b["tree_node"]["node"].get("number") or "").lower() == own]
             if here:
-                status, at = "matched", here[0].get("path") or ""
+                landed = here[0]
+                status, at = "matched", landed.get("path") or ""
             elif found:
-                status, at = "elsewhere", (numbered or [found[0][1]])[0].get("path") or ""
+                landed = (numbered or [found[0][1]])[0]
+                status, at = "elsewhere", landed.get("path") or ""
             elif any(_already(ins, _text(a)) for a in older if (a.get("path") or "").lower() == target):
                 status = "earlier"
         if at:
             explained.add(at)
-        out.append({**ins, "status": status, "at": at})
+        out.append({**ins, "status": status, "at": at,
+                    "pair": pair_of.get(id(landed), (None, None)) if landed is not None else (None, None)})
 
-    changed = [(b or a).get("path") or "" for (a, b), op in zip(pairs, ops) if op["op"] != "equal"]
+    changed = [{"path": (b or a).get("path") or "", "pair": (a, b)}
+               for (a, b), op in zip(pairs, ops) if op["op"] != "equal"]
     if a_heading != b_heading:
-        changed.insert(0, "heading")
-    return {"instructions": out, "unexplained": [p for p in changed if p not in explained]}
+        changed.insert(0, {"path": "heading", "pair": (older[0] if older else None, newer[0] if newer else None)})
+    return {"instructions": out, "unexplained": [c for c in changed if c["path"] not in explained]}

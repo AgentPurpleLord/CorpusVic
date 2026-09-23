@@ -219,6 +219,12 @@
   #lineage-panel .hist-heading { font-weight: 600; margin-bottom: 6px; }
   #lineage-panel .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
   #lineage-panel .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: line-through; }
+  .instr { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; padding: 4px 8px; border-left: 3px solid var(--border); }
+  .instr-mark { display: inline-block; width: 1.2em; font-weight: 700; }
+  .instr-status { color: var(--muted); margin-left: 1.2em; }
+  .instr-matched { border-left-color: #16a34a; }
+  .instr-elsewhere, .instr-not-found { border-left-color: #d97706; }
+  .instr-none { border-left-color: #d97706; color: var(--muted); }
   .piece-compare { margin: 0 0 8px; }
   .piece-compare .pc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .piece-compare .pc-col { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; min-width: 0; }
@@ -2041,7 +2047,11 @@ function renderUnit() {
     const mine = sideBySide.get(piece.node_index);
     if (mine) {
       const block = document.createElement("div");
-      block.innerHTML = mine.map((c) => compareColumnsHtml(c, c.label === "Heading")).join("");
+      const made = (l.instructions || []).filter((i) => i.node_index === piece.node_index);
+      const unexplained = l.instructions && (l.unexplained || []).includes(piece.node_index) && !made.length
+        ? `<div class="instr instr-none">No amending Act made this change &mdash; most likely the parser's.</div>` : "";
+      block.innerHTML = mine.map((c) => compareColumnsHtml(c, c.label === "Heading")).join("")
+        + made.map(instructionHtml).join("") + unexplained;
       el.insertBefore(block, el.firstChild);
     }
     container.appendChild(el);
@@ -2078,6 +2088,23 @@ function compareColumnsHtml(c, withLabel) {
 // nothing new -- that the difference is the parser's, with the way to
 // re-parse either version right there. A piece only the other version has
 // is shown here, having no piece of its own in this one to sit on.
+// One amending Act's instruction and whether this change is it -- the
+// Act's own words, which say which provision it changes, where a margin
+// note only says which provision the parser hung it on.
+const INSTRUCTION_STATUS = {
+  matched: ["&#10003;", "made here"],
+  elsewhere: ["&#9888;", "found at %s instead: the parse has it in the wrong place"],
+  earlier: ["&middot;", "already in the earlier version"],
+  "not found": ["&#10007;", "not in this change"],
+  unchecked: ["?", "not checked automatically"],
+};
+function instructionHtml(i) {
+  const [mark, says] = INSTRUCTION_STATUS[i.status] || ["?", i.status];
+  return `<div class="instr instr-${i.status.replace(" ", "-")}"><span class="instr-mark">${mark}</span>`
+    + `<strong>No. ${escapeHtml(i.act)} ${escapeHtml(i.provision)}</strong> &mdash; ${escapeHtml(i.raw)}`
+    + `<div class="instr-status">${escapeHtml(i.target)}: ${says.replace("%s", escapeHtml(i.at || ""))}</div></div>`;
+}
+
 function lineageChangesHtml(l) {
   const here = new Set(currentUnit.pieces.map((p) => p.node_index));
   const pieces = (l.changes || []).filter((c) => c.node_index == null || !here.has(c.node_index))
@@ -2089,7 +2116,19 @@ function lineageChangesHtml(l) {
   }).join("");
   let evidence = "";
   if (notes) evidence = `<div class="lineage-notes"><strong>Margin notes new in Version ${l.notes[0].version}</strong>${notes}</div>`;
-  if (l.evidenced === false) {
+  // The Acts themselves, where they have been fetched, say more than the
+  // margin notes can: which are shown on their pieces in the Changes view,
+  // and the rest here.
+  let acts = "";
+  if (l.instructions) {
+    const onPiece = new Set(sidebarFilter === "changes"
+      ? (l.changes || []).map((c) => c.node_index).filter((n) => n != null) : []);
+    const rest = l.instructions.filter((i) => i.node_index == null || !onPiece.has(i.node_index));
+    acts = rest.length ? `<div class="lineage-notes"><strong>Amending Acts</strong>${rest.map(instructionHtml).join("")}</div>`
+      : l.instructions.length ? "" : `<div class="lineage-parser">No amending Act fetched for this version changes this
+        section, so these differences are most likely the parser's rather than Parliament's.</div>`;
+  }
+  if (l.evidenced === false && !l.instructions) {
     evidence += `<div class="lineage-parser">Neither version's notes record an amendment to this provision, so this
       difference is most likely the parser's rather than Parliament's.</div>`;
   }
@@ -2098,7 +2137,7 @@ function lineageChangesHtml(l) {
         `<a class="btn small" target="_blank" rel="noopener" href="../../?reparse=${encodeURIComponent(slug)}&mode=keep"`
         + ` title="Opens the dashboard's re-parse menu for this version, keeping what you have approved">Re-parse ${escapeHtml(slug.replace(/^.*-v(\d+)$/, "v$1"))}&hellip;</a>`).join(" ")}</div>`
     : "";
-  return pieces + evidence + reparse;
+  return pieces + acts + evidence + reparse;
 }
 
 // What the version this one is compared with says about the unit: that
