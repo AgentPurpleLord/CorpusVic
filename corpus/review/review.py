@@ -148,7 +148,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from corpus.review import inheritance, structure
-from corpus.domain import diffing, lineage
+from corpus.domain import amendments, diffing, lineage
 from corpus.publishing import html_view
 from corpus.storage import db
 from corpus.ai.assist import build_suggestion
@@ -939,6 +939,9 @@ _page_image_cache: "dict[tuple[int, float], bytes]" = {}
 _work_review: "dict | None" = None
 _unit_lineage: dict[int, dict] = {}
 _reference_nodes: "list[dict] | None" = None
+# {version: (its Table of Amendments' citations, amendments index)}, read
+# once per load -- the endnote a changed unit's margin note points at.
+_amending_acts: dict = {}
 _PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible with the page scaled to fit its panel
 # The zoom levels the panel's own +/- control steps through, as multiples
 # of _PAGE_RENDER_ZOOM. The page is re-rendered at the level being shown
@@ -1516,7 +1519,7 @@ def _unit_payload(unit_no: int) -> dict:
         # persist "where did this go" anywhere reconstructible from disk,
         # so this is None (not an error) after a restart. See merge_endpoint.
         "merged_into_unit": _merged_into_unit.get(unit_no) if not indices else None,
-        "lineage": _unit_lineage_payload(unit_no, unit_nodes),
+        "lineage": _unit_lineage_payload(unit_no, unit_nodes, indices),
     }
 
 
@@ -2959,7 +2962,8 @@ def carried_from_endpoint(unit_no: int, req: CarriedFromRequest):
     numbered differently -- or, with no key, that it is not."""
     if not (0 <= unit_no < len(_units)):
         raise HTTPException(404, "No such unit")
-    payload = _unit_lineage_payload(unit_no, [_current_node(i) for i in _units[unit_no] if i not in _merged_away])
+    indices = [i for i in _units[unit_no] if i not in _merged_away]
+    payload = _unit_lineage_payload(unit_no, [_current_node(i) for i in indices], indices)
     if not payload or "carry_candidates" not in payload:
         raise HTTPException(400, "Only a provision the version before does not have can be carried from one.")
     if req.key is not None and req.key not in [c["key"] for c in payload["carry_candidates"]]:
@@ -3134,9 +3138,10 @@ def _load_versions() -> None:
     """Works out, once per load, which of this version's units another
     version vouches for (corpus/review/inheritance.py). A reviewer here
     sees those as done elsewhere and is shown only what differs."""
-    global _work_review, _reference_nodes
+    global _work_review, _reference_nodes, _amending_acts
     _unit_lineage.clear()
     _reference_nodes = None
+    _amending_acts = {}
     _work_review = inheritance.work_review(_act)
     if not _work_review:
         return
@@ -3180,15 +3185,81 @@ def _reference_provisions() -> dict:
 
 
 def _key_label(key: tuple) -> str:
+    # A unit with no number is keyed by its own name, in two parts rather
+    # than three (inheritance.unit_key).
+    if key[0] == "unit":
+        return key[1]
     kind, schedule, number = key
-    if kind == "unit":
-        return schedule
     if kind != "provision":
         return f"{kind.capitalize()} {number.upper()}"
     return f"Schedule {schedule} clause {number.upper()}" if schedule else f"Section {number.upper()}"
 
 
-def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict]) -> "dict | None":
+def _changed_pieces(older: list[dict], newer: list[dict]) -> dict:
+    """The pieces that differ, each on its own, and which of this tool's
+    pieces they are -- a section is reviewed here for the paragraph an
+    amendment touched, not read end to end for it."""
+    changes, changed = [], []
+    for change in html_view._compare_pieces(older, newer):
+        index = next((u["tree_node"]["node"].get("_review_index") for u in (change["old"], change["new"])
+                      if u is not None and "_review_index" in u["tree_node"]["node"]), None)
+        if index is not None:
+            changed.append(index)
+        changes.append({"op": change["op"], "label": change["label"], "html": change["html"], "node_index": index})
+    return {"changes": changes, "changed_pieces": changed}
+
+
+def _note_raws(nodes: list[dict]) -> list[str]:
+    out = []
+    for node in nodes:
+        for note in node.get("history") or []:
+            raw = note.get("raw") if isinstance(note, dict) else note
+            if raw:
+                out.append(raw)
+    return out
+
+
+def _endnotes_of(version: int) -> tuple:
+    if version not in _amending_acts:
+        path = Path("data/parsed") / f"{_work_review['slugs'][version]}.json"
+        endnotes = json.loads(path.read_text(encoding="utf-8")).get("endnotes") if path.exists() else None
+        listed = {a["citation"] for a in (endnotes or {}).get("amending_acts") or [] if a.get("citation")}
+        _amending_acts[version] = (listed, amendments.build_amendment_index(endnotes))
+    return _amending_acts[version]
+
+
+def _amendment_evidence(mine: tuple, theirs: tuple) -> dict:
+    """The Act's own account of a changed unit: the margin notes the newer
+    of the two versions prints that the older did not, each with the
+    endnote for the Act it cites, and whether those notes record an
+    amendment at all -- lineage.act_records_amendment, the same test the
+    public histories apply. Where they don't, the difference is the
+    parser's, and that is worth saying before anyone reviews it as law."""
+    (older_v, older_key, older_nodes), (newer_v, newer_key, newer_nodes) = sorted([mine, theirs])
+    loose = {v: lineage.loose_notes(_work_review["states"][v].get("unattached"))
+             for v in (older_v, newer_v)}
+    older_notes = _note_raws(older_nodes) + loose[older_v].get(older_key, [])
+    newer_notes = _note_raws(newer_nodes) + loose[newer_v].get(newer_key, [])
+    listed, index = _endnotes_of(newer_v)
+    was, cited_before = set(older_notes), lineage._cited(older_notes)
+    notes = []
+    for raw in dict.fromkeys(newer_notes):
+        if raw in was:
+            continue
+        records = amendments.resolve_note(raw, index)
+        # A note that grew a citation is shown for that Act alone: its
+        # older ones were explained in the version before.
+        fresh = [r for r in records if r.get("citation") not in cited_before]
+        notes.append({"raw": raw, "version": newer_v, "fresh": bool(fresh),
+                      "acts": [{**r, "described": amendments.describe(r)} for r in fresh or records]})
+    # A note only reworded or moved says nothing about this change, and
+    # goes once one that does is there to read.
+    if any(n["fresh"] for n in notes):
+        notes = [n for n in notes if n["fresh"]]
+    return {"notes": notes, "evidenced": lineage.act_records_amendment(older_notes, newer_notes, listed)}
+
+
+def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict], indices: list[int]) -> "dict | None":
     """What the version this one is compared with says about this unit:
     who vouches for it, or how its words differ, and -- for a provision
     the reference lacks -- which of the reference's own it might have
@@ -3203,16 +3274,24 @@ def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict]) -> "dict | None"
         return out
     theirs = _reference_provisions()
     links = {v: state.get("links") or {} for v, state in _work_review["states"].items()}
-    provision = theirs.get(lineage.step(links, entry["key"], version, reference))
+    their_key = lineage.step(links, entry["key"], version, reference)
+    provision = theirs.get(their_key)
     order = _hierarchy or html_view.HIERARCHY_ORDER
-    mine = html_view._wording_units(unit_nodes, order)
-    if provision is not None:
+    # Tagged with where each piece sits in this tool, so a difference found
+    # in the comparison can be traced back to the piece it is in.
+    mine = html_view._wording_units([{**n, "_review_index": i} for n, i in zip(unit_nodes, indices)], order)
+    out["slugs"] = {"this": _act, "reference": _work_review["slugs"][reference]}
+    if provision is None:
+        out["compare"] = None
+    else:
         end = diffing.unit_end(_reference_nodes, provision["node_index"])
-        other = html_view._wording_units(_reference_nodes[provision["node_index"]:end], order)
+        their_nodes = _reference_nodes[provision["node_index"]:end]
+        other = html_view._wording_units(their_nodes, order)
         older, newer = (other, mine) if reference < version else (mine, other)
         out["compare"] = html_view._compare_html(older, newer)
-    else:
-        out["compare"] = None
+        out.update(_changed_pieces(older, newer))
+        out.update(_amendment_evidence(
+            (version, entry["key"], unit_nodes), (reference, their_key, their_nodes)))
     # Carrying from is recorded against the later of two versions, and
     # offered where the earlier one lacks this number.
     # Offered by the unit's own number, so a link already made stays

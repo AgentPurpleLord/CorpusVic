@@ -116,3 +116,83 @@ def test_a_moved_provision_can_be_recorded_as_carried_from_the_version_before(tm
 
     assert payload["lineage"]["carried_from"] == candidates[0]["key"]
     assert db.load_provision_links("act-v2") == {("provision", None, "3"): ("provision", None, "2")}
+
+
+# ---------------------------------------------------------------------
+# A changed section is shown by its changed pieces, with the Act's own
+# account of the change beside them.
+# ---------------------------------------------------------------------
+
+def _two_subsections(tmp_path, slug, version, first, note=None):
+    nodes = [{"type": "part", "number": "1", "heading": "Preliminary", "text": ""},
+             {"type": "section", "number": "2", "heading": "Appeals", "text": ""},
+             {"type": "subsection", "number": "1", "heading": None, "text": first},
+             {"type": "subsection", "number": "2", "heading": None, "text": "the same in both"}]
+    if note:
+        nodes[2]["history"] = [{"raw": note}]
+    annotate_ids(nodes, HIERARCHY)
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True, exist_ok=True)
+    (parsed / f"{slug}.json").write_text(json.dumps({
+        "nodes": nodes, "hierarchy": HIERARCHY, "fingerprint": f"fp-{slug}",
+        "version": {"version": version, "as_at_printed": f"{version} May 2026"},
+        "endnotes": {"amending_acts": [{
+            "title": "Appeals Amendment Act 2026", "citation": "7/2026", "act_no": "7", "year": "2026",
+            "fields": {"assent_date": "1.2.26", "commencement_date": "S. 3 on 1.4.26"}}]},
+    }))
+
+
+def _changed_section(tmp_path, monkeypatch, note):
+    monkeypatch.chdir(tmp_path)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days", note)
+    review._load_state("act-v1")
+    return review.get_unit(_unit("2")["unit_no"])
+
+
+def test_only_the_changed_piece_is_put_in_front_of_the_reviewer(tmp_path, monkeypatch):
+    unit = _changed_section(tmp_path, monkeypatch, "S. 2(1) amended by No. 7/2026 s. 3.")
+    lineage = unit["lineage"]
+
+    [change] = lineage["changes"]
+    assert change["label"] == "(1)"
+    assert '<ins class="d-ins">within 28 days</ins>' in change["html"]
+    assert "the same in both" not in change["html"]
+    [piece] = [p for p in unit["pieces"] if p["node_index"] in lineage["changed_pieces"]]
+    assert piece["text"] == "a person may appeal"
+
+
+def test_the_margin_note_comes_with_its_endnote(tmp_path, monkeypatch):
+    lineage = _changed_section(tmp_path, monkeypatch, "S. 2(1) amended by No. 7/2026 s. 3.")["lineage"]
+
+    [note] = lineage["notes"]
+    assert note["raw"] == "S. 2(1) amended by No. 7/2026 s. 3." and note["version"] == 2
+    [act] = note["acts"]
+    assert act["title"] == "Appeals Amendment Act 2026" and act["assent_date"] == "1.2.26"
+    assert "S. 3 on 1.4.26" in act["described"]
+    assert lineage["evidenced"] is True
+
+
+def test_a_difference_no_note_accounts_for_is_called_the_parsers(tmp_path, monkeypatch):
+    lineage = _changed_section(tmp_path, monkeypatch, None)["lineage"]
+
+    assert lineage["notes"] == [] and lineage["evidenced"] is False
+
+
+def test_both_versions_can_be_re_parsed_from_the_review(tmp_path, monkeypatch):
+    lineage = _changed_section(tmp_path, monkeypatch, None)["lineage"]
+
+    assert lineage["slugs"] == {"this": "act-v1", "reference": "act-v2"}
+
+
+def test_the_review_links_reach_the_dashboards_re_parse_menu():
+    """Older reprints have no card on the dashboard, so this link is the
+    only way to their re-parse menu."""
+    from corpus import PROJECT_ROOT
+
+    review_page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+
+    assert 'href="../../?reparse=${encodeURIComponent(slug)}&mode=keep"' in review_page
+    assert "loadActs().then(openRequestedReparse);" in dashboard
+    assert 'params.get("reparse")' in dashboard and "openParseModal(slug)" in dashboard

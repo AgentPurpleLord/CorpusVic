@@ -889,6 +889,8 @@ def _wording_units(nodes: list[dict], hierarchy_order: list[str]) -> list[dict]:
         node = unit["tree_node"]["node"]
         name = node.get("_node_id") or node.get("id")
         rel = relative_id(name, root_name) if name else node["type"]
+        unit["path"] = rel
+        unit["name"] = name
         unit["align"] = (unit["header_text"] or rel.rsplit("/", 1)[-1], unit["clause_index"])
     return units
 
@@ -919,13 +921,59 @@ def _compare_html(older: list[dict], newer: list[dict]) -> str:
     if old_heading != new_heading:
         heading = (f'<div class="hist-heading">'
                    f'{_diff_html(word_diff(normalise(old_heading), normalise(new_heading)))}</div>')
-    units, texts, classes = [], [], []
+    rows = _compared_units(ops, older, newer)
+    return heading + _units_html(*zip(*[r[1:] for r in rows])) if rows else heading
+
+
+def _compared_units(ops: list[dict], older: list[dict], newer: list[dict]) -> list[tuple]:
+    """(op, unit, text html, class) for each of node_diff's ops -- one
+    walk shared by the whole-provision comparison and the changed-pieces
+    one, so the two can't come to render a piece differently."""
+    rows = []
     for op in ops:
         unit = newer[op["new"]] if op["new"] is not None else older[op["old"]]
-        units.append(unit)
-        texts.append(None if unit["text"] is None and not op["diff"] else _diff_html(op["diff"]))
-        classes.append({"delete": "prov-gone", "insert": "prov-new"}.get(op["op"], ""))
-    return heading + _units_html(units, texts, classes)
+        text = None if unit["text"] is None and not op["diff"] else _diff_html(op["diff"])
+        rows.append((op, unit, text, {"delete": "prov-gone", "insert": "prov-new"}.get(op["op"], "")))
+    return rows
+
+
+def _piece_label(unit: dict, numbers: dict) -> str:
+    """A piece's place in its provision as the Act cites it, "(8C)(f)",
+    from the numbers of the pieces its name runs through -- not from the
+    name itself, which is lower-cased and gives an unnumbered piece a
+    hash ("example~318d30")."""
+    path, name = unit.get("path") or "", unit.get("name") or ""
+    if not path:
+        return "Opening words"
+    segs = path.split("/")
+    base = name[:len(name) - len(path)]
+    out = []
+    for k, seg in enumerate(segs):
+        number = numbers.get(base + "/".join(segs[:k + 1]))
+        out.append(f"({number})" if number else f" {seg.split('~')[0]}" if "~" in seg else f"({seg})")
+    return "".join(out).strip()
+
+
+def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
+    """Only the pieces that differ, each on its own -- what a reviewer of
+    an older version has to check, without the rest of the provision to
+    read past. [{"op", "old", "new", "label", "html"}], where old and new
+    are the units themselves (None for the side that lacks the piece)."""
+    ops = node_diff([(u["align"], u["text"] or "") for u in older],
+                    [(u["align"], u["text"] or "") for u in newer])
+    numbers = {u["name"]: u["tree_node"]["node"].get("number") for u in (*older, *newer) if u.get("name")}
+    out = []
+    for op, unit, text, cls in _compared_units(ops, older, newer):
+        if op["op"] == "equal":
+            continue
+        out.append({
+            "op": op["op"],
+            "old": older[op["old"]] if op["old"] is not None else None,
+            "new": newer[op["new"]] if op["new"] is not None else None,
+            "label": _piece_label(unit, numbers),
+            "html": _units_html([{**unit, "depth": 0}], [text], [cls]),
+        })
+    return out
 
 
 def _span_label(wording: dict) -> str:

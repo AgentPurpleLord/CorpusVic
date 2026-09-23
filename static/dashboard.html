@@ -1920,7 +1920,22 @@ async function stopAiScan() {
   }
 }
 
-loadActs();
+// The review tool of any version -- older reprints included, which have
+// no card here of their own -- links to ?reparse=<slug> to open this menu
+// for that version. Taken out of the address once used, so a reload
+// doesn't open it again.
+function openRequestedReparse() {
+  const params = new URLSearchParams(location.search);
+  const slug = params.get("reparse");
+  if (!slug) return;
+  history.replaceState(null, "", location.pathname);
+  if (!ACTS.some((a) => a.slug === slug)) { toast(`No document ${slug} to re-parse.`, true); return; }
+  openParseModal(slug);
+  const radio = document.querySelector(`#parse-mode-group input[name=mode][value="${params.get("mode")}"]`);
+  if (radio) { radio.checked = true; radio.onchange(); }
+}
+
+loadActs().then(openRequestedReparse);
 loadSync();
 loadProfiles();
 loadSearchState();

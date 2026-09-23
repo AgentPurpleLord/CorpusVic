@@ -208,10 +208,20 @@ def _amended(ordered: list[dict], a: int, members: dict, b: int) -> bool:
 
     Where the later reprint has no parsed table, the text decides: a table
     that failed to parse would otherwise hide every amendment behind it."""
-    listed = ordered[b].get("amending_acts")
+    said = act_records_amendment(_notes_for(ordered[a], members[a]), _notes_for(ordered[b], members[b]),
+                                 ordered[b].get("amending_acts"))
+    return True if said is None else said
+
+
+def act_records_amendment(older_notes, newer_notes, listed) -> "bool | None":
+    """The rule _amended applies, on its own inputs, so the review tool
+    asks the same question of a unit that the public histories ask of a
+    chain: do the newer notes cite an amending Act the older ones did not,
+    and does the newer Table of Amendments (`listed`, its citations) list
+    it? None where there is no table to ask."""
     if not listed:
-        return True
-    new = _cited(_notes_for(ordered[b], members[b])) - _cited(_notes_for(ordered[a], members[a]))
+        return None
+    new = _cited(newer_notes) - _cited(older_notes)
     # An old note can cite by number alone ("No. 8679").
     listed = {*listed, *(c.split("/")[0] for c in listed)}
     return bool(new & listed)
