@@ -74,7 +74,9 @@ def _section_filename(number: str | None, node_type: str = "section") -> str:
     """"s3.md" for an Act's section 3, "c3.md" for a Bill's (or an EM's)
     clause 3 -- the prefix follows what the document actually calls its
     top-level provisions, so a link or a URL reads the same way the
-    citation does."""
+    citation does. An Act's Preamble has no number, and is "preamble"."""
+    if node_type == "preamble":
+        return "preamble.md"
     slug = re.sub(r"[^a-z0-9]+", "", (number or "x").lower())
     prefix = "c" if node_type == "clause" else "s"
     return f"{prefix}{slug or 'x'}.md"

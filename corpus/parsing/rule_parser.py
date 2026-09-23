@@ -81,7 +81,10 @@ def _body_font_size(lines: list[BodyLine]) -> float:
 # "BE IT ENACTED by the Queen's Most Excellent Majesty ... follows (that
 # is to say):" -- wrapped across several lines, so this only matches its
 # fixed ending.
-_ENACTING_WORDS_RE = re.compile(r"^The Parliament of Victoria enacts:?\s*$")
+# "therefore": an Act with a Preamble enacts on the strength of it (the
+# Family Violence Protection Act 2008).
+_ENACTING_WORDS_RE = re.compile(r"^The Parliament of Victoria (?:therefore )?enacts:?\s*$")
+_PREAMBLE_RE = re.compile(r"^Preamble$")
 _OLD_ENACTING_WORDS_RE = re.compile(r"\(that is to say\):?\s*$", re.IGNORECASE)
 
 
@@ -112,11 +115,18 @@ def _skip_front_matter(lines: list[BodyLine]) -> list[BodyLine]:
     whichever enacting phrase is found first, modern or old-style.
     Returns the lines unchanged if neither is found, rather than
     silently discarding the whole document on a layout this doesn't
-    recognise."""
+    recognise.
+
+    A Preamble is the exception: it is printed before the enacting words,
+    and is part of the Act. It is kept, from its own heading, with only
+    the enacting line itself dropped."""
     for i, line in enumerate(lines):
         text = line.text.strip()
         if _ENACTING_WORDS_RE.match(text) or _OLD_ENACTING_WORDS_RE.search(text):
-            return lines[i + 1 :]
+            # The last "Preamble" before them: a Table of Provisions may
+            # list one too.
+            start = next((j for j in range(i - 1, -1, -1) if _PREAMBLE_RE.match(lines[j].text.strip())), None)
+            return (lines[start:i] if start is not None else []) + lines[i + 1 :]
     return lines
 
 
@@ -824,6 +834,12 @@ class _LineParser:
                 continue
             elif self.asterisk_run:
                 self._flush_asterisk_run(char_start - 1)
+
+            if _PREAMBLE_RE.match(text) and not self.nodes:
+                # Its paragraphs nest under it as a section's would.
+                self._open_node("preamble", None, "Preamble", line, char_start, rank=self.rank[self.top_level_type])
+                self.prev_text = text
+                continue
 
             if self.patterns["notes_marker"].match(text):
                 self._close_marked_block()

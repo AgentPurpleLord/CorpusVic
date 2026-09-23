@@ -1652,3 +1652,47 @@ def test_notes_numbered_in_the_margin_keep_their_own_lines():
 
     notes = [(n["number"], n["text"][:14]) for n in nodes if n["type"] == "note"]
     assert notes == [("1", "Section 102 of"), ("2", "Section 103(1)")]
+
+
+def test_a_preamble_is_its_own_provision_and_the_identity_block_goes():
+    """Family Violence Protection Act 2008: its Preamble comes before
+    "The Parliament of Victoria therefore enacts:", which the front-matter
+    skip did not know -- so the Authorised Version block and the Preamble
+    both landed in a made-up "Preliminary" Part."""
+    nodes = _parse([
+        line("Authorised Version No. 068", bold=True, x1=300),
+        line("Family Violence Protection Act 2008", bold=True, x1=300),
+        line("Preamble", bold=True, x0=280, x1=330),
+        line("In enacting this Act, the Parliament recognises the following principles—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) that non-violence is a fundamental social value;", x0=PARA_X0, x1=420),
+        line("(b) that family violence is unacceptable in any form.", x0=PARA_X0, x1=430),
+        line("The Parliament of Victoria therefore enacts:", x0=HEAD_X0, x1=380),
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+    ]).nodes
+
+    assert [(n["type"], n.get("number"), n.get("heading")) for n in nodes][:4] == [
+        ("preamble", None, "Preamble"), ("paragraph", "a", None), ("paragraph", "b", None), ("part", "1", "Preliminary")]
+    assert nodes[0]["text"].startswith("In enacting this Act")
+    assert not any("Authorised Version" in (n.get("heading") or "") + (n.get("text") or "") for n in nodes)
+
+
+def test_a_preamble_reads_as_its_own_page():
+    from corpus.parsing.identity import annotate_ids
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("Preamble", bold=True, x0=280, x1=330),
+        line("In enacting this Act, the Parliament recognises—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) that non-violence is a fundamental social value.", x0=PARA_X0, x1=420),
+        line("The Parliament of Victoria therefore enacts:", x0=HEAD_X0, x1=380),
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+    ])
+    annotate_ids(result.nodes, result.hierarchy)
+    parsed = {"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
+
+    assert '<a href="/section/preamble">Preamble</a>' in html_view.render_index(parsed, "An Act 2008", "")
+    assert "non-violence" in html_view.render_section(parsed, "An Act 2008", "", "preamble")
