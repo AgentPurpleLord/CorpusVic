@@ -136,6 +136,8 @@ def test_history_review_fetches_the_ticked_versions_one_at_a_time():
 
     assert 'fetch(API + "/versions/available")' in page
     assert "for (const [n, v] of ticked.entries())" in page and "fetch(`${API}/versions/fetch/${v}`" in page
+    assert 'while (job.state === "running")' in page, "a parse outlasts a request, so the job is asked after"
+    assert "res.json()" not in page, "every reply read through jsonOf, which reports one that isn't JSON"
 
 
 def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
@@ -169,3 +171,44 @@ def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_pat
 
     page = (dashboard.STATIC_DIR / "history.html").read_text(encoding="utf-8")
     assert "/api/named/${encodeURIComponent(btn.dataset.node)}/place" in page
+
+
+def test_a_piece_with_no_boxes_is_found_on_its_page_by_its_words(tmp_path, monkeypatch):
+    """The CPA's older parses predate boxes: its words mark where it is."""
+    import fitz
+    import corpus.web.dashboard as dashboard
+
+    pdf = tmp_path / "v1.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=300, height=400)
+    page.insert_text((40, 100), "Something else entirely.", fontsize=10)
+    page.insert_text((40, 200), "A person may appeal within 28 days.", fontsize=10)
+    doc.save(pdf)
+    monkeypatch.setattr(dashboard, "_find_source_pdf", lambda slug: pdf)
+    dashboard._page_docs.clear()
+
+    [rect] = dashboard.pdf_page_find("act-v1", 1, "A person may appeal within 28 days.")["rects"]
+    assert rect["page"] == 1 and 185 < rect["y1"] < 205
+    assert dashboard.pdf_page_find("act-v1", 1, "nothing printed here at all")["rects"] == []
+    small, large = (dashboard.pdf_page_image("act-v1", 1, zoom=z).body for z in (1, 2))
+    assert fitz.open("png", large)[0].rect.width == 2 * fitz.open("png", small)[0].rect.width
+
+
+def test_an_accepted_piece_keeps_the_boxes_its_parse_drew(monkeypatch):
+    import corpus.web.dashboard as dashboard
+
+    box = {"page": 3, "x0": 1, "y0": 2, "x1": 3, "y1": 4}
+    monkeypatch.setattr(dashboard, "_parse_field", lambda slug, key: [{"rects": []}, {"rects": [box]}])
+
+    accepted, inserted = dashboard._with_rects("act-v1", [{"text": "x", "_source_node_index": 1}, {"text": "y"}])
+    assert accepted["rects"] == [box] and "rects" not in inserted
+
+
+def test_each_version_shows_its_pages_scrolled_to_the_piece():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+
+    assert 'showPdf("old", i.from, i.old_at);' in page and 'showPdf("new", i.to, i.new_at);' in page
+    assert "/pages/${p}/find?q=" in page and "scroll.scrollTop =" in page
+    assert "aspect-ratio: ${size.width} / ${size.height}" in page

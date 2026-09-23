@@ -54,10 +54,18 @@
   .decide { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
   .decide .btn { padding: 6px 14px; }
   .decided { font-weight: 600; }
-  .pages { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-  .page .head { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
-  .stage { position: relative; background: white; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
-  .stage img { display: block; width: 100%; }
+  .side { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .pdf { border: 1px solid var(--border); min-width: 0; }
+  .pdf-bar { font-size: 12px; color: var(--muted); padding: 4px 6px; display: flex; gap: 6px; align-items: center;
+             border-bottom: 1px solid var(--border); }
+  .pdf-bar .btn { padding: 1px 8px; }
+  .pdf-scroll { position: relative; height: 72vh; overflow: auto; background: #52565c; padding: 10px; }
+  .pdf-scroll .none { color: #e5e7eb; padding: 10px; }
+  /* The page's own proportions, so a page above the one wanted can load
+     late without pushing the wanted one out of view. */
+  .stage { position: relative; background: white; box-shadow: 0 1px 6px rgba(0,0,0,.3); margin: 0 auto 10px; }
+  .stage img { display: block; width: 100%; height: 100%; }
+  .stage .pno { position: absolute; top: 2px; right: 6px; font-size: 11px; color: #6b7280; }
   .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .hl { fill: #f59e0b; fill-opacity: .2; stroke: #d97706; stroke-width: 1.5; }
   #log { white-space: pre-wrap; font-size: 12px; max-height: 160px; overflow: auto; background: var(--bg);
@@ -67,7 +75,7 @@
          max-height: 220px; overflow-y: auto; padding: 6px; border: 1px solid var(--border); background: var(--bg); }
   #versions-panel small { color: var(--muted); }
   #toast { position: fixed; bottom: 16px; right: 16px; background: var(--fg); color: var(--bg); padding: 8px 12px; display: none; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } #list { max-height: 35vh; } .cols, .pages { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } #list { max-height: 35vh; } .cols { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -111,12 +119,23 @@ function toast(msg, bad) {
   el.textContent = msg; el.style.background = bad ? "#ae1800" : ""; el.style.display = "block";
   clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = "none"; }, 2500);
 }
+// A reply that isn't JSON -- a proxy's error page, a server's bare
+// "Internal Server Error" -- says so with its own words, rather than as
+// the browser's complaint about parsing it.
+async function jsonOf(res) {
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {
+    throw new Error(`${res.status} ${res.statusText}: ${text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)}`);
+  }
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
 const slugOf = (v) => (DATA.versions.find((x) => x.version === v) || {}).slug;
 
 async function load() {
-  const res = await fetch(API + "/history");
-  DATA = await res.json();
-  if (!res.ok) { document.getElementById("detail").textContent = DATA.detail || "Couldn't load."; return; }
+  try { DATA = await jsonOf(await fetch(API + "/history")); }
+  catch (e) { document.getElementById("detail").textContent = e.message; return; }
   document.getElementById("work").textContent = DATA.title || WORK;
   const steps = [...new Set(DATA.items.map((i) => `${i.from}→${i.to}`))];
   document.getElementById("step-filter").innerHTML = `<option value="">All steps</option>`
@@ -149,9 +168,19 @@ function render(reset) {
   showItem();
 }
 
-function column(html, v, none) {
-  return `<div class="col"><div class="head">Version ${v}</div>`
-    + (html != null ? `<div class="text">${html}</div>` : `<div class="text none">${none}</div>`) + `</div>`;
+// One version: its wording, and under it its printed pages, scrolled to
+// the piece -- the two side by side, earlier on the left.
+function side(key, html, v) {
+  return `<div class="side"><div class="col"><div class="head">Version ${v}</div>`
+    + (html != null ? `<div class="text">${html}</div>` : `<div class="text none">Not in this version</div>`) + `</div>
+    <div class="pdf"><div class="pdf-bar">Version ${v} PDF
+      <button class="btn" onclick="turn('${key}', -1)" title="Earlier page">&larr;</button>
+      <span id="${key}-label"></span>
+      <button class="btn" onclick="turn('${key}', 1)" title="Later page">&rarr;</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="zoom(-1)" title="Zoom out">&minus;</button>
+      <button class="btn" onclick="zoom(1)" title="Zoom in">+</button></div>
+      <div class="pdf-scroll" id="${key}-scroll"></div></div></div>`;
 }
 
 function showItem() {
@@ -172,53 +201,90 @@ function showItem() {
   detail.innerHTML = `
     <h2>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? (i.op === "insert" ? " inserted" : " removed") : esc(i.label)}</h2>
     <div class="step">Version ${i.from} &rarr; Version ${i.to}</div>
-    <div class="cols">${column(i.old_html, i.from, "Not in this version")}${column(i.new_html, i.to, "Not in this version")}</div>
     <div class="decide">
       <button class="btn primary" onclick="decide('confirmed')">Confirm change (c)</button>
       <button class="btn" onclick="decide('denied')">Deny: parsing issue (d)</button>
       ${decided}
     </div>
+    <div class="cols">${side("old", i.old_html, i.from)}${side("new", i.new_html, i.to)}</div>
     <div class="decide">${[i.from, i.to].map((v) => slugOf(v) ? `<a class="btn" target="_blank" rel="noopener"
         href="../../?reparse=${encodeURIComponent(slugOf(v))}&mode=keep"
         title="The dashboard's Parse Menu for this version, keeping what is approved">Re-parse v${v}&hellip;</a>` : "").join(" ")}</div>
     <div class="evidence">
       <h3>Amending Acts</h3>${acts || '<div class="none">No fetched amending Act gives an instruction for this.</div>'}
       <h3>Margin notes new in Version ${i.to}</h3>${notes || '<div class="none">None.</div>'}
-    </div>
-    <div class="pages">${pageHtml("old", i.from, i.old_at)}${pageHtml("new", i.to, i.new_at)}</div>`;
-  loadPage("old", i.from, i.old_at);
-  loadPage("new", i.to, i.new_at);
+    </div>`;
+  showPdf("old", i.from, i.old_at);
+  showPdf("new", i.to, i.new_at);
 }
 
-function pageHtml(side, v, at) {
-  return `<div class="page"><div class="head">Version ${v}
-      <button class="btn" onclick="turn('${side}', -1)">&larr;</button>
-      <span id="${side}-label">${at ? "page " + at.page : "no page"}</span>
-      <button class="btn" onclick="turn('${side}', 1)">&rarr;</button></div>
-    <div class="stage" id="${side}-stage"><img id="${side}-img" alt=""><svg id="${side}-svg" preserveAspectRatio="none"></svg></div></div>`;
+const ZOOMS = [1, 1.5, 2, 2.5];
+let pdfZoom = 1;
+try { pdfZoom = ZOOMS.includes(Number(localStorage.getItem("historyPdfZoom"))) ? Number(localStorage.getItem("historyPdfZoom")) : 1; } catch {}
+const panes = {};
+const docs = (slug) => `../../api/docs/${encodeURIComponent(slug)}`;
+
+// Where the piece is printed: the parse's own boxes, or -- for a parse
+// made before parses recorded them -- its opening words found on its pages.
+async function marks(slug, at) {
+  if (at.rects && at.rects.length) return at.rects;
+  if (at.found) return at.found;
+  at.found = [];
+  for (let p = at.page; at.text && p <= Math.min(at.page_end || at.page, at.page + 2); p++) {
+    try { at.found = (await jsonOf(await fetch(`${docs(slug)}/pages/${p}/find?q=${encodeURIComponent(at.text)}`))).rects; }
+    catch { break; }
+    if (at.found.length) break;
+  }
+  return at.found;
 }
 
-const pageState = {};
-async function loadPage(side, v, at, page) {
+// The page with the piece and one either side, one under another, scrolled
+// so the piece sits near the top of the pane.
+async function showPdf(key, v, at, page) {
+  const scroll = document.getElementById(`${key}-scroll`);
+  const label = document.getElementById(`${key}-label`);
+  if (!scroll) return;
   const slug = slugOf(v);
   page = page || (at && at.page);
-  if (!slug || !page) return;
+  const pane = panes[key] = { v, at, page };
+  if (!slug || !page) {
+    label.textContent = "";
+    scroll.innerHTML = `<div class="none">Not in Version ${v}.</div>`;
+    return;
+  }
+  let size, hl;
   try {
-    const res = await fetch(`../../api/docs/${encodeURIComponent(slug)}/pages/${page}`);
-    const size = await res.json();
-    if (!res.ok) throw new Error(size.detail);
-    pageState[side] = { v, at, page, count: size.page_count };
-    document.getElementById(`${side}-img`).src = `../../api/docs/${encodeURIComponent(slug)}/pages/${page}.png`;
-    const svg = document.getElementById(`${side}-svg`);
-    svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
-    svg.innerHTML = ((at && at.rects) || []).filter((r) => r.page === page).map((r) =>
-      `<rect class="hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("");
-    document.getElementById(`${side}-label`).textContent = `page ${page}`;
-  } catch (e) { document.getElementById(`${side}-label`).textContent = e.message || "no PDF"; }
+    size = await jsonOf(await fetch(`${docs(slug)}/pages/${page}`));
+    hl = at ? await marks(slug, at) : [];
+  } catch (e) { scroll.innerHTML = `<div class="none">${esc(e.message)}</div>`; return; }
+  if (panes[key] !== pane) return;   // moved on while this loaded
+  pane.count = size.page_count;
+  label.textContent = `page ${page} of ${size.page_count}`;
+  const pages = [page - 1, page, page + 1].filter((p) => p >= 1 && p <= size.page_count);
+  scroll.innerHTML = pages.map((p) => `<div class="stage" data-page="${p}"
+      style="width: ${pdfZoom * 100}%; aspect-ratio: ${size.width} / ${size.height}">
+      <img src="${docs(slug)}/pages/${p}.png?zoom=${pdfZoom}" alt="Version ${v}, page ${p}">
+      <svg preserveAspectRatio="none" viewBox="0 0 ${size.width} ${size.height}">${hl.filter((r) => r.page === p).map((r) =>
+        `<rect class="hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("")}</svg>
+      <span class="pno">page ${p}</span></div>`).join("");
+  requestAnimationFrame(() => {
+    const target = scroll.querySelector(`.stage[data-page="${page}"]`);
+    const first = hl.find((r) => r.page === page);
+    const y = target.offsetTop + (first ? first.y0 / size.height * target.clientHeight : 0);
+    scroll.scrollTop = Math.max(0, y - scroll.clientHeight / 4);
+    scroll.scrollLeft = first ? Math.max(0, target.offsetLeft + first.x0 / size.width * target.clientWidth - 20) : 0;
+  });
 }
-function turn(side, by) {
-  const s = pageState[side];
-  if (s && s.page + by >= 1 && s.page + by <= s.count) loadPage(side, s.v, s.at, s.page + by);
+
+function turn(key, by) {
+  const p = panes[key];
+  if (p && p.count && p.page + by >= 1 && p.page + by <= p.count) showPdf(key, p.v, p.at, p.page + by);
+}
+
+function zoom(by) {
+  pdfZoom = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(pdfZoom) + by))];
+  try { localStorage.setItem("historyPdfZoom", String(pdfZoom)); } catch {}
+  for (const key of ["old", "new"]) if (panes[key]) showPdf(key, panes[key].v, panes[key].at, panes[key].page);
 }
 
 async function decide(decision) {
@@ -261,8 +327,7 @@ document.getElementById("fetch-acts").onclick = async (e) => {
   btn.disabled = true; btn.textContent = "Fetching...";
   const log = document.getElementById("log");
   try {
-    const res = await fetch(`../../api/acts/${encodeURIComponent(WORK)}/amending`, { method: "POST" });
-    const data = await res.json();
+    const data = await jsonOf(await fetch(`../../api/acts/${encodeURIComponent(WORK)}/amending`, { method: "POST" }));
     log.style.display = "block";
     log.textContent = data.log || data.detail || "";
     await load();
@@ -282,8 +347,7 @@ document.addEventListener("click", async (e) => {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reference: btn.dataset.reference, after_node_index: null }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || res.statusText);
+    const data = await jsonOf(res);
     toast(data.matches ? `Now ${data.reference}, as the Act says.`
       : `Placed, but it reads as ${data.reference || "unnumbered"} there -- check it in review.`, !data.matches);
     await load();
@@ -299,9 +363,7 @@ document.getElementById("fetch-versions").onclick = async () => {
   panel.hidden = false;
   panel.textContent = "Asking legislation.vic.gov.au\u2026";
   try {
-    const res = await fetch(API + "/versions/available");
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Couldn't list the versions.");
+    const data = await jsonOf(await fetch(API + "/versions/available"));
     panel.innerHTML = `<div class="vlist">${data.versions.slice().reverse().map((v) => `<label>
         <input type="checkbox" value="${v.version}" ${v.held ? "checked disabled" : v.pdf_url ? "" : "disabled"}>
         v${v.version} <small>${esc(v.effective || "")}${v.held ? " &middot; held" : v.note ? ` &middot; ${esc(v.note)}` : ""}</small>
@@ -322,9 +384,13 @@ async function fetchTicked(e) {
   for (const [n, v] of ticked.entries()) {
     log.textContent += `v${v} (${n + 1} of ${ticked.length}): downloading and parsing\u2026\n`;
     try {
-      const res = await fetch(`${API}/versions/fetch/${v}`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || res.statusText);
+      let job = await jsonOf(await fetch(`${API}/versions/fetch/${v}`, { method: "POST" }));
+      while (job.state === "running") {
+        await new Promise((r) => setTimeout(r, 3000));
+        job = await jsonOf(await fetch(`${API}/versions/fetch`));
+      }
+      if (job.state === "failed") throw new Error(job.error);
+      const data = job.result;
       log.textContent += data.ok ? `v${v}: parsed as ${data.slug}\n` : `v${v}: the parse failed\n${data.log || ""}\n`;
     } catch (err) { log.textContent += `v${v}: ${err.message}\n`; }
   }
