@@ -130,6 +130,9 @@ def _two_subsections(tmp_path, slug, version, first, note=None, heading="Appeals
              {"type": "subsection", "number": "2", "heading": None, "text": "the same in both"}]
     if note:
         nodes[2]["history"] = [{"raw": note}]
+    # Where each version prints (1), for the page set beside this one.
+    nodes[2]["rects"] = [{"page": 2, "x0": 50.0, "y0": 60.0 + version, "x1": 150.0, "y1": 80.0}]
+    nodes[3]["rects"] = [{"page": 2, "x0": 50.0, "y0": 90.0, "x1": 150.0, "y1": 110.0}]
     annotate_ids(nodes, HIERARCHY)
     parsed = tmp_path / "data" / "parsed"
     parsed.mkdir(parents=True, exist_ok=True)
@@ -242,3 +245,39 @@ def test_the_two_wordings_sit_side_by_side_only_in_the_changes_view():
     assert "Differs from <strong>" not in page
     assert 'if (sidebarFilter === "changes" && l && l.changes)' in page
     assert "compareColumnsHtml(c, c.label === \"Heading\")" in page
+
+
+def test_the_other_versions_page_opens_on_what_changed_there(tmp_path, monkeypatch):
+    view = _changed_section(tmp_path, monkeypatch, None)["lineage"]["reference_view"]
+
+    assert view["version"] == 2 and view["page"] == 2
+    assert view["rects"] == [{"page": 2, "x0": 50.0, "y0": 62.0, "x1": 150.0, "y1": 80.0}], \
+        "v2's (1), the piece that changed -- not (2), which didn't"
+
+
+def test_the_other_versions_pdf_is_served_by_this_review(tmp_path, monkeypatch):
+    import fitz
+
+    _changed_section(tmp_path, monkeypatch, None)
+    pdf = tmp_path / "v2.pdf"
+    doc = fitz.open()
+    doc.new_page(width=200, height=300)
+    doc.new_page(width=210, height=310)
+    doc.save(pdf)
+    parsed = tmp_path / "data" / "parsed" / "act-v2.json"
+    parsed.write_text(json.dumps({**json.loads(parsed.read_text()), "source": str(pdf)}))
+    review._version_docs.clear()
+
+    assert review.get_version_page(2, 2) == {"width": 210.0, "height": 310.0, "page_count": 2}
+    image = review.get_version_page_image(2, 2)
+    assert image.media_type == "image/png" and image.body[:4] == b"\x89PNG"
+
+
+def test_the_pdf_panel_can_set_the_two_pages_side_by_side():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+
+    assert 'id="pdf-compare-btn"' in page and 'id="pdf-ref"' in page
+    assert "api/versions/${v}/pages/${pageNo}.png" in page
+    assert 'classList.toggle("later", view.version > META.version_info.version)' in page

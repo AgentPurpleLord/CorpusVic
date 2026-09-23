@@ -1722,6 +1722,51 @@ def _cache_page_image(key: "tuple[int, float]", png_bytes: bytes) -> None:
         total -= len(_page_image_cache.pop(next(iter(_page_image_cache))))
 
 
+_version_docs: dict = {}
+
+
+def _version_doc(version: int) -> fitz.Document:
+    """Another version's source PDF, for setting its page beside this
+    one's -- verifying a change means seeing both printed pages, not one
+    page and a diff."""
+    if not _work_review or version not in _work_review["slugs"]:
+        raise HTTPException(404, f"No version {version} of this work is held here")
+    if _work_review["slugs"][version] == _act:
+        return _get_pdf_doc()
+    if version not in _version_docs:
+        path = load_source_pdf_path(_work_review["slugs"][version])
+        if not path or not Path(path).exists():
+            raise HTTPException(404, f"Version {version}'s source PDF isn't where its parse says it is")
+        _version_docs[version] = fitz.open(path)
+    return _version_docs[version]
+
+
+@app.get("/api/versions/{version}/pages/{page_no}")
+def get_version_page(version: int, page_no: int):
+    """A page's size in PDF points, which the boxes drawn over it are
+    measured in, and how many pages that version's PDF has."""
+    doc = _version_doc(version)
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"Version {version}'s PDF has pages 1-{doc.page_count}; no page {page_no}")
+    rect = doc[page_no - 1].rect
+    return {"width": rect.width, "height": rect.height, "page_count": doc.page_count}
+
+
+@app.get("/api/versions/{version}/pages/{page_no}.png")
+def get_version_page_image(version: int, page_no: int, zoom: float = 1.0):
+    zoom = min(_PAGE_ZOOM_STEPS, key=lambda step: abs(step - zoom))
+    key = (version, page_no, zoom)
+    if key in _page_image_cache:
+        return Response(content=_page_image_cache[key], media_type="image/png")
+    doc = _version_doc(version)
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"Version {version}'s PDF has pages 1-{doc.page_count}; no page {page_no}")
+    scale = _PAGE_RENDER_ZOOM * zoom
+    png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
+    _cache_page_image(key, png_bytes)
+    return Response(content=png_bytes, media_type="image/png")
+
+
 @app.get("/api/pages/{page_no}.png")
 def get_page_image(page_no: int, zoom: float = 1.0):
     """Renders one page of this Act's source PDF as a PNG, so a reviewer
@@ -3488,6 +3533,20 @@ def _changed_pieces(older: list[dict], newer: list[dict], root: int, versions: t
     return {"changes": changes, "changed_pieces": changed}
 
 
+def _reference_view(reference: int, their_nodes: list[dict], their_units: list[dict],
+                    older: list[dict], newer: list[dict]) -> dict:
+    """Where this section is printed in the version it is compared with:
+    the page to open there, and the boxes to mark on it -- the pieces that
+    changed, or the whole section where none did."""
+    theirs = {id(u["tree_node"]["node"]) for u in their_units}
+    changed_nodes = [side["tree_node"]["node"] for change in html_view._compare_pieces(older, newer)
+                     for side in (change["old"], change["new"])
+                     if side is not None and id(side["tree_node"]["node"]) in theirs]
+    rects = [r for node in (changed_nodes or their_nodes) for r in node.get("rects") or []]
+    page = rects[0]["page"] if rects else (their_nodes[0].get("page_start") if their_nodes else None)
+    return {"version": reference, "page": page, "rects": rects}
+
+
 def _note_raws(nodes: list[dict]) -> list[str]:
     out = []
     for node in nodes:
@@ -3569,6 +3628,8 @@ def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict], indices: list[in
         older, newer = (other, mine) if reference < version else (mine, other)
         out["compare"] = html_view._compare_html(older, newer)
         out.update(_changed_pieces(older, newer, indices[0], tuple(sorted((version, reference)))))
+        out["reference_view"] = _reference_view(reference, their_nodes, older if reference < version else newer,
+                                                older, newer)
         out.update(_amendment_evidence(
             (version, entry["key"], unit_nodes), (reference, their_key, their_nodes)))
     # Carrying from is recorded against the later of two versions, and
