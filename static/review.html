@@ -535,7 +535,11 @@
   .piece[data-type="example"] { border-left: 3px solid #14b8a6; }
   .piece[data-type="definition"] { border-left: 3px solid #3b82f6; }
   .piece[data-type="heading_group"] { border-left: 3px solid #111827; }
-  .piece[data-type="repealed"] { border-left: 3px solid #6b7280; background: var(--repealed-bg); }
+  /* Grey only while undecided: once accepted or flagged, a repealed row
+     shows it like any other piece, or what is left to review is lost in
+     the grey. */
+  .piece[data-type="repealed"] { border-left: 3px solid #6b7280; }
+  .piece[data-type="repealed"]:not(.piece-accepted):not(.piece-flagged) { background: var(--repealed-bg); }
   .piece[data-type="repealed"] .piece-text { color: var(--muted); font-style: italic; }
 
   #unit-actions {

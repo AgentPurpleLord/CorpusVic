@@ -1600,3 +1600,55 @@ def test_a_reference_wrapped_in_a_note_stays_in_the_note():
     [note] = [n for n in nodes if n["type"] == "note"]
     assert note["text"].endswith("subsection (2) of that section applies to it.")
     assert [n["number"] for n in nodes if n["type"] == "subsection"] == ["1", "2"]
+
+
+# ---------------------------------------------------------------------
+# Repealed rows (Criminal Procedure Act v114 s 124(4), s 3)
+# ---------------------------------------------------------------------
+
+def _stars(y0):
+    return [line("*", x0=x, x1=x + 9, y0=y0) for x in (207, 263, 320, 377, 433)]
+
+
+def test_each_row_of_stars_is_one_repealed_provision():
+    nodes = _parse(_section(
+        line("(1) The court may make an order.", x0=HEAD_X0, x1=400, y0=100),
+        *_stars(120), *_stars(140),
+        line("(4) The order may be varied.", x0=HEAD_X0, x1=380, y0=160),
+    )).nodes
+
+    assert [n["text"] for n in nodes if n["type"] == "repealed"] == ["* * * * *", "* * * * *"]
+
+
+def test_a_list_carries_on_past_a_repealed_item():
+    """(b), a repealed (c), then (d): "d" is a roman numeral too, and read
+    as one it opened a subparagraph list under (b)."""
+    nodes = _parse(_section(
+        line("(4) In determining whether—", x0=HEAD_X0, x1=300, y0=100),
+        line("(a) the case is disclosed; and", x0=PARA_X0, x1=400, y0=120),
+        line("(b) the issues are defined; and", x0=PARA_X0, x1=400, y0=140),
+        *_stars(160),
+        line("(d) a fair trial will take place; and", x0=PARA_X0, x1=420, y0=180),
+        line("(e) a plea is clarified.", x0=PARA_X0, x1=360, y0=200),
+    )).nodes
+
+    assert [(n["type"], n["number"]) for n in nodes if n["type"] in ("paragraph", "subparagraph")] == [
+        ("paragraph", "a"), ("paragraph", "b"), ("paragraph", "d"), ("paragraph", "e")]
+
+
+def test_notes_numbered_in_the_margin_keep_their_own_lines():
+    """s 124's notes, in the order extraction now gives them: each number
+    before its note's first line."""
+    nodes = _parse(_section(
+        line("(4) The court must have regard to the evidence.", x0=HEAD_X0, x1=420),
+        line("Notes", bold=True, size=10.0, x0=210, x1=236),
+        line("1", size=10.0, x0=210, x1=217),
+        line("Section 102 of the Evidence Act 2008 provides that", x0=230, size=10.0, x1=442),
+        line("credibility evidence is not admissible.", x0=230, size=10.0, x1=400),
+        line("2", size=10.0, x0=210, x1=217),
+        line("Section 103(1) of the Evidence Act 2008 provides that", x0=230, size=10.0, x1=453),
+        line("the credibility rule does not apply.", x0=230, size=10.0, x1=380),
+    )).nodes
+
+    notes = [(n["number"], n["text"][:14]) for n in nodes if n["type"] == "note"]
+    assert notes == [("1", "Section 102 of"), ("2", "Section 103(1)")]

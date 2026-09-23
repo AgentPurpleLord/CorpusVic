@@ -141,3 +141,18 @@ def test_line_text_leaves_pua_characters_from_a_non_symbol_font_untouched():
     the same thing."""
     line = {"spans": [_fspan("", "Wingdings")]}
     assert _line_text(line) == ""
+
+
+def test_a_row_reads_left_to_right_though_its_margin_number_sits_lower():
+    """Criminal Procedure Act v114 s 45: note 1's number, a tenth of a
+    point below its text. By height alone it followed its first line."""
+    from corpus.parsing.extract import _rows_left_to_right
+
+    body = [
+        (204.7, 678.2, 426.7, 691.9, "See section 14 of the Victims' Charter Act 2006 as to"),
+        (184.3, 678.3, 191.8, 691.7, "1"),
+        (204.7, 689.8, 273.5, 703.3, "victims' privacy."),
+        (184.3, 660.6, 210.7, 674.4, "Notes"),
+    ]
+
+    assert [t[4][:9] for t in _rows_left_to_right(body)] == ["Notes", "1", "See secti", "victims' "]

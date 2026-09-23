@@ -289,3 +289,74 @@ def test_an_ordinary_section_citation_still_lands_on_the_provision():
     nodes = _s6()
     attach_history(nodes, [_page_with_notes(["S. 6(1)(a) amended by No. 20/2025 s. 5."])])
     assert _attached(nodes) == [("paragraph", "a", "high")]
+
+
+# ---------------------------------------------------------------------
+# Criminal Procedure Act s 124, as v114 prints it
+# ---------------------------------------------------------------------
+
+def _s124():
+    return [
+        make_node("part", "4.5", "Committal"),
+        make_node("section", "124", "Leave required"),
+        make_node("subsection", "1AA", None, "This section does not apply to—"),
+        make_node("paragraph", "a", None, "a committal proceeding; or"),
+        make_node("subsection", "3", None, "The court must not grant leave unless—"),
+        make_node("paragraph", "a", None, "an issue is identified; and"),
+        make_node("paragraph", "c", None, "there are substantial reasons."),
+        make_node("subsection", "4", None, "In determining whether—"),
+        make_node("paragraph", "b", None, "the issues are adequately defined; and"),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("paragraph", "d", None, "a fair trial will take place; and"),
+        make_node("paragraph", "g", None, "cross-examination is not permitted."),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("repealed", None, None, "* * * * *"),
+    ]
+
+
+def test_a_note_goes_to_the_provision_its_whole_citation_names():
+    """Not to the first provision with its last number: every subsection
+    has its own (a)."""
+    nodes = _s124()
+    attach_history(nodes, [_page_with_notes(["S. 124(3)(a) amended by No. 5/2025 s. 12(1)(a)."])])
+
+    assert [n["path"]["subsection"] for n in nodes if n.get("history")] == ["3"]
+
+
+def test_a_repealed_provision_is_the_row_where_it_stood():
+    nodes = _s124()
+    attach_history(nodes, [_page_with_notes([
+        "S. 124(4)(c) repealed by No. 5/2025 s. 4.",
+        "S. 124(4)(h) repealed by No. 5/2025 s. 12(2)(c).",
+        "Note to s. 124(4) repealed by No. 5/2025 s. 12(3).",
+    ])])
+
+    rows = [n for n in nodes if n["type"] == "repealed"]
+    assert [n["number"] for n in rows] == ["c", "h", None], "after (b), after (g); a note is not the subsection"
+    assert [n["history"][0]["raw"][:12] for n in rows] == ["S. 124(4)(c)", "S. 124(4)(h)", "Note to s. 1"]
+    assert not nodes[6].get("history"), "not (3)(c)"
+
+
+def test_a_citation_with_no_match_falls_back_to_its_own_parent():
+    nodes = _s124()
+    attach_history(nodes, [_page_with_notes(["S. 124(4)(e) amended by No. 5/2025 s. 12(2)."])])
+
+    [target] = [n for n in nodes if n.get("history")]
+    assert (target["type"], target["number"], target["history"][0]["confidence"]) == ("subsection", "4", "low")
+
+
+def test_repealed_sections_take_their_rows_in_printed_order():
+    nodes = [
+        make_node("part", "5.1", "Trials"),
+        make_node("section", "374", "Directions"),
+        make_node("subsection", "1", None, "The court may give directions."),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("section", "376", "Juries"),
+    ]
+    attach_history(nodes, [_page_with_notes([
+        "New s. 375 inserted by No. 68/2009 s. 50, repealed by No. 7/2019 s. 12.",
+        "S. 375A inserted by No. 48/2012 s. 29, repealed by No. 37/2014 s. 10.",
+    ])])
+
+    assert [n["number"] for n in nodes if n["type"] == "repealed"] == ["375", "375A"]
