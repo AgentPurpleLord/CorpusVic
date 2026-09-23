@@ -156,7 +156,7 @@ from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
 from corpus.parsing import identity
 from corpus.parsing.identity import annotate_ids
-from corpus.parsing.extract import BodyLine, lines_in_rects
+from corpus.parsing.extract import BodyLine, join_printed_line, lines_in_rects
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from corpus.domain.profiles import load_profile, profile_for
 from corpus.parsing.rule_parser import read_box
@@ -1114,6 +1114,18 @@ def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: d
 _NESTABLE_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph", "definition")
 
 
+def _depth_rank(i: int) -> "int | None":
+    """Where the parser put a continuation. A reviewed row has no column
+    for it, so once one was accepted its type's default rank stood in --
+    which clears the levels it sits inside, and a continuation under
+    s 110(1)(d)(vi) reset the whole section, relabelling every piece after
+    it on the next edit."""
+    rank = _current_node(i).get("depth_rank")
+    if rank is None and 0 <= i < len(_nodes):
+        rank = _parse_node(i).get("depth_rank")
+    return rank
+
+
 def _recompute_unit_paths(unit_no: int) -> None:
     """Rebuilds path[level] for subsection/paragraph/subparagraph/
     sub_subparagraph/definition across every (non-merged-away) piece in
@@ -1148,7 +1160,7 @@ def _recompute_unit_paths(unit_no: int) -> None:
             # Inherits the context it resumes rather than starting one --
             # the same rule tree.annotate_paths applies, replayed here so
             # a renest gives the same answer a re-parse would.
-            effective = node.get("depth_rank")
+            effective = _depth_rank(i)
             if effective is None:
                 effective = rank[t]
             for deeper in _hierarchy[effective:]:
@@ -2540,6 +2552,266 @@ def move_node_endpoint(req: MoveRequest):
     }
 
 
+_CHAIN_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
+
+
+class PlaceRequest(BaseModel):
+    reference: str
+    # Where among its new siblings; None puts it where the reference says,
+    # moving it only if it can't be that where it is.
+    after_node_index: "int | None" = None
+
+
+def _chain(node: dict) -> str:
+    path = node.get("path") or {}
+    return "".join(f"({path[level]})" for level in _CHAIN_LEVELS if path.get(level))
+
+
+def _reference_segments(reference: str) -> list[str]:
+    text = re.sub(r"\s+", "", reference or "")
+    segments = re.findall(r"\(([^()]+)\)", text)
+    if not segments or "".join(f"({seg})" for seg in segments) != text:
+        raise HTTPException(400, f"{reference!r} isn't a reference like (1)(d)(vii).")
+    return segments
+
+
+def _block(unit_indices: list[int], i: int, as_type: "str | None" = None) -> list[int]:
+    """i and what is nested under it -- the pieces after it that are
+    deeper than it, up to the first that isn't. They move together, or a
+    moved subparagraph would leave its (A) and (B) hanging off whatever it
+    used to follow.
+
+    `as_type` asks what would still be nested under it at another level:
+    under both, since a piece moved deeper takes with it only what is
+    deeper still. (1)(vii) read as a paragraph has (viii) to (x) nested
+    under it; made the subparagraph it is, they become its siblings and
+    stay put."""
+    rank = make_ranks(_hierarchy)
+    types = (_current_node(i)["type"], as_type or _current_node(i)["type"])
+    out = [i]
+    if any(t not in _NESTABLE_LEVELS for t in types):
+        return out
+    own = max(rank[t] for t in types)
+    for j in unit_indices[unit_indices.index(i) + 1:]:
+        t = _current_node(j)["type"]
+        level = rank.get(t) if t in _NESTABLE_LEVELS else _depth_rank(j) if t == "continuation" else None
+        if level is not None and level <= own:
+            break
+        out.append(j)
+    return out
+
+
+@app.post("/api/nodes/{node_index}/place")
+def place_node_endpoint(node_index: int, req: PlaceRequest):
+    """Makes a piece the provision a reference names: "(1)(d)(vii)" is a
+    subparagraph numbered vii under paragraph (d) of subsection (1).
+
+    A piece's place is its type as much as its order -- nesting is derived
+    from the types in sequence (see _recompute_unit_paths), so a
+    subparagraph the parser read as a paragraph reads as "(1)(vii)" and
+    takes everything after it along. Number, type and order are three
+    fields and one decision; this makes it one.
+
+    What is still nested under it at its new level comes with it (see
+    _block); what was only under it because of the wrong type stays. It
+    moves only when it has to:
+    where the reference already fits the piece's place once its type is
+    right, it stays; otherwise it goes to the end of its new parent, or
+    after `after_node_index` when that is given."""
+    _require_live(node_index)
+    segments = _reference_segments(req.reference)
+    unit_no = _unit_of_index[node_index]
+    unit = [i for i in _units[unit_no] if i not in _merged_away]
+    if unit[0] == node_index:
+        raise HTTPException(400, "The section itself has no reference within it to change.")
+    old_block = _block(unit, node_index)
+    others = [i for i in unit[1:] if i not in old_block]
+
+    wanted_parent = "".join(f"({seg})" for seg in segments[:-1]).lower()
+    parent = None
+    if segments[:-1]:
+        parent = next((i for i in others if _current_node(i)["type"] in _CHAIN_LEVELS
+                       and _chain(_current_node(i)).lower() == wanted_parent), None)
+        if parent is None:
+            raise HTTPException(400, f"This section has no {wanted_parent} to put it under.")
+        level = _CHAIN_LEVELS.index(_current_node(parent)["type"]) + 1
+        if level >= len(_CHAIN_LEVELS):
+            raise HTTPException(400, "Nothing nests deeper than a sub-subparagraph.")
+        new_type = _CHAIN_LEVELS[level]
+    else:
+        # A section's top level is whatever its other pieces start at:
+        # subsections, or paragraphs straight under the section.
+        new_type = next((_current_node(i)["type"] for i in others if _current_node(i)["type"] in _CHAIN_LEVELS),
+                        "subsection")
+    if new_type not in _relabel_types:
+        raise HTTPException(400, f"This document has no {new_type} type.")
+
+    block = _block(unit, node_index, new_type)
+    after = req.after_node_index
+    if after is not None:
+        if after in block:
+            raise HTTPException(400, "A piece can't be placed after itself or something nested under it.")
+        if after != structure.DOCUMENT_START:
+            _require_live(after)
+
+    _mutate_node(node_index, type=new_type, number=segments[-1])
+    _recompute_unit_paths(unit_no)
+
+    wanted = "".join(f"({seg})" for seg in segments)
+    if after is None and _chain(_current_node(node_index)).lower() != wanted.lower():
+        # The end of the new parent's own list, or of the section.
+        if parent is not None:
+            anchor_block = _block([i for i in _units[unit_no] if i not in _merged_away and i not in block], parent)
+            after = anchor_block[-1]
+        else:
+            after = others[-1] if others else unit[0]
+    if after is not None:
+        _require_structure_editable()
+        edits = _structure_edits
+        previous = after
+        for j in block:
+            edits = structure.place_after(edits, j, previous, structure.document_order(len(_nodes), edits))
+            previous = j
+        _commit_structure(edits)
+        for u in {unit_no, _unit_of_index[node_index]}:
+            if u < len(_units):
+                _recompute_unit_paths(u)
+
+    placed = _current_node(node_index)
+    got = _chain(placed)
+    return {"node_index": node_index, "unit_no": _unit_of_index[node_index], "type": placed["type"],
+            "reference": got, "matches": got.lower() == wanted.lower(), "moved": after is not None}
+
+
+# ---------------------------------------------------------------------------
+# A piece from a box drawn on the page
+# ---------------------------------------------------------------------------
+
+_MARKERS = (
+    (re.compile(r"^\((\d+[A-Z]*)\)\s*"), "subsection"),
+    (re.compile(r"^\(([ivxl]+[a-z]?)\)\s*"), "subparagraph"),
+    (re.compile(r"^\(([a-z]{1,3})\)\s*"), "paragraph"),
+    (re.compile(r"^\(([A-Z]{1,2})\)\s*"), "sub_subparagraph"),
+    (re.compile(r"^(\d+[A-Z]*)\s+(?=[A-Z])"), "section"),
+)
+
+
+class BoxRequest(BaseModel):
+    rect: dict
+
+
+class BoxCreateRequest(BaseModel):
+    rect: dict
+    type: str
+    number: "str | None" = None
+    after_node_index: int
+
+
+def _clean_rect(raw: dict) -> dict:
+    try:
+        rect = {"page": int(raw["page"]), **{k: round(float(raw[k]), 1) for k in ("x0", "y0", "x1", "y1")}}
+    except (KeyError, TypeError, ValueError) as e:
+        raise HTTPException(400, f"Not a rectangle: {raw!r}") from e
+    if rect["x1"] <= rect["x0"] or rect["y1"] <= rect["y0"]:
+        raise HTTPException(400, "A box needs width and height")
+    return rect
+
+
+def _printed_in(rect: dict) -> str:
+    lines = _printed_lines()
+    if not lines:
+        raise HTTPException(503, "The source PDF this was parsed from isn't where the parse says it is.")
+    printed = ""
+    for line in lines_in_rects(lines, [rect]):
+        if line.text.strip():
+            printed = join_printed_line(printed, line.text.strip())
+    if not printed:
+        raise HTTPException(400, "There is nothing printed inside that box.")
+    return printed
+
+
+def _printed_before(rect: dict) -> "int | None":
+    """The live piece printed nearest above a box, reading down the pages
+    -- where a piece drawn there most likely belongs in the document."""
+    best, best_at = None, None
+    here = (rect["page"], rect["y0"])
+    for i in _order:
+        if i in _merged_away:
+            continue
+        for r in _rects_for(i):
+            at = (r.get("page"), r.get("y0"))
+            if None in at or at > here:
+                continue
+            if best_at is None or at >= best_at:
+                best, best_at = i, at
+    return best
+
+
+@app.post("/api/boxes/read")
+def read_new_box_endpoint(req: BoxRequest):
+    """What a box drawn over nothing says, and a first guess at what it
+    is and where it goes -- for the reviewer to confirm, not to act on.
+    The type is a guess from the marker alone, which is why it is asked:
+    "(i)" is a subparagraph or the ninth paragraph depending on what came
+    before it (see rule_parser.read_box on why a box can't decide that)."""
+    rect = _clean_rect(req.rect)
+    printed = _printed_in(rect)
+    node_type, number = None, None
+    for pattern, kind in _MARKERS:
+        m = pattern.match(printed)
+        if m:
+            node_type, number = kind, m.group(1)
+            break
+    if node_type is None and re.match(r"^(Note|Example)s?\b", printed):
+        node_type = printed.split()[0].rstrip("s:").lower()
+    after = _printed_before(rect)
+    return {
+        "text": printed, "type": node_type if node_type in _relabel_types else None, "number": number,
+        "after_node_index": after,
+        "after_label": _piece_reference(after) if after is not None else None,
+    }
+
+
+def _piece_reference(i: int) -> str:
+    """How the pickers name a piece: its section and its place in it."""
+    unit = [j for j in _units[_unit_of_index[i]] if j not in _merged_away]
+    root = _current_node(unit[0])
+    node = _current_node(i)
+    where = f"{root['type'].capitalize()} {root.get('number') or ''}".strip()
+    own = _chain(node) if node["type"] in _CHAIN_LEVELS else node["type"] if i != unit[0] else ""
+    return f"{where} {own}".strip()
+
+
+@app.post("/api/boxes/create")
+def create_from_box_endpoint(req: BoxCreateRequest):
+    """A new piece where the reviewer drew a box, read from that box.
+
+    For what the parse missed altogether -- text it dropped, a provision
+    it swallowed into its neighbour. Inserted as Insert does, with the box
+    as its box, then read the way Read-from-box reads any piece."""
+    rect = _clean_rect(req.rect)
+    _printed_in(rect)
+    rank = make_ranks(_hierarchy)
+    # A heading-only provision keeps its words in `heading` (see
+    # rule_parser.read_box): a placeholder there is what sends the read
+    # down that branch.
+    heading_only = req.type == "heading_group" or (
+        req.type in rank and "section" in rank and rank[req.type] < rank["section"])
+    created = insert_node_endpoint(InsertRequest(
+        after_node_index=req.after_node_index, type=req.type, number=(req.number or "").strip() or None,
+        heading="?" if heading_only else None, text=""))
+    i = created["node_index"]
+    _mutate_node(i, page_start=rect["page"], page_end=rect["page"], source="drawn-in-review")
+    _node_rects[i] = [rect]
+    db.save_node_rects(_act, _node_id(i), [rect], node_index=i)
+    _mutate_node(i, **_read_box(i))
+    _recompute_unit_paths(_unit_of_index[i])
+    node = _current_node(i)
+    return {"node_index": i, "unit_no": _unit_of_index[i], "unit_count": len(_units),
+            "type": node["type"], "number": node.get("number"), "heading": node.get("heading"),
+            "text": node.get("text")}
+
+
 @app.post("/api/nodes/{node_index}/blind-guess")
 def blind_guess_endpoint(node_index: int, req: BlindGuessRequest):
     """Records a reviewer's own classification of a piece, made from its
@@ -3195,17 +3467,24 @@ def _key_label(key: tuple) -> str:
     return f"Schedule {schedule} clause {number.upper()}" if schedule else f"Section {number.upper()}"
 
 
-def _changed_pieces(older: list[dict], newer: list[dict]) -> dict:
+def _changed_pieces(older: list[dict], newer: list[dict], root: int, versions: tuple) -> dict:
     """The pieces that differ, each on its own, and which of this tool's
     pieces they are -- a section is reviewed here for the paragraph an
-    amendment touched, not read end to end for it."""
+    amendment touched, not read end to end for it. A changed heading
+    belongs to the section piece itself (`root`); `versions` is (older,
+    newer), which the two columns are headed with."""
     changes, changed = [], []
     for change in html_view._compare_pieces(older, newer):
-        index = next((u["tree_node"]["node"].get("_review_index") for u in (change["old"], change["new"])
-                      if u is not None and "_review_index" in u["tree_node"]["node"]), None)
-        if index is not None:
+        if change["label"] == "Heading":
+            index = root
+        else:
+            index = next((u["tree_node"]["node"].get("_review_index") for u in (change["old"], change["new"])
+                          if u is not None and "_review_index" in u["tree_node"]["node"]), None)
+        if index is not None and index not in changed:
             changed.append(index)
-        changes.append({"op": change["op"], "label": change["label"], "html": change["html"], "node_index": index})
+        changes.append({"op": change["op"], "label": change["label"], "html": change["html"],
+                        "old_html": change["old_html"], "new_html": change["new_html"],
+                        "older": versions[0], "newer": versions[1], "node_index": index})
     return {"changes": changes, "changed_pieces": changed}
 
 
@@ -3289,7 +3568,7 @@ def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict], indices: list[in
         other = html_view._wording_units(their_nodes, order)
         older, newer = (other, mine) if reference < version else (mine, other)
         out["compare"] = html_view._compare_html(older, newer)
-        out.update(_changed_pieces(older, newer))
+        out.update(_changed_pieces(older, newer, indices[0], tuple(sorted((version, reference)))))
         out.update(_amendment_evidence(
             (version, entry["key"], unit_nodes), (reference, their_key, their_nodes)))
     # Carrying from is recorded against the later of two versions, and

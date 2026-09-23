@@ -860,6 +860,22 @@ def _diff_html(diff: list[dict]) -> str:
     return " ".join(out)
 
 
+def _side_html(diff: list[dict], side: str) -> str:
+    """One side of a change, for reading the two wordings side by side:
+    the old side with what went marked, the new with what arrived --
+    each a sentence as that version printed it, rather than one line
+    carrying both."""
+    drop, mark, tag = ("insert", "delete", "del") if side == "old" else ("delete", "insert", "ins")
+    out = []
+    for segment in diff:
+        if segment["op"] == drop:
+            continue
+        text = _esc(segment["text"])
+        out.append(f'<{tag} class="d-{tag}">{text}</{tag}>' if segment["op"] == mark
+                   else f'<span class="d-eq">{text}</span>')
+    return " ".join(out)
+
+
 def _timeline_note_html(raw: str, base_url: str, amendment_index: "dict | None") -> str:
     """One amendment note, with the Act it names linked to that Act's
     entry in the Endnotes -- the same treatment the note gets in the
@@ -891,6 +907,9 @@ def _wording_units(nodes: list[dict], hierarchy_order: list[str]) -> list[dict]:
         rel = relative_id(name, root_name) if name else node["type"]
         unit["path"] = rel
         unit["name"] = name
+        # The provision's own heading, which its first body piece carries
+        # only when the provision has words of its own before its list.
+        unit["root_heading"] = root["node"].get("heading") or ""
         unit["align"] = (unit["header_text"] or rel.rsplit("/", 1)[-1], unit["clause_index"])
     return units
 
@@ -916,8 +935,7 @@ def _compare_html(older: list[dict], newer: list[dict]) -> str:
     # The heading is amended in its own right ("S. 366 (Heading) amended
     # by ..."), and a comparison that skipped it would say nothing changed.
     heading = ""
-    old_heading, new_heading = (
-        (units[0]["tree_node"]["node"].get("heading") or "") if units else "" for units in (older, newer))
+    old_heading, new_heading = (units[0]["root_heading"] if units else "" for units in (older, newer))
     if old_heading != new_heading:
         heading = (f'<div class="hist-heading">'
                    f'{_diff_html(word_diff(normalise(old_heading), normalise(new_heading)))}</div>')
@@ -957,12 +975,21 @@ def _piece_label(unit: dict, numbers: dict) -> str:
 def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
     """Only the pieces that differ, each on its own -- what a reviewer of
     an older version has to check, without the rest of the provision to
-    read past. [{"op", "old", "new", "label", "html"}], where old and new
-    are the units themselves (None for the side that lacks the piece)."""
+    read past. [{"op", "old", "new", "label", "html", "old_html",
+    "new_html"}], where old and new are the units themselves and old_html
+    and new_html each side's own words (None for the side that lacks the
+    piece). A changed heading comes first, labelled "Heading", since it is
+    amended in its own right."""
     ops = node_diff([(u["align"], u["text"] or "") for u in older],
                     [(u["align"], u["text"] or "") for u in newer])
     numbers = {u["name"]: u["tree_node"]["node"].get("number") for u in (*older, *newer) if u.get("name")}
     out = []
+    old_heading, new_heading = (units[0]["root_heading"] if units else "" for units in (older, newer))
+    if old_heading != new_heading:
+        diff = word_diff(normalise(old_heading), normalise(new_heading))
+        out.append({"op": "changed", "old": older[0] if older else None, "new": newer[0] if newer else None,
+                    "label": "Heading", "html": f'<div class="hist-heading">{_diff_html(diff)}</div>',
+                    "old_html": _side_html(diff, "old"), "new_html": _side_html(diff, "new")})
     for op, unit, text, cls in _compared_units(ops, older, newer):
         if op["op"] == "equal":
             continue
@@ -972,6 +999,8 @@ def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
             "new": newer[op["new"]] if op["new"] is not None else None,
             "label": _piece_label(unit, numbers),
             "html": _units_html([{**unit, "depth": 0}], [text], [cls]),
+            "old_html": _side_html(op["diff"], "old") if op["old"] is not None else None,
+            "new_html": _side_html(op["diff"], "new") if op["new"] is not None else None,
         })
     return out
 

@@ -123,9 +123,9 @@ def test_a_moved_provision_can_be_recorded_as_carried_from_the_version_before(tm
 # account of the change beside them.
 # ---------------------------------------------------------------------
 
-def _two_subsections(tmp_path, slug, version, first, note=None):
+def _two_subsections(tmp_path, slug, version, first, note=None, heading="Appeals"):
     nodes = [{"type": "part", "number": "1", "heading": "Preliminary", "text": ""},
-             {"type": "section", "number": "2", "heading": "Appeals", "text": ""},
+             {"type": "section", "number": "2", "heading": heading, "text": ""},
              {"type": "subsection", "number": "1", "heading": None, "text": first},
              {"type": "subsection", "number": "2", "heading": None, "text": "the same in both"}]
     if note:
@@ -196,3 +196,49 @@ def test_the_review_links_reach_the_dashboards_re_parse_menu():
     assert 'href="../../?reparse=${encodeURIComponent(slug)}&mode=keep"' in review_page
     assert "loadActs().then(openRequestedReparse);" in dashboard
     assert 'params.get("reparse")' in dashboard and "openParseModal(slug)" in dashboard
+
+
+def test_the_same_words_waiting_for_review_are_not_a_change(tmp_path, monkeypatch):
+    """The current version's queue is everything nobody has reviewed, most
+    of it worded exactly as the version before. Each was headed "Differs
+    from Version 1" with a comparison showing nothing."""
+    monkeypatch.chdir(tmp_path)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal")
+    review._load_state("act-v2")
+
+    lineage = review.get_unit(_unit("2")["unit_no"])["lineage"]
+
+    assert lineage["status"] == "to_review" and lineage["changes"] == []
+
+
+def test_each_side_of_a_change_reads_as_its_own_version(tmp_path, monkeypatch):
+    [change] = _changed_section(tmp_path, monkeypatch, None)["lineage"]["changes"]
+
+    assert (change["older"], change["newer"]) == (1, 2)
+    assert "within 28 days" not in change["old_html"]
+    assert '<ins class="d-ins">within 28 days</ins>' in change["new_html"]
+    assert "<ins" not in change["old_html"] and "<del" not in change["new_html"]
+
+
+def test_a_changed_heading_is_shown_on_the_section_itself(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal", heading="Appeals")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal", heading="Appeals and reviews")
+    review._load_state("act-v1")
+    unit = review.get_unit(_unit("2")["unit_no"])
+
+    [change] = unit["lineage"]["changes"]
+    assert change["label"] == "Heading"
+    assert change["node_index"] == unit["pieces"][0]["node_index"]
+    assert '<ins class="d-ins">and reviews</ins>' in change["new_html"]
+
+
+def test_the_two_wordings_sit_side_by_side_only_in_the_changes_view():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+
+    assert "Differs from <strong>" not in page
+    assert 'if (sidebarFilter === "changes" && l && l.changes)' in page
+    assert "compareColumnsHtml(c, c.label === \"Heading\")" in page
