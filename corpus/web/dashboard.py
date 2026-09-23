@@ -2370,7 +2370,7 @@ def _timeline(work: str) -> dict:
     cached = _timeline_cache.get(work)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    result = {"slugs": slugs, "chains": [], "by_key": {}, "mixed_parsers": False}
+    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}, "mixed_parsers": False}
     parsers = {_parse_field(slug, "parser_version") for slug in slugs}
     result["mixed_parsers"] = len(parsers) > 1
     lineage_state = _work_lineage(work)
@@ -2385,6 +2385,7 @@ def _timeline(work: str) -> dict:
                 root = provision["node_index"]
                 provision["nodes"] = nodes[root:diffing.unit_end(nodes, root)]
             meta = _act_version(slug)
+            result["order"][version] = list(effective)
             docs.append({
                 "version": version, "slug": slug,
                 "as_at": meta.get("as_at"), "as_at_printed": meta.get("as_at_printed"),
@@ -2484,9 +2485,7 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
     chain_no = timeline["by_key"].get((version, key))
     if chain_no is not None:
         chain = timeline["chains"][chain_no]
-        honest = not timeline["mixed_parsers"] or all(
-            w["checked"] for w in chain["wordings"] if not w["absent"])
-        if len(chain["wordings"]) > 1 and honest:
+        if len(chain["wordings"]) > 1 and _honest(timeline, chain):
             history = {**chain, "at": lineage.wording_at(chain, version)}
     urls = {}
     for other in timeline["slugs"]:
@@ -2505,6 +2504,65 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
         if url:
             urls[other_version] = url
     return history, urls
+
+
+def _honest(timeline: dict, chain: dict) -> bool:
+    """Whether a chain can be shown at all: with every version read by
+    one parser, yes; otherwise only once a human has checked each of its
+    wordings, since an unchecked difference may be the parsers' own."""
+    return not timeline["mixed_parsers"] or all(
+        w["checked"] for w in chain["wordings"] if not w["absent"])
+
+
+def _ghosts(slug: str) -> list[dict]:
+    """The provisions this version no longer has but an earlier one held
+    here did -- each as {"page", "after_page", "label", "heading",
+    "history"}, in the order they used to sit.
+
+    `page` is the address the provision had in the last version that
+    printed it, so a citation to "section 99" still has somewhere to
+    land; `after_page` is this version's page for the nearest provision
+    before it that survived, which is where the contents list it."""
+    work, version = split_document_slug(slug)
+    if version is None:
+        return []
+    timeline = _timeline(work)
+    if not timeline.get("chains"):
+        return []
+    own_index = _page_index(slug)
+    own_pages = set(own_index["by_node_index"].values())
+    slug_of = {split_document_slug(s)[1]: s for s in timeline["slugs"]}
+    ghosts = []
+    for chain in timeline["chains"]:
+        at = lineage.wording_at(chain, version)
+        if at is None or not chain["wordings"][at]["absent"] or not _honest(timeline, chain):
+            continue
+        before = [w for w in chain["wordings"][:at] if not w["absent"]]
+        if not before:
+            continue  # inserted after this version, not removed before it
+        last = before[-1]
+        key = last["key"]
+        if key[0] != "provision":
+            continue  # a Part or a Schedule gone has no page to come back to
+        last_version = last["to"]["version"]
+        old_key = last["keys"].get(last_version, key)
+        page = _page_index(slug_of[last_version])["by_key"].get(old_key)
+        if not page:
+            continue
+        if page in own_pages:
+            page = f"{page}-repealed"
+        after_page = None
+        order = timeline["order"].get(last_version, [])
+        for earlier in reversed(order[:order.index(old_key)] if old_key in order else []):
+            after_page = own_index["by_key"].get(earlier)
+            if after_page:
+                break
+        number = key[2].upper() if key[2] else ""
+        label = f"Schedule {key[1]} clause {number}" if key[1] else f"Section {number}"
+        ghosts.append({"page": page, "after_page": after_page, "label": label,
+                       "heading": last["provision"].get("heading"),
+                       "history": {**chain, "at": at}})
+    return ghosts
 
 
 _act_title_cache: dict[str, str] = {}

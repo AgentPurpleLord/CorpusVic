@@ -425,3 +425,20 @@ def test_an_inserted_provision_carries_its_whole_history_as_new():
 
     inserted = next(p for p in result["inserted"] if p["number"] == "1A")
     assert inserted["new_history"] == ["New s. 1A inserted by No. 1/2026 s. 5."]
+
+
+# ---------------------------------------------------------------------
+# Piece by piece
+# ---------------------------------------------------------------------
+
+def test_node_diff_pairs_pieces_by_name_and_diffs_their_words():
+    from corpus.domain.diffing import node_diff
+
+    old = [("", "lead-in"), ("1", "a person may\nappeal"), ("2", "gone")]
+    new = [("", "lead-in"), ("1", "a person may appeal within 28 days"), ("1A", "new")]
+
+    result = [(o["op"], o["old"], o["new"]) for o in node_diff(old, new)]
+
+    assert result == [("equal", 0, 0), ("changed", 1, 1), ("delete", 2, None), ("insert", None, 2)]
+    changed = node_diff(old, new)[1]["diff"]
+    assert ops(changed) == [("insert", "within 28 days")]

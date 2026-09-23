@@ -657,7 +657,8 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
 
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None,
-                 show_review_badge: bool = True, related: "list[dict] | None" = None) -> str:
+                 show_review_badge: bool = True, related: "list[dict] | None" = None,
+                 ghosts: "list[dict] | None" = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section
     is built from it, so the caller controls the URL scheme entirely.
@@ -678,8 +679,23 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     provision in front of you is a fact about that provision. The site
     says it per provision instead, on the provision (see
     export_static_site.py); the dashboard, whose whole job is tracking
-    the Act's progress, keeps the badge."""
+    the Act's progress, keeps the badge.
+
+    ghosts, if given, are the provisions this version no longer has
+    (dashboard._ghosts), each listed greyed where it used to sit -- after
+    the provision it followed -- so a gap in the numbering reads as a
+    repeal rather than as a mistake."""
     ctx = _build_context(parsed, act_title)
+    ghosts_after: dict = {}
+    for ghost in ghosts or []:
+        ghosts_after.setdefault(ghost.get("after_page"), []).append(ghost)
+
+    def ghost_items(after) -> str:
+        return "".join(
+            f'<li class="ghost" id="{_esc(g["page"])}"><a href="{base_url}/section/{_esc(g["page"])}">'
+            f'{_esc(g["label"])}{" " + _esc(g["heading"]) if g.get("heading") else ""}</a> '
+            f'<span class="ghost-tag">Repealed</span></li>'
+            for g in ghosts_after.pop(after, []))
     tree_roots = ctx["tree_roots"]
     structural_types = ctx["structural_types"]
     filenames_by_eid = ctx["filenames_by_eid"]
@@ -750,12 +766,14 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             if not list_open:
                 out.append('<ul class="section-list">')
                 list_open = True
+                out.append(ghost_items(None))
             # Anchored by the same slug its own page is addressed by, so
             # a link to a provision's place in these contents and a link
             # to the provision itself are the same name with and without
             # the "section/" in front.
             entry_id = _strip_md(filenames_by_eid[tree_node["eid"]])
             out.append(f'<li id="{_esc(entry_id)}"><a href="{href}">{_esc(label)}</a></li>')
+            out.append(ghost_items(entry_id))
             return
         if t in (*structural_types, "heading_group"):
             close_list()
@@ -930,7 +948,7 @@ def _ended_html(wording: dict, base_url: str, amendment_index: "dict | None") ->
 
 def render_history(history: "dict | None", base_url: str, amendment_index: "dict | None" = None,
                    version_urls: "dict | None" = None, hierarchy_order: "list[str] | None" = None,
-                   anchor: str = "") -> tuple[str, str]:
+                   anchor: str = "", open_: bool = False) -> tuple[str, str]:
     """A provision's wordings across the versions held here, as
     (the chip that opens them, the wordings themselves) -- ("", "") for a
     provision that has only ever read one way.
@@ -1005,12 +1023,54 @@ def render_history(history: "dict | None", base_url: str, amendment_index: "dict
     chip = (f'<button type="button" class="history-chip" aria-controls="{panel_id}" aria-expanded="false">'
             f'History <span class="history-count">{count}</span></button>')
     body = (
-        f'<details class="history" id="{panel_id}" data-at="{at if at is not None else count - 1}">'
+        f'<details class="history" id="{panel_id}" data-at="{at if at is not None else count - 1}"'
+        f'{" open" if open_ else ""}>'
         f'<summary class="history-summary">This provision has read {count} ways in the versions held here</summary>'
         f'<div class="hist-track">{"".join(panels)}</div>'
         "</details>"
     )
     return chip, body
+
+
+def render_ghost(ghost: dict, act_title: str, base_url: str, amendment_index: "dict | None" = None,
+                 version_urls: "dict | None" = None, hierarchy_order: "list[str] | None" = None,
+                 version: "dict | None" = None, superseded: "dict | None" = None,
+                 version_dates: "dict | None" = None) -> str:
+    """The page of a provision this version no longer has.
+
+    A section repealed outright leaves nothing in the reprint -- not even
+    the asterisks a repealed subsection gets -- so a reader who wants to
+    know whether an offence existed on the day it was committed finds a
+    gap in the numbering and no way of knowing what was there. This page
+    is at the address the provision had, and is nothing but its history,
+    opened: every wording it had in the versions held here, and what
+    removed it.
+
+    `ghost` is dashboard._ghosts': {"page", "label", "history", ...}.
+    """
+    history = ghost["history"]
+    _chip, history_html = render_history(history, base_url, amendment_index, version_urls,
+                                         hierarchy_order, anchor=ghost["page"], open_=True)
+    last = next(w for w in reversed(history["wordings"][:history["at"]]) if not w["absent"])
+    ended = last.get("ended_by") or {}
+    when = f" (as at {_esc(ended['as_at_printed'])})" if ended.get("as_at_printed") else ""
+    title = f'{ghost["label"]} [Repealed]'
+    this = f"Version {version['version']}" if (version or {}).get("version") is not None else "this version"
+    out = [
+        _readerbar_html(version or {}, superseded, version_urls, version_dates),
+        '<div class="reader-main">',
+        f'<article class="reader-section historical" data-section="{_esc(ghost["page"])}" data-title="{_esc(title)}">',
+        f'<div class="breadcrumb"><a href="{base_url}/">{_esc(act_title)}</a></div>',
+        f"<h1>{_esc(title)}</h1>",
+        f'<div class="supersede ghost-banner" role="status">This provision is not in {_esc(this)}. '
+        f'It was removed at Version {_esc(str(ended.get("version", "?")))}{when}; '
+        f'below is how it read before that.</div>',
+        history_html,
+        "</article>",
+        f'<nav class="section-nav"><a href="{base_url}/#{_esc(ghost["page"])}">Back to the contents</a></nav>',
+        "</div>",
+    ]
+    return "\n".join(out)
 
 
 def render_superseded_banner(version: "int | None", current: "int | None", current_url: "str | None",

@@ -1401,3 +1401,42 @@ def test_a_flat_acts_sections_are_all_in_its_contents():
 
     assert "1 Purposes" in body
     assert "2 Commencement" in body
+
+
+# ---------------------------------------------------------------------------
+# A provision this version no longer has
+# ---------------------------------------------------------------------------
+
+
+def _ghost():
+    absent = {"absent": True, "from": {"version": 113}, "to": {"version": 114}, "versions": [113, 114]}
+    history = _history(_wording(112, "an offence", ended={"change": "repealed",
+                                                          "notes": ["S. 366 repealed by No. 9/2026 s. 4."]}),
+                       absent, at=1)
+    return {"page": "s366", "after_page": "s365", "label": "Section 366", "heading": "Old offence",
+            "history": history}
+
+
+def test_the_contents_list_a_removed_provision_where_it_used_to_sit():
+    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "365", "Before", "a"),
+             make_node("section", "367", "After", "b")]
+    parsed = _parsed(nodes)
+    pages = build_page_index(parsed, "Test Act")["by_node_index"]
+    ghost = {**_ghost(), "after_page": pages[1]}
+
+    html = render_index(parsed, "Test Act", "/browse/t", ghosts=[ghost])
+
+    assert html.index(f'id="{pages[1]}"') < html.index('class="ghost"') < html.index(f'id="{pages[2]}"')
+    assert 'href="/browse/t/section/s366"' in html and "Repealed" in html
+
+
+def test_a_removed_provisions_page_is_its_history_opened():
+    from corpus.publishing.html_view import render_ghost
+
+    html = render_ghost(_ghost(), "Test Act", "/browse/t", version={"version": 114})
+
+    assert "Section 366 [Repealed]" in html
+    assert "not in Version 114" in html and "removed at Version 113" in html
+    assert 'class="reader-section historical"' in html
+    assert "<details class=\"history\"" in html and " open>" in html
+    assert "an offence" in html and "S. 366 repealed by" in html

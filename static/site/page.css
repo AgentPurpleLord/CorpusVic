@@ -319,6 +319,13 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .prov-gone .prov-text, .prov-gone .prov-num { opacity: 0.85; }
 .prov-new .prov-num { color: var(--ins-fg); }
 
+/* A provision this version no longer has, where it used to sit. */
+.section-list li.ghost a { color: var(--muted); }
+.ghost-tag {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 1px 6px; background: var(--del-bg); color: var(--del-fg);
+}
+
 /* Historical mode, once history.js has taken the list over. */
 .history.hist-js > .history-summary { display: none; }
 .history.hist-js .hist-track { border: none; }

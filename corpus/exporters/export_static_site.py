@@ -510,6 +510,17 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
                _page(title, body, base_url, gate=gate,
                      canonical=f"{base_url}/section/{section_slug}/"), gate)
 
+    # A provision this version no longer has keeps the address it had,
+    # so a citation to it still lands somewhere that says what happened.
+    for ghost in dashboard._ghosts(slug):
+        body = reader.ghost_page(dashboard, slug, base_url, ghost["page"], rewrite=site)
+        if body is None:
+            continue
+        links |= _link_targets(body, base_path)
+        _write(doc_dir / "section" / ghost["page"] / "index.html",
+               _page(title, body, base_url, gate=gate,
+                     canonical=f"{base_url}/section/{ghost['page']}/"), gate)
+
     endnotes_body = reader.endnotes_page(dashboard, slug, base_url)
     if endnotes_body is not None:
         links |= _link_targets(endnotes_body, base_path)
