@@ -88,7 +88,7 @@ def _section_filename(number: str | None, node_type: str = "section") -> str:
     if node_type == "preamble":
         return "preamble.md"
     slug = re.sub(r"[^a-z0-9]+", "", (number or "x").lower())
-    prefix = "c" if node_type == "clause" else "s"
+    prefix = {"clause": "c", "item": "i"}.get(node_type, "s")
     return f"{prefix}{slug or 'x'}.md"
 
 
@@ -146,8 +146,8 @@ def page_title(node: dict) -> str:
     if node["type"] == "schedule":
         return _display_title(node["type"], node.get("number"), node.get("heading"))
     label = f"{node.get('number') or ''} {node.get('heading') or ''}".strip()
-    if node["type"] == "clause" and node.get("number"):
-        return f"Clause {label}"
+    if node["type"] in ("clause", "item") and node.get("number"):
+        return f"{node['type'].capitalize()} {label}"
     return label
 
 
@@ -600,9 +600,17 @@ def section_ref_pattern(sections: list[tuple[dict, list[dict]]]) -> str:
     """Which word this document's own cross-references use, decided by
     what its top-level provisions actually are, rather than a flag the
     caller has to remember to set."""
-    if any(tn["node"]["type"] == "clause" for tn, _b in sections):
+    if is_bill_like(sections):
         return _CLAUSE_REF_RE
     return _SECTION_REF_RE
+
+
+def is_bill_like(sections: list[tuple[dict, list[dict]]]) -> bool:
+    """Whether the document's own provisions are clauses -- a Bill's or an
+    EM's. An Act's Schedule numbers clauses too, and that does not make
+    the Act a Bill."""
+    return any(tn["node"]["type"] == "clause" and not any(b["node"]["type"] == "schedule" for b in crumbs)
+               for tn, crumbs in sections)
 _PART_REF_RE = r"\bPart\s+(?:[IVXLCDM]+|\d+[A-Za-z]*)\b"
 _DIVISION_REF_RE = r"\bDivision\s+\d+[A-Za-z]*\b"
 

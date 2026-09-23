@@ -416,6 +416,25 @@ def _bracket_level(content: str, stack: list[dict], after_repeal: bool = False) 
 
 _INDENT_TOLERANCE = 3.0
 
+_SCHEDULE_ITEM_RE = re.compile(r"^(\d+[A-Z]*)\s+(\S.*)$")
+_RULE_RE = re.compile(r"^[\u2550\u2500]{3,}$")
+# "Consequential amendments", "Amendment of the Bail Act 1977" -- not the
+# title of an Amendment Act a transitional Schedule names.
+_AMENDING_SCHEDULE_RE = re.compile(r"\bamendments\b|(?:^|—|–|-)\s*(?:consequential\s+)?amendment\s+of\b", re.IGNORECASE)
+
+
+def _next_item_number(prev: "str | None", number: str) -> bool:
+    """Does `number` follow `prev` in a Schedule's list? 1 opens one; 4
+    is followed by 5, or by 4A for an item inserted after it; 4A by 4B."""
+    if prev is None:
+        return number == "1"
+    m = re.match(r"(\d+)([A-Z]*)$", prev)
+    if not m:
+        return False
+    base, suffix = int(m.group(1)), m.group(2)
+    following = {str(base + 1), f"{base}{_next_letter(suffix.lower()).upper() if suffix else 'A'}"}
+    return number in following
+
 
 # Where a sentence or a list item has finished. The line above a new
 # provision ends one of these ways, or is a heading; "*" marks omitted
@@ -619,6 +638,10 @@ class _LineParser:
         # -- prev_text is left stale by the marker and table paths -- and
         # the right margin it is measured against (see _wraps).
         self.line_above: "BodyLine | None" = None
+        # Where clause and section headings start, and the last number a
+        # Schedule's list reached (see _try_schedule_item).
+        self.heading_x0: "float | None" = None
+        self.schedule_last_number: "str | None" = None
         # A repealed row since the last list item opened, so the next item
         # may skip the ones repealed (see _later_in_run).
         self.repealed_since_item = False
@@ -685,12 +708,18 @@ class _LineParser:
         # that subsection.
         while self.stack and self.stack_rank[-1] >= rank:
             self._close_top()
-        if level == self.top_level_type:
+        if level in (self.top_level_type, "clause", "item"):
             # A new Section starts a clean slate: whether it defines
             # terms is its own business, and any lead-in depth from the
             # previous one goes with it.
             self._in_definitions_section = looks_like_definitions_section(heading)
             self._definition_rank = None
+        if level == "schedule":
+            self.schedule_last_number = None
+        elif level in ("clause", "item") and self._in_schedule():
+            self.schedule_last_number = number
+        if level in (self.top_level_type, "clause", "item") and line.bold and heading:
+            self.heading_x0 = line.x0   # a heading's, not a list item's
         node = {
             "type": level, "number": number, "heading": heading, "text": "",
             "page_start": line.page_no, "page_end": line.page_no,
@@ -827,6 +856,9 @@ class _LineParser:
                 continue
             next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
 
+            if _RULE_RE.match(text):
+                continue   # the rule printed under an Act's last provision
+
             if text == "*":
                 if not self.asterisk_run:
                     self.asterisk_start = char_start
@@ -861,7 +893,8 @@ class _LineParser:
             was_heading_group = self.prev_was_heading_group
             self.prev_was_heading_group = False
             if not (
-                self._try_bold_heading(line, text, char_start, was_heading_group)
+                self._try_schedule_item(line, text, char_start, char_end)
+                or self._try_bold_heading(line, text, char_start, was_heading_group)
                 or self._try_schedule_hangs_off(line, text, char_end)
                 or self._try_definition_start(line, text, char_start, char_end, next_text)
                 or self._try_bracket_item(line, text, char_start, char_end, was_heading_group)
@@ -1092,7 +1125,7 @@ class _LineParser:
                 # which body text is never going to spell out
                 # mid-paragraph the way a bare citation year can.
                 continue
-            node_type = self.top_level_type if level == "section" else level
+            node_type = self._provision_type() if level == "section" else level
             self._open_node(node_type, m.group(1), m.group(2).strip(), line, char_start)
             return True
 
@@ -1150,10 +1183,44 @@ class _LineParser:
         # alone, followed by "Police may use assistants and equipment"
         # as a separate bold line.
         if re.match(r"^\d+[A-Za-z]*$", text) and _is_fresh_start(self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels) or was_heading_group):
-            self._open_node(self.top_level_type, text, None, line, char_start)
+            self._open_node(self._provision_type(), text, None, line, char_start)
             return True
 
         return False
+
+    def _in_schedule(self) -> bool:
+        return any(n["type"] == "schedule" for n in self.stack)
+
+    def _provision_type(self) -> str:
+        """What a numbered provision is called here: the Act's own word
+        (section, or a Bill's clause), and in a Schedule a clause -- an
+        item where the Schedule is one of amendments (issue #72)."""
+        schedule = next((n for n in reversed(self.stack) if n["type"] == "schedule"), None)
+        if schedule is None:
+            return self.top_level_type
+        return "item" if _AMENDING_SCHEDULE_RE.search(schedule.get("heading") or "") else "clause"
+
+    def _try_schedule_item(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """A Schedule's numbered list -- "1 Sections 36(5)... of the
+        Children, Youth and Families Act 2005" -- set as a hanging list,
+        not as clause headings: plain type, in from the column headings
+        start at, numbered one after another. Read as headings, only the
+        items whose Act name made them bold became provisions, and the
+        rest ran into the Schedule's text (Family Violence Protection Act
+        Sch 1).
+
+        The numbering is what makes it safe: a wrapped line that happens
+        to open with a number ("2005 and ...") is not the next item."""
+        m = _SCHEDULE_ITEM_RE.match(text)
+        if not m or not self._in_schedule() or self.heading_x0 is None:
+            return False
+        if line.x0 <= self.heading_x0 + _INDENT_TOLERANCE * 3:
+            return False   # the heading column: a clause heading, handled as one
+        if not _next_item_number(self.schedule_last_number, m.group(1)):
+            return False
+        self._open_node(self._provision_type(), m.group(1), None, line, char_start)
+        _append_text(self.stack[-1], m.group(2).strip(), line, char_end)
+        return True
 
     def _try_schedule_hangs_off(self, line: BodyLine, text: str, char_end: int) -> bool:
         """Immediately under a fresh Schedule heading, a standalone plain
@@ -1398,7 +1465,7 @@ class _LineParser:
         top = self.stack[-1]
         # A lead-in in the Section's own text leaves definitions where
         # make_ranks puts them; one inside a subsection nests them there.
-        self._definition_rank = None if top["type"] == self.top_level_type else self.stack_rank[-1] + 1
+        self._definition_rank = None if top["type"] in (self.top_level_type, "clause", "item") else self.stack_rank[-1] + 1
 
     def _consume_as_continuation(self, line: BodyLine, text: str, char_start: int, char_end: int) -> None:
         """Continuation of whatever is currently open. If nothing is

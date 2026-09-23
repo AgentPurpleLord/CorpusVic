@@ -155,7 +155,7 @@ from corpus.ai.assist import build_suggestion
 from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
 from corpus.parsing import identity
-from corpus.parsing.identity import annotate_ids
+from corpus.parsing.identity import annotate_ids, name_index
 from corpus.parsing.extract import BodyLine, join_printed_line, lines_in_rects
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from corpus.domain.profiles import load_profile, profile_for
@@ -331,7 +331,7 @@ def place_edits(nodes: list[dict], stored: dict) -> tuple[dict, dict]:
     given an index above it, in the order the inserts were made. "after"
     is a name too, resolved once everything has a position.
     """
-    index_of = {node["id"]: index for index, node in enumerate(nodes) if node.get("id")}
+    index_of = name_index((index, node["id"]) for index, node in enumerate(nodes) if node.get("id"))
     next_index = len(nodes)
     placed, unplaced = {}, {}
 
@@ -393,7 +393,7 @@ def verified_by_index(verified: list[dict], names: dict) -> tuple[dict, list[dic
     and it is never dropped either, because saving replaces the whole
     list and a dropped row would be gone.
     """
-    index_of = {name: index for index, name in names.items()}
+    index_of = name_index(names.items())
     placed, unplaced = {}, []
     for row in verified:
         index = index_of.get(row.get("_node_id"))
@@ -639,6 +639,7 @@ def compute_unit_tree_info(unit_root_types: list[str], hierarchy_order: list[str
 NEST_CHILD_TYPE = {
     "section": "subsection",
     "clause": "subsection",
+    "item": "subsection",
     "subsection": "paragraph",
     "definition": "paragraph",
     "paragraph": "subparagraph",
@@ -3394,7 +3395,7 @@ def _load_state(act: str, restart: bool = False) -> None:
     # longer describe it would be drawn over the wrong provision.
     _node_rects = {}
     if _structure_editable and not restart:
-        _index_of_name = {name: index for index, name in _node_ids.items()}
+        _index_of_name = name_index(_node_ids.items())
         for node_id, rects in db.load_node_rects(act).items():
             index = _index_of_name.get(node_id)
             if index is not None:

@@ -21,6 +21,9 @@ NODE_TYPES = [
     "preamble",
     "section",
     "clause",
+    # A numbered provision of a Schedule of amendments; a Schedule's other
+    # provisions are clauses.
+    "item",
     "subsection",
     "paragraph",
     "subparagraph",
@@ -57,10 +60,9 @@ NODE_TYPES = [
 
 # Which of the above types a given kind of document actually uses, for
 # the relabel dropdown and the "Legislation part types" window in
-# review.py. Offering every reviewer the same full list used to mean an
-# Act's reviewer could pick "clause" (which an Act never has -- that's a
-# Bill's word for the same thing, see hierarchy.make_ranks), and a
-# Bill's reviewer could pick "section". Same list as above, just
+# review.py. Offering every reviewer the same full list used to mean a
+# Bill's reviewer could pick "section". An Act does have clauses (and
+# items), but only in its Schedules. Same list as above, just
 # filtered to what the document in hand can actually contain.
 #
 # A type this pipeline no longer emits stays available to the documents
@@ -73,11 +75,11 @@ _SUBLEVELS = ["subsection", "paragraph", "subparagraph", "sub_subparagraph"]
 TYPES_BY_DOCUMENT = {
     # A consolidated Act: sections, and the "* * * *" markers standing in
     # for provisions since repealed.
-    "act": [*_STRUCTURE, "preamble", "section", *_SUBLEVELS, "definition", "continuation", "note", "example",
+    "act": [*_STRUCTURE, "preamble", "section", "clause", "item", *_SUBLEVELS, "definition", "continuation", "note", "example",
             "penalty", "table", "repealed"],
     # A Bill numbers its top-level provisions clauses until it is enacted.
     # Nothing in it is repealed yet.
-    "bill": [*_STRUCTURE, "preamble", "clause", *_SUBLEVELS, "definition", "continuation", "note", "example",
+    "bill": [*_STRUCTURE, "preamble", "clause", "item", *_SUBLEVELS, "definition", "continuation", "note", "example",
              "penalty", "table"],
     # An Explanatory Memorandum is a flat sequence of notes on the Bill's
     # own clauses, under organisational headings, with bulleted lists

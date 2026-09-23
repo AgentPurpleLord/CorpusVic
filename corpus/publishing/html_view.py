@@ -85,6 +85,7 @@ from corpus.domain.act_registry import load_act_registry
 from corpus.review.link_targets import load_known_acts
 from corpus.domain.act_scope import ACT_TITLE_SPAN_RE, scope_by_unit
 from corpus.exporters.markdown_export import (
+    is_bill_like,
     _DIVISION_REF_RE,
     _PART_REF_RE,
     _collect_verification,
@@ -189,7 +190,7 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     # A Bill's or an EM's front page isn't an "Act index" -- calling it
     # one on every page of both was the kind of small wrongness that
     # makes a reader doubt everything else on the page.
-    index_link_text = "Contents" if any(tn["node"]["type"] == "clause" for tn, _b in sections) else "Act index"
+    index_link_text = "Contents" if is_bill_like(sections) else "Act index"
 
     # Part/Division eId lookups for prose "Part N" / "Division N"
     # links -- the same one-pass walk export_to_markdown does for the

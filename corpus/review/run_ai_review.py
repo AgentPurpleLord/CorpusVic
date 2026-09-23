@@ -35,6 +35,7 @@ candidates for it to guard.
 """
 import argparse
 
+from corpus.parsing.identity import name_index
 from corpus.storage import db
 from corpus.ai.scan import BATCH_SIZE, iter_unit_batches, scan_batch, unit_root
 from corpus.ai.backend import DEFAULT_MODEL, OLLAMA_HOST, OllamaBackend, OllamaUnavailable
@@ -88,8 +89,8 @@ def main():
     # Resume by name: a unit already looked at stays looked at across a
     # re-parse that moved it. index_of turns those names back into the
     # positions pending_units works in.
-    index_of = {node["id"]: index for index, node in enumerate(nodes)
-                if node is not None and node.get("id")}
+    index_of = name_index((index, node["id"]) for index, node in enumerate(nodes)
+                          if node is not None and node.get("id"))
     already_scanned = {index_of[row["node_id"]] for row in db.load_ai_scan_findings(args.act)
                        if row["node_id"] in index_of}
     todo = pending_units(nodes, units, already_scanned)

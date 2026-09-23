@@ -902,12 +902,9 @@ def test_example_ends_at_a_fresh_definition_start():
 def test_schedule_heading_opens_a_schedule_and_nests_its_own_sections():
     """Regression (Criminal Procedure Act Schedule 1): a Schedule heading
     uses the same bold "Word N—Title" shape as Part/Division, wraps
-    across bold lines the same way, and its own numbered items reuse the
-    ordinary "section" type (real Schedules number their own clauses "in
-    the same way as sections", per basic-structure.yaml) rather than
-    getting a schedule-specific type -- so the existing section/
-    subsection/paragraph patterns already give a Schedule's substantive
-    content full structural fidelity with no extra code."""
+    across bold lines the same way, and its own numbered provisions are
+    headed as sections are -- but they are clauses (issue #72), with
+    subsections and paragraphs under them as a section has."""
     lines = [
         line("Schedule 1––Charges on a charge-sheet", bold=True, size=16.0),
         line("or indictment", bold=True, size=16.0),
@@ -919,7 +916,7 @@ def test_schedule_heading_opens_a_schedule_and_nests_its_own_sections():
     schedule = find(result.nodes, "schedule", "1")
     assert schedule["heading"] == "Charges on a charge-sheet or indictment (Sections 6(3), 159(3))"
     assert schedule["text"] == ""
-    section = find(result.nodes, "section", "1")
+    section = find(result.nodes, "clause", "1")
     assert section["heading"] == "Statement of offence"
     subsection = find(result.nodes, "subsection", "1")
     assert "statement of the offence" in subsection["text"]
@@ -936,7 +933,7 @@ def test_schedule_with_no_hangs_off_line_still_opens_its_first_section():
     ]
     result = _parse(lines)
     find(result.nodes, "schedule", "5")
-    section = find(result.nodes, "section", "1")
+    section = find(result.nodes, "clause", "1")
     assert section["heading"] == "Definitions"
 
 
@@ -958,7 +955,7 @@ def test_a_bare_schedule_number_takes_its_title_from_the_line_below():
 
     schedule = find(result.nodes, "schedule", "1")
     assert schedule["heading"] == "CHARGES ON A CHARGE-SHEET OR INDICTMENT (Sections 6(3), 159(3))"
-    assert find(result.nodes, "section", "1")["heading"] == "Statement of offence"
+    assert find(result.nodes, "clause", "1")["heading"] == "Statement of offence"
 
 
 def test_a_bare_schedule_title_that_wraps_keeps_the_hangs_off_note_last():
@@ -1016,8 +1013,8 @@ def test_schedule_own_items_do_not_collide_with_earlier_act_sections():
     result = _parse(lines)
     act_section = find(result.nodes, "section", "1")
     assert "purposes of this Act" in act_section["text"]
-    schedule_items = [n for n in result.nodes if n["type"] == "section" and n["number"] == "1"]
-    assert len(schedule_items) == 2
+    schedule_items = [n for n in result.nodes if n["type"] in ("section", "clause") and n["number"] == "1"]
+    assert [n["type"] for n in schedule_items] == ["section", "clause"], "the Schedule's own is a clause"
     assert any("Form of charge-sheet" == n["heading"] for n in schedule_items)
 
 
@@ -1725,3 +1722,59 @@ def test_dot_point_examples_are_one_example_shown_as_a_list():
     assert '<span class="prov-text">Examples</span>' in page
     assert ('<ul class="prov-bullets"><li>coercing a person to relinquish control over assets and income;</li>'
             "<li>removing a family member&#x27;s property without permission.</li></ul>") in page
+
+
+def test_a_schedules_numbered_list_is_one_clause_per_item():
+    """Family Violence Protection Act Sch 1: a hanging list, in plain type
+    but for the Act names, which made some lines bold -- and only those
+    became provisions."""
+    nodes = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 1—Specified provisions", bold=True, size=16.0, x0=185, x1=400),
+        line("Section 144QC", size=10.0, x0=392, x1=450),
+        line("1 Sections 36(5), 205(2)(b) and 211(2) of the Children, Youth", x0=198, x1=450),
+        line("and Families Act 2005", bold=True, x0=210, x1=330),
+        line("2 Section 55 of the Commission for Children", bold=True, x0=198, x1=440),
+        line("and Young People Act 2012", bold=True, x0=210, x1=340),
+        line("3 Section 140 of the Confiscation Act 1997", x0=198, x1=420),
+        line("═══════════════", x0=242, x1=380),
+    ]).nodes
+
+    clauses = [(n["type"], n["number"], n["text"]) for n in nodes if n["type"] in ("section", "clause")]
+    assert clauses == [
+        ("section", "1", "The purpose of this Act is to maximise safety."),
+        ("clause", "1", "Sections 36(5), 205(2)(b) and 211(2) of the Children, Youth and Families Act 2005"),
+        ("clause", "2", "Section 55 of the Commission for Children and Young People Act 2012"),
+        ("clause", "3", "Section 140 of the Confiscation Act 1997"),
+    ]
+
+
+def test_a_schedule_of_amendments_numbers_items():
+    nodes = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 2—Consequential amendments", bold=True, size=16.0, x1=400),
+        line("1 Bail Act 1977", bold=True, x0=170, x1=300),
+        line('In section 4, for "court" substitute "Court".', x0=WRAP_X0, x1=420),
+    ]).nodes
+
+    assert find(nodes, "item", "1")["heading"] == "Bail Act 1977"
+
+
+def test_a_transitional_schedule_naming_an_amendment_act_numbers_clauses():
+    """Criminal Procedure Act Sch 5 is headed by the Amendment Act it is
+    transitional for; that does not make it a Schedule of amendments."""
+    nodes = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 5—Transitional provision—Children and Justice Legislation Amendment Act 2023",
+             bold=True, size=16.0, x1=450),
+        line("1 Application of amendments", bold=True, x0=170, x1=330),
+        line("The amendments apply to a proceeding commenced after the day.", x0=WRAP_X0, x1=440),
+    ]).nodes
+
+    assert find(nodes, "clause", "1")["heading"] == "Application of amendments"

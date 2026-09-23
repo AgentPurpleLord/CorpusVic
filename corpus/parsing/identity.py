@@ -38,6 +38,7 @@ _PREFIX = {
     "subdivision": "subdiv",
     "section": "s",
     "clause": "cl",
+    "item": "item",
 }
 _BARE = {"subsection", "paragraph", "subparagraph", "sub_subparagraph"}
 
@@ -104,6 +105,30 @@ def _base_id(node: dict, ranks: dict) -> str:
         # distinguishes it from the next one.
         parts.append(f"{node['type']}~{_digest(node)}")
     return "/".join(parts)
+
+
+def _former_name(name: str) -> str:
+    """The name a Schedule's provision had before Schedules numbered
+    clauses and items (issue #72): "sch1/cl2/a" was "sch1/s2/a"."""
+    segments = name.split("/")
+    for i, segment in enumerate(segments):
+        if segment.startswith("sch"):
+            return "/".join(segments[:i + 1] + [re.sub(r"^(?:cl|item)(?=[0-9])", "s", s) for s in segments[i + 1:]])
+    return name
+
+
+def name_index(names) -> dict:
+    """{name: index} from (index, name) pairs, answering to a Schedule
+    provision's former name too, so review work recorded under it still
+    finds the provision it was about. A name in use wins over a former
+    one."""
+    index_of = {}
+    pairs = list(names)
+    for index, name in pairs:
+        index_of[name] = index
+    for index, name in pairs:
+        index_of.setdefault(_former_name(name), index)
+    return index_of
 
 
 def node_ids(nodes: list[dict], hierarchy_order: "list[str] | None" = None) -> list[str]:

@@ -184,3 +184,14 @@ def test_two_inserts_anchored_to_each_other_still_get_names():
     got = inserted_ids(["s38"], [(900, 901, a), (901, 900, b)])
     assert len(set(got.values())) == 2
     assert set(got) == {900, 901}
+
+
+def test_a_schedule_clause_answers_to_its_former_name():
+    """Schedule provisions were typed sections until issue #72: review
+    work recorded against "sch1/s2" belongs to what is now "sch1/cl2"."""
+    from corpus.parsing.identity import name_index
+
+    index_of = name_index([(0, "s2/a"), (1, "sch1/cl2"), (2, "sch1/cl2/a"), (3, "sch2/pt1/item4"), (4, "cl7")])
+
+    assert (index_of["sch1/s2"], index_of["sch1/s2/a"], index_of["sch2/pt1/s4"]) == (1, 2, 3)
+    assert index_of["s2/a"] == 0 and "s7" not in index_of, "outside a Schedule, nothing is renamed"

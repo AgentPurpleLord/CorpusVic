@@ -211,7 +211,7 @@ def provision_label(node: dict) -> str:
     own heading (a defined term has no number of its own) and finally to
     its type, so a provision is never listed as an empty string."""
     path = node.get("path") or {}
-    section = path.get("section") or path.get("clause")
+    section = path.get("section") or path.get("clause") or path.get("item")
     if not section:
         return node.get("heading") or node.get("type") or "?"
     label = f"s. {section}"
@@ -251,7 +251,7 @@ def summarise_by_act(nodes: list[dict], index: dict) -> list[dict]:
                     "note": note["raw"],
                     # Carried so a renderer can link the provision to its own
                     # page without re-deriving it from the label string.
-                    "section_number": path.get("section") or path.get("clause"),
+                    "section_number": path.get("section") or path.get("clause") or path.get("item"),
                 })
 
     order = {c: i for i, c in enumerate(index["by_citation"])}

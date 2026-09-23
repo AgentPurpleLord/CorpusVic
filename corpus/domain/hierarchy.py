@@ -115,7 +115,9 @@ HIERARCHY_ORDER = list(default_hierarchy.levels)
 # its own page in the browse view and its own file in the Markdown
 # export, and doesn't repeat its number as a heading on that page) has
 # to accept both, or a Bill/EM would browse as an empty document.
-SECTION_LEVEL_TYPES = ("section", "clause", "preamble")
+# A Schedule's own provisions are "clause"s, or "item"s in a Schedule of
+# amendments, at the same depth.
+SECTION_LEVEL_TYPES = ("section", "clause", "item", "preamble")
 
 
 def make_ranks(order: list[str]) -> dict[str, int]:
@@ -137,6 +139,7 @@ def make_ranks(order: list[str]) -> dict[str, int]:
     ranks = {level: i for i, level in enumerate(order)}
     if "section" in ranks:
         ranks["clause"] = ranks["section"]
+        ranks["item"] = ranks["section"]
         # A Preamble holds its recitals as a section holds its paragraphs.
         ranks["preamble"] = ranks["section"]
     if "subsection" in ranks:
@@ -158,7 +161,7 @@ def heading_levels(order: list[str]) -> set[str]:
     subsection/paragraph/subparagraph, which are never bold."""
     if "section" in order:
         levels = set(order[: order.index("section") + 1])
-        levels.update(("clause", "preamble"))
+        levels.update(("clause", "item", "preamble"))
         return levels
     return set(order)
 
@@ -195,9 +198,9 @@ HEADING_LEVELS = heading_levels(HIERARCHY_ORDER)
 # note on why Schedule reuses that type instead of getting its own), so
 # it already starts its own unit through UNIT_ROOT_TYPES below with no
 # extra help needed here.
-UNIT_BOUNDARY_TYPES = {"schedule", "chapter", "part", "division", "subdivision", "section", "clause", "preamble",
-                       "heading_group"}
-UNIT_ROOT_TYPES = {"section", "clause", "preamble"}
+UNIT_BOUNDARY_TYPES = {"schedule", "chapter", "part", "division", "subdivision", "section", "clause", "item",
+                       "preamble", "heading_group"}
+UNIT_ROOT_TYPES = {"section", "clause", "item", "preamble"}
 
 
 def group_into_units(nodes: list[dict]) -> list[list[int]]:

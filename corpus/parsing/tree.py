@@ -67,11 +67,19 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
             if t == "definition":
                 current["definition"] = node.get("heading")
             else:
-                current[t] = node.get("number")
+                # A Preamble has no number; its recitals sit under it all
+                # the same.
+                current[t] = node.get("number") or ("preamble" if t == "preamble" else None)
                 if definition_rank is not None and rank[t] <= definition_rank:
                     current["definition"] = None
             for deeper in hierarchy_order[rank[t] + 1 :]:
                 current[deeper] = None
+            # The types sharing a level's depth without a slot of their own
+            # -- "clause", "item", "preamble" -- close like it, or a
+            # Schedule's clause stayed in the path of everything after.
+            for other in list(current):
+                if other not in hierarchy_order and other not in (t, "definition") and rank.get(other, -1) >= rank[t]:
+                    current[other] = None
         node["path"] = dict(current)
     return nodes
 
@@ -325,7 +333,7 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     # same lookup, just narrowed to that Schedule's own
                     # nodes.
                     within = in_schedule.get(note["schedule"], [])
-                    found = _find_by_number(within, note["section"], {"section", "clause"})
+                    found = _find_by_number(within, note["section"], {"section", "clause", "item"})
                     if found is not None:
                         target = found
                         found_specific = True
