@@ -263,3 +263,28 @@ def test_a_carried_from_link_joins_two_numbers_into_one_chain():
 
     assert result["by_key"][(1, S2)] == result["by_key"][(2, S3)]
     assert len(_chain(result, 2, S3)["wordings"]) == 2
+
+
+# Where the amending Acts first in a reprint have been fetched, their
+# instructions decide (dashboard._act_amended), not the margin notes.
+
+def test_an_act_instruction_for_the_provision_makes_the_difference_real():
+    old = _noted("a person may appeal")
+    new = _noted("a person may appeal within 28 days")
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}),
+                               {**_doc(2, new, acts={"5/2020"}), "act_amended": {S1}}])
+
+    assert _versions(result) == [[1], [2]]
+
+
+def test_with_acts_fetched_a_note_alone_does_not_make_a_change():
+    """A margin note is only as good as the parse that placed it; the Act
+    names the provision itself, and it names nothing here."""
+    old = _noted("must file a charge- sheet.")
+    new = _noted("must file a charge-sheet.", "S. 1(1) amended by No. 7/2026 s. 3.")
+
+    result = provision_chains([_doc(1, old, acts={"7/2026"}),
+                               {**_doc(2, new, acts={"7/2026"}), "act_amended": set()}])
+
+    assert _versions(result) == [[1, 2]]

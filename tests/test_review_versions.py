@@ -385,3 +385,44 @@ def test_the_pages_show_the_acts_and_fetch_them():
 
     assert "made.map(instructionHtml)" in review_page and "No amending Act made this change" in review_page
     assert 'onclick="fetchAmendingActs()"' in dashboard and "/amending`, { method: \"POST\" }" in dashboard
+
+
+def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
+    """The Act names (2); the parse has the change under (1)."""
+    unit = _with_instructions(tmp_path, monkeypatch, path=["2"])
+
+    [ins] = unit["lineage"]["instructions"]
+    piece = next(p for p in unit["pieces"] if p["text"] == "a person may appeal")
+    assert (ins["status"], ins["node_index"], ins["place_as"]) == ("elsewhere", piece["node_index"], "(2)")
+
+
+def test_the_act_decides_between_reprints_where_it_has_been_fetched(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    from corpus.amending import load
+    from corpus.domain import diffing
+
+    monkeypatch.chdir(tmp_path)
+    _instruction(tmp_path)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days", "S. 2(1) amended by No. 7/2026 s. 3.")
+
+    def version(slug):
+        nodes = json.loads((tmp_path / "data" / "parsed" / f"{slug}.json").read_text())["nodes"]
+        effective = diffing.provisions(nodes)
+        for p in effective.values():
+            p["nodes"] = nodes[p["node_index"]:diffing.unit_end(nodes, p["node_index"])]
+        return effective, HIERARCHY
+
+    acts = load.work_instructions("act-v2", tmp_path, "Appeals Act 2020")
+
+    assert dashboard._act_amended(acts, 2, version("act-v1"), version("act-v2")) == {("provision", None, "2")}
+    assert dashboard._act_amended(acts, 1, None, version("act-v1")) is None, "no Act first in the oldest"
+
+
+def test_the_place_button_uses_the_place_endpoint():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+
+    assert 'class="btn small instr-place"' in page
+    assert "api(`api/nodes/${btn.dataset.node}/place`" in page

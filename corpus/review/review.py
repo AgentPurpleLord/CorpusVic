@@ -3537,44 +3537,13 @@ def _changed_pieces(older: list[dict], newer: list[dict], root: int, versions: t
     return {"changes": changes, "changed_pieces": changed}
 
 
-def _work_title() -> "str | None":
-    """This Act's title, as amending Acts name it. The source PDF gives it;
-    without the PDF, the Act's own first entry in its Table of Amendments
-    does."""
-    if _act_title and re.search(r" Act \d{4}$", _act_title):
-        return _act_title
-    path = Path("data/parsed") / f"{_act}.json"
-    if path.exists():
-        table = (json.loads(path.read_text(encoding="utf-8")).get("endnotes") or {}).get("amending_acts") or []
-        if table:
-            return table[0].get("title")
-    return None
-
-
 def _work_instructions() -> dict:
-    """{"by_key": {provision key: [instruction]}, "first": {citation: the
-    reprints its amendments first show in}} for this work."""
+    """This work's amending-Act instructions (corpus/amending/load.py),
+    read once per load."""
     global _instructions
     if _instructions is None:
-        from corpus.amending.fetch import instructions_path
-        from corpus.amending.scope import acts_between
-        _instructions = {"by_key": {}, "first": {}}
-        title = _work_title()
-        try:
-            acts = acts_between(_act, Path("."))
-        except (OSError, ValueError, KeyError):
-            acts = []
-        for act in acts:
-            path = instructions_path(act["citation"], Path("."))
-            if not title or not path.exists():
-                continue
-            _instructions["first"][act["citation"]] = set(act["versions"])
-            for ins in json.loads(path.read_text(encoding="utf-8")):
-                if ins.get("target_act") != title:
-                    continue
-                key = (("schedule", None, ins["schedule"]) if ins.get("schedule")
-                       else ("provision", None, (ins.get("section") or "").lower()))
-                _instructions["by_key"].setdefault(key, []).append(ins)
+        from corpus.amending import load
+        _instructions = load.work_instructions(_act, Path("."), load.work_title(_act, Path("."), _act_title))
     return _instructions
 
 
@@ -3594,8 +3563,10 @@ def _amending_evidence(keys: tuple, older: list[dict], newer: list[dict], newer_
     notes are all there is to go on."""
     from corpus.amending.match import match
 
+    from corpus.amending.load import fetched_for
+
     work = _work_instructions()
-    acts = {c for c, versions in work["first"].items() if newer_version in versions}
+    acts = fetched_for(work, newer_version)
     if not acts:
         return {}
     candidates = [i for key in dict.fromkeys(keys) for i in work["by_key"].get(key, []) if i["act"] in acts]
@@ -3611,7 +3582,15 @@ def _amending_evidence(keys: tuple, older: list[dict], newer: list[dict], newer_
     instructions = []
     for ins in result["instructions"]:
         node_index, at = piece(ins["pair"])
-        instructions.append({"act": ins["act"], "provision": ins["provision"], "raw": ins["raw"],
+        # The Act says where the piece belongs; where the parse has it
+        # elsewhere, that is a reference the place tool can put it at.
+        place_as = None
+        if ins["status"] == "elsewhere" and node_index is not None and not ins.get("schedule") and ins.get("path"):
+            path = list(ins["path"])
+            if ins["action"] == "insert_provision" and ins.get("number"):
+                path = path[:-1] + [ins["number"]]
+            place_as = "".join(f"({p})" for p in path)
+        instructions.append({"place_as": place_as, "act": ins["act"], "provision": ins["provision"], "raw": ins["raw"],
                              "target": _target_label(ins), "action": ins["action"], "status": ins["status"],
                              "at": "heading" if ins["at"] == "heading" else at,
                              # A heading belongs to the section piece itself.

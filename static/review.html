@@ -223,6 +223,7 @@
   .instr-mark { display: inline-block; width: 1.2em; font-weight: 700; }
   .instr-status { color: var(--muted); margin-left: 1.2em; }
   .instr-matched { border-left-color: #16a34a; }
+  .instr-place { margin: 4px 0 0 1.2em; }
   .instr-elsewhere, .instr-not-found { border-left-color: #d97706; }
   .instr-none { border-left-color: #d97706; color: var(--muted); }
   .piece-compare { margin: 0 0 8px; }
@@ -2102,8 +2103,30 @@ function instructionHtml(i) {
   const [mark, says] = INSTRUCTION_STATUS[i.status] || ["?", i.status];
   return `<div class="instr instr-${i.status.replace(" ", "-")}"><span class="instr-mark">${mark}</span>`
     + `<strong>No. ${escapeHtml(i.act)} ${escapeHtml(i.provision)}</strong> &mdash; ${escapeHtml(i.raw)}`
-    + `<div class="instr-status">${escapeHtml(i.target)}: ${says.replace("%s", escapeHtml(i.at || ""))}</div></div>`;
+    + `<div class="instr-status">${escapeHtml(i.target)}: ${says.replace("%s", escapeHtml(i.at || ""))}</div>`
+    + (i.place_as ? `<button class="btn small instr-place" data-node="${i.node_index}"
+        data-reference="${escapeHtml(i.place_as)}">Make this ${escapeHtml(i.place_as)}</button>` : "")
+    + `</div>`;
 }
+
+// Putting a misplaced piece where the Act says it is: the same place
+// endpoint as the edit window's Reference field, so its type, number and
+// position all follow from the one reference.
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".instr-place");
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    const res = await api(`api/nodes/${btn.dataset.node}/place`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reference: btn.dataset.reference, after_node_index: null }),
+    });
+    toast(res.matches ? `Now ${res.reference}, as the Act says.`
+      : `Placed, but it reads as ${res.reference || "unnumbered"} there -- check what is around it.`, !res.matches);
+    await loadMeta();
+    await loadUnit(res.unit_no);
+  } catch (err) { toast(err.message, true); btn.disabled = false; }
+});
 
 function lineageChangesHtml(l) {
   const here = new Set(currentUnit.pieces.map((p) => p.node_index));
