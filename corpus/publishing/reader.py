@@ -63,8 +63,36 @@ def contents_page(source, slug: str, base_url: str, *, rewrite=None,
         superseded=site(source._superseded(slug)),
         show_review_badge=show_review_badge,
         related=related,
+        ghosts=_ghosts(source, slug),
     )
     return (notice or "") + body
+
+
+def _ghosts(source, slug: str) -> list[dict]:
+    # A stand-in source without versions has no ghosts to offer.
+    find = getattr(source, "_ghosts", None)
+    return find(slug) if find else []
+
+
+def ghost_page(source, slug: str, base_url: str, section_slug: str, *,
+               rewrite=None) -> "str | None":
+    """The page of a provision this version no longer has (see
+    html_view.render_ghost), or None if `section_slug` is not one."""
+    ghost = next((g for g in _ghosts(source, slug) if g["page"] == section_slug), None)
+    if ghost is None:
+        return None
+    site = rewrite or _identity
+    number = ghost["history"]["wordings"][ghost["history"]["at"] - 1].get("key", (None, None, None))
+    _history, version_urls = source._provision_timeline(slug, number[2], number[1], "section")
+    return html_view.render_ghost(
+        ghost, document_title(source, slug), base_url,
+        amendment_index=source._amendments(slug)["index"],
+        version_urls=site(version_urls),
+        hierarchy_order=source._parsed(slug).get("hierarchy") or None,
+        version=source._act_version(slug),
+        superseded=site(source._superseded(slug)),
+        version_dates=source._version_dates(slug),
+    )
 
 
 def section_page(source, slug: str, base_url: str, section_slug: str, *,
@@ -77,6 +105,9 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
 
     None means there is no such page -- a 404 for a live server, and a
     section the static build skips."""
+    ghost = ghost_page(source, slug, base_url, section_slug, rewrite=rewrite)
+    if ghost is not None:
+        return ghost
     site = rewrite or _identity
     parsed = source._parsed(slug)
     nodes = parsed["nodes"]
@@ -96,7 +127,7 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
     # its node type decides which identity the timeline is looked up
     # under (see diffing).
     node_type = node["type"] if node is not None else "section"
-    entries, version_urls = source._provision_timeline(slug, section_number, schedule, node_type)
+    history, version_urls = source._provision_timeline(slug, section_number, schedule, node_type)
     # Bill/EM commentary is only ever matched against an ordinary
     # numbered provision (see bill_linking.py) and never against a
     # Schedule as a whole -- a pageable Schedule
@@ -119,7 +150,7 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
         title, base_url, section_slug,
         crossrefs=site(crossrefs),
         amendment_index=amendments["index"],
-        timeline=entries,
+        timeline=history,
         version_urls=site(version_urls),
         superseded=site(source._superseded(slug)),
         version_dates=source._version_dates(slug),

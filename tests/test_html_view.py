@@ -13,8 +13,8 @@ from corpus.publishing.html_view import (
     render_index,
     render_preview,
     render_section,
+    render_history,
     render_superseded_banner,
-    render_timeline,
 )
 
 from conftest import make_node
@@ -538,82 +538,124 @@ def test_an_unversioned_document_says_nothing_about_versions():
 
 
 # ---------------------------------------------------------------------------
-# A provision's timeline, and the superseded-version banner
+# A provision's history, and the superseded-version banner
 #
-# The comparison logic itself belongs to diffing.py and is tested there;
-# these check what render_timeline and render_superseded_banner do with
-# what diffing hands them, since that's the boundary a live check can't
-# easily exercise for every case (the real Act only has 13 changes to
-# look at, not one of each shape).
+# Which wordings a provision has had is lineage.py's to decide and is
+# tested there; these check what render_history does with a chain of
+# them, one of each shape.
 # ---------------------------------------------------------------------------
 
 
-def _changed_entry(**overrides) -> dict:
-    entry = {
-        "key": ("provision", None, "366"), "kind": "provision", "type": "section",
-        "number": "366", "schedule": None, "heading": "Application of Division",
-        "version": 112, "as_at": "2026-04-26", "as_at_printed": "26 April 2026",
-        "change": "changed",
-        "diff": [{"op": "equal", "text": "alpha"}, {"op": "delete", "text": "beta"},
-                 {"op": "insert", "text": "gamma"}],
-        "new_history": ["S. 366 amended by No. 1/2026 s. 74."],
+def _wording(version, text, *, to=None, checked=True, ended=None, heading="Application of Division"):
+    to = to or version
+    nodes = [make_node("section", "366", heading, ""), make_node("subsection", "1", None, text)]
+    nodes[0]["id"], nodes[1]["id"] = "s366", "s366/1"
+    wording = {
+        "absent": False,
+        "from": {"version": version, "as_at_printed": f"{version - 100} April 2026"},
+        "to": {"version": to, "as_at_printed": f"{to - 100} April 2026"},
+        "versions": list(range(version, to + 1)), "version": to,
+        "key": ("provision", None, "366"), "keys": {v: ("provision", None, "366") for v in range(version, to + 1)},
+        "provision": {"heading": heading, "nodes": nodes}, "checked": checked,
     }
-    entry.update(overrides)
-    return entry
+    if ended:
+        wording["ended_by"] = {"version": to + 1, "as_at_printed": f"{to - 99} April 2026", **ended}
+    return wording
 
 
-def test_render_timeline_is_empty_for_a_provision_with_no_history():
-    assert render_timeline([], "/browse/cpa") == ""
+def _history(*wordings, at=None):
+    return {"wordings": list(wordings), "at": len(wordings) - 1 if at is None else at}
 
 
-def test_render_timeline_names_the_newest_change_first():
-    older = _changed_entry(version=111, as_at_printed="1 April 2026")
-    newer = _changed_entry(version=112, as_at_printed="26 April 2026")
-    html = render_timeline([older, newer], "/browse/cpa")
-
-    assert html.index("Version 112") < html.index("Version 111")
-    assert "2 changes" in html
+_AMENDED = {"change": "changed", "notes": ["S. 366 amended by No. 1/2026 s. 74."]}
 
 
-def test_render_timeline_marks_deletions_and_insertions():
-    html = render_timeline([_changed_entry()], "/browse/cpa")
-
-    assert '<del class="d-del">beta</del>' in html
-    assert '<ins class="d-ins">gamma</ins>' in html
+def test_render_history_is_nothing_for_a_provision_with_one_wording():
+    assert render_history(None, "/browse/cpa") == ("", "")
+    assert render_history(_history(_wording(112, "alpha")), "/browse/cpa") == ("", "")
 
 
-def test_render_timeline_links_the_amending_act_named_in_the_note():
+def test_render_history_offers_a_chip_and_every_wording_oldest_first():
+    chip, body = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED),
+                                         _wording(112, "alpha gamma")), "/browse/cpa", anchor="s366")
+
+    assert 'class="history-chip"' in chip and 'aria-controls="hist-s366"' in chip
+    assert body.index("Version 111") < body.index("Version 112")
+    assert 'data-at="1"' in body
+
+
+def test_render_history_says_what_ended_a_wording_and_links_the_act():
     index = build_amendment_index(
         {"amending_acts": [{"citation": "1/2026", "title": "Justice Legislation Amendment Act 2026",
                             "act_no": "1", "year": 2026, "fields": {"assent_date": "10 Feb 2026"}}]},
     )
-    html = render_timeline([_changed_entry()], "/browse/cpa", amendment_index=index)
+    _chip, body = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED), _wording(112, "alpha")),
+                                 "/browse/cpa", amendment_index=index)
 
-    assert 'class="hist-act"' in html
-    assert "/browse/cpa/endnotes#" in html
-    assert "No. 1/2026" in html
-
-
-def test_render_timeline_links_a_note_the_index_cant_name_to_the_resolver():
-    entry = _changed_entry(new_history=["S. 366 amended by No. 999/2026 s. 1."])
-    html = render_timeline([entry], "/browse/cpa", amendment_index=build_amendment_index({}))
-
-    assert '<a class="hist-act unresolved" href="/legislation/999-2026"' in html
+    assert "Amended</span> at Version 112" in body
+    assert 'class="hist-act"' in body and "/browse/cpa/endnotes#" in body
 
 
-def test_render_timeline_links_each_version_to_its_own_page():
-    html = render_timeline([_changed_entry()], "/browse/cpa",
-                           version_urls={112: "/browse/cpa-v112/section/s366"})
+def test_render_history_links_a_note_the_index_cant_name_to_the_resolver():
+    ended = {"change": "changed", "notes": ["S. 366 amended by No. 999/2026 s. 1."]}
+    _chip, body = render_history(_history(_wording(111, "a", ended=ended), _wording(112, "b")),
+                                 "/browse/cpa", amendment_index=build_amendment_index({}))
 
-    assert '<a class="tl-version" href="/browse/cpa-v112/section/s366">' in html
+    assert '<a class="hist-act unresolved" href="/legislation/999-2026"' in body
 
 
-def test_render_timeline_names_an_insertion_by_the_acts_own_word_for_it():
-    html = render_timeline([_changed_entry(change="inserted", diff=[], new_history=["New s. 464 inserted by No. 1/2026 s. 83."])],
-                           "/browse/cpa")
+def test_a_comparison_strikes_what_went_and_marks_what_arrived_in_its_subsection():
+    _chip, body = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED),
+                                          _wording(112, "alpha gamma")), "/browse/cpa")
 
-    assert "Inserted" in html
-    assert '<div class="tl-diff">' not in html
+    compare = body.split('data-view="here" hidden>')[1].split("</div></section>")[0]
+    assert '<del class="d-del">beta</del>' in compare
+    assert '<ins class="d-ins">gamma</ins>' in compare
+    assert '<span class="prov-num">(1)</span>' in compare
+
+
+def test_a_comparison_reads_older_to_newer_from_either_side():
+    """Red is always what Parliament removed, even viewed from the old page."""
+    _chip, body = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED),
+                                          _wording(112, "alpha gamma"), at=0), "/browse/cpa")
+
+    assert '<del class="d-del">beta</del>' in body
+    assert '<del class="d-del">gamma</del>' not in body
+
+
+def test_render_history_links_each_wording_to_its_own_version():
+    _chip, body = render_history(_history(_wording(111, "a", ended=_AMENDED), _wording(112, "b")),
+                                 "/browse/cpa", version_urls={111: "/browse/cpa-v111/section/s366"})
+
+    assert '<a class="tl-version" href="/browse/cpa-v111/section/s366">' in body
+
+
+def test_an_insertion_is_an_absent_wording_named_by_the_acts_own_word():
+    absent = {"absent": True, "from": {"version": 110}, "to": {"version": 111}, "versions": [110, 111],
+              "ended_by": {"version": 112, "change": "inserted", "notes": ["New s. 366 inserted by No. 1/2026 s. 83."]}}
+    _chip, body = render_history(_history(absent, _wording(112, "a")), "/browse/cpa")
+
+    assert "Not yet in the Act." in body
+    assert "Inserted</span> at Version 112" in body
+
+
+def test_an_unchecked_wording_says_so():
+    _chip, body = render_history(_history(_wording(111, "a", checked=False, ended=_AMENDED), _wording(112, "b")),
+                                 "/browse/cpa")
+
+    assert body.count("Not yet checked") == 1
+
+
+def test_a_section_with_history_carries_the_chip_beside_its_heading():
+    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "366", "Application", ""),
+             make_node("subsection", "1", None, "alpha gamma")]
+    history = _history(_wording(111, "alpha beta", ended=_AMENDED), _wording(112, "alpha gamma"))
+    slug = build_page_index(_parsed(nodes), "Test Act")["by_node_index"][1]
+
+    html = render_section(_parsed(nodes), "Test Act", "/browse/t", slug, timeline=history)
+
+    assert '<div class="section-head"><h1>' in html and "history-chip" in html
+    assert 'class="history"' in html
 
 
 def test_render_superseded_banner_is_silent_on_the_current_version():
@@ -1165,17 +1207,6 @@ def test_nothing_in_a_provision_is_positioned_outside_it():
     assert "text-indent" not in css, "a hanging indent can paint outside the box it belongs to"
 
 
-def test_a_provision_with_no_timeline_shows_nothing_at_all():
-    """Including where the versions held here cannot be compared (see
-    dashboard._timeline's mixed_parsers, which then hands back no
-    entries): a reader of the law has no stake in which parser read which
-    reprint, and a paragraph about it above the section is a paragraph in
-    the way."""
-    from corpus.publishing.html_view import render_timeline
-
-    assert render_timeline([], "/browse/a") == ""
-
-
 def test_an_act_offers_its_bill_and_em_from_its_own_contents():
     """Each named, and nothing else. These used to carry a sentence
     apiece explaining which was which, because both read "Crimes Bill
@@ -1370,3 +1401,42 @@ def test_a_flat_acts_sections_are_all_in_its_contents():
 
     assert "1 Purposes" in body
     assert "2 Commencement" in body
+
+
+# ---------------------------------------------------------------------------
+# A provision this version no longer has
+# ---------------------------------------------------------------------------
+
+
+def _ghost():
+    absent = {"absent": True, "from": {"version": 113}, "to": {"version": 114}, "versions": [113, 114]}
+    history = _history(_wording(112, "an offence", ended={"change": "repealed",
+                                                          "notes": ["S. 366 repealed by No. 9/2026 s. 4."]}),
+                       absent, at=1)
+    return {"page": "s366", "after_page": "s365", "label": "Section 366", "heading": "Old offence",
+            "history": history}
+
+
+def test_the_contents_list_a_removed_provision_where_it_used_to_sit():
+    nodes = [make_node("part", "1", "Preliminary"), make_node("section", "365", "Before", "a"),
+             make_node("section", "367", "After", "b")]
+    parsed = _parsed(nodes)
+    pages = build_page_index(parsed, "Test Act")["by_node_index"]
+    ghost = {**_ghost(), "after_page": pages[1]}
+
+    html = render_index(parsed, "Test Act", "/browse/t", ghosts=[ghost])
+
+    assert html.index(f'id="{pages[1]}"') < html.index('class="ghost"') < html.index(f'id="{pages[2]}"')
+    assert 'href="/browse/t/section/s366"' in html and "Repealed" in html
+
+
+def test_a_removed_provisions_page_is_its_history_opened():
+    from corpus.publishing.html_view import render_ghost
+
+    html = render_ghost(_ghost(), "Test Act", "/browse/t", version={"version": 114})
+
+    assert "Section 366 [Repealed]" in html
+    assert "not in Version 114" in html and "removed at Version 113" in html
+    assert 'class="reader-section historical"' in html
+    assert "<details class=\"history\"" in html and " open>" in html
+    assert "an offence" in html and "S. 366 repealed by" in html

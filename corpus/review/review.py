@@ -147,7 +147,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
-from corpus.review import structure
+from corpus.review import inheritance, structure
+from corpus.domain import diffing, lineage
 from corpus.publishing import html_view
 from corpus.storage import db
 from corpus.ai.assist import build_suggestion
@@ -932,6 +933,12 @@ _document_type: str | None = None
 _act_title: str | None = None
 _pdf_doc: "fitz.Document | None" = None
 _page_image_cache: "dict[tuple[int, float], bytes]" = {}
+# This document as one version of a work (inheritance.work_review), and
+# what that says about each of its units -- None and empty for a
+# document held in one version. See _load_versions.
+_work_review: "dict | None" = None
+_unit_lineage: dict[int, dict] = {}
+_reference_nodes: "list[dict] | None" = None
 _PAGE_RENDER_ZOOM = 1.8  # ~130 DPI -- legible with the page scaled to fit its panel
 # The zoom levels the panel's own +/- control steps through, as multiples
 # of _PAGE_RENDER_ZOOM. The page is re-rendered at the level being shown
@@ -1249,10 +1256,24 @@ def _require_structure_editable() -> None:
         )
 
 
+# A unit this version borrows its review for, rather than reviewing
+# itself: "inherited" is vouched for by another version already,
+# "follows" will be once the next version toward current is reviewed.
+_LENT = {lineage.INHERITS: "inherited", lineage.FOLLOWS: "follows"}
+
+
+def _lent_status(unit_no: int) -> "str | None":
+    entry = _unit_lineage.get(unit_no)
+    return _LENT.get(entry["status"]) if entry else None
+
+
 def _unit_status(unit_no: int) -> str:
     indices = [i for i in _units[unit_no] if i not in _merged_away]
     if not indices:
         return "done"  # every node in it ended up merged away into elsewhere
+    lent = _lent_status(unit_no)
+    if lent and not any(_is_committed(i) for i in indices):
+        return lent
     if not all(_is_committed(i) for i in indices):
         return "pending"
     if any(_verified_by_source_index[i].get("needs_followup") for i in indices):
@@ -1495,6 +1516,7 @@ def _unit_payload(unit_no: int) -> dict:
         # persist "where did this go" anywhere reconstructible from disk,
         # so this is None (not an error) after a restart. See merge_endpoint.
         "merged_into_unit": _merged_into_unit.get(unit_no) if not indices else None,
+        "lineage": _unit_lineage_payload(unit_no, unit_nodes),
     }
 
 
@@ -1654,6 +1676,7 @@ def get_meta():
         "units": units_summary,
         "has_source_pdf": bool(_source_pdf_path and Path(_source_pdf_path).exists()),
         "act_title": _act_title,
+        "version_info": _version_info(),
     }
 
 
@@ -1742,7 +1765,9 @@ def accept_page(page_no: int, req: AcceptRequest):
         raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
 
     on_page = _indices_on_page(page_no)
-    outstanding = [i for i in on_page if not _is_committed(i)]
+    # A lent piece is another version's to decide, so the page is
+    # finished without it; accepting it here is still one click away.
+    outstanding = [i for i in on_page if not _is_committed(i) and _piece_status(i) != "inherited"]
     # Accepting also resolves a flag raised earlier, which is what
     # "accept" means once a piece has been through review once.
     reflagged = [] if req.flagged else [
@@ -1838,7 +1863,7 @@ def pieces_label(node: dict) -> str:
 def _piece_status(i: int) -> str:
     row = _verified_by_source_index.get(i)
     if row is None:
-        return "pending"
+        return "inherited" if _lent_status(_unit_of_index.get(i, -1)) else "pending"
     return "flagged" if row.get("needs_followup") else "accepted"
 
 
@@ -2924,6 +2949,26 @@ def reparse_unit_endpoint(unit_no: int):
             "detail": f"{_act} was parsed again; this section's {cleared['cleared']} decision(s) were cleared."}
 
 
+class CarriedFromRequest(BaseModel):
+    key: "list | None" = None
+
+
+@app.post("/api/units/{unit_no}/carried-from")
+def carried_from_endpoint(unit_no: int, req: CarriedFromRequest):
+    """Records that this unit's provision is one the version before
+    numbered differently -- or, with no key, that it is not."""
+    if not (0 <= unit_no < len(_units)):
+        raise HTTPException(404, "No such unit")
+    payload = _unit_lineage_payload(unit_no, [_current_node(i) for i in _units[unit_no] if i not in _merged_away])
+    if not payload or "carry_candidates" not in payload:
+        raise HTTPException(400, "Only a provision the version before does not have can be carried from one.")
+    if req.key is not None and req.key not in [c["key"] for c in payload["carry_candidates"]]:
+        raise HTTPException(400, "The version before has no such provision to carry from.")
+    db.set_provision_link(_act, tuple(payload["key"]), tuple(req.key) if req.key else None)
+    _load_versions()
+    return _unit_payload(unit_no)
+
+
 @app.get("/api/links")
 def get_links():
     return load_links(_act)
@@ -3077,6 +3122,110 @@ def _load_state(act: str, restart: bool = False) -> None:
             for i in _units[u]:
                 if i not in _verified_by_source_index and not _was_inserted(_structure_edits, i):
                     _merged_away.add(i)
+    _load_versions()
+
+
+# ---------------------------------------------------------------------------
+# One version of a work among others
+# ---------------------------------------------------------------------------
+
+
+def _load_versions() -> None:
+    """Works out, once per load, which of this version's units another
+    version vouches for (corpus/review/inheritance.py). A reviewer here
+    sees those as done elsewhere and is shown only what differs."""
+    global _work_review, _reference_nodes
+    _unit_lineage.clear()
+    _reference_nodes = None
+    _work_review = inheritance.work_review(_act)
+    if not _work_review:
+        return
+    version = _work_review["version"]
+    state = _work_review["states"][version]
+    statuses = _work_review["status"][version]
+    key_of_root = {unit["root"]: key for key, unit in state["units"].items()}
+    for u, indices in enumerate(_units):
+        key = key_of_root.get(indices[0]) if indices else None
+        if key in statuses:
+            _unit_lineage[u] = {**statuses[key], "key": key}
+
+
+def _version_info() -> "dict | None":
+    if not _work_review:
+        return None
+    version = _work_review["version"]
+    versions = _work_review["versions"]
+    own = next(v for v in versions if v["version"] == version)
+    reference = next((v for v in versions if v["version"] == _work_review["reference"]), None)
+    return {
+        "version": version,
+        "versions": [{k: v[k] for k in ("version", "slug", "as_at_printed", "to_review", "current")}
+                     for v in versions],
+        "to_review": sum(1 for u in _unit_lineage.values() if u["status"] == lineage.TO_REVIEW),
+        "reference": _work_review["reference"],
+        # A queue swollen by the parsers' own disagreements rather than
+        # by Parliament: re-parsing this version is what shrinks it.
+        "parser_differs": bool(reference and reference["parser_version"] != own["parser_version"]),
+    }
+
+
+def _reference_provisions() -> dict:
+    """The reference version's provisions as a reader sees them, read
+    once per load -- what a changed unit here is compared against."""
+    global _reference_nodes
+    if _reference_nodes is None:
+        reference = _work_review["reference"]
+        _reference_nodes = inheritance.effective_nodes(_work_review["slugs"][reference], _work_review, reference)
+    return diffing.provisions(_reference_nodes)
+
+
+def _key_label(key: tuple) -> str:
+    kind, schedule, number = key
+    if kind == "unit":
+        return schedule
+    if kind != "provision":
+        return f"{kind.capitalize()} {number.upper()}"
+    return f"Schedule {schedule} clause {number.upper()}" if schedule else f"Section {number.upper()}"
+
+
+def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict]) -> "dict | None":
+    """What the version this one is compared with says about this unit:
+    who vouches for it, or how its words differ, and -- for a provision
+    the reference lacks -- which of the reference's own it might have
+    been carried from."""
+    entry = _unit_lineage.get(unit_no)
+    if not entry or not _work_review:
+        return None
+    version, reference = _work_review["version"], _work_review["reference"]
+    out = {"status": entry["status"], "source": entry["source"], "reference": reference,
+           "key": list(entry["key"]), "label": _key_label(entry["key"])}
+    if entry["status"] != lineage.TO_REVIEW or reference is None:
+        return out
+    theirs = _reference_provisions()
+    links = {v: state.get("links") or {} for v, state in _work_review["states"].items()}
+    provision = theirs.get(lineage.step(links, entry["key"], version, reference))
+    order = _hierarchy or html_view.HIERARCHY_ORDER
+    mine = html_view._wording_units(unit_nodes, order)
+    if provision is not None:
+        end = diffing.unit_end(_reference_nodes, provision["node_index"])
+        other = html_view._wording_units(_reference_nodes[provision["node_index"]:end], order)
+        older, newer = (other, mine) if reference < version else (mine, other)
+        out["compare"] = html_view._compare_html(older, newer)
+    else:
+        out["compare"] = None
+    # Carrying from is recorded against the later of two versions, and
+    # offered where the earlier one lacks this number.
+    # Offered by the unit's own number, so a link already made stays
+    # visible, and can be undone, once it has joined the two.
+    if reference < version and entry["key"] not in theirs and entry["key"][0] == "provision":
+        mine_keys = set(_work_review["states"][version]["raw"])
+        out["carry_candidates"] = [
+            {"key": list(k), "label": _key_label(k)}
+            for k in theirs if k[0] == "provision" and k not in mine_keys
+        ]
+        carried = (_work_review["states"][version].get("links") or {}).get(entry["key"])
+        out["carried_from"] = list(carried) if carried else None
+    return out
 
 
 def main():

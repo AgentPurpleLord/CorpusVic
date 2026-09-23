@@ -260,37 +260,100 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .crossref-em { border-style: dashed; }
 
-/* A provision's timeline -- see render_timeline. Collapsed by default:
-   the summary answers "has this changed, and when last?" without
-   opening it, which is the question most readers actually have, and
-   the words that moved are one click away for the ones who want
-   them. */
-.timeline { margin: 0 0 20px; font-family: var(--sans); }
-.timeline-summary {
-  cursor: pointer; font-size: 12.5px; padding: 6px 10px;
+/* A provision's history -- see html_view.render_history and
+   static/site/history.js. The chip sits beside the heading and is the
+   only sign of it until asked for: a control on every provision would
+   train a reader to ignore it, so it is on the ones that have changed.
+   Without script the wordings are a list inside <details>; with it,
+   .historical on the article swaps the text for the timeline. */
+.section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.section-head h1 { flex: 1 1 auto; min-width: 0; }
+.history-chip {
+  flex: none; font-family: var(--sans); font-size: 12px; line-height: 1.4;
+  padding: 3px 10px; margin-top: 2px; cursor: pointer;
   border: 1px solid var(--border); border-left: 3px solid var(--flagged);
   border-radius: 0; background: var(--panel); color: var(--fg);
 }
-.timeline-summary:hover { border-color: var(--accent); }
-.timeline[open] .timeline-summary { border-radius: 0; }
-.tl-count { color: var(--muted); }
-.tl-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-top: none; }
-.tl-entry { padding: 10px 12px; border-top: 1px solid var(--border); }
-.tl-entry:first-child { border-top: none; }
-.tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 5px; }
-.tl-version { font-size: 12.5px; font-weight: 600; }
+.history-chip:hover, .history-chip[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.history-count {
+  display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 4px;
+  font-size: 11px; text-align: center; background: var(--verify-none-bg); color: var(--muted);
+}
+.history { margin: 0 0 20px; font-family: var(--sans); }
+.history-summary {
+  cursor: pointer; font-size: 12.5px; padding: 6px 10px;
+  border: 1px solid var(--border); border-left: 3px solid var(--flagged); background: var(--panel);
+}
+.hist-track { border: 1px solid var(--border); border-top: none; }
+.hist-panel { padding: 10px 12px; border-top: 1px solid var(--border); min-width: 0; }
+.hist-panel:first-child { border-top: none; }
+.hist-here { border-left: 3px solid var(--accent); }
+.hist-head { margin-bottom: 8px; }
+.hist-when { font-size: 12.5px; font-weight: 600; }
+.hist-tag {
+  font-size: 10.5px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 1px 6px; margin-left: 4px; background: var(--verify-none-bg); color: var(--muted);
+}
+.hist-unchecked { font-size: 11.5px; color: var(--flagged); margin-top: 3px; }
+.hist-ended { font-size: 12px; margin-top: 5px; }
 .tl-verb {
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 1px 7px; border-radius: 0; background: var(--verify-none-bg); color: var(--muted);
+  padding: 1px 7px; background: var(--verify-none-bg); color: var(--muted);
 }
-.tl-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
-.tl-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
-.tl-notes { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+.hist-inserted .tl-verb { background: var(--ins-bg); color: var(--ins-fg); }
+.hist-repealed .tl-verb { background: var(--del-bg); color: var(--del-fg); }
+.tl-notes { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
 .tl-note { display: block; }
-.tl-diff {
-  font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
-  max-height: 20em; overflow-y: auto;
+.hist-quiet { font-style: italic; }
+.hist-compare { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+.hist-cmp {
+  font-family: var(--sans); font-size: 11.5px; padding: 2px 8px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--fg);
 }
+.hist-cmp:hover { border-color: var(--accent); color: var(--accent); }
+.hist-cmp[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
+.hist-heading { font-weight: 600; margin-bottom: 6px; }
+/* Two wordings side by side need a smaller measure than one. */
+.hist-provisions .prov { --prov-size: 16px; max-width: none; }
+.hist-gone { color: var(--muted); font-style: italic; margin: 0; }
+.prov-gone .prov-text, .prov-gone .prov-num { opacity: 0.85; }
+.prov-new .prov-num { color: var(--ins-fg); }
+
+/* A provision this version no longer has, where it used to sit. */
+.section-list li.ghost a { color: var(--muted); }
+.ghost-tag {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 1px 6px; background: var(--del-bg); color: var(--del-fg);
+}
+
+/* Historical mode, once history.js has taken the list over. */
+.history.hist-js > .history-summary { display: none; }
+.history.hist-js .hist-track { border: none; }
+.reader-section:not(.historical) .history.hist-js { display: none; }
+.reader-section.historical > .provisions,
+.reader-section.historical > .copy-section { display: none; }
+.hist-js .hist-track { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hist-js .hist-panel { display: none; border: 1px solid var(--border); }
+.hist-js .hist-panel.hist-shown { display: block; }
+.hist-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 0 10px; font-size: 12px; color: var(--muted);
+}
+.hist-step {
+  font-family: var(--sans); font-size: 13px; padding: 2px 10px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--fg);
+}
+.hist-step:disabled { opacity: 0.4; cursor: default; }
+.hist-step:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+.hist-dots { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.hist-dot { width: 9px; height: 9px; padding: 0; border: 1px solid var(--muted); background: transparent; cursor: pointer; }
+.hist-dot.on { background: var(--accent); border-color: var(--accent); }
+@media (max-width: 720px) {
+  .hist-js .hist-track { grid-template-columns: minmax(0, 1fr); }
+  .hist-js .hist-panel.hist-shown { display: none; }
+  .hist-js .hist-panel.hist-focus { display: block; }
+}
+
 /* Words that arrived, and words that went. A deletion is struck through
    as well as coloured: colour alone says "this is different" and leaves
    which direction to inference, and on a page about what an Act used to

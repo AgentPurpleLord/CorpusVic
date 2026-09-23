@@ -343,6 +343,23 @@ CREATE TABLE IF NOT EXISTS definition_overrides (
     PRIMARY KEY (act, term)
 );
 CREATE INDEX IF NOT EXISTS idx_definition_overrides_act ON definition_overrides(act);
+
+-- A reviewer's word that a provision in this version is one that had a
+-- different number in the version before -- "s 464AA carried from
+-- s 464A". Compared by number alone a move is a repeal and an
+-- insertion, and nothing in either version says otherwise, so this is
+-- the only place it is recorded (see corpus/domain/lineage.py).
+--
+-- Both sides are diffing.provision_identity keys as JSON rather than
+-- node names: a name carries its Part and Division, and a move between
+-- Divisions is exactly what this records.
+CREATE TABLE IF NOT EXISTS provision_links (
+    act TEXT NOT NULL,
+    provision TEXT NOT NULL,
+    carried_from TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (act, provision)
+);
 """
 
 _connections: dict[str, sqlite3.Connection] = {}
@@ -1026,6 +1043,32 @@ def save_structure_edits(act: str, edits: dict[str, dict], base_dir: "str | Path
 # ---------------------------------------------------------------------
 # Defined terms a person has overruled
 # ---------------------------------------------------------------------
+def load_provision_links(act: str, base_dir: "str | Path | None" = None) -> dict[tuple, tuple]:
+    """{provision key in this version -> its key in the version before}."""
+    rows = _connect(base_dir).execute(
+        "SELECT provision, carried_from FROM provision_links WHERE act = ? ORDER BY provision", (act,)
+    ).fetchall()
+    return {tuple(json.loads(row["provision"])): tuple(json.loads(row["carried_from"])) for row in rows}
+
+
+def set_provision_link(act: str, provision: tuple, carried_from: "tuple | None",
+                       base_dir: "str | Path | None" = None) -> None:
+    """Records, replaces, or (carried_from None) removes one link."""
+    conn = _connect(base_dir)
+    with conn:
+        if carried_from is None:
+            conn.execute("DELETE FROM provision_links WHERE act = ? AND provision = ?",
+                         (act, json.dumps(list(provision))))
+            return
+        conn.execute(
+            "INSERT INTO provision_links (act, provision, carried_from, created_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(act, provision) DO UPDATE SET carried_from = excluded.carried_from, "
+            "created_at = excluded.created_at",
+            (act, json.dumps(list(provision)), json.dumps(list(carried_from)),
+             datetime.now(timezone.utc).isoformat()),
+        )
+
+
 def load_definition_overrides(act: str, base_dir: "str | Path | None" = None) -> list[dict]:
     """Every decision recorded about this Act's defined terms, oldest
     first by term so the list reads the same way twice."""
