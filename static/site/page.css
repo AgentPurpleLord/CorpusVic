@@ -101,14 +101,12 @@ a:hover { text-decoration: underline; }
   padding-right: 0.5em;
   color: var(--muted);
 }
-/* A defined term isn't a number in a margin -- it is the first words of
-   its own sentence, set in italics where the drafting convention
-   introduces it -- so it sits inside the text column with the rest of the
-   definition, lining up with the section's lead-in above it rather than
-   starting half an inch to its left. Italic alone, never italic *and*
-   bold: two emphases at once is one more than the text needs, and a
-   defined term is already announced by being defined. */
-.prov-term { font-style: italic; }
+/* Definitions found within an act, or 'defined terms' */
+.prov-term { 
+  font-style: italic;
+  font-weight: bold;
+ }
+ 
 /* A table printed in the Act. It spans both of the provision grid's
    columns rather than sitting in the text column: a table's own columns
    need the width, and it has no number to hang in the margin. The measure
