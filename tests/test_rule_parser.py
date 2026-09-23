@@ -1696,3 +1696,32 @@ def test_a_preamble_reads_as_its_own_page():
 
     assert '<a href="/section/preamble">Preamble</a>' in html_view.render_index(parsed, "An Act 2008", "")
     assert "non-violence" in html_view.render_section(parsed, "An Act 2008", "", "preamble")
+
+
+def test_dot_point_examples_are_one_example_shown_as_a_list():
+    """Family Violence Protection Act s 6: "Examples—", then dot points.
+    The dash kept the heading from being recognised, so the dot points
+    ran on as part of paragraph (b)."""
+    from corpus.parsing.identity import annotate_ids
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("6 Meaning of economic abuse", bold=True, x1=330),
+        line("Economic abuse is behaviour that is coercive—", x0=WRAP_X0, x1=MARGIN),
+        line("(a) in a way that denies autonomy; or", x0=PARA_X0, x1=400),
+        line("(b) by withholding financial support.", x0=PARA_X0, x1=380),
+        line("Examples—", bold=True, size=10.0, x0=184, x1=236),
+        line("• coercing a person to relinquish control over assets and", size=10.0, x0=197, x1=440),
+        line("income;", size=10.0, x0=210, x1=250),
+        line("• removing a family member's property without permission.", size=10.0, x0=197, x1=450),
+    ])
+    [example] = [n for n in result.nodes if n["type"] == "example"]
+    assert find(result.nodes, "paragraph", "b")["text"] == "by withholding financial support."
+
+    annotate_ids(result.nodes, result.hierarchy)
+    page = html_view.render_section({"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"},
+                                    "An Act 2008", "", "s6")
+    assert '<span class="prov-text">Examples</span>' in page
+    assert ('<ul class="prov-bullets"><li>coercing a person to relinquish control over assets and income;</li>'
+            "<li>removing a family member&#x27;s property without permission.</li></ul>") in page

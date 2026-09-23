@@ -53,7 +53,7 @@ from corpus.domain.definitions import (
     looks_like_definitions_section,
     split_definition_clauses,
 )
-from corpus.parsing.extract import reflow
+from corpus.parsing.extract import BULLETS, reflow, reflow_keeping_bullets
 from corpus.domain.act_scope import scope_by_unit
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks, schedule_is_pageable
 
@@ -68,6 +68,16 @@ def _structural_types(hierarchy_order: list[str]) -> tuple[str, ...]:
     page."""
     rank = make_ranks(hierarchy_order)
     return tuple(l for l in hierarchy_order if rank[l] < rank["section"])
+
+
+def _markdown_bullets(text: str) -> str:
+    """Dot-point lines (see reflow_keeping_bullets) as a Markdown list."""
+    lines = text.split("\n")
+    if len(lines) == 1:
+        return text
+    out = [lines[0]] if not lines[0].lstrip().startswith(BULLETS) else []
+    items = [f"- {l.lstrip().lstrip(''.join(BULLETS)).strip()}" for l in lines[len(out):]]
+    return "\n\n".join(out + ["\n".join(items)]) if out else "\n".join(items)
 
 
 def _section_filename(number: str | None, node_type: str = "section") -> str:
@@ -262,7 +272,7 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
     else:
         label = _format_num(t, node["number"]) if node.get("number") else None
 
-    text = reflow(node.get("text"))
+    text = reflow_keeping_bullets(node.get("text"))
     heading = node.get("heading")
     level = min(depth + 2, 6)
 
@@ -687,7 +697,7 @@ def _render_body(
                 # it still reads as one list.
                 out.append(f"{'  ' * unit['depth']}- {body}")
             else:
-                out.append(body)
+                out.append(_markdown_bullets(body))
             out.append("")
 
 

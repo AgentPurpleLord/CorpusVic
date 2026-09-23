@@ -75,6 +75,7 @@ import re
 from pathlib import Path
 
 from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
+from corpus.parsing.extract import BULLETS
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
 from corpus.domain.diffing import node_diff, normalise, provision_identity, word_diff
@@ -454,6 +455,18 @@ def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
 _TIGHT_AFTER_TERM = (",", ".", ";", ":", ")", "\u2014", "-")
 
 
+def _bullets_html(text_html: str) -> str:
+    """Dot-point lines (see extract.reflow_keeping_bullets) as a list
+    under whatever leads into them."""
+    lines = text_html.split("\n")
+    bullet = tuple(BULLETS)
+    if not any(l.lstrip().startswith(bullet) for l in lines[1:]):
+        return text_html
+    lead = [] if lines[0].lstrip().startswith(bullet) else [lines.pop(0)]
+    items = "".join(f"<li>{l.lstrip().lstrip(''.join(BULLETS)).strip()}</li>" for l in lines)
+    return f'{" ".join(lead)}<ul class="prov-bullets">{items}</ul>'
+
+
 def _provision_html(node_type: str, header_text: "str | None", text_html: "str | None",
                     depth: int, id_attr: str = "", extra_class: str = "") -> str:
     """One provision, in the markup every renderer here emits for one:
@@ -479,6 +492,8 @@ def _provision_html(node_type: str, header_text: "str | None", text_html: "str |
     a margin -- it is the first words of its own sentence, set in italics
     where the drafting convention introduces it -- so it goes inside the
     text, and the provision spans both columns."""
+    if text_html is not None:
+        text_html = _bullets_html(text_html)
     classes = ["prov", f"prov-{_esc(node_type)}"]
     if extra_class:
         classes.append(extra_class)
@@ -542,7 +557,9 @@ def _caption_html(units: list[dict], i: int, base_depth: int = 0) -> str:
             break
         run += 1
     singular, plural = _CAPTIONED_TYPES[here]
-    label = plural if run > 1 else singular
+    # One example that is a list of them is "Examples" too, as printed.
+    bullets = sum(l.lstrip().startswith(tuple(BULLETS)) for l in (units[i]["text"] or "").split("\n"))
+    label = plural if run > 1 or bullets > 1 else singular
     return (
         f'<div class="prov prov-caption prov-caption-{_esc(here)}"'
         f' style="--depth:{max(depth - base_depth, 0)}">'

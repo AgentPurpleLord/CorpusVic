@@ -95,6 +95,14 @@ def reflow(text: str | None) -> str:
     return _WRAP_RE.sub(" ", (text or "").strip())
 
 
+def reflow_keeping_bullets(text: str | None) -> str:
+    """As reflow, but each dot point keeps a line of its own: "Examples—"
+    followed by bullets (Family Violence Protection Act s 6) is a list,
+    and as one run of prose its items ran together."""
+    chunks = re.split(r"\n(?=\s*[" + "".join(BULLETS) + "])", (text or "").strip())
+    return "\n".join(reflow(chunk) for chunk in chunks)
+
+
 @dataclass
 class BodyLine:
     text: str

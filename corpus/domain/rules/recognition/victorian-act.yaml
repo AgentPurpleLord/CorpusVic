@@ -215,7 +215,7 @@ types:
     label: eg
     priority: 15
     recognition:
-      pattern: '^(Examples?)()$'
+      pattern: '^(Examples?)()[—–:]?$'
       bold: true
       max_size_ratio: 1.05
 
@@ -224,7 +224,7 @@ types:
     label: note
     priority: 16
     recognition:
-      pattern: '^(Notes?)()$'
+      pattern: '^(Notes?)()[—–:]?$'
       bold: true
       max_size_ratio: 1.05
 
