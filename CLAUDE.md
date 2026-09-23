@@ -17,6 +17,9 @@ so a fresh session doesn't have to go looking, plus how to work here.
   `corpus/domain/rules/recognition/*.yaml`, matched by
   `corpus/parsing/recognise.py`.
 - The Act PDFs are not in git. Tests needing them skip.
+- Amending Acts: `python -m corpus.amending.fetch <slug>` fetches the ones a
+  work's held reprints need (PDFs to `acts/amending/`, not in git) and
+  reads their instructions into `data/amending/`. See `corpus/amending/`.
 
 ## Conventions
 
@@ -25,7 +28,7 @@ so a fresh session doesn't have to go looking, plus how to work here.
 - Run other modules as `-m corpus.x.y`, never by filename.
 - The pre-commit hook is tracked at `deploy/githooks/pre-commit`. Point
   git at it once: `git config core.hooksPath deploy/githooks`.
-- Tests: `python -m pytest -q`. Baseline **1,483 passed, 1 skipped**.
+- Tests: `python -m pytest -q`. Baseline **1,489 passed, 1 skipped**.
 
 ## How to work here
 

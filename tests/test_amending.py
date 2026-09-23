@@ -114,9 +114,32 @@ def test_a_change_no_instruction_made_is_unexplained():
 def test_an_instruction_the_reprint_does_not_reflect_is_not_found():
     ins = _one('In section 4(1)(f) of the Criminal Procedure Act 2009, omit "or".')
 
-    result = match([ins], _units("Definitions", ("f", "x")), _units("Definitions", ("f", "x")))
+    result = match([ins], _units("Definitions", ("f", "x or y")), _units("Definitions", ("f", "x or y")))
 
     assert result["instructions"][0]["status"] == "not found"
+
+
+def test_an_instruction_the_older_reprint_already_reflects_is_earlier():
+    """In force before the two reprints compared: 1/2026's ss 79-81
+    commenced before the oldest CPA reprint held."""
+    ins = _one('In section 4(1)(f) of the Criminal Procedure Act 2009, for "taken" substitute "take".')
+
+    result = match([ins], _units("Definitions", ("f", "must take")), _units("Definitions", ("f", "must take")))
+
+    assert result["instructions"][0]["status"] == "earlier"
+
+
+def test_a_piece_nested_differently_in_each_reprint_is_still_paired():
+    """v111 read s 4(1)(f) as (1)(f) and v112 as (8C)(f): no path in
+    common, but one paragraph."""
+    ins = _one('In section 4(1)(f) of the Criminal Procedure Act 2009, for "a charge" substitute "the charge".')
+    older = _units("Definitions", ("f", "a charge is filed"))
+    newer = _units("Definitions", ("f", "the charge is filed"))
+    newer[-1]["path"] = "8c/f"
+
+    result = match([ins], older, newer)
+
+    assert result["instructions"][0]["status"] == "matched", "matched on the older reprint's path"
 
 
 def test_an_inserted_paragraph_and_a_changed_heading_are_matched():
@@ -154,3 +177,78 @@ def test_only_acts_amending_between_held_reprints_are_needed(tmp_path):
 
     assert [(a["citation"], a["versions"], a["title"]) for a in needed] == [("7/2026", [2], "Act 7/2026")], \
         "3/2020 amended it before the oldest reprint held, so there is nothing to check it against"
+
+
+# --- fetching and reading the PDF -------------------------------------------
+
+def test_an_act_is_found_through_the_content_api_by_its_title():
+    """The route and record legislation.vic.gov.au's API gave for 1/2026,
+    saved; nothing here touches the network."""
+    import json
+
+    from corpus import PROJECT_ROOT
+    from corpus.amending.fetch import locate, slug
+
+    fixtures = PROJECT_ROOT / "tests" / "fixtures" / "amending"
+    asked = []
+
+    def get(url):
+        asked.append(url)
+        name = "route-1-2026.json" if "/route?" in url else "node-1-2026.json"
+        return (fixtures / name).read_bytes()
+
+    act = {"citation": "1/2026", "title": "Justice Legislation Amendment (Family Violence, Stalking and Other Matters) Act 2026",
+           "record": {"act_no": "1", "year": "2026"}}
+
+    found = locate(act, get)
+
+    assert slug(act["title"]) == "justice-legislation-amendment-family-violence-stalking-and-other-matters-act-2026"
+    assert found["pdf_url"].endswith("/2026-02/26-001aa-authorised.pdf")
+    assert "site=6" in asked[0] and "include=field_as_made_authorized_version" in asked[1]
+
+
+def test_a_title_that_leads_to_another_act_is_refused():
+    import pytest
+
+    from corpus import PROJECT_ROOT
+    from corpus.amending.fetch import NotFound, locate
+
+    fixtures = PROJECT_ROOT / "tests" / "fixtures" / "amending"
+    act = {"citation": "2/2026", "title": "Justice Legislation Amendment (Family Violence, Stalking and Other Matters) Act 2026",
+           "record": {"act_no": "2", "year": "2026"}}
+
+    with pytest.raises(NotFound, match="not 2/2026"):
+        locate(act, lambda url: (fixtures / ("route-1-2026.json" if "/route?" in url else "node-1-2026.json")).read_bytes())
+
+
+def test_the_cpa_amendments_in_1_2026_are_read_from_its_pdf():
+    import pytest
+
+    from corpus.amending.fetch import pdf_path
+    from corpus.amending.pdf import read_pdf
+
+    pdf = pdf_path("1/2026")
+    if not pdf.exists():
+        pytest.skip("amending Act PDFs are not in git; python -m corpus.amending.fetch fetches them")
+    out = [i for i in read_act(read_pdf(pdf)) if i["target_act"] == CPA]
+    by = {(i["provision"], "/".join(i["path"])): i for i in out}
+
+    assert len(out) == 25 and not [i for i in out if i["action"] == "unparsed"]
+    assert by[("s. 82", "1/f")]["new"] == "paragraphs (a) to (e)", "the running header between the lines is gone"
+    assert by[("s. 72(b)", "1/b")]["number"] == "c", "an item that inserts a paragraph"
+    assert ("s. 77", "2/b/iii") in by, "(ii)(A) and (iii): the second target by its own numbering"
+    assert by[("s. 83", "")]["action"] == "insert_section" and by[("s. 83", "")]["section"] == "464"
+
+
+def test_a_schedule_item_is_cited_through_the_section_that_enacts_it():
+    import pytest
+
+    from corpus.amending.fetch import pdf_path
+    from corpus.amending.pdf import read_pdf
+
+    pdf = pdf_path("13/2025")
+    if not pdf.exists():
+        pytest.skip("amending Act PDFs are not in git")
+    [first, _] = [i for i in read_act(read_pdf(pdf)) if i["target_act"] == CPA]
+
+    assert (first["provision"], first["schedule"], first["path"]) == ("s. 96(Sch. 3 item 2.1)", "3", ["22A"])

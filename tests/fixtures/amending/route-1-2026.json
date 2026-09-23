@@ -1,0 +1,24 @@
+{
+ "data": {
+  "type": "route",
+  "links": {
+   "self": {
+    "href": "https://content.legislation.vic.gov.au/api/v1/route?site=6&path=/as-made/acts/justice-legislation-amendment-family-violence-stalking-and-other-matters-act-2026"
+   }
+  },
+  "id": "d36012b6-0101-4263-8cc0-4650683c6a78",
+  "attributes": {
+   "entity_type": "node",
+   "entity_id": "22687",
+   "bundle": "act_as_made",
+   "uuid": "d36012b6-0101-4263-8cc0-4650683c6a78",
+   "endpoint": "https://content.legislation.vic.gov.au/api/v1/node/act_as_made/d36012b6-0101-4263-8cc0-4650683c6a78",
+   "section": "6"
+  }
+ },
+ "links": {
+  "self": {
+   "href": "https://content.legislation.vic.gov.au/api/v1/route?site=6&path=/as-made/acts/justice-legislation-amendment-family-violence-stalking-and-other-matters-act-2026"
+  }
+ }
+}

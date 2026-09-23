@@ -5,10 +5,15 @@ The instruction names the piece -- "section 4(1)(f)" -- and gives the
 words, so each is checked at that piece first. Found at another piece
 instead, it is "elsewhere": the words changed as Parliament said, but
 the parser has them under a different paragraph, which is the fault
-margin notes cannot reveal because the parser placed them too. Found
-nowhere, it is "not found" -- usually not yet commenced in the newer
-reprint. What changed that no instruction accounts for is returned as
-unexplained.
+margin notes cannot reveal because the parser placed them too. Already
+true of the older reprint, it is "earlier": in force before the two
+being compared. Found nowhere, it is "not found". What changed that no
+instruction accounts for is returned as unexplained.
+
+Pieces are paired across the reprints by node_diff, on their own labels
+rather than their full paths, because the parser can nest a piece
+differently in each: s 4(1)(f) read as (1)(f) in one reprint and (8C)(f)
+in the next shares no path, but it is one paragraph.
 
 `older` and `newer` are html_view._wording_units of the provision in
 each reprint.
@@ -46,13 +51,25 @@ def _made(ins: dict, a: str, b: str) -> bool:
     return False
 
 
+def _already(ins: dict, a: str) -> bool:
+    """Whether the older reprint already reads as instructed."""
+    old, new = clean(ins.get("old") or ""), clean(ins.get("new") or "")
+    if ins["action"] in ("substitute", "insert_after", "insert_before", "replace_provision", "insert_at_end"):
+        return bool(new) and new.rstrip(";.") in a and not (old and old in a and old not in new)
+    if ins["action"] == "omit":
+        return bool(old) and old not in a
+    return False
+
+
 def match(instructions: list[dict], older: list[dict], newer: list[dict]) -> dict:
     """{"instructions": each with "status" and "at" (the piece's path, or
     None), "unexplained": paths of changed pieces no instruction matched}."""
-    a_pieces = {u.get("path") or "": u for u in older}
-    b_pieces = {u.get("path") or "": u for u in newer}
+    ops = node_diff([(u["align"], u["text"] or "") for u in older], [(u["align"], u["text"] or "") for u in newer])
+    pairs = [(older[op["old"]] if op["old"] is not None else None,
+              newer[op["new"]] if op["new"] is not None else None) for op in ops]
     a_heading = clean(older[0]["root_heading"]) if older else ""
     b_heading = clean(newer[0]["root_heading"]) if newer else ""
+    a_paths = {u.get("path") or "" for u in older}
     explained: set = set()
     out = []
     for ins in instructions:
@@ -62,35 +79,55 @@ def match(instructions: list[dict], older: list[dict], newer: list[dict]) -> dic
         if ins.get("heading"):
             if _made(ins, a_heading, b_heading):
                 status, at = "matched", "heading"
+            elif _already(ins, a_heading):
+                status = "earlier"
+        elif action == "insert_section":
+            if newer and not older:
+                status, at = "matched", "whole"
+            elif older:
+                status = "earlier"
         elif action == "insert_provision":
             parent = target.rsplit("/", 1)[0] if "/" in target else ""
             made = f"{parent}/{ins['number']}".strip("/").lower() if ins.get("number") else None
-            if made and made in b_pieces and made not in a_pieces:
+            added = [b for a, b in pairs if a is None and b is not None]
+            if made and made in a_paths:
+                status = "earlier"
+            elif made and any((b.get("path") or "") == made for b in added):
                 status, at = "matched", made
+            else:
+                number = (ins.get("number") or "").lower()
+                hit = next((b for b in added if (b["tree_node"]["node"].get("number") or "").lower() == number), None)
+                # A Schedule the parser didn't split into items has nowhere
+                # for an item to be added but the Schedule's own text.
+                words = clean(ins.get("new") or "")[:80].rstrip(";.")
+                grew = next((b for a, b in pairs if b is not None and words and words in _text(b)
+                             and words not in _text(a)), None)
+                if hit is not None or grew is not None:
+                    status, at = "elsewhere", (hit if hit is not None else grew).get("path") or ""
         elif action == "repeal":
-            if target in a_pieces and (target not in b_pieces or not _text(b_pieces[target]).strip("* ")):
+            gone = [a for a, b in pairs if a is not None and (b is None or not _text(b).strip("* "))]
+            if any((a.get("path") or "") == target for a in gone):
                 status, at = "matched", target
-        elif action in ("insert_definition", "unparsed"):
+        elif action in ("insert_definition", "replace_definition", "unparsed"):
             status = "unchecked"
         else:
-            if target in a_pieces and target in b_pieces and _made(ins, _text(a_pieces[target]), _text(b_pieces[target])):
-                status, at = "matched", target
-            else:
-                for path in a_pieces.keys() & b_pieces.keys():
-                    if _made(ins, _text(a_pieces[path]), _text(b_pieces[path])):
-                        status, at = "elsewhere", path
-                        break
+            found = [(a, b) for a, b in pairs if a is not None and b is not None and _made(ins, _text(a), _text(b))]
+            here = [b for a, b in found if target in ((a.get("path") or "").lower(), (b.get("path") or "").lower())]
+            # Two pieces can take the same words -- s 374(2)(b)(ii)(A) and
+            # (iii) both do -- so the one numbered as the target is the one.
+            own = target.rsplit("/", 1)[-1]
+            numbered = [b for a, b in found if (b["tree_node"]["node"].get("number") or "").lower() == own]
+            if here:
+                status, at = "matched", here[0].get("path") or ""
+            elif found:
+                status, at = "elsewhere", (numbered or [found[0][1]])[0].get("path") or ""
+            elif any(_already(ins, _text(a)) for a in older if (a.get("path") or "").lower() == target):
+                status = "earlier"
         if at:
             explained.add(at)
         out.append({**ins, "status": status, "at": at})
 
-    ops = node_diff([(u["align"], u["text"] or "") for u in older], [(u["align"], u["text"] or "") for u in newer])
-    changed = []
-    for op in ops:
-        if op["op"] == "equal":
-            continue
-        unit = newer[op["new"]] if op["new"] is not None else older[op["old"]]
-        changed.append(unit.get("path") or "")
+    changed = [(b or a).get("path") or "" for (a, b), op in zip(pairs, ops) if op["op"] != "equal"]
     if a_heading != b_heading:
         changed.insert(0, "heading")
     return {"instructions": out, "unexplained": [p for p in changed if p not in explained]}
