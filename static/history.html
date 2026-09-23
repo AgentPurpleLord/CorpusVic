@@ -170,6 +170,9 @@ function showItem() {
       <button class="btn" onclick="decide('denied')">Deny: parsing issue (d)</button>
       ${decided}
     </div>
+    <div class="decide">${[i.from, i.to].map((v) => slugOf(v) ? `<a class="btn" target="_blank" rel="noopener"
+        href="../../?reparse=${encodeURIComponent(slugOf(v))}&mode=keep"
+        title="The dashboard's Parse Menu for this version, keeping what is approved">Re-parse v${v}&hellip;</a>` : "").join(" ")}</div>
     <div class="evidence">
       <h3>Amending Acts</h3>${acts || '<div class="none">No fetched amending Act gives an instruction for this.</div>'}
       <h3>Margin notes new in Version ${i.to}</h3>${notes || '<div class="none">None.</div>'}

@@ -211,41 +211,7 @@
   #version-stat .warn { color: var(--flagged); }
   #lineage-panel { border: 1px solid var(--border); border-left: 3px solid var(--pending);
     padding: 8px 12px; margin: 0 0 12px; font-size: 13px; }
-  #lineage-panel.to_review { border-left-color: var(--flagged); }
-  #lineage-panel .compare { margin-top: 8px; font-family: Georgia, serif; font-size: 15px; line-height: 1.45; }
-  #lineage-panel .prov { display: grid; grid-template-columns: 2.4em minmax(0, 1fr);
-    margin: 0 0 6px calc(var(--depth, 0) * 1.3em); }
-  #lineage-panel .prov-nolabel .prov-text, #lineage-panel .prov-heading .prov-num { grid-column: 1 / -1; }
-  #lineage-panel .hist-heading { font-weight: 600; margin-bottom: 6px; }
-  #lineage-panel .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
-  #lineage-panel .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: line-through; }
-  .instr { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; padding: 4px 8px; border-left: 3px solid var(--border); }
-  .instr-mark { display: inline-block; width: 1.2em; font-weight: 700; }
-  .instr-status { color: var(--muted); margin-left: 1.2em; }
-  .instr-matched { border-left-color: #16a34a; }
-  .instr-place { margin: 4px 0 0 1.2em; }
-  .instr-elsewhere, .instr-not-found { border-left-color: #d97706; }
-  .instr-none { border-left-color: #d97706; color: var(--muted); }
-  .piece-compare { margin: 0 0 8px; }
-  .piece-compare .pc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .piece-compare .pc-col { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; min-width: 0; }
-  .piece-compare .pc-head { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .piece-compare .pc-text { font-family: Georgia, serif; font-size: 15px; line-height: 1.45; }
-  .piece-compare .pc-none { color: var(--muted); font-style: italic; }
-  /* Also under #lineage-panel, whose own .d-del strikes through: each
-     column is one version's sentence, so nothing in it is crossed out. */
-  .piece-compare .d-del, #lineage-panel .piece-compare .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: none; }
-  .piece-compare .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
-  @media (max-width: 900px) { .piece-compare .pc-cols { grid-template-columns: 1fr; } }
-  #lineage-panel .lineage-label { font-weight: 600; font-size: 13px; }
-  #lineage-panel .lineage-notes { margin-top: 10px; font-size: 13px; }
-  #lineage-panel .lineage-note { margin-top: 4px; }
-  #lineage-panel .lineage-margin { font-style: italic; }
-  #lineage-panel .lineage-endnote { margin: 2px 0 0 12px; color: var(--muted, inherit); }
-  #lineage-panel .lineage-parser { margin-top: 10px; color: var(--flagged); }
-  #lineage-panel .lineage-reparse { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .unchanged-toggle { margin: 6px 0; }
-  #lineage-panel .carry { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  #lineage-panel .carry { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .unit-row .unit-title { font-weight: 600; }
   .unit-row .unit-sub { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -321,17 +287,6 @@
   #pdf-toolbar button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   #pdf-panes { flex: 1; display: flex; min-height: 0; }
   #pdf-main-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; order: 1; }
-  #pdf-ref { flex: 1; display: flex; flex-direction: column; min-width: 0; order: 0; border-right: 2px solid #374151; }
-  #pdf-ref.later { order: 2; border-right: none; border-left: 2px solid #374151; }
-  #pdf-ref[hidden], .pdf-pane-head[hidden] { display: none; }
-  .pdf-pane-head { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: #4b5563; color: #f9fafb; font-size: 12.5px; flex-shrink: 0; }
-  .pdf-pane-head button { background: #1f2937; color: #e5e7eb; border-color: #4b5563; }
-  #pdf-ref-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
-  #pdf-ref-stage { position: relative; width: calc(var(--pdf-zoom, 1) * 100%); align-self: flex-start; flex-shrink: 0;
-    box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white; }
-  #pdf-ref-image { display: block; width: 100%; height: auto; }
-  #pdf-ref-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  .ref-hl { fill: #f59e0b; fill-opacity: 0.18; stroke: #d97706; stroke-width: 1.5; }
   #pdf-image-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
   /* At zoom 1 the page fits the panel's width, as it always has. Above
      that it overflows and #pdf-image-wrap scrolls -- and the image is
@@ -689,7 +644,7 @@
   <div id="sidebar">
     <div id="sidebar-controls">
       <div id="sidebar-filter">
-        <button data-filter="changes" hidden title="What differs from the version this one is compared with -- everything else another version vouches for">Changes</button>
+
         <button data-filter="all" class="active">All</button>
         <button data-filter="pending">Pending</button>
         <button data-filter="flagged">Flagged</button>
@@ -738,30 +693,12 @@
       <button class="btn small" id="pdf-zoom-in" title="Zoom in">+</button>
       <button class="btn small" id="pdf-zoom-reset" title="Fit the page to the panel width">Fit</button>
       <button class="btn small" id="pdf-boxes-btn" title="Show what the parser read on this page, as boxes you can work on">Boxes</button>
-      <button class="btn small" id="pdf-compare-btn" hidden title="Set this section's page in the version it is compared with beside this one">Compare versions</button>
       <button class="btn small" id="pdf-newbox-btn" title="Draw a box over text the parse missed, and make a piece of it">+ New box</button>
       <button class="btn small" id="pdf-accept-page-btn" title="Accept every provision still outstanding on this page">&#10003; Accept page</button>
       <span id="pdf-hint"></span>
     </div>
     <div id="pdf-panes">
-    <!-- The other version's page, for checking a change against both
-         printed pages. Earlier version on the left, as in the side-by-side
-         wordings; read-only, with what changed marked. -->
-    <div id="pdf-ref" hidden>
-      <div class="pdf-pane-head">
-        <button class="btn small" id="pdf-ref-prev">&larr;</button>
-        <span id="pdf-ref-label"></span>
-        <button class="btn small" id="pdf-ref-next">&rarr;</button>
-      </div>
-      <div id="pdf-ref-wrap">
-        <div id="pdf-ref-stage">
-          <img id="pdf-ref-image" alt="The other version's page">
-          <svg id="pdf-ref-overlay" preserveAspectRatio="none"></svg>
-        </div>
-      </div>
-    </div>
     <div id="pdf-main-pane">
-    <div class="pdf-pane-head" id="pdf-main-head" hidden></div>
     <div id="pdf-image-wrap">
       <!-- The page and the parse, in one stack. The overlay's viewBox is
            the page's own size in PDF points, so a provision's box is
@@ -1043,65 +980,6 @@ function cycleViewMode() {
   }
 }
 
-// ---------------------------------------------------------------------
-// The other version's page beside this one
-// ---------------------------------------------------------------------
-
-let pdfCompare = localStorage.getItem("reviewPdfCompare") === "on";
-let refView = null;      // the section's reference_view while the pane is open
-let refPageNo = null;
-
-function paintMainHead() {
-  const info = META && META.version_info;
-  if (!info) return;
-  document.getElementById("pdf-main-head").textContent =
-    `Version ${info.version} (this version)` + (currentPageNo ? ` \u2014 page ${currentPageNo}` : "");
-}
-
-function updateComparePane() {
-  const view = currentUnit && currentUnit.lineage && currentUnit.lineage.reference_view;
-  const available = !!(view && view.page);
-  const btn = document.getElementById("pdf-compare-btn");
-  btn.hidden = !available;
-  btn.classList.toggle("on", pdfCompare);
-  const on = pdfCompare && available;
-  document.getElementById("pdf-ref").hidden = !on;
-  document.getElementById("pdf-main-head").hidden = !on;
-  if (!on) { refView = null; return; }
-  document.getElementById("pdf-ref").classList.toggle("later", view.version > META.version_info.version);
-  paintMainHead();
-  const same = refView && JSON.stringify(refView) === JSON.stringify(view);
-  refView = view;
-  if (!same) loadRefPage(view.page);
-}
-
-async function loadRefPage(pageNo) {
-  const v = refView.version;
-  const label = document.getElementById("pdf-ref-label");
-  let size;
-  try {
-    size = await api(`api/versions/${v}/pages/${pageNo}`);
-  } catch (e) { label.textContent = `Version ${v}: ${e.message}`; return; }
-  refPageNo = pageNo;
-  document.getElementById("pdf-ref-image").src = `api/versions/${v}/pages/${pageNo}.png?zoom=${pdfZoom}`;
-  const svg = document.getElementById("pdf-ref-overlay");
-  svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
-  svg.innerHTML = refView.rects.filter((r) => r.page === pageNo).map((r) =>
-    `<rect class="ref-hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("");
-  label.textContent = `Version ${v} \u2014 page ${pageNo}`;
-  document.getElementById("pdf-ref-prev").disabled = pageNo <= 1;
-  document.getElementById("pdf-ref-next").disabled = pageNo >= size.page_count;
-}
-
-document.getElementById("pdf-compare-btn").onclick = () => {
-  pdfCompare = !pdfCompare;
-  localStorage.setItem("reviewPdfCompare", pdfCompare ? "on" : "off");
-  refView = null;
-  updateComparePane();
-};
-document.getElementById("pdf-ref-prev").onclick = () => refPageNo > 1 && loadRefPage(refPageNo - 1);
-document.getElementById("pdf-ref-next").onclick = () => loadRefPage(refPageNo + 1);
-
 function loadPdfPage(pageNo) {
   if (!pageNo) return;
   // Probe with a throwaway Image first so a bad page number (past the
@@ -1112,7 +990,6 @@ function loadPdfPage(pageNo) {
     currentPageNo = pageNo;
     document.getElementById("pdf-image").src = probe.src;
     document.getElementById("pdf-page-label").textContent = `Page ${pageNo}`;
-    paintMainHead();
     loadPageBoxes();
   };
   probe.onerror = () => toast(`No page ${pageNo} in this Act's source PDF`, true);
@@ -1666,7 +1543,6 @@ function setPdfZoom(zoom) {
   // Re-render the page at the new zoom. Nothing to do until there is a
   // page on screen -- the next loadPdfPage picks the zoom up on its own.
   if (currentPageNo != null) loadPdfPage(currentPageNo);
-  if (refView && refPageNo != null) loadRefPage(refPageNo);
 }
 
 function stepPdfZoom(direction) {
@@ -1758,33 +1634,14 @@ async function loadMeta() {
   renderSidebar();
 }
 
-// Where this version sits among the work's others, and how much of it
-// is left to review. Every other version is its own review server, so
-// moving between them is a link, through the dashboard's /review/<slug>/.
-let versionFilterChosen = false;
+// Which version this is. Every other version is reviewed for its changes
+// in History review, not here, so there is nothing to move between.
 function renderVersionStat() {
   const el = document.getElementById("version-stat");
   const info = META.version_info;
-  const changesBtn = document.querySelector('#sidebar-filter button[data-filter="changes"]');
-  if (!info) { el.innerHTML = ""; changesBtn.hidden = true; return; }
-  changesBtn.hidden = false;
-  if (!versionFilterChosen) {
-    // Only what differs is this version's to review, so that is the view
-    // it opens on; the rest stays one click away under "All".
-    versionFilterChosen = true;
-    sidebarFilter = "changes";
-    document.querySelectorAll("#sidebar-filter button").forEach((b) => b.classList.toggle("active", b === changesBtn));
-  }
-  const i = info.versions.findIndex((v) => v.version === info.version);
-  const link = (v, text) => `<a href="../${encodeURIComponent(v.slug)}/" title="${escapeHtml(v.as_at_printed || "")}">${text}</a>`;
-  const prev = i > 0 ? link(info.versions[i - 1], `&#9664; v${info.versions[i - 1].version}`) : "";
-  const next = i < info.versions.length - 1
-    ? link(info.versions[i + 1], `v${info.versions[i + 1].version}${info.versions[i + 1].current ? " (current)" : ""} &#9654;`) : "";
-  const here = info.versions[i];
-  const warn = info.parser_differs
-    ? ` <span class="warn" title="The differences include the two parsers' own disagreements. Re-parse this version to leave only Parliament's.">&middot; read by a different parser than v${info.reference}</span>` : "";
-  el.innerHTML = `${prev} <strong>Version ${info.version}${here.current ? " (current)" : ""}</strong> &middot; `
-    + `${info.to_review} to review${info.reference != null ? ` against v${info.reference}` : ""} ${next}${warn}`;
+  if (!info) { el.innerHTML = ""; return; }
+  const here = info.versions.find((v) => v.version === info.version) || {};
+  el.innerHTML = `<strong>Version ${info.version}${here.current ? " (current)" : ""}</strong>`;
 }
 
 // Which row is highlighted, and the status of the one being left and the
@@ -1841,9 +1698,7 @@ function renderSidebar() {
   const hasChildren = new Set(META.units.filter((u) => u.parent_unit_no != null).map((u) => u.parent_unit_no));
   list.innerHTML = "";
   for (const u of META.units) {
-    if (sidebarFilter === "changes") {
-      if (u.status === "inherited" || u.status === "follows") continue;
-    } else if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
+    if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
     if (q) {
       const hay = `${u.unit_no + 1} ${u.type} ${u.number || ""} ${u.heading || ""}`.toLowerCase();
       if (!hay.includes(q)) continue;
@@ -2022,187 +1877,30 @@ function renderUnit() {
     titleEl.textContent = "Merged away entirely -- its content now lives in whichever piece it was merged into (see the sidebar)";
   }
   renderLineage();
-  updateComparePane();
   const container = document.getElementById("pieces");
   container.innerHTML = "";
-  // A changed section is reviewed for the pieces that changed; the rest
-  // read the same as the other version and fold away, still accepted
-  // with the unit.
-  const l = currentUnit.lineage;
-  const changed = l && l.status === "to_review" && l.changed_pieces && l.changed_pieces.length
-    ? new Set(l.changed_pieces) : null;
-  const folded = [];
-  // In the Changes view each changed piece carries its two wordings side
-  // by side, earlier on the left, so the change is read where it is made.
-  const sideBySide = new Map();
-  if (sidebarFilter === "changes" && l && l.changes) {
-    for (const c of l.changes) {
-      if (c.node_index == null) continue;
-      if (!sideBySide.has(c.node_index)) sideBySide.set(c.node_index, []);
-      sideBySide.get(c.node_index).push(c);
-    }
-  }
-  currentUnit.pieces.forEach((piece, idx) => {
-    const el = buildPiece(piece, idx);
-    if (changed && !changed.has(piece.node_index)) { el.hidden = true; folded.push(el); }
-    const mine = sideBySide.get(piece.node_index);
-    if (mine) {
-      const block = document.createElement("div");
-      const made = (l.instructions || []).filter((i) => i.node_index === piece.node_index);
-      const unexplained = l.instructions && (l.unexplained || []).includes(piece.node_index) && !made.length
-        ? `<div class="instr instr-none">No amending Act made this change &mdash; most likely the parser's.</div>` : "";
-      block.innerHTML = mine.map((c) => compareColumnsHtml(c, c.label === "Heading")).join("")
-        + made.map(instructionHtml).join("") + unexplained;
-      el.insertBefore(block, el.firstChild);
-    }
-    container.appendChild(el);
-  });
-  if (folded.length) {
-    const toggle = document.createElement("button");
-    toggle.className = "btn small unchanged-toggle";
-    const label = (open) => `${open ? "Hide" : "Show"} the ${folded.length} unchanged piece${folded.length > 1 ? "s" : ""}`;
-    toggle.textContent = label(false);
-    toggle.onclick = () => {
-      const open = folded[0].hidden;
-      folded.forEach((el) => { el.hidden = !open; });
-      toggle.textContent = label(open);
-    };
-    container.appendChild(toggle);
-  }
+  currentUnit.pieces.forEach((piece, idx) => container.appendChild(buildPiece(piece, idx)));
   renderDeletedPieces();
   renderUnitFooter();
 }
 
-// One changed piece's two wordings, earlier on the left and later on the
-// right whichever version is being reviewed -- so red is always what went
-// and green always what arrived.
-function compareColumnsHtml(c, withLabel) {
-  const side = (html, version) => `<div class="pc-col"><div class="pc-head">Version ${version}</div>`
-    + (html != null ? `<div class="pc-text">${html}</div>` : `<div class="pc-text pc-none">Not in Version ${version}</div>`)
-    + `</div>`;
-  const label = withLabel ? `<div class="lineage-label">${escapeHtml(c.label || "")}</div>` : "";
-  return `<div class="piece-compare">${label}<div class="pc-cols">${side(c.old_html, c.older)}${side(c.new_html, c.newer)}</div></div>`;
-}
-
-// The Act's own account of a change: the margin notes the newer version
-// added, the endnote for each Act they cite, and -- where they cite
-// nothing new -- that the difference is the parser's, with the way to
-// re-parse either version right there. A piece only the other version has
-// is shown here, having no piece of its own in this one to sit on.
-// One amending Act's instruction and whether this change is it -- the
-// Act's own words, which say which provision it changes, where a margin
-// note only says which provision the parser hung it on.
-const INSTRUCTION_STATUS = {
-  matched: ["&#10003;", "made here"],
-  elsewhere: ["&#9888;", "found at %s instead: the parse has it in the wrong place"],
-  earlier: ["&middot;", "already in the earlier version"],
-  "not found": ["&#10007;", "not in this change"],
-  unchecked: ["?", "not checked automatically"],
-};
-function instructionHtml(i) {
-  const [mark, says] = INSTRUCTION_STATUS[i.status] || ["?", i.status];
-  return `<div class="instr instr-${i.status.replace(" ", "-")}"><span class="instr-mark">${mark}</span>`
-    + `<strong>No. ${escapeHtml(i.act)} ${escapeHtml(i.provision)}</strong> &mdash; ${escapeHtml(i.raw)}`
-    + `<div class="instr-status">${escapeHtml(i.target)}: ${says.replace("%s", escapeHtml(i.at || ""))}</div>`
-    + (i.place_as ? `<button class="btn small instr-place" data-node="${i.node_index}"
-        data-reference="${escapeHtml(i.place_as)}">Make this ${escapeHtml(i.place_as)}</button>` : "")
-    + `</div>`;
-}
-
-// Putting a misplaced piece where the Act says it is: the same place
-// endpoint as the edit window's Reference field, so its type, number and
-// position all follow from the one reference.
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".instr-place");
-  if (!btn) return;
-  btn.disabled = true;
-  try {
-    const res = await api(`api/nodes/${btn.dataset.node}/place`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reference: btn.dataset.reference, after_node_index: null }),
-    });
-    toast(res.matches ? `Now ${res.reference}, as the Act says.`
-      : `Placed, but it reads as ${res.reference || "unnumbered"} there -- check what is around it.`, !res.matches);
-    await loadMeta();
-    await loadUnit(res.unit_no);
-  } catch (err) { toast(err.message, true); btn.disabled = false; }
-});
-
-function lineageChangesHtml(l) {
-  const here = new Set(currentUnit.pieces.map((p) => p.node_index));
-  const pieces = (l.changes || []).filter((c) => c.node_index == null || !here.has(c.node_index))
-    .map((c) => compareColumnsHtml(c, true)).join("");
-  const notes = (l.notes || []).map((n) => {
-    const acts = n.acts.map((a) => `<div class="lineage-endnote"><strong>Endnote:</strong> ${escapeHtml(a.described)}`
-      + (a.note ? `<div>${escapeHtml(a.note)}</div>` : "") + `</div>`).join("");
-    return `<div class="lineage-note"><span class="lineage-margin">${escapeHtml(n.raw)}</span>${acts}</div>`;
-  }).join("");
-  let evidence = "";
-  if (notes) evidence = `<div class="lineage-notes"><strong>Margin notes new in Version ${l.notes[0].version}</strong>${notes}</div>`;
-  // The Acts themselves, where they have been fetched, say more than the
-  // margin notes can: which are shown on their pieces in the Changes view,
-  // and the rest here.
-  let acts = "";
-  if (l.instructions) {
-    const onPiece = new Set(sidebarFilter === "changes"
-      ? (l.changes || []).map((c) => c.node_index).filter((n) => n != null) : []);
-    const rest = l.instructions.filter((i) => i.node_index == null || !onPiece.has(i.node_index));
-    acts = rest.length ? `<div class="lineage-notes"><strong>Amending Acts</strong>${rest.map(instructionHtml).join("")}</div>`
-      : l.instructions.length ? "" : `<div class="lineage-parser">No amending Act fetched for this version changes this
-        section, so these differences are most likely the parser's rather than Parliament's.</div>`;
-  }
-  if (l.evidenced === false && !l.instructions) {
-    evidence += `<div class="lineage-parser">Neither version's notes record an amendment to this provision, so this
-      difference is most likely the parser's rather than Parliament's.</div>`;
-  }
-  const reparse = l.slugs
-    ? `<div class="lineage-reparse">${[l.slugs.this, l.slugs.reference].map((slug) =>
-        `<a class="btn small" target="_blank" rel="noopener" href="../../?reparse=${encodeURIComponent(slug)}&mode=keep"`
-        + ` title="Opens the dashboard's re-parse menu for this version, keeping what you have approved">Re-parse ${escapeHtml(slug.replace(/^.*-v(\d+)$/, "v$1"))}&hellip;</a>`).join(" ")}</div>`
-    : "";
-  return pieces + acts + evidence + reparse;
-}
-
-// What the version this one is compared with says about the unit: that
-// another version already vouches for its words, or exactly how its
-// words differ -- the part a reviewer of an added version has to check.
+// Which provision of the version before this one a unit carries on, where
+// the matching by number cannot tell -- the one lineage fact decided here
+// rather than in History review, since it is about this version's own
+// provision.
 function renderLineage() {
   const panel = document.getElementById("lineage-panel");
   const l = currentUnit.lineage;
-  if (!l) { panel.hidden = true; return; }
-  // Reviewed needs no saying, and nor, in the current version, does a
-  // section taking its review from an older one: the tick says it.
-  const current = META.version_info && META.version_info.versions.some((v) => v.version === META.version_info.version && v.current);
-  if (l.status === "reviewed" || (current && l.status === "inherits")) { panel.hidden = true; return; }
+  if (!l || !(l.carry_candidates && l.carry_candidates.length)) { panel.hidden = true; return; }
   panel.hidden = false;
-  panel.className = l.status;
-  let html;
-  if (l.status === "inherits") {
-    html = `Same words as <strong>Version ${l.source}</strong>, where this is reviewed, so it reads here as it was reviewed there. Accept it here only to decide it differently.`;
-  } else if (l.status === "follows") {
-    html = `Same words as <strong>Version ${l.source}</strong>. It is reviewed there, and this version will take that review.`;
-  } else if (l.compare) {
-    // Waiting for review is not the same as different: a section nobody
-    // has reviewed yet is to_review with the same words as the other
-    // version, and it used to be headed "Differs from" all the same.
-    if (!(l.changes || []).length) { panel.hidden = true; return; }
-    html = lineageChangesHtml(l);
-  } else if (l.reference != null) {
-    html = `Version ${l.reference} has no ${escapeHtml(l.label)}: new in this version, or moved from elsewhere.`;
-  } else {
-    html = "Nothing to compare this with.";
-  }
-  if (l.carry_candidates && l.carry_candidates.length) {
-    const options = l.carry_candidates.map((c) => {
-      const chosen = l.carried_from && c.key.join() === l.carried_from.join();
-      return `<option value='${escapeHtml(JSON.stringify(c.key))}'${chosen ? " selected" : ""}>${escapeHtml(c.label)}</option>`;
-    }).join("");
-    html += `<div class="carry">Carried from <select id="carry-select"><option value="">(not carried &mdash; inserted)</option>${options}</select>
-      <button class="btn small" id="carry-save-btn">Save</button></div>`;
-  }
-  panel.innerHTML = html;
-  const save = document.getElementById("carry-save-btn");
-  if (save) save.onclick = async () => {
+  panel.className = "";
+  const options = l.carry_candidates.map((c) => {
+    const chosen = l.carried_from && c.key.join() === l.carried_from.join();
+    return `<option value='${escapeHtml(JSON.stringify(c.key))}'${chosen ? " selected" : ""}>${escapeHtml(c.label)}</option>`;
+  }).join("");
+  panel.innerHTML = `<div class="carry">Carried from <select id="carry-select"><option value="">(not carried &mdash; inserted)</option>${options}</select>
+    <button class="btn small" id="carry-save-btn">Save</button></div>`;
+  document.getElementById("carry-save-btn").onclick = async () => {
     const value = document.getElementById("carry-select").value;
     try {
       currentUnit = await api(`api/units/${currentUnitNo}/carried-from`, {

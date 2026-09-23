@@ -873,7 +873,7 @@ function versionsHtml(s) {
       <div class="add-version">
         <input type="file" accept="application/pdf">
         <button class="btn small" onclick="addVersion('${s.work}', this)"
-                title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and only what differs is left to review">Add a version</button>
+                title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
       </div>
     </details>`;
 }
@@ -888,8 +888,8 @@ async function loadVersions(work, details) {
       <tr>
         <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}</td>
         <td>${escapeHtml(v.as_at_printed ? "as at " + v.as_at_printed : "")}</td>
-        <td>${v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
-        <td><a href="review/${v.slug}/" target="_blank">Review</a> &middot; <a href="browse/${v.slug}/" target="_blank">Browse</a></td>
+        <td>${!v.current || v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
+        <td>${v.current ? `<a href="review/${v.slug}/" target="_blank">Review</a> &middot; ` : ""}<a href="browse/${v.slug}/" target="_blank">Browse</a></td>
       </tr>`).join("");
     body.innerHTML = `<table>${rows}</table>`;
   } catch (e) {
