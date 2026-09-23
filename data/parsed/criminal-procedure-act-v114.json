@@ -24,8 +24,8 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "ccf6b4419bcacbc4",
-  "parser_version": "074dd8ddc851eda0",
+  "fingerprint": "3310018bb6301992",
+  "parser_version": "e8ca3c125e0534ca",
   "nodes": [
     {
       "type": "chapter",
@@ -3694,9 +3694,9 @@
       "type": "repealed",
       "number": null,
       "heading": null,
-      "text": "* * * * * * * * * *",
+      "text": "* * * * *",
       "page_start": 31,
-      "page_end": 32,
+      "page_end": 31,
       "char_start": 8428,
       "char_end": 8447,
       "source": "rules",
@@ -3707,7 +3707,34 @@
           "y0": 651.0,
           "x1": 442.4,
           "y1": 667.2
-        },
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "1",
+        "part": null,
+        "division": null,
+        "subdivision": null,
+        "section": "3",
+        "subsection": null,
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": "infringement conviction"
+      },
+      "id": "ch1/s3/definition-infringement-conviction/repealed~ff6469"
+    },
+    {
+      "type": "repealed",
+      "number": null,
+      "heading": null,
+      "text": "* * * * *",
+      "page_start": 32,
+      "page_end": 32,
+      "char_start": 8428,
+      "char_end": 8447,
+      "source": "rules",
+      "rects": [
         {
           "page": 32,
           "x0": 206.6,
@@ -3729,7 +3756,7 @@
         "sub_subparagraph": null,
         "definition": "infringement conviction"
       },
-      "id": "ch1/s3/definition-infringement-conviction/repealed~eca3cf"
+      "id": "ch1/s3/definition-infringement-conviction/repealed~ff6469-2"
     },
     {
       "type": "definition",
@@ -12151,11 +12178,11 @@
       "type": "note",
       "number": "1",
       "heading": null,
-      "text": "If an accused fails to appear in answer to a summons, sections 80 and 81 provide for the issue of a warrant to arrest the accused.  Section 330 provides for the issue of a warrant to arrest a person who has been remanded in custody or granted bail to attend a hearing but fails to attend. Section 29 of the Magistrates' Court Act 1989 enables a",
+      "text": "If an accused fails to appear in answer to a summons, sections 80 and 81 provide for the issue of a warrant to arrest the accused.  Section 330 provides for the issue of a warrant to arrest a person who has been remanded in custody or granted bail to attend a hearing but fails to attend.",
       "page_start": 53,
       "page_end": 53,
       "char_start": 31651,
-      "char_end": 31997,
+      "char_end": 31941,
       "source": "rules",
       "rects": [
         {
@@ -12163,7 +12190,7 @@
           "x0": 184.3,
           "y0": 350.7,
           "x1": 451.5,
-          "y1": 428.0
+          "y1": 410.2
         }
       ],
       "path": {
@@ -12185,10 +12212,10 @@
       "type": "note",
       "number": "2",
       "heading": null,
-      "text": "magistrate to exercise the powers of a registrar to issue a summons or warrant.",
+      "text": "Section 29 of the Magistrates' Court Act 1989 enables a magistrate to exercise the powers of a registrar to issue a summons or warrant.",
       "page_start": 53,
       "page_end": 53,
-      "char_start": 31998,
+      "char_start": 31942,
       "char_end": 32079,
       "source": "rules",
       "rects": [
@@ -12196,7 +12223,7 @@
           "page": 53,
           "x0": 184.3,
           "y0": 414.3,
-          "x1": 433.9,
+          "x1": 438.6,
           "y1": 450.7
         }
       ],
@@ -16980,33 +17007,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 29(2)(b) amended by No. 68/2009 s. 6.",
-          "kind": "amendment",
-          "section": "29",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 65,
-          "rect": {
-            "page": 65,
-            "x0": 467.8,
-            "y0": 516.5,
-            "x1": 511.8,
-            "y1": 555.6
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch3/pt3.1/s29/1/b"
     },
     {
@@ -17313,6 +17313,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 29(2)(b) amended by No. 68/2009 s. 6.",
+          "kind": "amendment",
+          "section": "29",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 65,
+          "rect": {
+            "page": 65,
+            "x0": 467.8,
+            "y0": 516.5,
+            "x1": 511.8,
+            "y1": 555.6
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch3/pt3.1/s29/2/b"
     },
     {
@@ -20723,9 +20750,9 @@
       "type": "repealed",
       "number": null,
       "heading": null,
-      "text": "* * * * * * * * * *",
+      "text": "* * * * *",
       "page_start": 74,
-      "page_end": 75,
+      "page_end": 74,
       "char_start": 56654,
       "char_end": 56673,
       "source": "rules",
@@ -20736,7 +20763,34 @@
           "y0": 611.9,
           "x1": 442.4,
           "y1": 628.0
-        },
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "3",
+        "part": "3.2",
+        "division": "2",
+        "subdivision": null,
+        "section": "38",
+        "subsection": null,
+        "paragraph": "c",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "ch3/pt3.2/div2/s38/c/repealed~ff6469"
+    },
+    {
+      "type": "repealed",
+      "number": null,
+      "heading": null,
+      "text": "* * * * *",
+      "page_start": 75,
+      "page_end": 75,
+      "char_start": 56654,
+      "char_end": 56673,
+      "source": "rules",
+      "rects": [
         {
           "page": 75,
           "x0": 206.6,
@@ -20758,7 +20812,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch3/pt3.2/div2/s38/c/repealed~eca3cf"
+      "id": "ch3/pt3.2/div2/s38/c/repealed~ff6469-2"
     },
     {
       "type": "note",
@@ -21763,34 +21817,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 41(1)(d)(iii) amended by No. 68/2009 s. 49(a).",
-          "kind": "amendment",
-          "section": "41",
-          "sub_path": [
-            "(1)",
-            "(d)",
-            "(iii)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 77,
-          "rect": {
-            "page": 77,
-            "x0": 467.8,
-            "y0": 631.6,
-            "x1": 512.7,
-            "y1": 670.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch3/pt3.2/div2/s41/1/a/iii"
     },
     {
@@ -22117,6 +22143,34 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 41(1)(d)(iii) amended by No. 68/2009 s. 49(a).",
+          "kind": "amendment",
+          "section": "41",
+          "sub_path": [
+            "(1)",
+            "(d)",
+            "(iii)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 77,
+          "rect": {
+            "page": 77,
+            "x0": 467.8,
+            "y0": 631.6,
+            "x1": 512.7,
+            "y1": 670.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch3/pt3.2/div2/s41/1/d/iii"
     },
     {
@@ -22345,34 +22399,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 41(1)(e)(viii) inserted by No. 1/2022 s. 10.",
-          "kind": "amendment",
-          "section": "41",
-          "sub_path": [
-            "(1)",
-            "(e)",
-            "(viii)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 80,
-          "rect": {
-            "page": 80,
-            "x0": 79.3,
-            "y0": 218.8,
-            "x1": 127.8,
-            "y1": 257.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch3/pt3.2/div2/s41/1/d/viii"
     },
     {
@@ -22441,6 +22467,34 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 41(1)(e)(viii) inserted by No. 1/2022 s. 10.",
+          "kind": "amendment",
+          "section": "41",
+          "sub_path": [
+            "(1)",
+            "(e)",
+            "(viii)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 80,
+          "rect": {
+            "page": 80,
+            "x0": 79.3,
+            "y0": 218.8,
+            "x1": 127.8,
+            "y1": 257.9
+          },
+          "confidence": "low"
+        }
+      ],
       "id": "ch3/pt3.2/div2/s41/1/e"
     },
     {
@@ -25480,21 +25534,21 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "See section 14 of the Victims' Charter Act 2006 as to",
+      "text": "See section 14 of the Victims' Charter Act 2006 as to victims' privacy.",
       "page_start": 86,
       "page_end": 86,
       "char_start": 71703,
-      "char_end": 71756,
+      "char_end": 71776,
       "source": "rules",
       "rects": [
         {
           "page": 86,
-          "x0": 204.7,
-          "y0": 678.2,
+          "x0": 184.3,
+          "y0": 678.3,
           "x1": 426.7,
-          "y1": 691.9
+          "y1": 703.3
         }
       ],
       "path": {
@@ -25534,40 +25588,6 @@
           "confidence": "low"
         }
       ],
-      "id": "ch3/pt3.2/div2/s45/3/note~4cbd59"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "victims' privacy.",
-      "page_start": 86,
-      "page_end": 86,
-      "char_start": 71757,
-      "char_end": 71776,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 86,
-          "x0": 184.3,
-          "y0": 678.3,
-          "x1": 273.5,
-          "y1": 703.3
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "3",
-        "part": "3.2",
-        "division": "2",
-        "subdivision": null,
-        "section": "45",
-        "subsection": "3",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
       "id": "ch3/pt3.2/div2/s45/3/note-1"
     },
     {
@@ -25934,56 +25954,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 47(4) repealed by No. 68/2009 s. 9(e).",
-          "kind": "amendment",
-          "section": "47",
-          "sub_path": [
-            "(4)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 88,
-          "rect": {
-            "page": 88,
-            "x0": 79.3,
-            "y0": 497.2,
-            "x1": 120.6,
-            "y1": 536.3
-          },
-          "confidence": "low"
-        },
-        {
-          "raw": "Note to s. 47(4) repealed by No. 68/2009 s. 9(f).",
-          "kind": "amendment",
-          "section": "47",
-          "sub_path": [
-            "(4)"
-          ],
-          "target_kind": "note",
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 88,
-          "rect": {
-            "page": 88,
-            "x0": 79.3,
-            "y0": 556.6,
-            "x1": 120.6,
-            "y1": 604.8
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch3/pt3.2/div2/s47"
     },
     {
@@ -26286,9 +26256,9 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "4",
       "heading": null,
-      "text": "* * * * * * * * * *",
+      "text": "* * * * *",
       "page_start": 88,
       "page_end": 88,
       "char_start": 74017,
@@ -26301,7 +26271,60 @@
           "y0": 496.8,
           "x1": 442.4,
           "y1": 513.0
-        },
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "3",
+        "part": "3.2",
+        "division": "2",
+        "subdivision": null,
+        "section": "47",
+        "subsection": "3",
+        "paragraph": "b",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "history": [
+        {
+          "raw": "S. 47(4) repealed by No. 68/2009 s. 9(e).",
+          "kind": "amendment",
+          "section": "47",
+          "sub_path": [
+            "(4)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 88,
+          "rect": {
+            "page": 88,
+            "x0": 79.3,
+            "y0": 497.2,
+            "x1": 120.6,
+            "y1": 536.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch3/pt3.2/div2/s47/3/b/repealed-4"
+    },
+    {
+      "type": "repealed",
+      "number": null,
+      "heading": null,
+      "text": "* * * * *",
+      "page_start": 88,
+      "page_end": 88,
+      "char_start": 74017,
+      "char_end": 74036,
+      "source": "rules",
+      "rects": [
         {
           "page": 88,
           "x0": 206.6,
@@ -26323,7 +26346,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch3/pt3.2/div2/s47/3/b/repealed~eca3cf"
+      "history": [
+        {
+          "raw": "Note to s. 47(4) repealed by No. 68/2009 s. 9(f).",
+          "kind": "amendment",
+          "section": "47",
+          "sub_path": [
+            "(4)"
+          ],
+          "target_kind": "note",
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 88,
+          "rect": {
+            "page": 88,
+            "x0": 79.3,
+            "y0": 556.6,
+            "x1": 120.6,
+            "y1": 604.8
+          },
+          "confidence": "low"
+        }
+      ],
+      "id": "ch3/pt3.2/div2/s47/3/b/repealed~ff6469"
     },
     {
       "type": "note",
@@ -30237,33 +30286,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 54(7)(c) inserted by No. 22/2020 s. 12.",
-          "kind": "amendment",
-          "section": "54",
-          "sub_path": [
-            "(7)",
-            "(c)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 98,
-          "rect": {
-            "page": 98,
-            "x0": 79.3,
-            "y0": 325.6,
-            "x1": 120.1,
-            "y1": 364.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch3/pt3.2/div4/s54/1/c"
     },
     {
@@ -30298,33 +30320,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 54(7)(d) inserted by No. 22/2020 s. 12.",
-          "kind": "amendment",
-          "section": "54",
-          "sub_path": [
-            "(7)",
-            "(d)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 98,
-          "rect": {
-            "page": 98,
-            "x0": 79.3,
-            "y0": 379.0,
-            "x1": 120.1,
-            "y1": 418.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch3/pt3.2/div4/s54/1/d"
     },
     {
@@ -30838,6 +30833,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 54(7)(c) inserted by No. 22/2020 s. 12.",
+          "kind": "amendment",
+          "section": "54",
+          "sub_path": [
+            "(7)",
+            "(c)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 98,
+          "rect": {
+            "page": 98,
+            "x0": 79.3,
+            "y0": 325.6,
+            "x1": 120.1,
+            "y1": 364.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch3/pt3.2/div4/s54/7/c"
     },
     {
@@ -30872,6 +30894,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 54(7)(d) inserted by No. 22/2020 s. 12.",
+          "kind": "amendment",
+          "section": "54",
+          "sub_path": [
+            "(7)",
+            "(d)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 98,
+          "rect": {
+            "page": 98,
+            "x0": 79.3,
+            "y0": 379.0,
+            "x1": 120.1,
+            "y1": 418.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch3/pt3.2/div4/s54/7/d"
     },
     {
@@ -34286,11 +34335,11 @@
       "type": "subsection",
       "number": "4",
       "heading": null,
-      "text": "If a fresh charge-sheet as described in subsection",
+      "text": "If a fresh charge-sheet as described in subsection (3) is filed and the accused does not plead guilty to the charge as set out in that charge-sheet, a further fresh charge-sheet may be filed that sets out the original charge or an amended version of that charge.",
       "page_start": 108,
       "page_end": 108,
       "char_start": 96316,
-      "char_end": 96370,
+      "char_end": 96582,
       "source": "rules",
       "rects": [
         {
@@ -34298,7 +34347,7 @@
           "x0": 190.1,
           "y0": 204.6,
           "x1": 447.6,
-          "y1": 220.8
+          "y1": 289.8
         }
       ],
       "path": {
@@ -34315,40 +34364,6 @@
         "definition": null
       },
       "id": "ch3/pt3.3/div4/s64a/4"
-    },
-    {
-      "type": "subsection",
-      "number": "3",
-      "heading": null,
-      "text": "is filed and the accused does not plead guilty to the charge as set out in that charge-sheet, a further fresh charge-sheet may be filed that sets out the original charge or an amended version of that charge.",
-      "page_start": 108,
-      "page_end": 108,
-      "char_start": 96371,
-      "char_end": 96582,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 108,
-          "x0": 209.8,
-          "y0": 218.4,
-          "x1": 445.9,
-          "y1": 289.8
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "3",
-        "part": "3.3",
-        "division": "4",
-        "subdivision": null,
-        "section": "64A",
-        "subsection": "3",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch3/pt3.3/div4/s64a/3~eda0ca"
     },
     {
       "type": "subsection",
@@ -36708,33 +36723,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 77(3)(a) amended by No. 37/2014 s. 10(Sch. item 41.5).",
-          "kind": "amendment",
-          "section": "77",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 114,
-          "rect": {
-            "page": 114,
-            "x0": 79.3,
-            "y0": 419.4,
-            "x1": 123.3,
-            "y1": 467.8
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch3/pt3.3/div9/s77/1/a"
     },
     {
@@ -37263,6 +37251,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 77(3)(a) amended by No. 37/2014 s. 10(Sch. item 41.5).",
+          "kind": "amendment",
+          "section": "77",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 114,
+          "rect": {
+            "page": 114,
+            "x0": 79.3,
+            "y0": 419.4,
+            "x1": 123.3,
+            "y1": 467.8
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch3/pt3.3/div9/s77/3/a"
     },
     {
@@ -37769,46 +37784,12 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "Section 178 of the Evidence Act 2008 provides for",
+      "text": "Section 178 of the Evidence Act 2008 provides for proof of previous convictions by the filing of a certificate.",
       "page_start": 115,
       "page_end": 115,
       "char_start": 105779,
-      "char_end": 105828,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 115,
-          "x0": 230.2,
-          "y0": 411.8,
-          "x1": 438.2,
-          "y1": 425.5
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "3",
-        "part": "3.3",
-        "division": "9",
-        "subdivision": null,
-        "section": "78",
-        "subsection": "5",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch3/pt3.3/div9/s78/5/note~570796"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "proof of previous convictions by the filing of a certificate.",
-      "page_start": 115,
-      "page_end": 115,
-      "char_start": 105829,
       "char_end": 105892,
       "source": "rules",
       "rects": [
@@ -37816,7 +37797,7 @@
           "page": 115,
           "x0": 209.8,
           "y0": 411.9,
-          "x1": 420.0,
+          "x1": 438.2,
           "y1": 448.4
         }
       ],
@@ -42472,32 +42453,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 97(b) repealed by No. 5/2025 s. 3.",
-          "kind": "amendment",
-          "section": "97",
-          "sub_path": [
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 128,
-          "rect": {
-            "page": 128,
-            "x0": 79.3,
-            "y0": 506.9,
-            "x1": 120.6,
-            "y1": 546.0
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch4/pt4.1/s97"
     },
     {
@@ -42536,7 +42491,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "b",
       "heading": null,
       "text": "* * * * *",
       "page_start": 128,
@@ -42566,10 +42521,36 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.1/s97/a/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 97(b) repealed by No. 5/2025 s. 3.",
+          "kind": "amendment",
+          "section": "97",
+          "sub_path": [
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 128,
+          "rect": {
+            "page": 128,
+            "x0": 79.3,
+            "y0": 506.9,
+            "x1": 120.6,
+            "y1": 546.0
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.1/s97/a/repealed-b"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "c",
       "heading": null,
       "text": "to determine how the accused proposes to plead to the charge;",
@@ -42595,12 +42576,12 @@
         "subdivision": null,
         "section": "97",
         "subsection": null,
-        "paragraph": "a",
-        "subparagraph": "c",
+        "paragraph": "c",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.1/s97/a/c"
+      "id": "ch4/pt4.1/s97/c"
     },
     {
       "type": "paragraph",
@@ -42634,33 +42615,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 97(d)(iii) repealed by No. 5/2025 s. 3.",
-          "kind": "amendment",
-          "section": "97",
-          "sub_path": [
-            "(d)",
-            "(iii)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 129,
-          "rect": {
-            "page": 129,
-            "x0": 467.8,
-            "y0": 205.0,
-            "x1": 509.0,
-            "y1": 244.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.1/s97/d"
     },
     {
@@ -42733,7 +42687,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "iii",
       "heading": null,
       "text": "* * * * *",
       "page_start": 129,
@@ -42763,10 +42717,37 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.1/s97/d/ii/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 97(d)(iii) repealed by No. 5/2025 s. 3.",
+          "kind": "amendment",
+          "section": "97",
+          "sub_path": [
+            "(d)",
+            "(iii)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 129,
+          "rect": {
+            "page": 129,
+            "x0": 467.8,
+            "y0": 205.0,
+            "x1": 509.0,
+            "y1": 244.1
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.1/s97/d/ii/repealed-iii"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "iv",
       "heading": null,
       "text": "enabling the accused to adequately prepare and present a case;",
@@ -42792,12 +42773,12 @@
         "subdivision": null,
         "section": "97",
         "subsection": null,
-        "paragraph": "iv",
-        "subparagraph": null,
+        "paragraph": "d",
+        "subparagraph": "iv",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.1/s97/iv"
+      "id": "ch4/pt4.1/s97/d/iv"
     },
     {
       "type": "subparagraph",
@@ -42826,12 +42807,12 @@
         "subdivision": null,
         "section": "97",
         "subsection": null,
-        "paragraph": "iv",
+        "paragraph": "d",
         "subparagraph": "v",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.1/s97/iv/v"
+      "id": "ch4/pt4.1/s97/d/v"
     },
     {
       "type": "section",
@@ -42937,7 +42918,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "99",
       "heading": null,
       "text": "* * * * *",
       "page_start": 129,
@@ -42967,7 +42948,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.1/s98/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 99 repealed by No. 48/2018 s. 20.",
+          "kind": "amendment",
+          "section": "99",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 129,
+          "rect": {
+            "page": 129,
+            "x0": 467.8,
+            "y0": 440.7,
+            "x1": 509.0,
+            "y1": 479.8
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.1/s98/repealed-99"
     },
     {
       "type": "section",
@@ -44788,33 +44793,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 105(2)(b) amended by No. 68/2009 s. 51(x).",
-          "kind": "amendment",
-          "section": "105",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 134,
-          "rect": {
-            "page": 134,
-            "x0": 79.3,
-            "y0": 379.0,
-            "x1": 123.3,
-            "y1": 418.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.3/s105/1/b"
     },
     {
@@ -44917,6 +44895,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 105(2)(b) amended by No. 68/2009 s. 51(x).",
+          "kind": "amendment",
+          "section": "105",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 134,
+          "rect": {
+            "page": 134,
+            "x0": 79.3,
+            "y0": 379.0,
+            "x1": 123.3,
+            "y1": 418.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.3/s105/2/b"
     },
     {
@@ -45121,33 +45126,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 106(2)(a) amended by No. 6/2018 s. 68(Sch. 2 item 38.1).",
-          "kind": "amendment",
-          "section": "106",
-          "sub_path": [
-            "(2)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 135,
-          "rect": {
-            "page": 135,
-            "x0": 467.8,
-            "y0": 191.2,
-            "x1": 511.8,
-            "y1": 239.5
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.3/s106/1/a"
     },
     {
@@ -45250,6 +45228,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 106(2)(a) amended by No. 6/2018 s. 68(Sch. 2 item 38.1).",
+          "kind": "amendment",
+          "section": "106",
+          "sub_path": [
+            "(2)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 135,
+          "rect": {
+            "page": 135,
+            "x0": 467.8,
+            "y0": 191.2,
+            "x1": 511.8,
+            "y1": 239.5
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.3/s106/2/a"
     },
     {
@@ -46148,6 +46153,31 @@
             "y1": 387.6
           },
           "confidence": "high"
+        },
+        {
+          "raw": "S. 110(1)(f) amended by No. 37/2014 s. 10(Sch. item 41.5).",
+          "kind": "amendment",
+          "section": "110",
+          "sub_path": [
+            "(1)",
+            "(f)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 141,
+          "rect": {
+            "page": 141,
+            "x0": 467.8,
+            "y0": 518.3,
+            "x1": 511.8,
+            "y1": 566.7
+          },
+          "confidence": "low"
         }
       ],
       "id": "ch4/pt4.4/s110/1"
@@ -46388,34 +46418,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 110(1)(d)(vi) amended by No. 68/2009 s. 10(b).",
-          "kind": "amendment",
-          "section": "110",
-          "sub_path": [
-            "(1)",
-            "(d)",
-            "(vi)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 139,
-          "rect": {
-            "page": 139,
-            "x0": 467.8,
-            "y0": 335.2,
-            "x1": 517.2,
-            "y1": 374.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.4/s110/1/a/vi"
     },
     {
@@ -46817,6 +46819,34 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 110(1)(d)(vi) amended by No. 68/2009 s. 10(b).",
+          "kind": "amendment",
+          "section": "110",
+          "sub_path": [
+            "(1)",
+            "(d)",
+            "(vi)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 139,
+          "rect": {
+            "page": 139,
+            "x0": 467.8,
+            "y0": 335.2,
+            "x1": 517.2,
+            "y1": 374.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.4/s110/1/d/vi"
     },
     {
@@ -47533,33 +47563,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 110(1)(f) amended by No. 37/2014 s. 10(Sch. item 41.5).",
-          "kind": "amendment",
-          "section": "110",
-          "sub_path": [
-            "(1)",
-            "(f)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 141,
-          "rect": {
-            "page": 141,
-            "x0": 467.8,
-            "y0": 518.3,
-            "x1": 511.8,
-            "y1": 566.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.4/s110/1/vii/f"
     },
     {
@@ -49053,32 +49056,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 112(4) repealed by No. 68/2009 s. 9(j).",
-          "kind": "amendment",
-          "section": "112",
-          "sub_path": [
-            "(4)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 146,
-          "rect": {
-            "page": 146,
-            "x0": 79.3,
-            "y0": 205.0,
-            "x1": 120.6,
-            "y1": 244.1
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch4/pt4.4/s112"
     },
     {
@@ -49355,7 +49332,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "4",
       "heading": null,
       "text": "* * * * *",
       "page_start": 146,
@@ -49385,7 +49362,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.4/s112/3/b/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 112(4) repealed by No. 68/2009 s. 9(j).",
+          "kind": "amendment",
+          "section": "112",
+          "sub_path": [
+            "(4)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 146,
+          "rect": {
+            "page": 146,
+            "x0": 79.3,
+            "y0": 205.0,
+            "x1": 120.6,
+            "y1": 244.1
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.4/s112/3/b/repealed-4"
     },
     {
       "type": "note",
@@ -51371,33 +51374,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 118(3)(a) amended by Nos 68/2009 s. 49(f), 20/2025 s. 9(b).",
-          "kind": "amendment",
-          "section": "118",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 151,
-          "rect": {
-            "page": 151,
-            "x0": 467.8,
-            "y0": 493.9,
-            "x1": 511.8,
-            "y1": 551.4
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.5/s118/2/a"
     },
     {
@@ -51500,6 +51476,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 118(3)(a) amended by Nos 68/2009 s. 49(f), 20/2025 s. 9(b).",
+          "kind": "amendment",
+          "section": "118",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 151,
+          "rect": {
+            "page": 151,
+            "x0": 467.8,
+            "y0": 493.9,
+            "x1": 511.8,
+            "y1": 551.4
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.5/s118/3/a"
     },
     {
@@ -52914,33 +52917,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 121(3)(a) amended by No. 28/2023 s. 67(1)(b).",
-          "kind": "amendment",
-          "section": "121",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 156,
-          "rect": {
-            "page": 156,
-            "x0": 79.3,
-            "y0": 380.8,
-            "x1": 123.3,
-            "y1": 419.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.5/s121/1/a"
     },
     {
@@ -53171,6 +53147,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 121(3)(a) amended by No. 28/2023 s. 67(1)(b).",
+          "kind": "amendment",
+          "section": "121",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 156,
+          "rect": {
+            "page": 156,
+            "x0": 79.3,
+            "y0": 380.8,
+            "x1": 123.3,
+            "y1": 419.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.5/s121/3/a"
     },
     {
@@ -54104,32 +54107,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 124(6) inserted by No. 55/2014 s. 109(4), repealed by No. 38/2022 s. 62(3).",
-          "kind": "amendment",
-          "section": "124",
-          "sub_path": [
-            "(6)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 161,
-          "rect": {
-            "page": 161,
-            "x0": 467.8,
-            "y0": 626.2,
-            "x1": 509.0,
-            "y1": 692.9
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch4/pt4.5/s124"
     },
     {
@@ -54224,33 +54201,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 124(3)(a) amended by No. 5/2025 s. 12(1)(a).",
-          "kind": "amendment",
-          "section": "124",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 159,
-          "rect": {
-            "page": 159,
-            "x0": 467.8,
-            "y0": 436.5,
-            "x1": 511.8,
-            "y1": 475.6
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.5/s124/1aa/a"
     },
     {
@@ -54319,33 +54269,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 124(3)(b) substituted by No. 5/2025 s. 12(1)(b).",
-          "kind": "amendment",
-          "section": "124",
-          "sub_path": [
-            "(3)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 159,
-          "rect": {
-            "page": 159,
-            "x0": 467.8,
-            "y0": 489.9,
-            "x1": 517.8,
-            "y1": 529.0
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.5/s124/1aa/b"
     },
     {
@@ -54594,6 +54517,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 124(3)(a) amended by No. 5/2025 s. 12(1)(a).",
+          "kind": "amendment",
+          "section": "124",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 159,
+          "rect": {
+            "page": 159,
+            "x0": 467.8,
+            "y0": 436.5,
+            "x1": 511.8,
+            "y1": 475.6
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.5/s124/3/a"
     },
     {
@@ -54628,6 +54578,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 124(3)(b) substituted by No. 5/2025 s. 12(1)(b).",
+          "kind": "amendment",
+          "section": "124",
+          "sub_path": [
+            "(3)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 159,
+          "rect": {
+            "page": 159,
+            "x0": 467.8,
+            "y0": 489.9,
+            "x1": 517.8,
+            "y1": 529.0
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.5/s124/3/b"
     },
     {
@@ -54685,31 +54662,6 @@
             "y0": 537.3,
             "x1": 507.2,
             "y1": 576.4
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 124(4)(c) repealed by No. 5/2025 s. 4.",
-          "kind": "amendment",
-          "section": "124",
-          "sub_path": [
-            "(4)",
-            "(c)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 160,
-          "rect": {
-            "page": 160,
-            "x0": 79.3,
-            "y0": 177.4,
-            "x1": 120.6,
-            "y1": 216.5
           },
           "confidence": "high"
         }
@@ -54846,7 +54798,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "c",
       "heading": null,
       "text": "* * * * *",
       "page_start": 160,
@@ -54876,10 +54828,37 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.5/s124/4/b/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 124(4)(c) repealed by No. 5/2025 s. 4.",
+          "kind": "amendment",
+          "section": "124",
+          "sub_path": [
+            "(4)",
+            "(c)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 160,
+          "rect": {
+            "page": 160,
+            "x0": 79.3,
+            "y0": 177.4,
+            "x1": 120.6,
+            "y1": 216.5
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.5/s124/4/b/repealed-c"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "d",
       "heading": null,
       "text": "a fair trial will take place if the matter proceeds to trial, including that the accused is able adequately to prepare and present a defence; and",
@@ -54905,12 +54884,12 @@
         "subdivision": null,
         "section": "124",
         "subsection": "4",
-        "paragraph": "b",
-        "subparagraph": "d",
+        "paragraph": "d",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.5/s124/4/b/d"
+      "id": "ch4/pt4.5/s124/4/d"
     },
     {
       "type": "paragraph",
@@ -55043,7 +55022,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "h",
       "heading": null,
       "text": "* * * * *",
       "page_start": 160,
@@ -55073,25 +55052,52 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.5/s124/4/g/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 124(4)(h) repealed by No. 5/2025 s. 12(2)(c).",
+          "kind": "amendment",
+          "section": "124",
+          "sub_path": [
+            "(4)",
+            "(h)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 160,
+          "rect": {
+            "page": 160,
+            "x0": 79.3,
+            "y0": 412.6,
+            "x1": 120.6,
+            "y1": 451.7
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.5/s124/4/g/repealed-h"
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "Section 102 of the Evidence Act 2008 provides that",
+      "text": "Section 102 of the Evidence Act 2008 provides that credibility evidence about a witness is not admissible (the credibility rule).",
       "page_start": 160,
       "page_end": 160,
       "char_start": 156662,
-      "char_end": 156712,
+      "char_end": 156793,
       "source": "rules",
       "rects": [
         {
           "page": 160,
-          "x0": 230.2,
-          "y0": 489.2,
-          "x1": 441.6,
-          "y1": 502.9
+          "x0": 209.8,
+          "y0": 489.3,
+          "x1": 445.5,
+          "y1": 525.8
         }
       ],
       "path": {
@@ -55133,50 +55139,16 @@
           "confidence": "low"
         }
       ],
-      "id": "ch4/pt4.5/s124/4/g/note~37794d"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "credibility evidence about a witness is not admissible (the credibility rule). Section 103(1) of the Evidence Act 2008 provides that",
-      "page_start": 160,
-      "page_end": 160,
-      "char_start": 156713,
-      "char_end": 156847,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 160,
-          "x0": 209.8,
-          "y0": 489.3,
-          "x1": 453.3,
-          "y1": 543.5
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "4",
-        "part": "4.5",
-        "division": null,
-        "subdivision": null,
-        "section": "124",
-        "subsection": "4",
-        "paragraph": "g",
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
       "id": "ch4/pt4.5/s124/4/g/note-1"
     },
     {
       "type": "note",
       "number": "2",
       "heading": null,
-      "text": "the credibility rule does not apply to evidence adduced in cross-examination of a witness if the evidence could substantially affect the assessment of the credibility of the witness.",
+      "text": "Section 103(1) of the Evidence Act 2008 provides that the credibility rule does not apply to evidence adduced in cross-examination of a witness if the evidence could substantially affect the assessment of the credibility of the witness.",
       "page_start": 160,
       "page_end": 160,
-      "char_start": 156848,
+      "char_start": 156794,
       "char_end": 157032,
       "source": "rules",
       "rects": [
@@ -55184,7 +55156,7 @@
           "page": 160,
           "x0": 209.7,
           "y0": 529.9,
-          "x1": 452.7,
+          "x1": 453.3,
           "y1": 589.3
         }
       ],
@@ -55533,33 +55505,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 124(4)(h) repealed by No. 5/2025 s. 12(2)(c).",
-          "kind": "amendment",
-          "section": "124",
-          "sub_path": [
-            "(4)",
-            "(h)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 160,
-          "rect": {
-            "page": 160,
-            "x0": 79.3,
-            "y0": 412.6,
-            "x1": 120.6,
-            "y1": 451.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.5/s124/5/h"
     },
     {
@@ -55821,9 +55766,9 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "6",
       "heading": null,
-      "text": "* * * * * * * * * *",
+      "text": "* * * * *",
       "page_start": 161,
       "page_end": 161,
       "char_start": 158123,
@@ -55834,6 +55779,66 @@
           "page": 161,
           "x0": 206.6,
           "y0": 606.0,
+          "x1": 442.4,
+          "y1": 622.2
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "4",
+        "part": "4.5",
+        "division": null,
+        "subdivision": null,
+        "section": "124",
+        "subsection": "5A",
+        "paragraph": "b",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": "specified witness"
+      },
+      "history": [
+        {
+          "raw": "S. 124(6) inserted by No. 55/2014 s. 109(4), repealed by No. 38/2022 s. 62(3).",
+          "kind": "amendment",
+          "section": "124",
+          "sub_path": [
+            "(6)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 161,
+          "rect": {
+            "page": 161,
+            "x0": 467.8,
+            "y0": 626.2,
+            "x1": 509.0,
+            "y1": 692.9
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.5/s124/5a/definition-specified-witness/b/repealed-6"
+    },
+    {
+      "type": "repealed",
+      "number": null,
+      "heading": null,
+      "text": "* * * * *",
+      "page_start": 161,
+      "page_end": 161,
+      "char_start": 158123,
+      "char_end": 158142,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 161,
+          "x0": 206.6,
+          "y0": 625.8,
           "x1": 442.4,
           "y1": 642.0
         }
@@ -55851,7 +55856,7 @@
         "sub_subparagraph": null,
         "definition": "specified witness"
       },
-      "id": "ch4/pt4.5/s124/5a/definition-specified-witness/b/repealed~eca3cf"
+      "id": "ch4/pt4.5/s124/5a/definition-specified-witness/b/repealed~ff6469"
     },
     {
       "type": "section",
@@ -60771,31 +60776,6 @@
             "y1": 412.1
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 132(2)(a) substituted by No. 55/2014 s. 110(2), amended by No. 5/2025 s. 13(a).",
-          "kind": "amendment",
-          "section": "132",
-          "sub_path": [
-            "(2)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 174,
-          "rect": {
-            "page": 174,
-            "x0": 79.3,
-            "y0": 515.2,
-            "x1": 129.3,
-            "y1": 581.9
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch4/pt4.7/s132/1/a"
@@ -60832,33 +60812,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 132(2)(b) substituted by No. 5/2025 s. 13(b).",
-          "kind": "amendment",
-          "section": "132",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 174,
-          "rect": {
-            "page": 174,
-            "x0": 79.3,
-            "y0": 596.2,
-            "x1": 129.3,
-            "y1": 635.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.7/s132/1/b"
     },
     {
@@ -60927,6 +60880,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 132(2)(a) substituted by No. 55/2014 s. 110(2), amended by No. 5/2025 s. 13(a).",
+          "kind": "amendment",
+          "section": "132",
+          "sub_path": [
+            "(2)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 174,
+          "rect": {
+            "page": 174,
+            "x0": 79.3,
+            "y0": 515.2,
+            "x1": 129.3,
+            "y1": 581.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.7/s132/2/a"
     },
     {
@@ -60961,6 +60941,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 132(2)(b) substituted by No. 5/2025 s. 13(b).",
+          "kind": "amendment",
+          "section": "132",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 174,
+          "rect": {
+            "page": 174,
+            "x0": 79.3,
+            "y0": 596.2,
+            "x1": 129.3,
+            "y1": 635.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.7/s132/2/b"
     },
     {
@@ -61488,7 +61495,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "133",
       "heading": null,
       "text": "* * * * *",
       "page_start": 175,
@@ -61518,7 +61525,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.7/s132a/5/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 133 amended by Nos 69/2009 s. 54(Sch. Pt 2 item 18.1), 5/2018 s. 27, repealed by No. 5/2025 s. 15.",
+          "kind": "amendment",
+          "section": "133",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 175,
+          "rect": {
+            "page": 175,
+            "x0": 467.8,
+            "y0": 590.2,
+            "x1": 516.8,
+            "y1": 675.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.7/s132a/5/repealed-133"
     },
     {
       "type": "section",
@@ -64213,34 +64244,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 144(2)(b)(ii) substituted by No. 68/2009 s. 15.",
-          "kind": "amendment",
-          "section": "144",
-          "sub_path": [
-            "(2)",
-            "(b)",
-            "(ii)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 183,
-          "rect": {
-            "page": 183,
-            "x0": 467.8,
-            "y0": 461.8,
-            "x1": 517.8,
-            "y1": 500.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch4/pt4.9/s144/2/a/ii"
     },
     {
@@ -64377,6 +64380,34 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 144(2)(b)(ii) substituted by No. 68/2009 s. 15.",
+          "kind": "amendment",
+          "section": "144",
+          "sub_path": [
+            "(2)",
+            "(b)",
+            "(ii)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 183,
+          "rect": {
+            "page": 183,
+            "x0": 467.8,
+            "y0": 461.8,
+            "x1": 517.8,
+            "y1": 500.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch4/pt4.9/s144/2/b/ii"
     },
     {
@@ -64449,21 +64480,21 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "Section 13 of the Bail Act 1977 prevents the",
+      "text": "Section 13 of the Bail Act 1977 prevents the Magistrates' Court granting bail to a person committed for trial on a charge of treason.",
       "page_start": 183,
       "page_end": 183,
       "char_start": 181577,
-      "char_end": 181621,
+      "char_end": 181712,
       "source": "rules",
       "rects": [
         {
           "page": 183,
-          "x0": 255.7,
-          "y0": 613.4,
+          "x0": 235.3,
+          "y0": 613.5,
           "x1": 437.1,
-          "y1": 627.1
+          "y1": 650.0
         }
       ],
       "path": {
@@ -64506,40 +64537,6 @@
           "confidence": "low"
         }
       ],
-      "id": "ch4/pt4.9/s144/2/c/note~fca42b"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "Magistrates' Court granting bail to a person committed for trial on a charge of treason.",
-      "page_start": 183,
-      "page_end": 183,
-      "char_start": 181622,
-      "char_end": 181712,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 183,
-          "x0": 235.3,
-          "y0": 613.5,
-          "x1": 431.8,
-          "y1": 650.0
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "4",
-        "part": "4.9",
-        "division": null,
-        "subdivision": null,
-        "section": "144",
-        "subsection": "2",
-        "paragraph": "c",
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
       "id": "ch4/pt4.9/s144/2/c/note-1"
     },
     {
@@ -66031,7 +66028,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "155",
       "heading": null,
       "text": "* * * * *",
       "page_start": 189,
@@ -66061,7 +66058,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch4/pt4.12/s154/2/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 155 repealed by No. 5/2025 s. 9.",
+          "kind": "amendment",
+          "section": "155",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 189,
+          "rect": {
+            "page": 189,
+            "x0": 467.8,
+            "y0": 163.6,
+            "x1": 509.0,
+            "y1": 202.7
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch4/pt4.12/s154/2/repealed-155"
     },
     {
       "type": "section",
@@ -68973,33 +68994,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 168(4)(a) amended by No. 30/2010 s. 61(5).",
-          "kind": "amendment",
-          "section": "168",
-          "sub_path": [
-            "(4)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 197,
-          "rect": {
-            "page": 197,
-            "x0": 467.8,
-            "y0": 563.4,
-            "x1": 511.8,
-            "y1": 602.5
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.2/s168/1/a"
     },
     {
@@ -69057,31 +69051,6 @@
             "y0": 163.6,
             "x1": 517.8,
             "y1": 202.7
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 168(4)(b) amended by No. 30/2010 s. 61(6).",
-          "kind": "amendment",
-          "section": "168",
-          "sub_path": [
-            "(4)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 197,
-          "rect": {
-            "page": 197,
-            "x0": 467.8,
-            "y0": 610.8,
-            "x1": 511.8,
-            "y1": 649.9
           },
           "confidence": "high"
         }
@@ -69376,6 +69345,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 168(4)(a) amended by No. 30/2010 s. 61(5).",
+          "kind": "amendment",
+          "section": "168",
+          "sub_path": [
+            "(4)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 197,
+          "rect": {
+            "page": 197,
+            "x0": 467.8,
+            "y0": 563.4,
+            "x1": 511.8,
+            "y1": 602.5
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.2/s168/4/a"
     },
     {
@@ -69410,6 +69406,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 168(4)(b) amended by No. 30/2010 s. 61(6).",
+          "kind": "amendment",
+          "section": "168",
+          "sub_path": [
+            "(4)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 197,
+          "rect": {
+            "page": 197,
+            "x0": 467.8,
+            "y0": 610.8,
+            "x1": 511.8,
+            "y1": 649.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.2/s168/4/b"
     },
     {
@@ -69562,7 +69585,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "a",
       "heading": null,
       "text": "* * * * *",
       "page_start": 198,
@@ -69592,7 +69615,34 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch5/pt5.2/s168a/1/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 168A(1)(a) amended by No. 16/2020 s. 18, repealed by No. 54/2025 s. 24(2).",
+          "kind": "amendment",
+          "section": "168A",
+          "sub_path": [
+            "(1)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 198,
+          "rect": {
+            "page": 198,
+            "x0": 79.3,
+            "y0": 325.6,
+            "x1": 123.5,
+            "y1": 392.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch5/pt5.2/s168a/1/repealed-a"
     },
     {
       "type": "paragraph",
@@ -69978,33 +70028,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 168A(1)(a) amended by No. 16/2020 s. 18, repealed by No. 54/2025 s. 24(2).",
-          "kind": "amendment",
-          "section": "168A",
-          "sub_path": [
-            "(1)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 198,
-          "rect": {
-            "page": 198,
-            "x0": 79.3,
-            "y0": 325.6,
-            "x1": 123.5,
-            "y1": 392.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.2/s168a/2/a"
     },
     {
@@ -76569,46 +76592,12 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "See section 14 of the Victims' Charter Act 2006 as to",
+      "text": "See section 14 of the Victims' Charter Act 2006 as to victims' privacy.",
       "page_start": 217,
       "page_end": 217,
       "char_start": 218601,
-      "char_end": 218654,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 217,
-          "x0": 204.7,
-          "y0": 174.8,
-          "x1": 426.7,
-          "y1": 188.5
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "5",
-        "part": "5.5",
-        "division": "2",
-        "subdivision": null,
-        "section": "187",
-        "subsection": "2",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch5/pt5.5/div2/s187/2/note~4cbd59"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "victims' privacy.",
-      "page_start": 217,
-      "page_end": 217,
-      "char_start": 218655,
       "char_end": 218674,
       "source": "rules",
       "rects": [
@@ -76616,7 +76605,7 @@
           "page": 217,
           "x0": 184.3,
           "y0": 174.9,
-          "x1": 273.5,
+          "x1": 426.7,
           "y1": 199.9
         }
       ],
@@ -80059,7 +80048,7 @@
             "x1": 515.5,
             "y1": 485.7
           },
-          "confidence": "high"
+          "confidence": "low"
         }
       ],
       "id": "ch5/pt5.5/div3a/s198/2"
@@ -80585,31 +80574,6 @@
             "y1": 571.3
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 198A(4)(a) amended by No. 5/2025 s. 17(2)(c).",
-          "kind": "amendment",
-          "section": "198A",
-          "sub_path": [
-            "(4)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 227,
-          "rect": {
-            "page": 227,
-            "x0": 467.8,
-            "y0": 420.4,
-            "x1": 512.0,
-            "y1": 459.5
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch5/pt5.5/div3a/s198a/1/a"
@@ -80669,56 +80633,6 @@
             "y0": 591.6,
             "x1": 124.0,
             "y1": 630.7
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 198A(3)(b) substituted by No. 5/2025 s. 17(2)(b).",
-          "kind": "amendment",
-          "section": "198A",
-          "sub_path": [
-            "(3)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 227,
-          "rect": {
-            "page": 227,
-            "x0": 467.8,
-            "y0": 244.6,
-            "x1": 517.8,
-            "y1": 283.7
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 198A(4)(b) substituted by No. 5/2025 s. 17(2)(d).",
-          "kind": "amendment",
-          "section": "198A",
-          "sub_path": [
-            "(4)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 227,
-          "rect": {
-            "page": 227,
-            "x0": 467.8,
-            "y0": 473.8,
-            "x1": 517.8,
-            "y1": 512.9
           },
           "confidence": "high"
         }
@@ -80892,6 +80806,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 198A(3)(b) substituted by No. 5/2025 s. 17(2)(b).",
+          "kind": "amendment",
+          "section": "198A",
+          "sub_path": [
+            "(3)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 227,
+          "rect": {
+            "page": 227,
+            "x0": 467.8,
+            "y0": 244.6,
+            "x1": 517.8,
+            "y1": 283.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.5/div3a/s198a/3/b"
     },
     {
@@ -80949,31 +80890,6 @@
             "y0": 292.0,
             "x1": 517.8,
             "y1": 331.1
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 198A(4)(c) inserted by No. 5/2025 s. 17(2)(d).",
-          "kind": "amendment",
-          "section": "198A",
-          "sub_path": [
-            "(4)",
-            "(c)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 227,
-          "rect": {
-            "page": 227,
-            "x0": 467.8,
-            "y0": 521.2,
-            "x1": 512.0,
-            "y1": 560.3
           },
           "confidence": "high"
         }
@@ -81107,6 +81023,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 198A(4)(a) amended by No. 5/2025 s. 17(2)(c).",
+          "kind": "amendment",
+          "section": "198A",
+          "sub_path": [
+            "(4)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 227,
+          "rect": {
+            "page": 227,
+            "x0": 467.8,
+            "y0": 420.4,
+            "x1": 512.0,
+            "y1": 459.5
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.5/div3a/s198a/4/a"
     },
     {
@@ -81141,6 +81084,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 198A(4)(b) substituted by No. 5/2025 s. 17(2)(d).",
+          "kind": "amendment",
+          "section": "198A",
+          "sub_path": [
+            "(4)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 227,
+          "rect": {
+            "page": 227,
+            "x0": 467.8,
+            "y0": 473.8,
+            "x1": 517.8,
+            "y1": 512.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.5/div3a/s198a/4/b"
     },
     {
@@ -81175,6 +81145,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 198A(4)(c) inserted by No. 5/2025 s. 17(2)(d).",
+          "kind": "amendment",
+          "section": "198A",
+          "sub_path": [
+            "(4)",
+            "(c)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 227,
+          "rect": {
+            "page": 227,
+            "x0": 467.8,
+            "y0": 521.2,
+            "x1": 512.0,
+            "y1": 560.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.5/div3a/s198a/4/c"
     },
     {
@@ -82865,32 +82862,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 201(5) repealed by No. 11/2021 s. 45(3).",
-          "kind": "amendment",
-          "section": "201",
-          "sub_path": [
-            "(5)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 232,
-          "rect": {
-            "page": 232,
-            "x0": 79.3,
-            "y0": 483.4,
-            "x1": 120.6,
-            "y1": 522.5
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch5/pt5.5/div4/s201"
     },
     {
@@ -83407,7 +83378,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "5",
       "heading": null,
       "text": "* * * * *",
       "page_start": 232,
@@ -83437,7 +83408,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch5/pt5.5/div4/s201/4/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 201(5) repealed by No. 11/2021 s. 45(3).",
+          "kind": "amendment",
+          "section": "201",
+          "sub_path": [
+            "(5)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 232,
+          "rect": {
+            "page": 232,
+            "x0": 79.3,
+            "y0": 483.4,
+            "x1": 120.6,
+            "y1": 522.5
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch5/pt5.5/div4/s201/4/repealed-5"
     },
     {
       "type": "section",
@@ -86059,32 +86056,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 208(2) repealed by No. 1/2022 s. 112(3).",
-          "kind": "amendment",
-          "section": "208",
-          "sub_path": [
-            "(2)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 239,
-          "rect": {
-            "page": 239,
-            "x0": 467.8,
-            "y0": 643.6,
-            "x1": 509.0,
-            "y1": 682.7
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch5/pt5.6/s208"
     },
     {
@@ -86278,7 +86249,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "2",
       "heading": null,
       "text": "* * * * *",
       "page_start": 239,
@@ -86308,7 +86279,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch5/pt5.6/s208/1/b/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 208(2) repealed by No. 1/2022 s. 112(3).",
+          "kind": "amendment",
+          "section": "208",
+          "sub_path": [
+            "(2)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 239,
+          "rect": {
+            "page": 239,
+            "x0": 467.8,
+            "y0": 643.6,
+            "x1": 509.0,
+            "y1": 682.7
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch5/pt5.6/s208/1/b/repealed-2"
     },
     {
       "type": "subsection",
@@ -86564,32 +86561,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 209(2) repealed by No. 1/2022 s. 113(2).",
-          "kind": "amendment",
-          "section": "209",
-          "sub_path": [
-            "(2)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 240,
-          "rect": {
-            "page": 240,
-            "x0": 79.3,
-            "y0": 642.1,
-            "x1": 120.6,
-            "y1": 681.3
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch5/pt5.6/s209"
     },
     {
@@ -86757,7 +86728,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "2",
       "heading": null,
       "text": "* * * * *",
       "page_start": 240,
@@ -86787,7 +86758,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch5/pt5.6/s209/1/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 209(2) repealed by No. 1/2022 s. 113(2).",
+          "kind": "amendment",
+          "section": "209",
+          "sub_path": [
+            "(2)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 240,
+          "rect": {
+            "page": 240,
+            "x0": 79.3,
+            "y0": 642.1,
+            "x1": 120.6,
+            "y1": 681.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch5/pt5.6/s209/1/repealed-2"
     },
     {
       "type": "subsection",
@@ -88577,19 +88574,19 @@
       "type": "note",
       "number": "1",
       "heading": null,
-      "text": "A trial commences when arraignment under this section occurs: see section 210. The Juries Act 2000 sets out the process for empanelling a",
+      "text": "A trial commences when arraignment under this section occurs: see section 210.",
       "page_start": 245,
       "page_end": 245,
       "char_start": 254338,
-      "char_end": 254477,
+      "char_end": 254418,
       "source": "rules",
       "rects": [
         {
           "page": 245,
           "x0": 184.3,
           "y0": 445.5,
-          "x1": 444.4,
-          "y1": 488.2
+          "x1": 430.8,
+          "y1": 470.5
         }
       ],
       "path": {
@@ -88611,10 +88608,10 @@
       "type": "note",
       "number": "2",
       "heading": null,
-      "text": "jury.",
+      "text": "The Juries Act 2000 sets out the process for empanelling a jury.",
       "page_start": 245,
       "page_end": 245,
-      "char_start": 254478,
+      "char_start": 254419,
       "char_end": 254485,
       "source": "rules",
       "rects": [
@@ -88622,7 +88619,7 @@
           "page": 245,
           "x0": 184.3,
           "y0": 474.6,
-          "x1": 225.8,
+          "x1": 444.4,
           "y1": 499.5
         }
       ],
@@ -89369,33 +89366,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 223(1A)(a) amended by No. 14/2015 s. 69(4)(a).",
-          "kind": "amendment",
-          "section": "223",
-          "sub_path": [
-            "(1A)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 248,
-          "rect": {
-            "page": 248,
-            "x0": 79.3,
-            "y0": 484.0,
-            "x1": 123.6,
-            "y1": 523.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.7/div3/s223/1/a"
     },
     {
@@ -89498,33 +89468,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 223(1A)(d) amended by No. 14/2015 s. 69(4)(b).",
-          "kind": "amendment",
-          "section": "223",
-          "sub_path": [
-            "(1A)",
-            "(d)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 249,
-          "rect": {
-            "page": 249,
-            "x0": 467.8,
-            "y0": 163.6,
-            "x1": 512.5,
-            "y1": 202.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.7/div3/s223/1/d"
     },
     {
@@ -90047,6 +89990,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 223(1A)(a) amended by No. 14/2015 s. 69(4)(a).",
+          "kind": "amendment",
+          "section": "223",
+          "sub_path": [
+            "(1A)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 248,
+          "rect": {
+            "page": 248,
+            "x0": 79.3,
+            "y0": 484.0,
+            "x1": 123.6,
+            "y1": 523.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.7/div3/s223/1a/a"
     },
     {
@@ -90149,6 +90119,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 223(1A)(d) amended by No. 14/2015 s. 69(4)(b).",
+          "kind": "amendment",
+          "section": "223",
+          "sub_path": [
+            "(1A)",
+            "(d)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 249,
+          "rect": {
+            "page": 249,
+            "x0": 467.8,
+            "y0": 163.6,
+            "x1": 512.5,
+            "y1": 202.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.7/div3/s223/1a/d"
     },
     {
@@ -94581,32 +94578,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 237(3) repealed by No. 48/2012 s. 14(2).",
-          "kind": "amendment",
-          "section": "237",
-          "sub_path": [
-            "(3)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 260,
-          "rect": {
-            "page": 260,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 120.6,
-            "y1": 202.7
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch5/pt5.7/div7/s237"
     },
     {
@@ -94735,33 +94706,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 237(2)(b) substituted by No. 48/2012 s. 14(1)(b).",
-          "kind": "amendment",
-          "section": "237",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 259,
-          "rect": {
-            "page": 259,
-            "x0": 467.8,
-            "y0": 562.6,
-            "x1": 517.7,
-            "y1": 601.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.7/div7/s237/1/b"
     },
     {
@@ -94864,6 +94808,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 237(2)(b) substituted by No. 48/2012 s. 14(1)(b).",
+          "kind": "amendment",
+          "section": "237",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 259,
+          "rect": {
+            "page": 259,
+            "x0": 467.8,
+            "y0": 562.6,
+            "x1": 517.7,
+            "y1": 601.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.7/div7/s237/2/b"
     },
     {
@@ -94963,7 +94934,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "3",
       "heading": null,
       "text": "* * * * *",
       "page_start": 260,
@@ -94993,7 +94964,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch5/pt5.7/div7/s237/2/c/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 237(3) repealed by No. 48/2012 s. 14(2).",
+          "kind": "amendment",
+          "section": "237",
+          "sub_path": [
+            "(3)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 260,
+          "rect": {
+            "page": 260,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 120.6,
+            "y1": 202.7
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch5/pt5.7/div7/s237/2/c/repealed-3"
     },
     {
       "type": "section",
@@ -95824,33 +95821,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 242(3)(a) amended by No. 6/2017 s. 6(2)(a).",
-          "kind": "amendment",
-          "section": "242",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 264,
-          "rect": {
-            "page": 264,
-            "x0": 79.3,
-            "y0": 286.0,
-            "x1": 123.3,
-            "y1": 325.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.8/div1/s242/1/a"
     },
     {
@@ -95885,33 +95855,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 242(3)(b) amended by No. 6/2017 s. 6(2)(b).",
-          "kind": "amendment",
-          "section": "242",
-          "sub_path": [
-            "(3)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 264,
-          "rect": {
-            "page": 264,
-            "x0": 79.3,
-            "y0": 339.4,
-            "x1": 123.3,
-            "y1": 378.5
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.8/div1/s242/1/b"
     },
     {
@@ -96109,6 +96052,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 242(3)(a) amended by No. 6/2017 s. 6(2)(a).",
+          "kind": "amendment",
+          "section": "242",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 264,
+          "rect": {
+            "page": 264,
+            "x0": 79.3,
+            "y0": 286.0,
+            "x1": 123.3,
+            "y1": 325.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.8/div1/s242/3/a"
     },
     {
@@ -96143,6 +96113,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 242(3)(b) amended by No. 6/2017 s. 6(2)(b).",
+          "kind": "amendment",
+          "section": "242",
+          "sub_path": [
+            "(3)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 264,
+          "rect": {
+            "page": 264,
+            "x0": 79.3,
+            "y0": 339.4,
+            "x1": 123.3,
+            "y1": 378.5
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.8/div1/s242/3/b"
     },
     {
@@ -97141,33 +97138,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 244(3)(a) amended by No. 37/2014 s. 10(Sch. item 41.5).",
-          "kind": "amendment",
-          "section": "244",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 267,
-          "rect": {
-            "page": 267,
-            "x0": 467.8,
-            "y0": 552.5,
-            "x1": 511.8,
-            "y1": 600.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch5/pt5.8/div2/s244/1/a"
     },
     {
@@ -97696,6 +97666,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 244(3)(a) amended by No. 37/2014 s. 10(Sch. item 41.5).",
+          "kind": "amendment",
+          "section": "244",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 267,
+          "rect": {
+            "page": 267,
+            "x0": 467.8,
+            "y0": 552.5,
+            "x1": 511.8,
+            "y1": 600.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch5/pt5.8/div2/s244/3/a"
     },
     {
@@ -100499,58 +100496,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 255(5)(a) amended by No. 3/2016 s. 62(3)(b).",
-          "kind": "amendment",
-          "section": "255",
-          "sub_path": [
-            "(5)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 275,
-          "rect": {
-            "page": 275,
-            "x0": 467.8,
-            "y0": 483.4,
-            "x1": 511.8,
-            "y1": 522.5
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 255(6)(a) amended by No. 3/2016 s. 62(4).",
-          "kind": "amendment",
-          "section": "255",
-          "sub_path": [
-            "(6)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 276,
-          "rect": {
-            "page": 276,
-            "x0": 79.3,
-            "y0": 280.0,
-            "x1": 123.3,
-            "y1": 319.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.1/div1/s255/3/a"
     },
     {
@@ -100608,31 +100553,6 @@
             "y0": 272.2,
             "x1": 511.8,
             "y1": 311.3
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 255(5)(b) amended by No. 3/2016 s. 62(3)(d).",
-          "kind": "amendment",
-          "section": "255",
-          "sub_path": [
-            "(5)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 276,
-          "rect": {
-            "page": 276,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 123.3,
-            "y1": 202.7
           },
           "confidence": "high"
         }
@@ -100791,6 +100711,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 255(5)(a) amended by No. 3/2016 s. 62(3)(b).",
+          "kind": "amendment",
+          "section": "255",
+          "sub_path": [
+            "(5)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 275,
+          "rect": {
+            "page": 275,
+            "x0": 467.8,
+            "y0": 483.4,
+            "x1": 511.8,
+            "y1": 522.5
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div1/s255/5/a"
     },
     {
@@ -100886,6 +100833,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 255(5)(b) amended by No. 3/2016 s. 62(3)(d).",
+          "kind": "amendment",
+          "section": "255",
+          "sub_path": [
+            "(5)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 276,
+          "rect": {
+            "page": 276,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 123.3,
+            "y1": 202.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div1/s255/5/b"
     },
     {
@@ -100954,6 +100928,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 255(6)(a) amended by No. 3/2016 s. 62(4).",
+          "kind": "amendment",
+          "section": "255",
+          "sub_path": [
+            "(6)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 276,
+          "rect": {
+            "page": 276,
+            "x0": 79.3,
+            "y0": 280.0,
+            "x1": 123.3,
+            "y1": 319.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div1/s255/6/a"
     },
     {
@@ -103715,33 +103716,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 263(4)(a) amended by No. 3/2016 s. 70(3)(a).",
-          "kind": "amendment",
-          "section": "263",
-          "sub_path": [
-            "(4)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 283,
-          "rect": {
-            "page": 283,
-            "x0": 467.8,
-            "y0": 256.6,
-            "x1": 511.8,
-            "y1": 295.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.1/div4/s263/2/a"
     },
     {
@@ -103776,33 +103750,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 263(5)(b) amended by Nos 3/2016 s. 70(4), 1/2022 s. 67.",
-          "kind": "amendment",
-          "section": "263",
-          "sub_path": [
-            "(5)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 283,
-          "rect": {
-            "page": 283,
-            "x0": 467.8,
-            "y0": 548.8,
-            "x1": 511.8,
-            "y1": 597.0
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.1/div4/s263/2/b"
     },
     {
@@ -103957,6 +103904,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 263(4)(a) amended by No. 3/2016 s. 70(3)(a).",
+          "kind": "amendment",
+          "section": "263",
+          "sub_path": [
+            "(4)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 283,
+          "rect": {
+            "page": 283,
+            "x0": 467.8,
+            "y0": 256.6,
+            "x1": 511.8,
+            "y1": 295.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s263/4/a"
     },
     {
@@ -104154,6 +104128,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 263(5)(b) amended by Nos 3/2016 s. 70(4), 1/2022 s. 67.",
+          "kind": "amendment",
+          "section": "263",
+          "sub_path": [
+            "(5)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 283,
+          "rect": {
+            "page": 283,
+            "x0": 467.8,
+            "y0": 548.8,
+            "x1": 511.8,
+            "y1": 597.0
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s263/5/b"
     },
     {
@@ -104833,31 +104834,6 @@
             "y1": 436.8
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 266(5)(a) amended by No. 68/2009 s. 23(4).",
-          "kind": "amendment",
-          "section": "266",
-          "sub_path": [
-            "(5)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 286,
-          "rect": {
-            "page": 286,
-            "x0": 79.3,
-            "y0": 177.4,
-            "x1": 123.3,
-            "y1": 216.5
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch6/pt6.1/div4/s266/3/a"
@@ -104894,33 +104870,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 266(5)(b) amended by Nos 3/2016 s. 71(5), 1/2022 s. 68.",
-          "kind": "amendment",
-          "section": "266",
-          "sub_path": [
-            "(5)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 286,
-          "rect": {
-            "page": 286,
-            "x0": 79.3,
-            "y0": 266.2,
-            "x1": 123.3,
-            "y1": 314.4
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.1/div4/s266/3/b"
     },
     {
@@ -105109,6 +105058,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 266(5)(a) amended by No. 68/2009 s. 23(4).",
+          "kind": "amendment",
+          "section": "266",
+          "sub_path": [
+            "(5)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 286,
+          "rect": {
+            "page": 286,
+            "x0": 79.3,
+            "y0": 177.4,
+            "x1": 123.3,
+            "y1": 216.5
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s266/5/a"
     },
     {
@@ -105143,6 +105119,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 266(5)(b) amended by Nos 3/2016 s. 71(5), 1/2022 s. 68.",
+          "kind": "amendment",
+          "section": "266",
+          "sub_path": [
+            "(5)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 286,
+          "rect": {
+            "page": 286,
+            "x0": 79.3,
+            "y0": 266.2,
+            "x1": 123.3,
+            "y1": 314.4
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s266/5/b"
     },
     {
@@ -105365,58 +105368,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 267(1A)(a) amended by No. 3/2016 s. 72(2)(a).",
-          "kind": "amendment",
-          "section": "267",
-          "sub_path": [
-            "(1A)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 287,
-          "rect": {
-            "page": 287,
-            "x0": 467.8,
-            "y0": 256.6,
-            "x1": 512.0,
-            "y1": 295.7
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 267(2)(a) amended by No. 68/2009 s. 24(1).",
-          "kind": "amendment",
-          "section": "267",
-          "sub_path": [
-            "(2)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 287,
-          "rect": {
-            "page": 287,
-            "x0": 467.8,
-            "y0": 473.8,
-            "x1": 511.8,
-            "y1": 512.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.1/div4/s267/1/a"
     },
     {
@@ -105451,33 +105402,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 267(2)(b) amended by Nos 3/2016 s. 72(3), 1/2022 s. 69.",
-          "kind": "amendment",
-          "section": "267",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 287,
-          "rect": {
-            "page": 287,
-            "x0": 467.8,
-            "y0": 562.6,
-            "x1": 511.8,
-            "y1": 610.8
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.1/div4/s267/1/b"
     },
     {
@@ -105572,6 +105496,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 267(1A)(a) amended by No. 3/2016 s. 72(2)(a).",
+          "kind": "amendment",
+          "section": "267",
+          "sub_path": [
+            "(1A)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 287,
+          "rect": {
+            "page": 287,
+            "x0": 467.8,
+            "y0": 256.6,
+            "x1": 512.0,
+            "y1": 295.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s267/1a/a"
     },
     {
@@ -105709,6 +105660,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 267(2)(a) amended by No. 68/2009 s. 24(1).",
+          "kind": "amendment",
+          "section": "267",
+          "sub_path": [
+            "(2)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 287,
+          "rect": {
+            "page": 287,
+            "x0": 467.8,
+            "y0": 473.8,
+            "x1": 511.8,
+            "y1": 512.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s267/2/a"
     },
     {
@@ -105743,6 +105721,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 267(2)(b) amended by Nos 3/2016 s. 72(3), 1/2022 s. 69.",
+          "kind": "amendment",
+          "section": "267",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 287,
+          "rect": {
+            "page": 287,
+            "x0": 467.8,
+            "y0": 562.6,
+            "x1": 511.8,
+            "y1": 610.8
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.1/div4/s267/2/b"
     },
     {
@@ -110632,31 +110637,6 @@
             "y1": 475.1
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 284A(3)(a) amended by No. 3/2016 s. 78.",
-          "kind": "amendment",
-          "section": "284A",
-          "sub_path": [
-            "(3)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 302,
-          "rect": {
-            "page": 302,
-            "x0": 79.3,
-            "y0": 205.0,
-            "x1": 123.6,
-            "y1": 244.1
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch6/pt6.3/div2/s284a/1/a"
@@ -110856,6 +110836,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 284A(3)(a) amended by No. 3/2016 s. 78.",
+          "kind": "amendment",
+          "section": "284A",
+          "sub_path": [
+            "(3)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 302,
+          "rect": {
+            "page": 302,
+            "x0": 79.3,
+            "y0": 205.0,
+            "x1": 123.6,
+            "y1": 244.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.3/div2/s284a/3/a"
     },
     {
@@ -111282,33 +111289,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 286(2)(a) amended by No. 3/2016 s. 80(d).",
-          "kind": "amendment",
-          "section": "286",
-          "sub_path": [
-            "(2)",
-            "(a)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 303,
-          "rect": {
-            "page": 303,
-            "x0": 467.8,
-            "y0": 359.2,
-            "x1": 511.8,
-            "y1": 398.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch6/pt6.3/div2/s286/1/a"
     },
     {
@@ -111366,31 +111346,6 @@
             "y0": 258.4,
             "x1": 511.8,
             "y1": 297.5
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 286(2)(b) amended by No. 3/2016 s. 80(e).",
-          "kind": "amendment",
-          "section": "286",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 303,
-          "rect": {
-            "page": 303,
-            "x0": 467.8,
-            "y0": 434.2,
-            "x1": 511.8,
-            "y1": 473.3
           },
           "confidence": "high"
         }
@@ -111489,6 +111444,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 286(2)(a) amended by No. 3/2016 s. 80(d).",
+          "kind": "amendment",
+          "section": "286",
+          "sub_path": [
+            "(2)",
+            "(a)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 303,
+          "rect": {
+            "page": 303,
+            "x0": 467.8,
+            "y0": 359.2,
+            "x1": 511.8,
+            "y1": 398.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.3/div2/s286/2/a"
     },
     {
@@ -111523,6 +111505,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 286(2)(b) amended by No. 3/2016 s. 80(e).",
+          "kind": "amendment",
+          "section": "286",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 303,
+          "rect": {
+            "page": 303,
+            "x0": 467.8,
+            "y0": 434.2,
+            "x1": 511.8,
+            "y1": 473.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch6/pt6.3/div2/s286/2/b"
     },
     {
@@ -113491,32 +113500,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 294(3) repealed by No. 68/2009 s. 29(1).",
-          "kind": "amendment",
-          "section": "294",
-          "sub_path": [
-            "(3)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 309,
-          "rect": {
-            "page": 309,
-            "x0": 467.8,
-            "y0": 191.2,
-            "x1": 509.0,
-            "y1": 230.3
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch6/pt6.3/div3/s294"
     },
     {
@@ -113664,7 +113647,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "3",
       "heading": null,
       "text": "* * * * *",
       "page_start": 309,
@@ -113694,7 +113677,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch6/pt6.3/div3/s294/2/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 294(3) repealed by No. 68/2009 s. 29(1).",
+          "kind": "amendment",
+          "section": "294",
+          "sub_path": [
+            "(3)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 309,
+          "rect": {
+            "page": 309,
+            "x0": 467.8,
+            "y0": 191.2,
+            "x1": 509.0,
+            "y1": 230.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch6/pt6.3/div3/s294/2/repealed-3"
     },
     {
       "type": "note",
@@ -126564,33 +126573,6 @@
         "sub_subparagraph": null,
         "definition": "an offence of which a person has previously been acquitted"
       },
-      "history": [
-        {
-          "raw": "S. 327E(7)(b) amended by No. 37/2014 s. 10(Sch. item 41.6(e)(ii)).",
-          "kind": "amendment",
-          "section": "327E",
-          "sub_path": [
-            "(7)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 343,
-          "rect": {
-            "page": 343,
-            "x0": 467.8,
-            "y0": 327.4,
-            "x1": 512.0,
-            "y1": 384.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch7a/s327e/1/definition-an-offence-of-which-a-person-has-previou/b"
     },
     {
@@ -127479,6 +127461,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 327E(7)(b) amended by No. 37/2014 s. 10(Sch. item 41.6(e)(ii)).",
+          "kind": "amendment",
+          "section": "327E",
+          "sub_path": [
+            "(7)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 343,
+          "rect": {
+            "page": 343,
+            "x0": 467.8,
+            "y0": 327.4,
+            "x1": 512.0,
+            "y1": 384.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch7a/s327e/7/b"
     },
     {
@@ -131912,19 +131921,19 @@
       "type": "note",
       "number": "1",
       "heading": null,
-      "text": "See section 328 for the ways in which an accused may appear. Division 3 of Part IIA of the Evidence (Miscellaneous",
+      "text": "See section 328 for the ways in which an accused may appear.",
       "page_start": 354,
       "page_end": 354,
       "char_start": 387802,
-      "char_end": 387918,
+      "char_end": 387864,
       "source": "rules",
       "rects": [
         {
           "page": 354,
           "x0": 184.3,
           "y0": 364.5,
-          "x1": 427.7,
-          "y1": 407.2
+          "x1": 425.0,
+          "y1": 389.5
         }
       ],
       "path": {
@@ -131946,10 +131955,10 @@
       "type": "note",
       "number": "2",
       "heading": null,
-      "text": "Provisions) Act 1958 authorises or requires the appearance of an accused before the court by audio visual link in certain circumstances.",
+      "text": "Division 3 of Part IIA of the Evidence (Miscellaneous Provisions) Act 1958 authorises or requires the appearance of an accused before the court by audio visual link in certain circumstances.",
       "page_start": 354,
       "page_end": 354,
-      "char_start": 387919,
+      "char_start": 387865,
       "char_end": 388057,
       "source": "rules",
       "rects": [
@@ -132670,33 +132679,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 331(6)(b) amended by Nos 69/2009 s. 54(Sch. Pt 2 item 18.1), 11/2021 s. 47.",
-          "kind": "amendment",
-          "section": "331",
-          "sub_path": [
-            "(6)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 357,
-          "rect": {
-            "page": 357,
-            "x0": 467.8,
-            "y0": 313.6,
-            "x1": 516.8,
-            "y1": 371.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.1/s331/1/b"
     },
     {
@@ -132906,21 +132888,21 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "See section 333 of this Act and section 5A of the Bail",
+      "text": "See section 333 of this Act and section 5A of the Bail Act 1977 where the accused is undergoing a sentence of detention in a youth justice centre.",
       "page_start": 356,
       "page_end": 356,
       "char_start": 389985,
-      "char_end": 390039,
+      "char_end": 390133,
       "source": "rules",
       "rects": [
         {
           "page": 356,
-          "x0": 230.2,
-          "y0": 341.0,
+          "x0": 209.8,
+          "y0": 341.1,
           "x1": 447.9,
-          "y1": 354.7
+          "y1": 377.6
         }
       ],
       "path": {
@@ -132962,40 +132944,6 @@
           "confidence": "low"
         }
       ],
-      "id": "ch8/pt8.1/s331/2/c/note~975f6a"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "Act 1977 where the accused is undergoing a sentence of detention in a youth justice centre.",
-      "page_start": 356,
-      "page_end": 356,
-      "char_start": 390040,
-      "char_end": 390133,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 356,
-          "x0": 209.8,
-          "y0": 341.1,
-          "x1": 447.2,
-          "y1": 377.6
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.1",
-        "division": null,
-        "subdivision": null,
-        "section": "331",
-        "subsection": "2",
-        "paragraph": "c",
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
       "id": "ch8/pt8.1/s331/2/c/note-1"
     },
     {
@@ -133362,6 +133310,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 331(6)(b) amended by Nos 69/2009 s. 54(Sch. Pt 2 item 18.1), 11/2021 s. 47.",
+          "kind": "amendment",
+          "section": "331",
+          "sub_path": [
+            "(6)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 357,
+          "rect": {
+            "page": 357,
+            "x0": 467.8,
+            "y0": 313.6,
+            "x1": 516.8,
+            "y1": 371.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch8/pt8.1/s331/6/b"
     },
     {
@@ -135060,30 +135035,6 @@
             "y1": 487.1
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 336A(2) repealed by No. 48/2018 s. 33. S. 337 amended by No. 68/2009 s. 38 (ILA s. 39B(1)).",
-          "kind": "amendment",
-          "section": "336A",
-          "sub_path": [
-            "(2)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 361,
-          "rect": {
-            "page": 361,
-            "x0": 467.8,
-            "y0": 556.6,
-            "x1": 511.8,
-            "y1": 644.4
-          },
-          "confidence": "low"
         }
       ],
       "id": "ch8/pt8.1/s336a"
@@ -135124,7 +135075,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "2",
       "heading": null,
       "text": "* * * * *",
       "page_start": 361,
@@ -135154,7 +135105,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.1/s336a/1/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 336A(2) repealed by No. 48/2018 s. 33. S. 337 amended by No. 68/2009 s. 38 (ILA s. 39B(1)).",
+          "kind": "amendment",
+          "section": "336A",
+          "sub_path": [
+            "(2)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 361,
+          "rect": {
+            "page": 361,
+            "x0": 467.8,
+            "y0": 556.6,
+            "x1": 511.8,
+            "y1": 644.4
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.1/s336a/1/repealed-2"
     },
     {
       "type": "section",
@@ -136388,7 +136365,7 @@
             "x1": 127.5,
             "y1": 404.7
           },
-          "confidence": "high"
+          "confidence": "low"
         }
       ],
       "id": "ch8/pt8.2/div2/s339/2"
@@ -137031,30 +137008,6 @@
           "confidence": "high"
         },
         {
-          "raw": "S. 344(b) repealed by No. 5/2025 s. 18.",
-          "kind": "amendment",
-          "section": "344",
-          "sub_path": [
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 366,
-          "rect": {
-            "page": 366,
-            "x0": 79.3,
-            "y0": 305.8,
-            "x1": 120.6,
-            "y1": 344.9
-          },
-          "confidence": "low"
-        },
-        {
           "raw": "S. 344 renumbered as s. 396 by No. 68/2009 s. 52(h).",
           "kind": "amendment",
           "section": "344",
@@ -137115,7 +137068,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "b",
       "heading": null,
       "text": "* * * * *",
       "page_start": 366,
@@ -137145,10 +137098,36 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/a/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 344(b) repealed by No. 5/2025 s. 18.",
+          "kind": "amendment",
+          "section": "344",
+          "sub_path": [
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 366,
+          "rect": {
+            "page": 366,
+            "x0": 79.3,
+            "y0": 305.8,
+            "x1": 120.6,
+            "y1": 344.9
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div2/s344/a/repealed-b"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "ba",
       "heading": null,
       "text": "in the case of a pre-trial cross-examination under an order made under section 198A or a limited preparatory cross-examination under an order made under section 198B, must be\u2014",
@@ -137174,8 +137153,8 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "a",
-        "subparagraph": "ba",
+        "paragraph": "ba",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
@@ -137205,10 +137184,10 @@
           "confidence": "high"
         }
       ],
-      "id": "ch8/pt8.2/div2/s344/a/ba"
+      "id": "ch8/pt8.2/div2/s344/ba"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "i",
       "heading": null,
       "text": "filed with the County Court or the Supreme Court, as the case requires; and",
@@ -137234,15 +137213,15 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "i",
-        "subparagraph": null,
+        "paragraph": "ba",
+        "subparagraph": "i",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/i"
+      "id": "ch8/pt8.2/div2/s344/ba/i"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "ii",
       "heading": null,
       "text": "served on the DPP in accordance with section 392 at least 7 days before the cross-examination;",
@@ -137268,15 +137247,15 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "ii",
-        "subparagraph": null,
+        "paragraph": "ba",
+        "subparagraph": "ii",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/ii"
+      "id": "ch8/pt8.2/div2/s344/ba/ii"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "c",
       "heading": null,
       "text": "in the case of a trial, must be filed with the County Court or the Supreme Court (as the case requires) and served on the DPP in accordance with section 392\u2014",
@@ -137302,15 +137281,15 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "ii",
-        "subparagraph": "c",
+        "paragraph": "c",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/ii/c"
+      "id": "ch8/pt8.2/div2/s344/c"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "i",
       "heading": null,
       "text": "at least 14 days before the day on which the trial is listed to commence; or",
@@ -137336,15 +137315,15 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "i",
-        "subparagraph": null,
+        "paragraph": "c",
+        "subparagraph": "i",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/i~fc762e"
+      "id": "ch8/pt8.2/div2/s344/c/i"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "ii",
       "heading": null,
       "text": "if a special hearing is to be held, at least 14 days before that hearing;",
@@ -137370,15 +137349,15 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "ii",
-        "subparagraph": null,
+        "paragraph": "c",
+        "subparagraph": "ii",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/ii~a43e16"
+      "id": "ch8/pt8.2/div2/s344/c/ii"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "d",
       "heading": null,
       "text": "in the case of a sentencing hearing, must be filed with the relevant court and served on the informant or the DPP (as the case requires) in accordance with section 392 at least 7 days before the sentencing hearing is listed to commence.",
@@ -137404,12 +137383,12 @@
         "subdivision": null,
         "section": "344",
         "subsection": null,
-        "paragraph": "ii",
-        "subparagraph": "d",
+        "paragraph": "d",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div2/s344/ii/d"
+      "id": "ch8/pt8.2/div2/s344/d"
     },
     {
       "type": "section",
@@ -141456,7 +141435,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "361",
       "heading": null,
       "text": "* * * * *",
       "page_start": 375,
@@ -141486,7 +141465,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div4/s360/f/repealed~ff6469"
+      "history": [
+        {
+          "raw": "New s. 361 inserted by No. 68/2009 s. 50, amended by No. 30/2010 s. 67, repealed by No. 37/2017 s. 13(1).",
+          "kind": "amendment",
+          "section": "361",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 375,
+          "rect": {
+            "page": 375,
+            "x0": 467.8,
+            "y0": 381.3,
+            "x1": 511.8,
+            "y1": 475.6
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div4/s360/f/repealed-361"
     },
     {
       "type": "section",
@@ -142843,33 +142846,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 366(1)(c) inserted by No. 48/2012 s. 21(b), amended by No. 42/2015 s. 22, repealed by No. 47/2016 s. 37(10)(b).",
-          "kind": "amendment",
-          "section": "366",
-          "sub_path": [
-            "(1)",
-            "(c)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 379,
-          "rect": {
-            "page": 379,
-            "x0": 467.8,
-            "y0": 163.6,
-            "x1": 511.8,
-            "y1": 257.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.2/div5/s366/1"
     },
     {
@@ -143091,7 +143067,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "c",
       "heading": null,
       "text": "* * * * *",
       "page_start": 379,
@@ -143121,10 +143097,37 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div5/s366/1/b/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 366(1)(c) inserted by No. 48/2012 s. 21(b), amended by No. 42/2015 s. 22, repealed by No. 47/2016 s. 37(10)(b).",
+          "kind": "amendment",
+          "section": "366",
+          "sub_path": [
+            "(1)",
+            "(c)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 379,
+          "rect": {
+            "page": 379,
+            "x0": 467.8,
+            "y0": 163.6,
+            "x1": 511.8,
+            "y1": 257.9
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div5/s366/1/b/repealed-c"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "d",
       "heading": null,
       "text": "any offences against section 23 or 24 of the Summary Offences Act 1966 if those offences are related offences to an offence specified in paragraph (a), (ab), (ac) or (b), despite whether any such related offences are withdrawn or dismissed before an offence against section 23 or 24 of the Summary Offences Act 1966 is heard and determined.",
@@ -143150,8 +143153,8 @@
         "subdivision": null,
         "section": "366",
         "subsection": "1",
-        "paragraph": "b",
-        "subparagraph": "d",
+        "paragraph": "d",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
@@ -143182,7 +143185,7 @@
           "confidence": "high"
         }
       ],
-      "id": "ch8/pt8.2/div5/s366/1/b/d"
+      "id": "ch8/pt8.2/div5/s366/1/d"
     },
     {
       "type": "note",
@@ -143211,12 +143214,12 @@
         "subdivision": null,
         "section": "366",
         "subsection": "1",
-        "paragraph": "b",
-        "subparagraph": "d",
+        "paragraph": "d",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div5/s366/1/b/d/note~466895"
+      "id": "ch8/pt8.2/div5/s366/1/d/note~466895"
     },
     {
       "type": "subsection",
@@ -146127,33 +146130,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 371(1A)(b) amended by No. 1/2026 s. 76(1)(a).",
-          "kind": "amendment",
-          "section": "371",
-          "sub_path": [
-            "(1A)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 385,
-          "rect": {
-            "page": 385,
-            "x0": 467.8,
-            "y0": 497.8,
-            "x1": 512.5,
-            "y1": 536.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.2/div6/s371/1/b"
     },
     {
@@ -146342,6 +146318,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 371(1A)(b) amended by No. 1/2026 s. 76(1)(a).",
+          "kind": "amendment",
+          "section": "371",
+          "sub_path": [
+            "(1A)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 385,
+          "rect": {
+            "page": 385,
+            "x0": 467.8,
+            "y0": 497.8,
+            "x1": 512.5,
+            "y1": 536.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch8/pt8.2/div6/s371/1a/b"
     },
     {
@@ -147874,6 +147877,34 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 374(2)(b)(iii) substituted by No. 5/2025 s. 23, amended by No. 1/2026 s. 77.",
+          "kind": "amendment",
+          "section": "374",
+          "sub_path": [
+            "(2)",
+            "(b)",
+            "(iii)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 389,
+          "rect": {
+            "page": 389,
+            "x0": 467.8,
+            "y0": 373.0,
+            "x1": 517.8,
+            "y1": 439.7
+          },
+          "confidence": "low"
+        }
+      ],
       "id": "ch8/pt8.2/div6/s374/2/b"
     },
     {
@@ -148072,34 +148103,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 374(2)(b)(iii) substituted by No. 5/2025 s. 23, amended by No. 1/2026 s. 77.",
-          "kind": "amendment",
-          "section": "374",
-          "sub_path": [
-            "(2)",
-            "(b)",
-            "(iii)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 389,
-          "rect": {
-            "page": 389,
-            "x0": 467.8,
-            "y0": 373.0,
-            "x1": 517.8,
-            "y1": 439.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.2/div6/s374/2/iii"
     },
     {
@@ -148274,9 +148277,9 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "375",
       "heading": null,
-      "text": "* * * * * * * * * *",
+      "text": "* * * * *",
       "page_start": 390,
       "page_end": 390,
       "char_start": 428903,
@@ -148289,7 +148292,58 @@
           "y0": 232.2,
           "x1": 442.4,
           "y1": 248.4
-        },
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "8",
+        "part": "8.2",
+        "division": "6",
+        "subdivision": null,
+        "section": "374",
+        "subsection": "6",
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "history": [
+        {
+          "raw": "New s. 375 inserted by No. 68/2009 s. 50, repealed by No. 37/2017 s. 13(1).",
+          "kind": "amendment",
+          "section": "375",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 390,
+          "rect": {
+            "page": 390,
+            "x0": 79.3,
+            "y0": 232.6,
+            "x1": 120.6,
+            "y1": 299.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div6/s374/6/repealed-375"
+    },
+    {
+      "type": "repealed",
+      "number": "375A",
+      "heading": null,
+      "text": "* * * * *",
+      "page_start": 390,
+      "page_end": 390,
+      "char_start": 428903,
+      "char_end": 428922,
+      "source": "rules",
+      "rects": [
         {
           "page": 390,
           "x0": 206.6,
@@ -148311,7 +148365,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div6/s374/6/repealed~eca3cf"
+      "history": [
+        {
+          "raw": "S. 375A inserted by No. 48/2012 s. 29, repealed by No. 37/2017 s. 13(1).",
+          "kind": "amendment",
+          "section": "375A",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 390,
+          "rect": {
+            "page": 390,
+            "x0": 79.3,
+            "y0": 311.8,
+            "x1": 120.6,
+            "y1": 378.5
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div6/s374/6/repealed-375a"
     },
     {
       "type": "section",
@@ -149529,31 +149607,6 @@
             "y1": 250.1
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 381(1)(c) repealed by No. 48/2018 s. 32(2)(b).",
-          "kind": "amendment",
-          "section": "381",
-          "sub_path": [
-            "(1)",
-            "(c)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 393,
-          "rect": {
-            "page": 393,
-            "x0": 467.8,
-            "y0": 353.2,
-            "x1": 509.0,
-            "y1": 392.3
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch8/pt8.2/div7/s381/1"
@@ -149628,7 +149681,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "c",
       "heading": null,
       "text": "* * * * *",
       "page_start": 393,
@@ -149658,10 +149711,37 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div7/s381/1/b/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 381(1)(c) repealed by No. 48/2018 s. 32(2)(b).",
+          "kind": "amendment",
+          "section": "381",
+          "sub_path": [
+            "(1)",
+            "(c)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 393,
+          "rect": {
+            "page": 393,
+            "x0": 467.8,
+            "y0": 353.2,
+            "x1": 509.0,
+            "y1": 392.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div7/s381/1/b/repealed-c"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "d",
       "heading": null,
       "text": "whether the accused would be unfairly disadvantaged by the admission of the recording;",
@@ -149687,12 +149767,12 @@
         "subdivision": null,
         "section": "381",
         "subsection": "1",
-        "paragraph": "b",
-        "subparagraph": "d",
+        "paragraph": "d",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div7/s381/1/b/d"
+      "id": "ch8/pt8.2/div7/s381/1/d"
     },
     {
       "type": "paragraph",
@@ -149851,7 +149931,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "382",
       "heading": null,
       "text": "* * * * *",
       "page_start": 393,
@@ -149881,7 +149961,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div7/s381/2/repealed~ff6469"
+      "history": [
+        {
+          "raw": "New s. 382 inserted by No. 68/2009 s. 50, repealed by No. 37/2017 s. 13(1).",
+          "kind": "amendment",
+          "section": "382",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 393,
+          "rect": {
+            "page": 393,
+            "x0": 467.8,
+            "y0": 635.8,
+            "x1": 509.0,
+            "y1": 702.5
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div7/s381/2/repealed-382"
     },
     {
       "type": "section",
@@ -154254,11 +154358,11 @@
       "type": "paragraph",
       "number": "a",
       "heading": null,
-      "text": "serving an audio copy on the accused would be likely to present a reasonably ascertainable risk that the accused would commit an offence under section 387L(1) or",
+      "text": "serving an audio copy on the accused would be likely to present a reasonably ascertainable risk that the accused would commit an offence under section 387L(1) or (2) in relation to the recorded statement; or",
       "page_start": 404,
       "page_end": 404,
       "char_start": 445500,
-      "char_end": 445665,
+      "char_end": 445711,
       "source": "rules",
       "rects": [
         {
@@ -154266,7 +154370,7 @@
           "x0": 216.2,
           "y0": 313.2,
           "x1": 450.7,
-          "y1": 370.8
+          "y1": 384.6
         }
       ],
       "path": {
@@ -154283,40 +154387,6 @@
         "definition": null
       },
       "id": "ch8/pt8.2/div7b/s387h/2/a"
-    },
-    {
-      "type": "subsection",
-      "number": "2",
-      "heading": null,
-      "text": "in relation to the recorded statement; or",
-      "page_start": 404,
-      "page_end": 404,
-      "char_start": 445666,
-      "char_end": 445711,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 404,
-          "x0": 235.3,
-          "y0": 368.4,
-          "x1": 444.6,
-          "y1": 384.6
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.2",
-        "division": "7B",
-        "subdivision": null,
-        "section": "387H",
-        "subsection": "2",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.2/div7b/s387h/2~862d0e"
     },
     {
       "type": "paragraph",
@@ -154652,7 +154722,7 @@
       "type": "example",
       "number": null,
       "heading": null,
-      "text": "Examples for paragraph (b)(i) include editing a recorded statement\u2014 to avoid disclosure of a confidential source of information to\n\u2022 the accused\u2014see section 45(1)(c); to avoid disclosure of certain law enforcement methods or\n\u2022 procedures to the accused\u2014see section 45(1)(d); to avoid disclosure of child abuse material to the accused\u2014\n\u2022 see section 185A; to avoid disclosure of addresses or telephone numbers to the\n\u2022 accused\u2014see section 186.",
+      "text": "Examples for paragraph (b)(i) include editing a recorded statement\u2014\n\u2022 to avoid disclosure of a confidential source of information to the accused\u2014see section 45(1)(c);\n\u2022 to avoid disclosure of certain law enforcement methods or procedures to the accused\u2014see section 45(1)(d);\n\u2022 to avoid disclosure of child abuse material to the accused\u2014 see section 185A;\n\u2022 to avoid disclosure of addresses or telephone numbers to the accused\u2014see section 186.",
       "page_start": 405,
       "page_end": 405,
       "char_start": 446772,
@@ -154680,7 +154750,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div7b/s387i/b/iii/example~318d30"
+      "id": "ch8/pt8.2/div7b/s387i/b/iii/example~fecb16"
     },
     {
       "type": "note",
@@ -156969,7 +157039,7 @@
       "type": "example",
       "number": null,
       "heading": null,
-      "text": "This Division does not affect\u2014 Division 2, which provides for restrictions on the\n\u2022 admissibility of evidence about a complainant in criminal proceedings for sexual offences; section 65 of the Evidence Act 2008, which is an exception\n\u2022 to the hearsay rule if a person is not available to give evidence; Part 3.10 of the Evidence Act 2008, which deals with various\n\u2022 privileges in relation to evidence.",
+      "text": "This Division does not affect\u2014\n\u2022 Division 2, which provides for restrictions on the admissibility of evidence about a complainant in criminal proceedings for sexual offences;\n\u2022 section 65 of the Evidence Act 2008, which is an exception to the hearsay rule if a person is not available to give evidence;\n\u2022 Part 3.10 of the Evidence Act 2008, which deals with various privileges in relation to evidence.",
       "page_start": 411,
       "page_end": 411,
       "char_start": 454968,
@@ -156997,7 +157067,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div7b/s387m/example~28573c"
+      "id": "ch8/pt8.2/div7b/s387m/example~1a0a69"
     },
     {
       "type": "section",
@@ -157059,9 +157129,9 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "387O",
       "heading": null,
-      "text": "* * * * * * * * * *",
+      "text": "* * * * *",
       "page_start": 412,
       "page_end": 412,
       "char_start": 455637,
@@ -157074,7 +157144,58 @@
           "y0": 252.0,
           "x1": 442.4,
           "y1": 268.2
-        },
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "8",
+        "part": "8.2",
+        "division": "7B",
+        "subdivision": null,
+        "section": "387N",
+        "subsection": null,
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "history": [
+        {
+          "raw": "S. 387O inserted by No. 33/2018 s. 116, repealed by No. 7/2009 s. 387P(1) (as amended by No. 44/2021 s. 4).",
+          "kind": "amendment",
+          "section": "387O",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 412,
+          "rect": {
+            "page": 412,
+            "x0": 79.3,
+            "y0": 252.4,
+            "x1": 125.7,
+            "y1": 346.7
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div7b/s387n/repealed-387o"
+    },
+    {
+      "type": "repealed",
+      "number": "387P",
+      "heading": null,
+      "text": "* * * * *",
+      "page_start": 412,
+      "page_end": 412,
+      "char_start": 455637,
+      "char_end": 455656,
+      "source": "rules",
+      "rects": [
         {
           "page": 412,
           "x0": 206.6,
@@ -157096,7 +157217,31 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2/div7b/s387n/repealed~eca3cf"
+      "history": [
+        {
+          "raw": "S. 387P inserted by No. 33/2018 s. 116, substituted by No. 44/2021 s. 4, repealed by No. 31/2024 s. 11.",
+          "kind": "amendment",
+          "section": "387P",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 412,
+          "rect": {
+            "page": 412,
+            "x0": 79.3,
+            "y0": 351.4,
+            "x1": 129.3,
+            "y1": 445.7
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.2/div7b/s387n/repealed-387p"
     },
     {
       "type": "division",
@@ -159722,11 +159867,11 @@
       "type": "section",
       "number": "389E",
       "heading": "Directions which may be given at ground rules hearings",
-      "text": "2 disallow an improper question or improper questioning put to a witness in cross-examination, or inform the witness that it need not be answered.",
+      "text": "",
       "page_start": 418,
-      "page_end": 420,
+      "page_end": 418,
       "char_start": 462441,
-      "char_end": 464222,
+      "char_end": 462500,
       "source": "rules",
       "rects": [
         {
@@ -159735,13 +159880,6 @@
           "y0": 574.0,
           "x1": 425.5,
           "y1": 604.4
-        },
-        {
-          "page": 420,
-          "x0": 184.3,
-          "y0": 157.5,
-          "x1": 453.3,
-          "y1": 205.4
         }
       ],
       "path": {
@@ -160180,11 +160318,11 @@
       "type": "note",
       "number": "1",
       "heading": null,
-      "text": "A direction referred to in subsection (2)(f) may exclude all or part of the operation of the rule attributed to Browne v Dunn",
+      "text": "A direction referred to in subsection (2)(f) may exclude all or part of the operation of the rule attributed to Browne v Dunn (1893) 6 R 67 followed and applied in criminal proceedings in Victoria in R v McDowell [1997] 1 VR 473 (CA), R v MG (2006) 175 A Crim R 342, R v SWC (2007) 175 A Crim R 71 and R v Ferguson (2009) 24 VR 531 in the circumstances in which, and in relation to witnesses to which, this Division applies.",
       "page_start": 419,
       "page_end": 419,
       "char_start": 463591,
-      "char_end": 463718,
+      "char_end": 464017,
       "source": "rules",
       "rects": [
         {
@@ -160192,7 +160330,7 @@
           "x0": 184.3,
           "y0": 599.7,
           "x1": 452.7,
-          "y1": 624.7
+          "y1": 693.7
         }
       ],
       "path": {
@@ -160229,69 +160367,28 @@
             "x1": 508.5,
             "y1": 630.6
           },
-          "confidence": "high"
+          "confidence": "low"
         }
       ],
       "id": "ch8/pt8.2a/div1/s389e/3/note-1"
     },
     {
-      "type": "subsection",
-      "number": "1893",
+      "type": "note",
+      "number": "2",
       "heading": null,
-      "text": "6 R 67 followed and applied in criminal proceedings in Victoria in R v McDowell [1997] 1 VR 473 (CA), R v MG",
-      "page_start": 419,
-      "page_end": 419,
-      "char_start": 463719,
-      "char_end": 463834,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 419,
-          "x0": 204.7,
-          "y0": 622.8,
-          "x1": 450.0,
-          "y1": 647.7
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.2A",
-        "division": "1",
-        "subdivision": null,
-        "section": "389E",
-        "subsection": "1893",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.2a/div1/s389e/1893"
-    },
-    {
-      "type": "subsection",
-      "number": "2006",
-      "heading": null,
-      "text": "175 A Crim R 342, R v SWC (2007) 175 A Crim R 71 and R v Ferguson (2009) 24 VR 531 in the circumstances in which, and in relation to witnesses to which, this Division applies. Section 41 of the Evidence Act 2008 requires the court to",
-      "page_start": 419,
+      "text": "Section 41 of the Evidence Act 2008 requires the court to disallow an improper question or improper questioning put to a witness in cross-examination, or inform the witness that it need not be answered.",
+      "page_start": 420,
       "page_end": 420,
-      "char_start": 463835,
-      "char_end": 464075,
+      "char_start": 464018,
+      "char_end": 464222,
       "source": "rules",
       "rects": [
-        {
-          "page": 419,
-          "x0": 204.7,
-          "y0": 645.8,
-          "x1": 452.5,
-          "y1": 693.7
-        },
         {
           "page": 420,
-          "x0": 204.7,
-          "y0": 157.4,
-          "x1": 439.5,
-          "y1": 171.1
+          "x0": 184.3,
+          "y0": 157.5,
+          "x1": 453.3,
+          "y1": 205.4
         }
       ],
       "path": {
@@ -160301,13 +160398,13 @@
         "division": "1",
         "subdivision": null,
         "section": "389E",
-        "subsection": "2006",
+        "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.2a/div1/s389e/2006"
+      "id": "ch8/pt8.2a/div1/s389e/3/note-2"
     },
     {
       "type": "division",
@@ -160635,11 +160732,11 @@
       "type": "subsection",
       "number": "3",
       "heading": null,
-      "text": "In this Division (other than in section 389J(4)(c)), witness means a witness referred to in subsection",
+      "text": "In this Division (other than in section 389J(4)(c)), witness means a witness referred to in subsection (1).",
       "page_start": 420,
       "page_end": 420,
       "char_start": 464703,
-      "char_end": 464809,
+      "char_end": 464814,
       "source": "rules",
       "rects": [
         {
@@ -160647,7 +160744,7 @@
           "x0": 190.1,
           "y0": 504.2,
           "x1": 452.0,
-          "y1": 534.2
+          "y1": 548.0
         }
       ],
       "path": {
@@ -160664,40 +160761,6 @@
         "definition": null
       },
       "id": "ch8/pt8.2a/div2/s389f/3"
-    },
-    {
-      "type": "subsection",
-      "number": "1",
-      "heading": null,
-      "text": ".",
-      "page_start": 420,
-      "page_end": 420,
-      "char_start": 464810,
-      "char_end": 464814,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 420,
-          "x0": 209.8,
-          "y0": 531.8,
-          "x1": 229.8,
-          "y1": 548.0
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.2A",
-        "division": "2",
-        "subdivision": null,
-        "section": "389F",
-        "subsection": "1",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.2a/div2/s389f/1~cff8ea"
     },
     {
       "type": "section",
@@ -162668,33 +162731,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 391(4)(c) amended by No. 30/2010 s. 71(1).",
-          "kind": "amendment",
-          "section": "391",
-          "sub_path": [
-            "(4)",
-            "(c)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 427,
-          "rect": {
-            "page": 427,
-            "x0": 467.8,
-            "y0": 341.2,
-            "x1": 511.8,
-            "y1": 380.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.3/s391/2/c"
     },
     {
@@ -162959,6 +162995,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 391(4)(c) amended by No. 30/2010 s. 71(1).",
+          "kind": "amendment",
+          "section": "391",
+          "sub_path": [
+            "(4)",
+            "(c)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 427,
+          "rect": {
+            "page": 427,
+            "x0": 467.8,
+            "y0": 341.2,
+            "x1": 511.8,
+            "y1": 380.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch8/pt8.3/s391/4/c"
     },
     {
@@ -164203,46 +164266,12 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "The Electronic Transactions (Victoria) Act 2000 applies",
+      "text": "The Electronic Transactions (Victoria) Act 2000 applies to enable a document to be served electronically, including facsimile transmission and email, in accordance with that Act.",
       "page_start": 430,
       "page_end": 430,
       "char_start": 475005,
-      "char_end": 475060,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 430,
-          "x0": 204.7,
-          "y0": 356.6,
-          "x1": 442.3,
-          "y1": 370.3
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.3",
-        "division": null,
-        "subdivision": null,
-        "section": "392",
-        "subsection": "4",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.3/s392/4/note~340ceb"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "to enable a document to be served electronically, including facsimile transmission and email, in accordance with that Act.",
-      "page_start": 430,
-      "page_end": 430,
-      "char_start": 475061,
       "char_end": 475185,
       "source": "rules",
       "rects": [
@@ -164936,55 +164965,21 @@
     },
     {
       "type": "note",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "See section 49 of the Interpretation of Legislation",
+      "text": "See section 49 of the Interpretation of Legislation Act 1984 as to service by post.",
       "page_start": 432,
       "page_end": 432,
       "char_start": 478217,
-      "char_end": 478268,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 432,
-          "x0": 230.2,
-          "y0": 453.2,
-          "x1": 440.1,
-          "y1": 466.9
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.3",
-        "division": null,
-        "subdivision": null,
-        "section": "394",
-        "subsection": "1",
-        "paragraph": "c",
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.3/s394/1/c/note~0c322b"
-    },
-    {
-      "type": "note",
-      "number": "1",
-      "heading": null,
-      "text": "Act 1984 as to service by post. The Electronic Transactions (Victoria) Act 2000",
-      "page_start": 432,
-      "page_end": 432,
-      "char_start": 478269,
-      "char_end": 478350,
+      "char_end": 478302,
       "source": "rules",
       "rects": [
         {
           "page": 432,
           "x0": 209.8,
           "y0": 453.3,
-          "x1": 436.9,
-          "y1": 496.0
+          "x1": 440.1,
+          "y1": 478.5
         }
       ],
       "path": {
@@ -165006,10 +165001,10 @@
       "type": "note",
       "number": "2",
       "heading": null,
-      "text": "applies to enable a document to be served electronically, including fax transmission and email, in accordance with that Act.",
+      "text": "The Electronic Transactions (Victoria) Act 2000 applies to enable a document to be served electronically, including fax transmission and email, in accordance with that Act.",
       "page_start": 432,
       "page_end": 432,
-      "char_start": 478351,
+      "char_start": 478303,
       "char_end": 478477,
       "source": "rules",
       "rects": [
@@ -165571,19 +165566,19 @@
       "type": "subsection",
       "number": "3",
       "heading": null,
-      "text": "A document purporting to be an affidavit or statutory declaration under subsection (1)(b) or",
+      "text": "A document purporting to be an affidavit or statutory declaration under subsection (1)(b) or (1)(c) is admissible in evidence and, in the absence of evidence to the contrary, is proof of the statements in it.",
       "page_start": 434,
       "page_end": 434,
       "char_start": 479901,
-      "char_end": 479997,
+      "char_end": 480113,
       "source": "rules",
       "rects": [
         {
           "page": 434,
           "x0": 190.1,
           "y0": 204.6,
-          "x1": 438.8,
-          "y1": 234.6
+          "x1": 456.0,
+          "y1": 276.0
         }
       ],
       "path": {
@@ -165626,40 +165621,6 @@
         }
       ],
       "id": "ch8/pt8.3/s399/3"
-    },
-    {
-      "type": "subsection",
-      "number": "1",
-      "heading": null,
-      "text": "(c) is admissible in evidence and, in the absence of evidence to the contrary, is proof of the statements in it.",
-      "page_start": 434,
-      "page_end": 434,
-      "char_start": 479998,
-      "char_end": 480113,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 434,
-          "x0": 209.8,
-          "y0": 232.2,
-          "x1": 456.0,
-          "y1": 276.0
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.3",
-        "division": null,
-        "subdivision": null,
-        "section": "399",
-        "subsection": "1",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.3/s399/1~599247"
     },
     {
       "type": "subsection",
@@ -166773,33 +166734,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 404(2)(b) amended by No. 17/2014 s. 160(Sch. 2 item 30.3).",
-          "kind": "amendment",
-          "section": "404",
-          "sub_path": [
-            "(2)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 438,
-          "rect": {
-            "page": 438,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 123.6,
-            "y1": 211.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.4/div3/s404/1/b"
     },
     {
@@ -166971,6 +166905,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 404(2)(b) amended by No. 17/2014 s. 160(Sch. 2 item 30.3).",
+          "kind": "amendment",
+          "section": "404",
+          "sub_path": [
+            "(2)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 438,
+          "rect": {
+            "page": 438,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 123.6,
+            "y1": 211.9
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch8/pt8.4/div3/s404/2/b"
     },
     {
@@ -167455,31 +167416,6 @@
             "y1": 423.1
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 406(3)(b) amended by No. 3/2016 s. 83(4)(b).",
-          "kind": "amendment",
-          "section": "406",
-          "sub_path": [
-            "(3)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 440,
-          "rect": {
-            "page": 440,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 123.3,
-            "y1": 202.7
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch8/pt8.4/div4/s406/1/b"
@@ -167705,6 +167641,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
+      "history": [
+        {
+          "raw": "S. 406(3)(b) amended by No. 3/2016 s. 83(4)(b).",
+          "kind": "amendment",
+          "section": "406",
+          "sub_path": [
+            "(3)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 440,
+          "rect": {
+            "page": 440,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 123.3,
+            "y1": 202.7
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch8/pt8.4/div4/s406/3/b"
     },
     {
@@ -170730,11 +170693,11 @@
       "type": "paragraph",
       "number": "b",
       "heading": null,
-      "text": "the informant must make available for inspection by the DPP any information, document or thing referred to in subsection",
+      "text": "the informant must make available for inspection by the DPP any information, document or thing referred to in subsection (2) or (3) if requested by the DPP.",
       "page_start": 448,
       "page_end": 448,
       "char_start": 495982,
-      "char_end": 496106,
+      "char_end": 496142,
       "source": "rules",
       "rects": [
         {
@@ -170742,7 +170705,7 @@
           "x0": 215.5,
           "y0": 495.0,
           "x1": 445.6,
-          "y1": 538.8
+          "y1": 552.6
         }
       ],
       "path": {
@@ -170762,47 +170725,13 @@
     },
     {
       "type": "subsection",
-      "number": "2",
-      "heading": null,
-      "text": "or (3) if requested by the DPP.",
-      "page_start": 448,
-      "page_end": 448,
-      "char_start": 496107,
-      "char_end": 496142,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 448,
-          "x0": 235.3,
-          "y0": 536.4,
-          "x1": 402.4,
-          "y1": 552.6
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.5",
-        "division": null,
-        "subdivision": null,
-        "section": "415A",
-        "subsection": "2",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.5/s415a/2~b0cd29"
-    },
-    {
-      "type": "subsection",
       "number": "7",
       "heading": null,
-      "text": "The informant must comply with subsection (5) or",
+      "text": "The informant must comply with subsection (5) or (6)(b) as soon as practicable after the DPP makes the request.",
       "page_start": 448,
       "page_end": 448,
       "char_start": 496143,
-      "char_end": 496195,
+      "char_end": 496258,
       "source": "rules",
       "rects": [
         {
@@ -170810,7 +170739,7 @@
           "x0": 190.1,
           "y0": 556.2,
           "x1": 455.0,
-          "y1": 572.4
+          "y1": 600.0
         }
       ],
       "path": {
@@ -170827,40 +170756,6 @@
         "definition": null
       },
       "id": "ch8/pt8.5/s415a/7"
-    },
-    {
-      "type": "subsection",
-      "number": "6",
-      "heading": null,
-      "text": "(b) as soon as practicable after the DPP makes the request.",
-      "page_start": 448,
-      "page_end": 448,
-      "char_start": 496196,
-      "char_end": 496258,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 448,
-          "x0": 209.8,
-          "y0": 570.0,
-          "x1": 449.3,
-          "y1": 600.0
-        }
-      ],
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.5",
-        "division": null,
-        "subdivision": null,
-        "section": "415A",
-        "subsection": "6",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch8/pt8.5/s415a/6~720b7b"
     },
     {
       "type": "subsection",
@@ -172664,7 +172559,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "b",
       "heading": null,
       "text": "* * * * *",
       "page_start": 453,
@@ -172694,10 +172589,37 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/a/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 420(1)(b) repealed by No. 81/2011 s. 22(3).",
+          "kind": "amendment",
+          "section": "420",
+          "sub_path": [
+            "(1)",
+            "(b)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 453,
+          "rect": {
+            "page": 453,
+            "x0": 467.8,
+            "y0": 272.2,
+            "x1": 509.0,
+            "y1": 311.3
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch8/pt8.5/s420/1/a/repealed-b"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "c",
       "heading": null,
       "text": "prescribing allowances and expenses to be paid to prosecution witnesses, intermediaries and interpreters\u2014",
@@ -172723,8 +172645,8 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "a",
-        "subparagraph": "c",
+        "paragraph": "c",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
@@ -172755,10 +172677,10 @@
           "confidence": "high"
         }
       ],
-      "id": "ch8/pt8.5/s420/1/a/c"
+      "id": "ch8/pt8.5/s420/1/c"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "i",
       "heading": null,
       "text": "in criminal trials and criminal appeal proceedings in the Supreme Court and in criminal trials in the County Court;",
@@ -172784,15 +172706,15 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "i",
-        "subparagraph": null,
+        "paragraph": "c",
+        "subparagraph": "i",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/i"
+      "id": "ch8/pt8.5/s420/1/c/i"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "ii",
       "heading": null,
       "text": "in criminal proceedings in the Magistrates' Court and Children's Court and in appeal proceedings in the County Court;",
@@ -172818,8 +172740,8 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "ii",
-        "subparagraph": null,
+        "paragraph": "c",
+        "subparagraph": "ii",
         "sub_subparagraph": null,
         "definition": null
       },
@@ -172851,10 +172773,10 @@
           "confidence": "high"
         }
       ],
-      "id": "ch8/pt8.5/s420/1/ii"
+      "id": "ch8/pt8.5/s420/1/c/ii"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "d",
       "heading": null,
       "text": "prescribing allowances and expenses to be paid to witnesses and interpreters\u2014",
@@ -172880,15 +172802,15 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "ii",
-        "subparagraph": "d",
+        "paragraph": "d",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/ii/d"
+      "id": "ch8/pt8.5/s420/1/d"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "i",
       "heading": null,
       "text": "attending on the order of the Court of Appeal or examined in a proceeding incidental to a criminal appeal or new trial;",
@@ -172914,15 +172836,15 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "i",
-        "subparagraph": null,
+        "paragraph": "d",
+        "subparagraph": "i",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/i~c55d11"
+      "id": "ch8/pt8.5/s420/1/d/i"
     },
     {
-      "type": "paragraph",
+      "type": "subparagraph",
       "number": "ii",
       "heading": null,
       "text": "attending for examination by a person appointed by the Court of Appeal for the purposes of criminal appeal proceedings;",
@@ -172948,15 +172870,15 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "ii",
-        "subparagraph": null,
+        "paragraph": "d",
+        "subparagraph": "ii",
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/ii~93f9a8"
+      "id": "ch8/pt8.5/s420/1/d/ii"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "e",
       "heading": null,
       "text": "prescribing allowances and expenses to be paid to a special commissioner appointed by the Court of Appeal to examine a question arising on criminal appeal proceedings;",
@@ -172982,15 +172904,15 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "ii",
-        "subparagraph": "e",
+        "paragraph": "e",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/ii/e"
+      "id": "ch8/pt8.5/s420/1/e"
     },
     {
-      "type": "subparagraph",
+      "type": "paragraph",
       "number": "ea",
       "heading": null,
       "text": "the making, use (including for training and evaluation purposes), possession, copying, storage, access to and destruction of an audio or audiovisual recording referred to in Chapter 4 or 5 or Part 8.2 or made in a proceeding in which an intermediary is appointed under Part 8.2A or any copy or transcript of such an audio or audiovisual recording;",
@@ -173016,12 +172938,12 @@
         "subdivision": null,
         "section": "420",
         "subsection": "1",
-        "paragraph": "ii",
-        "subparagraph": "ea",
+        "paragraph": "ea",
+        "subparagraph": null,
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch8/pt8.5/s420/1/ii/ea"
+      "id": "ch8/pt8.5/s420/1/ea"
     },
     {
       "type": "paragraph",
@@ -173218,33 +173140,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 420(1)(b) repealed by No. 81/2011 s. 22(3).",
-          "kind": "amendment",
-          "section": "420",
-          "sub_path": [
-            "(1)",
-            "(b)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 453,
-          "rect": {
-            "page": 453,
-            "x0": 467.8,
-            "y0": 272.2,
-            "x1": 509.0,
-            "y1": 311.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch8/pt8.5/s420/2/b"
     },
     {
@@ -189502,48 +189397,6 @@
   ],
   "unattached_notes": [
     {
-      "raw": "S. 99 repealed by No. 48/2018 s. 20.",
-      "kind": "amendment",
-      "section": "99",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 129,
-      "rect": {
-        "page": 129,
-        "x0": 467.8,
-        "y0": 440.7,
-        "x1": 509.0,
-        "y1": 479.8
-      }
-    },
-    {
-      "raw": "S. 133 amended by Nos 69/2009 s. 54(Sch. Pt 2 item 18.1), 5/2018 s. 27, repealed by No. 5/2025 s. 15.",
-      "kind": "amendment",
-      "section": "133",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 175,
-      "rect": {
-        "page": 175,
-        "x0": 467.8,
-        "y0": 590.2,
-        "x1": 516.8,
-        "y1": 675.3
-      }
-    },
-    {
       "raw": "Pt 4.11 (Heading and ss 149\u2013152) amended by No. 68/2009 ss 16, 49(h), repealed by No. 48/2018 s. 28.",
       "kind": "amendment",
       "section": null,
@@ -189565,90 +189418,6 @@
       }
     },
     {
-      "raw": "S. 155 repealed by No. 5/2025 s. 9.",
-      "kind": "amendment",
-      "section": "155",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 189,
-      "rect": {
-        "page": 189,
-        "x0": 467.8,
-        "y0": 163.6,
-        "x1": 509.0,
-        "y1": 202.7
-      }
-    },
-    {
-      "raw": "New s. 361 inserted by No. 68/2009 s. 50, amended by No. 30/2010 s. 67, repealed by No. 37/2017 s. 13(1).",
-      "kind": "amendment",
-      "section": "361",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 375,
-      "rect": {
-        "page": 375,
-        "x0": 467.8,
-        "y0": 381.3,
-        "x1": 511.8,
-        "y1": 475.6
-      }
-    },
-    {
-      "raw": "New s. 375 inserted by No. 68/2009 s. 50, repealed by No. 37/2017 s. 13(1).",
-      "kind": "amendment",
-      "section": "375",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 390,
-      "rect": {
-        "page": 390,
-        "x0": 79.3,
-        "y0": 232.6,
-        "x1": 120.6,
-        "y1": 299.3
-      }
-    },
-    {
-      "raw": "S. 375A inserted by No. 48/2012 s. 29, repealed by No. 37/2017 s. 13(1).",
-      "kind": "amendment",
-      "section": "375A",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 390,
-      "rect": {
-        "page": 390,
-        "x0": 79.3,
-        "y0": 311.8,
-        "x1": 120.6,
-        "y1": 378.5
-      }
-    },
-    {
       "raw": "New s. 377 inserted by No. 68/2009 s. 50, substituted as Note by No. 37/2017 s. 14.",
       "kind": "amendment",
       "section": "377",
@@ -189667,69 +189436,6 @@
         "y0": 205.0,
         "x1": 517.3,
         "y1": 280.9
-      }
-    },
-    {
-      "raw": "New s. 382 inserted by No. 68/2009 s. 50, repealed by No. 37/2017 s. 13(1).",
-      "kind": "amendment",
-      "section": "382",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 393,
-      "rect": {
-        "page": 393,
-        "x0": 467.8,
-        "y0": 635.8,
-        "x1": 509.0,
-        "y1": 702.5
-      }
-    },
-    {
-      "raw": "S. 387O inserted by No. 33/2018 s. 116, repealed by No. 7/2009 s. 387P(1) (as amended by No. 44/2021 s. 4).",
-      "kind": "amendment",
-      "section": "387O",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 412,
-      "rect": {
-        "page": 412,
-        "x0": 79.3,
-        "y0": 252.4,
-        "x1": 125.7,
-        "y1": 346.7
-      }
-    },
-    {
-      "raw": "S. 387P inserted by No. 33/2018 s. 116, substituted by No. 44/2021 s. 4, repealed by No. 31/2024 s. 11.",
-      "kind": "amendment",
-      "section": "387P",
-      "sub_path": [],
-      "target_kind": null,
-      "target_id": null,
-      "schedule": null,
-      "chapter": null,
-      "division": null,
-      "part": null,
-      "def_name": null,
-      "page": 412,
-      "rect": {
-        "page": 412,
-        "x0": 79.3,
-        "y0": 351.4,
-        "x1": 129.3,
-        "y1": 445.7
       }
     },
     {
