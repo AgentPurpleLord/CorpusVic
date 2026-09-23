@@ -2443,19 +2443,21 @@ def _timeline(work: str) -> dict:
     amendment. Only where the parses differ are the texts a reader sees
     compared, and those carry every review decision, lent ones included.
 
-    Every version should have been read by the same parser. Where they
-    were not, the parsers' own disagreements arrive here as amendments,
-    so mixed_parsers is recorded and _provision_timeline shows a history
-    only once a human has checked every wording in it.
+    Shown as soon as it is parsed, like every other provision on the site:
+    review is reassurance, not a gate. Each wording nobody has checked
+    says so on the page (see html_view.render_history). A history used to
+    be withheld until every wording in it was checked wherever the
+    versions had been read by different parsers -- and four of the five
+    Criminal Procedure Act reprints predate parser_version being recorded
+    at all, so every one of its 47 histories was hidden, with nothing on
+    the page to say why.
     """
     slugs = _work_versions(work)
     signature = _work_signature(work)
     cached = _timeline_cache.get(work)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}, "mixed_parsers": False}
-    parsers = {_parse_field(slug, "parser_version") for slug in slugs}
-    result["mixed_parsers"] = len(parsers) > 1
+    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}}
     lineage_state = _work_lineage(work)
     if lineage_state:
         docs = []
@@ -2568,7 +2570,7 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
     chain_no = timeline["by_key"].get((version, key))
     if chain_no is not None:
         chain = timeline["chains"][chain_no]
-        if len(chain["wordings"]) > 1 and _honest(timeline, chain):
+        if len(chain["wordings"]) > 1:
             history = {**chain, "at": lineage.wording_at(chain, version)}
     urls = {}
     for other in timeline["slugs"]:
@@ -2587,14 +2589,6 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
         if url:
             urls[other_version] = url
     return history, urls
-
-
-def _honest(timeline: dict, chain: dict) -> bool:
-    """Whether a chain can be shown at all: with every version read by
-    one parser, yes; otherwise only once a human has checked each of its
-    wordings, since an unchecked difference may be the parsers' own."""
-    return not timeline["mixed_parsers"] or all(
-        w["checked"] for w in chain["wordings"] if not w["absent"])
 
 
 def _ghosts(slug: str) -> list[dict]:
@@ -2618,7 +2612,7 @@ def _ghosts(slug: str) -> list[dict]:
     ghosts = []
     for chain in timeline["chains"]:
         at = lineage.wording_at(chain, version)
-        if at is None or not chain["wordings"][at]["absent"] or not _honest(timeline, chain):
+        if at is None or not chain["wordings"][at]["absent"]:
             continue
         before = [w for w in chain["wordings"][:at] if not w["absent"]]
         if not before:

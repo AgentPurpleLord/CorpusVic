@@ -7,15 +7,14 @@ S99 = ("provision", None, "99")
 S100 = ("provision", None, "100")
 
 
-def _timeline(mixed=False, checked=True):
+def _timeline(checked=True):
     present = {"absent": False, "versions": [1], "from": {"version": 1}, "to": {"version": 1},
                "key": S99, "keys": {1: S99}, "version": 1, "checked": checked,
                "provision": {"heading": "Old offence"},
                "ended_by": {"version": 2, "change": "repealed", "notes": []}}
     absent = {"absent": True, "versions": [2], "from": {"version": 2}, "to": {"version": 2}}
     return {"slugs": ["act-v1", "act-v2"], "chains": [{"wordings": [present, absent]}],
-            "by_key": {(1, S99): 0}, "order": {1: [S98, S99, S100], 2: [S98, S100]},
-            "mixed_parsers": mixed}
+            "by_key": {(1, S99): 0}, "order": {1: [S98, S99, S100], 2: [S98, S100]}}
 
 
 def _pages(slug):
@@ -41,10 +40,30 @@ def test_the_version_that_still_has_it_has_no_ghost(monkeypatch):
     assert dashboard._ghosts("act-v1") == []
 
 
-def test_no_ghost_from_an_unchecked_comparison_across_parsers(monkeypatch):
-    """A section two parsers disagree about may simply be one the older
-    parser missed; a register of the law must not call it repealed."""
-    monkeypatch.setattr(dashboard, "_timeline", lambda work: _timeline(mixed=True, checked=False))
+def test_an_unchecked_repeal_still_gets_its_page(monkeypatch):
+    """Parsed means published, here as everywhere else on the site; a
+    reviewer's check is reassurance, not a gate. This used to return no
+    ghost until every wording was checked wherever the versions had been
+    read by different parsers -- and with four of the five Criminal
+    Procedure Act reprints predating parser_version, that hid everything.
+    What carries the caution now is the page: the wording is marked as not
+    yet checked (see html_view.render_history)."""
+    monkeypatch.setattr(dashboard, "_timeline", lambda work: _timeline(checked=False))
     monkeypatch.setattr(dashboard, "_page_index", _pages)
 
-    assert dashboard._ghosts("act-v2") == []
+    [ghost] = dashboard._ghosts("act-v2")
+
+    assert ghost["history"]["wordings"][0]["checked"] is False, "it goes out marked, not hidden"
+
+
+def test_an_unchecked_history_is_shown_on_the_provision_itself(monkeypatch):
+    """The same rule on a provision that still exists. With four of the
+    five Criminal Procedure Act reprints predating parser_version, the old
+    gate hid all 47 of its histories."""
+    monkeypatch.setattr(dashboard, "_timeline", lambda work: _timeline(checked=False))
+    monkeypatch.setattr(dashboard, "_page_index", _pages)
+
+    history, _urls = dashboard._provision_timeline("act-v1", "99", None)
+
+    assert history is not None, "hidden until checked -- the gate is back"
+    assert history["wordings"][0]["checked"] is False

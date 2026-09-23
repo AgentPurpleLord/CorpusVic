@@ -332,9 +332,20 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .reader-section:not(.historical) .history.hist-js { display: none; }
 .reader-section.historical > .provisions,
 .reader-section.historical > .copy-section { display: none; }
-.hist-js .hist-track { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.hist-js .hist-panel { display: none; border: 1px solid var(--border); }
-.hist-js .hist-panel.hist-shown { display: block; }
+/* The wordings in one row, oldest on the left, two to a screen, that the
+   reader moves through sideways. A native scroller with snap points
+   rather than panels shown and hidden by script, so a trackpad swipe, a
+   touch swipe and Shift+wheel all work with no gesture code -- and the
+   page's own vertical scroll, which reading on depends on, is never
+   touched. */
+.hist-js .hist-track {
+  display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scrollbar-width: thin;
+}
+.hist-js .hist-panel {
+  flex: 0 0 calc(50% - 6px); min-width: 0; scroll-snap-align: start;
+  border: 1px solid var(--border);
+}
 .hist-nav {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin: 0 0 10px; font-size: 12px; color: var(--muted);
@@ -349,9 +360,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .hist-dot { width: 9px; height: 9px; padding: 0; border: 1px solid var(--muted); background: transparent; cursor: pointer; }
 .hist-dot.on { background: var(--accent); border-color: var(--accent); }
 @media (max-width: 720px) {
-  .hist-js .hist-track { grid-template-columns: minmax(0, 1fr); }
-  .hist-js .hist-panel.hist-shown { display: none; }
-  .hist-js .hist-panel.hist-focus { display: block; }
+  .hist-js .hist-panel { flex-basis: 100%; }
 }
 
 /* Words that arrived, and words that went. A deletion is struck through
