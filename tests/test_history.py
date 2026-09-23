@@ -136,3 +136,36 @@ def test_history_review_fetches_the_ticked_versions_one_at_a_time():
 
     assert 'fetch(API + "/versions/available")' in page
     assert "for (const [n, v] of ticked.entries())" in page and "fetch(`${API}/versions/fetch/${v}`" in page
+
+
+def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
+    """The Act names (2); v2's parse has the change under (1)."""
+    import corpus.web.dashboard as dashboard
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    for version, text in ((1, "a person may appeal"), (2, "a person may appeal within 28 days")):
+        nodes = _nodes({"2": [("1", text), ("2", "the same")]})
+        nodes[-2]["history"] = [{"raw": "S. 2(1) amended by No. 7/2026 s. 3."}] if version == 2 else []
+        (parsed / f"act-v{version}.json").write_text(json.dumps({
+            "nodes": nodes, "hierarchy": HIERARCHY,
+            "fingerprint": f"fp{version}", "version": {"version": version},
+            "endnotes": {"amending_acts": [{"title": "Appeals Amendment Act 2026", "citation": "7/2026",
+                                             "act_no": "7", "year": "2026"}]}}))
+    amending = tmp_path / "data" / "amending"
+    amending.mkdir(parents=True)
+    (amending / "2026-7.json").write_text(json.dumps([{
+        "act": "7/2026", "provision": "s. 3", "target_act": "Appeals Act 2020", "schedule": None, "section": "2",
+        "path": ["2"], "heading": False, "definition": None, "action": "insert_after", "old": "appeal",
+        "new": "within 28 days", "number": None, "raw": 'In section 2(2), after "appeal" insert "within 28 days".'}]))
+
+    [item] = dashboard.history_items("act")["items"]
+    [ins] = item["instructions"]
+    assert (ins["status"], ins["place_as"]) == ("elsewhere", "(2)")
+    assert ins["node_id"] == _nodes({"2": [("1", "x")]})[-1]["id"], "v2's (1), where the parse has the change"
+
+    page = (dashboard.STATIC_DIR / "history.html").read_text(encoding="utf-8")
+    assert "/api/named/${encodeURIComponent(btn.dataset.node)}/place" in page

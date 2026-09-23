@@ -49,6 +49,7 @@
   .instr { border-left: 3px solid var(--border); padding: 3px 8px; margin: 4px 0; }
   .instr.matched { border-left-color: var(--done); }
   .instr.elsewhere, .instr.not-found { border-left-color: var(--flagged); }
+  .instr .place { margin-top: 4px; }
   .note { font-style: italic; margin: 2px 0; }
   .decide { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
   .decide .btn { padding: 6px 14px; }
@@ -163,7 +164,8 @@ function showItem() {
                    unchecked: "not checked automatically" };
   const acts = i.instructions.map((a) => `<div class="instr ${a.status.replace(" ", "-")}">
       <strong>No. ${esc(a.act)} ${esc(a.provision)}</strong> &mdash; ${esc(a.raw)}
-      <div class="none">${esc(status[a.status] || a.status)}${a.here ? "" : " (for another piece of this section)"}</div></div>`).join("");
+      <div class="none">${esc(status[a.status] || a.status)}${a.here ? "" : " (for another piece of this section)"}</div>
+      ${a.place_as ? `<button class="btn place" data-node="${esc(a.node_id)}" data-reference="${esc(a.place_as)}">Make this ${esc(a.place_as)} in v${i.to}</button>` : ""}</div>`).join("");
   const notes = i.notes.map((n) => `<div class="note">${esc(n)}</div>`).join("");
   const decided = i.decision ? `<span class="decided">${i.decision === "confirmed" ? "Confirmed: shown publicly" : "Denied: a parsing issue, not shown"}</span>
       <button class="btn" onclick="decide(null)">Undo (u)</button>` : "";
@@ -267,6 +269,27 @@ document.getElementById("fetch-acts").onclick = async (e) => {
   } catch (err) { toast(String(err), true); }
   finally { btn.disabled = false; btn.textContent = "Fetch amending Acts"; }
 };
+// Putting a piece where the Act says it is, in the later version: its
+// review server's place tool, by the piece's name, so its type, number
+// and position all follow from the one reference.
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".place");
+  if (!btn) return;
+  const item = shown[current];
+  btn.disabled = true;
+  try {
+    const res = await fetch(`../../review/${encodeURIComponent(slugOf(item.to))}/api/named/${encodeURIComponent(btn.dataset.node)}/place`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reference: btn.dataset.reference, after_node_index: null }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    toast(data.matches ? `Now ${data.reference}, as the Act says.`
+      : `Placed, but it reads as ${data.reference || "unnumbered"} there -- check it in review.`, !data.matches);
+    await load();
+  } catch (err) { toast(err.message, true); btn.disabled = false; }
+});
+
 // The site's list of versions, newest first, those held already ticked.
 // Each ticked one is fetched and parsed in turn, one request apiece, so
 // the log says how far a long list has got.

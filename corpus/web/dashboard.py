@@ -1600,6 +1600,16 @@ def _history_items(work: str) -> list[dict]:
             if r["action"] == "insert_section":
                 at = history_changes.WHOLE
             target = [i for i in group if i["piece"] == at] or group
+            if r["status"] == "elsewhere" and not r.get("schedule") and r.get("path") and r["pair"][1] is not None:
+                # The Act says where the piece belongs and the later
+                # version's parse has it elsewhere: a reference its review
+                # server can put it at (review.place_named).
+                path = list(r["path"])
+                if r["action"] == "insert_provision" and r.get("number"):
+                    path = path[:-1] + [r["number"]]
+                node_id = r["pair"][1]["tree_node"]["node"].get("id")
+                if node_id:
+                    evidence.update(place_as="".join(f"({p})" for p in path), node_id=node_id)
             for item in target:
                 item["instructions"].append({**evidence, "here": item["piece"] == at})
     public = [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]

@@ -481,6 +481,12 @@ def build_current_nodes(act: str) -> tuple[list[dict], list[dict], list[str]]:
                     merged_away.add(i)
 
     current_nodes = [verified_by_source_index.get(i, node_at(i)) for i in order if i not in merged_away]
+    # Named as in build_effective_nodes_indexed: History review hands a
+    # piece's name back to this server to put it right (place_named).
+    names = names_by_index(nodes, edits)
+    for i, node in zip((i for i in order if i not in merged_away), current_nodes):
+        if not node.get("id") and names.get(i):
+            node["id"] = names[i]
     return current_nodes, unattached_notes, hierarchy
 
 
@@ -2647,6 +2653,17 @@ def _block(unit_indices: list[int], i: int, as_type: "str | None" = None) -> lis
             break
         out.append(j)
     return out
+
+
+@app.post("/api/named/{node_id:path}/place")
+def place_named(node_id: str, req: PlaceRequest):
+    """The place endpoint by a piece's name rather than its position here,
+    for History review, which reads the version's text without this
+    server's positions."""
+    index = next((i for i, name in _node_ids.items() if name == node_id), None)
+    if index is None:
+        raise HTTPException(404, f"No piece named {node_id!r} in this version.")
+    return place_node_endpoint(index, req)
 
 
 @app.post("/api/nodes/{node_index}/place")

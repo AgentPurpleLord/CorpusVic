@@ -69,6 +69,16 @@ def test_a_piece_read_at_the_wrong_level_is_put_right_by_its_reference(s110):
     assert labels[10] == "(1)(e)"
 
 
+def test_history_review_places_a_piece_by_its_name(s110):
+    """History review knows the piece by name, not by this server's
+    position for it."""
+    result = review.place_named(s110[8]["id"], PlaceRequest(reference="(1)(d)(vii)"))
+
+    assert result["matches"] and _labels()[8] == "(1)(d)(vii)"
+    with pytest.raises(review.HTTPException):
+        review.place_named("no-such-piece", PlaceRequest(reference="(1)"))
+
+
 def test_an_accepted_continuation_keeps_the_place_the_parser_gave_it(s110):
     """A reviewed row has no column for depth_rank; without the parse's,
     the continuation reset the section and every label after it lost its
