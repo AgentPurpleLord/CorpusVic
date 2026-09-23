@@ -170,6 +170,9 @@ a:hover { text-decoration: underline; }
   text-align: left;
 }
 .prov-note, .prov-example { margin-bottom: 8px; }
+/* Dot points printed as a list, inside the provision's own text column. */
+.prov-bullets { display: block; margin: 4px 0 0; padding-left: 1.2em; }
+.prov-bullets li { margin: 2px 0; }
 
 .prov-heading {
   display: block;

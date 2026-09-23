@@ -75,6 +75,7 @@ import re
 from pathlib import Path
 
 from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
+from corpus.parsing.extract import BULLETS
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
 from corpus.domain.diffing import node_diff, normalise, provision_identity, word_diff
@@ -84,6 +85,7 @@ from corpus.domain.act_registry import load_act_registry
 from corpus.review.link_targets import load_known_acts
 from corpus.domain.act_scope import ACT_TITLE_SPAN_RE, scope_by_unit
 from corpus.exporters.markdown_export import (
+    is_bill_like,
     _DIVISION_REF_RE,
     _PART_REF_RE,
     _collect_verification,
@@ -188,7 +190,7 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     # A Bill's or an EM's front page isn't an "Act index" -- calling it
     # one on every page of both was the kind of small wrongness that
     # makes a reader doubt everything else on the page.
-    index_link_text = "Contents" if any(tn["node"]["type"] == "clause" for tn, _b in sections) else "Act index"
+    index_link_text = "Contents" if is_bill_like(sections) else "Act index"
 
     # Part/Division eId lookups for prose "Part N" / "Division N"
     # links -- the same one-pass walk export_to_markdown does for the
@@ -454,6 +456,18 @@ def _linked_citation_html(run: dict, base_url: str, css_class: str) -> str:
 _TIGHT_AFTER_TERM = (",", ".", ";", ":", ")", "\u2014", "-")
 
 
+def _bullets_html(text_html: str) -> str:
+    """Dot-point lines (see extract.reflow_keeping_bullets) as a list
+    under whatever leads into them."""
+    lines = text_html.split("\n")
+    bullet = tuple(BULLETS)
+    if not any(l.lstrip().startswith(bullet) for l in lines[1:]):
+        return text_html
+    lead = [] if lines[0].lstrip().startswith(bullet) else [lines.pop(0)]
+    items = "".join(f"<li>{l.lstrip().lstrip(''.join(BULLETS)).strip()}</li>" for l in lines)
+    return f'{" ".join(lead)}<ul class="prov-bullets">{items}</ul>'
+
+
 def _provision_html(node_type: str, header_text: "str | None", text_html: "str | None",
                     depth: int, id_attr: str = "", extra_class: str = "") -> str:
     """One provision, in the markup every renderer here emits for one:
@@ -479,6 +493,8 @@ def _provision_html(node_type: str, header_text: "str | None", text_html: "str |
     a margin -- it is the first words of its own sentence, set in italics
     where the drafting convention introduces it -- so it goes inside the
     text, and the provision spans both columns."""
+    if text_html is not None:
+        text_html = _bullets_html(text_html)
     classes = ["prov", f"prov-{_esc(node_type)}"]
     if extra_class:
         classes.append(extra_class)
@@ -542,7 +558,9 @@ def _caption_html(units: list[dict], i: int, base_depth: int = 0) -> str:
             break
         run += 1
     singular, plural = _CAPTIONED_TYPES[here]
-    label = plural if run > 1 else singular
+    # One example that is a list of them is "Examples" too, as printed.
+    bullets = sum(l.lstrip().startswith(tuple(BULLETS)) for l in (units[i]["text"] or "").split("\n"))
+    label = plural if run > 1 or bullets > 1 else singular
     return (
         f'<div class="prov prov-caption prov-caption-{_esc(here)}"'
         f' style="--depth:{max(depth - base_depth, 0)}">'
@@ -753,7 +771,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         nonlocal list_open
         node = tree_node["node"]
         t = node["type"]
-        pageable_schedule = t == "schedule" and schedule_is_pageable(tree_node)
+        pageable_schedule = schedule_is_pageable(tree_node)
         if t in SECTION_LEVEL_TYPES or pageable_schedule:
             href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
             # A pageable Schedule gets the same "type spelled out"
@@ -1226,7 +1244,7 @@ def _index_outline_html(ctx: dict, act_title: str, base_url: str,
         """The id to link to, and whether to look inside."""
         node = tree_node["node"]
         if node["type"] in SECTION_LEVEL_TYPES or (
-                node["type"] == "schedule" and schedule_is_pageable(tree_node)):
+                schedule_is_pageable(tree_node)):
             name = filenames_by_eid.get(tree_node["eid"])
             return (_strip_md(name) if name else None), False
         return index_slugs.get(tree_node["eid"]), True

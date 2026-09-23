@@ -360,3 +360,52 @@ def test_repealed_sections_take_their_rows_in_printed_order():
     ])])
 
     assert [n["number"] for n in nodes if n["type"] == "repealed"] == ["375", "375A"]
+
+
+# ---------------------------------------------------------------------
+# Family Violence Protection Act s 4: repealed definitions
+# ---------------------------------------------------------------------
+
+def _s4():
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "4", "Definitions"),
+        make_node("definition", None, "corresponding DVO recognition law", "means a law."),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("definition", None, "court", "means the Court."),
+        make_node("definition", None, "family violence", "has the meaning in section 5."),
+        make_node("repealed", None, None, "* * * * *"),
+        make_node("definition", None, "litigation restraint order", "means an order."),
+    ]
+
+
+def test_a_repealed_definition_is_the_row_where_it_stood():
+    nodes = _s4()
+    attach_history(nodes, [_page_with_notes([
+        "S. 4 def. of correspon- ding interstate law repealed by No. 53/2016 s. 3.",
+        "S. 4 def. of correspon- ding interstate order repealed by No. 53/2016 s. 3.",
+        "S. 4 def. of Family Violence Court Division repealed by No. 33/2018 s. 4.",
+    ])])
+
+    rows = [n for n in nodes if n["type"] == "repealed"]
+    assert [n["heading"] for n in rows] == [
+        "corresponding interstate law", "corresponding interstate order", "Family Violence Court Division"]
+    assert all(n["history"][0]["confidence"] == "high" for n in rows)
+    assert not any(n.get("history") for n in nodes if n["type"] == "definition"), "not \"court\""
+
+
+def test_a_term_read_short_still_finds_its_definition_as_a_guess():
+    nodes = _s4()
+    attach_history(nodes, [_page_with_notes(["S. 4 def. of litigation restraint order proceeding inserted by No. 42/2014."])])
+
+    [target] = [n for n in nodes if n.get("history")]
+    assert (target["heading"], target["history"][0]["confidence"]) == ("litigation restraint order", "low")
+
+
+def test_a_hyphen_at_a_margin_notes_line_break_is_no_obstacle():
+    nodes = [make_node("section", "3", "Definitions"),
+             make_node("definition", None, "non-disclosure order", "means an order.")]
+    attach_history(nodes, [_page_with_notes(["S. 3 def. of non- disclosure order inserted by No. 68/2009."])])
+
+    assert nodes[1]["history"][0]["confidence"] == "high"

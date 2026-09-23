@@ -139,7 +139,7 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
     # isn't a genuine Section/Clause page avoids borrowing that section's
     # commentary onto the Schedule's page.
     crossrefs = (source._section_crossrefs(slug, section_number, schedule)
-                 if node_type in ("section", "clause") else [])
+                 if node_type in ("section", "clause", "item") else [])
     amendments = source._amendments(slug)
 
     return html_view.render_section(

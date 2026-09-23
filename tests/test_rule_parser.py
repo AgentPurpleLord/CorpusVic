@@ -902,12 +902,9 @@ def test_example_ends_at_a_fresh_definition_start():
 def test_schedule_heading_opens_a_schedule_and_nests_its_own_sections():
     """Regression (Criminal Procedure Act Schedule 1): a Schedule heading
     uses the same bold "Word N—Title" shape as Part/Division, wraps
-    across bold lines the same way, and its own numbered items reuse the
-    ordinary "section" type (real Schedules number their own clauses "in
-    the same way as sections", per basic-structure.yaml) rather than
-    getting a schedule-specific type -- so the existing section/
-    subsection/paragraph patterns already give a Schedule's substantive
-    content full structural fidelity with no extra code."""
+    across bold lines the same way, and its own numbered provisions are
+    headed as sections are -- but they are clauses (issue #72), with
+    subsections and paragraphs under them as a section has."""
     lines = [
         line("Schedule 1––Charges on a charge-sheet", bold=True, size=16.0),
         line("or indictment", bold=True, size=16.0),
@@ -919,7 +916,7 @@ def test_schedule_heading_opens_a_schedule_and_nests_its_own_sections():
     schedule = find(result.nodes, "schedule", "1")
     assert schedule["heading"] == "Charges on a charge-sheet or indictment (Sections 6(3), 159(3))"
     assert schedule["text"] == ""
-    section = find(result.nodes, "section", "1")
+    section = find(result.nodes, "clause", "1")
     assert section["heading"] == "Statement of offence"
     subsection = find(result.nodes, "subsection", "1")
     assert "statement of the offence" in subsection["text"]
@@ -936,7 +933,7 @@ def test_schedule_with_no_hangs_off_line_still_opens_its_first_section():
     ]
     result = _parse(lines)
     find(result.nodes, "schedule", "5")
-    section = find(result.nodes, "section", "1")
+    section = find(result.nodes, "clause", "1")
     assert section["heading"] == "Definitions"
 
 
@@ -958,7 +955,7 @@ def test_a_bare_schedule_number_takes_its_title_from_the_line_below():
 
     schedule = find(result.nodes, "schedule", "1")
     assert schedule["heading"] == "CHARGES ON A CHARGE-SHEET OR INDICTMENT (Sections 6(3), 159(3))"
-    assert find(result.nodes, "section", "1")["heading"] == "Statement of offence"
+    assert find(result.nodes, "clause", "1")["heading"] == "Statement of offence"
 
 
 def test_a_bare_schedule_title_that_wraps_keeps_the_hangs_off_note_last():
@@ -1016,8 +1013,8 @@ def test_schedule_own_items_do_not_collide_with_earlier_act_sections():
     result = _parse(lines)
     act_section = find(result.nodes, "section", "1")
     assert "purposes of this Act" in act_section["text"]
-    schedule_items = [n for n in result.nodes if n["type"] == "section" and n["number"] == "1"]
-    assert len(schedule_items) == 2
+    schedule_items = [n for n in result.nodes if n["type"] in ("section", "clause") and n["number"] == "1"]
+    assert [n["type"] for n in schedule_items] == ["section", "clause"], "the Schedule's own is a clause"
     assert any("Form of charge-sheet" == n["heading"] for n in schedule_items)
 
 
@@ -1652,3 +1649,179 @@ def test_notes_numbered_in_the_margin_keep_their_own_lines():
 
     notes = [(n["number"], n["text"][:14]) for n in nodes if n["type"] == "note"]
     assert notes == [("1", "Section 102 of"), ("2", "Section 103(1)")]
+
+
+def test_a_preamble_is_its_own_provision_and_the_identity_block_goes():
+    """Family Violence Protection Act 2008: its Preamble comes before
+    "The Parliament of Victoria therefore enacts:", which the front-matter
+    skip did not know -- so the Authorised Version block and the Preamble
+    both landed in a made-up "Preliminary" Part."""
+    nodes = _parse([
+        line("Authorised Version No. 068", bold=True, x1=300),
+        line("Family Violence Protection Act 2008", bold=True, x1=300),
+        line("Preamble", bold=True, x0=280, x1=330),
+        line("In enacting this Act, the Parliament recognises the following principles—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) that non-violence is a fundamental social value;", x0=PARA_X0, x1=420),
+        line("(b) that family violence is unacceptable in any form.", x0=PARA_X0, x1=430),
+        line("The Parliament of Victoria therefore enacts:", x0=HEAD_X0, x1=380),
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+    ]).nodes
+
+    assert [(n["type"], n.get("number"), n.get("heading")) for n in nodes][:4] == [
+        ("preamble", None, "Preamble"), ("paragraph", "a", None), ("paragraph", "b", None), ("part", "1", "Preliminary")]
+    assert nodes[0]["text"].startswith("In enacting this Act")
+    assert not any("Authorised Version" in (n.get("heading") or "") + (n.get("text") or "") for n in nodes)
+
+
+def test_a_preamble_reads_as_its_own_page():
+    from corpus.parsing.identity import annotate_ids
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("Preamble", bold=True, x0=280, x1=330),
+        line("In enacting this Act, the Parliament recognises—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) that non-violence is a fundamental social value.", x0=PARA_X0, x1=420),
+        line("The Parliament of Victoria therefore enacts:", x0=HEAD_X0, x1=380),
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+    ])
+    annotate_ids(result.nodes, result.hierarchy)
+    parsed = {"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
+
+    assert '<a href="/section/preamble">Preamble</a>' in html_view.render_index(parsed, "An Act 2008", "")
+    assert "non-violence" in html_view.render_section(parsed, "An Act 2008", "", "preamble")
+
+
+def test_dot_point_examples_are_one_example_shown_as_a_list():
+    """Family Violence Protection Act s 6: "Examples—", then dot points.
+    The dash kept the heading from being recognised, so the dot points
+    ran on as part of paragraph (b)."""
+    from corpus.parsing.identity import annotate_ids
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("6 Meaning of economic abuse", bold=True, x1=330),
+        line("Economic abuse is behaviour that is coercive—", x0=WRAP_X0, x1=MARGIN),
+        line("(a) in a way that denies autonomy; or", x0=PARA_X0, x1=400),
+        line("(b) by withholding financial support.", x0=PARA_X0, x1=380),
+        line("Examples—", bold=True, size=10.0, x0=184, x1=236),
+        line("• coercing a person to relinquish control over assets and", size=10.0, x0=197, x1=440),
+        line("income;", size=10.0, x0=210, x1=250),
+        line("• removing a family member's property without permission.", size=10.0, x0=197, x1=450),
+    ])
+    [example] = [n for n in result.nodes if n["type"] == "example"]
+    assert find(result.nodes, "paragraph", "b")["text"] == "by withholding financial support."
+
+    annotate_ids(result.nodes, result.hierarchy)
+    page = html_view.render_section({"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"},
+                                    "An Act 2008", "", "s6")
+    assert '<span class="prov-text">Examples</span>' in page
+    assert ('<ul class="prov-bullets"><li>coercing a person to relinquish control over assets and income;</li>'
+            "<li>removing a family member&#x27;s property without permission.</li></ul>") in page
+
+
+def test_a_schedules_numbered_list_is_one_clause_per_item():
+    """Family Violence Protection Act Sch 1: a hanging list, in plain type
+    but for the Act names, which made some lines bold -- and only those
+    became provisions."""
+    nodes = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 1—Specified provisions", bold=True, size=16.0, x0=185, x1=400),
+        line("Section 144QC", size=10.0, x0=392, x1=450),
+        line("1 Sections 36(5), 205(2)(b) and 211(2) of the Children, Youth", x0=198, x1=450),
+        line("and Families Act 2005", bold=True, x0=210, x1=330),
+        line("2 Section 55 of the Commission for Children", bold=True, x0=198, x1=440),
+        line("and Young People Act 2012", bold=True, x0=210, x1=340),
+        line("3 Section 140 of the Confiscation Act 1997", x0=198, x1=420),
+        line("═══════════════", x0=242, x1=380),
+    ]).nodes
+
+    clauses = [(n["type"], n["number"], n["text"]) for n in nodes if n["type"] in ("section", "clause")]
+    assert clauses == [
+        ("section", "1", "The purpose of this Act is to maximise safety."),
+        ("clause", "1", "Sections 36(5), 205(2)(b) and 211(2) of the Children, Youth and Families Act 2005"),
+        ("clause", "2", "Section 55 of the Commission for Children and Young People Act 2012"),
+        ("clause", "3", "Section 140 of the Confiscation Act 1997"),
+    ]
+
+
+def test_a_schedule_of_amendments_numbers_items():
+    nodes = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 2—Consequential amendments", bold=True, size=16.0, x1=400),
+        line("1 Bail Act 1977", bold=True, x0=170, x1=300),
+        line('In section 4, for "court" substitute "Court".', x0=WRAP_X0, x1=420),
+    ]).nodes
+
+    assert find(nodes, "item", "1")["heading"] == "Bail Act 1977"
+
+
+def test_a_transitional_schedule_naming_an_amendment_act_numbers_clauses():
+    """Criminal Procedure Act Sch 5 is headed by the Amendment Act it is
+    transitional for; that does not make it a Schedule of amendments."""
+    nodes = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 5—Transitional provision—Children and Justice Legislation Amendment Act 2023",
+             bold=True, size=16.0, x1=450),
+        line("1 Application of amendments", bold=True, x0=170, x1=330),
+        line("The amendments apply to a proceeding commenced after the day.", x0=WRAP_X0, x1=440),
+    ]).nodes
+
+    assert find(nodes, "clause", "1")["heading"] == "Application of amendments"
+
+
+def test_an_acts_dictionary_holds_parts_of_definitions_and_clauses():
+    """Evidence Act 2008: "Part 1—Definitions" took its first term, "ACT
+    court", as the rest of its heading, and no definition after it was
+    recognised; the Dictionary's margin notes found nothing (#72)."""
+    from corpus.domain.hierarchy import group_into_units
+    from corpus.parsing.extract import PageText
+    from corpus.parsing.identity import annotate_ids
+    from corpus.parsing.tree import attach_history
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("An admission is evidence of the matter.", x0=WRAP_X0, x1=420),
+        line("Dictionary", bold=True, size=16.0, x0=261, x1=340),
+        line("Section 3", size=10.0, x0=416, x1=456),
+        line("Part 1—Definitions", bold=True, size=16.0, x0=231, x1=400),
+        line("ACT court", bold=True, x0=WRAP_X0, x1=270, leading_bold_italic="ACT court"),
+        line("Note", bold=True, size=10.0, x0=WRAP_X0, x1=240),
+        line("The Commonwealth Act includes a definition of this term.", size=10.0, x0=WRAP_X0, x1=440),
+        line("admission means a previous representation.", x0=WRAP_X0, x1=420, leading_bold_italic="admission"),
+        line("Part 2—Other expressions", bold=True, size=16.0, x0=207, x1=420),
+        line("1 References to businesses", bold=True, x0=170, x1=360),
+        line("(1) A reference to a business includes a trade.", x0=HEAD_X0, x1=430),
+    ])
+    nodes = result.nodes
+    start = next(i for i, n in enumerate(nodes) if n["type"] == "dictionary")
+    assert [(n["type"], n.get("number"), n.get("heading")) for n in nodes[start:start + 7]] == [
+        ("dictionary", None, "Dictionary (Section 3)"), ("part", "1", "Definitions"),
+        ("definition", None, "ACT court"), ("note", None, None), ("definition", None, "admission"),
+        ("part", "2", "Other expressions"), ("clause", "1", "References to businesses")]
+
+    attach_history(nodes, [PageText(page_no=1, body="", margin_notes=[
+        "Dictionary Pt 1 def. of admission amended by No. 52/2012 s. 7.",
+        "Dictionary Pt 2 cl. 1(1) amended by No. 69/2009 s. 52."])], result.hierarchy)
+    assert [(n["type"], n.get("heading") or n.get("number")) for n in nodes if n.get("history")] == [
+        ("definition", "admission"), ("subsection", "1")]
+
+    part1 = start + 1
+    assert next(u for u in group_into_units(nodes) if u[0] == part1) == [part1, part1 + 1, part1 + 2, part1 + 3], \
+        "the Part is its terms' review unit"
+    annotate_ids(nodes, result.hierarchy)
+    parsed = {"nodes": nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
+    assert '<a href="/section/dict-pt1">Part 1 - Definitions</a>' in html_view.render_index(parsed, "An Act 2008", "")
+    assert "previous representation" in html_view.render_section(parsed, "An Act 2008", "", "dict-pt1")

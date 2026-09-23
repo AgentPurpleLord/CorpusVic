@@ -119,12 +119,14 @@ DEFAULT_PATTERNS = {
     # _bracket_level's own check on what number came before it to tell
     # them apart, a capital letter never needs that.
     "sub_subparagraph": r"^\(([A-Z]{1,3})\)\s*(.*)$",
-    "notes_marker": r"^Notes?$",
+    # "Examples—" as the Family Violence Protection Act prints it before a
+    # list of dot points; "Note:" likewise.
+    "notes_marker": r"^Notes?[\u2014\u2013:]?$",
     "note_item": r"^(\d+)\s+(.+)$",
     # An "Example" callout is set exactly like a plain, unnumbered "Note"
     # (see rule_parser.py's _handle_marked_block) -- same bold, body-
     # sized, standalone-line style, just a different word.
-    "example_marker": r"^Examples?$",
+    "example_marker": r"^Examples?[\u2014\u2013:]?$",
     # The penalty for an offence, which Victorian drafting sets on its
     # own line under the provision creating it: "Penalty: Level 3
     # imprisonment (20 years maximum)." It is not part of the offence's

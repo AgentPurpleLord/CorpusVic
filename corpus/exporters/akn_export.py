@@ -96,11 +96,13 @@ HIERARCHY_ELEMENT = {level: level for level in _NATIVE_HIERARCHY_TYPES}
 
 EID_PREFIX = {
     "schedule": "sched", "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
-    "section": "sec", "clause": "cl", "subsection": "subsec", "definition": "def",
+    "section": "sec", "clause": "cl", "item": "item", "subsection": "subsec", "definition": "def",
     # AKN's own name for the text that resumes a provision's sentence
     # after its list has finished -- the counterpart to the "intro" the
     # provision opened with.
     "continuation": "wrapup",
+    # AKN's own eId for an Act's recitals; there is only ever one.
+    "preamble": "preamble", "dictionary": "dictionary",
     "paragraph": "para", "subparagraph": "subpara", "sub_subparagraph": "subsubpara",
 }
 
@@ -180,7 +182,7 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
             # A continuation has no number and never needs one: it is
             # its provision's own tail, so "..__subsec_1__wrapup" says
             # everything, where the generic token said "wrapup_u".
-            token = "wrapup" if t == "continuation" else f"{EID_PREFIX[t]}_{_sanitize_token(node.get('number'))}"
+            token = EID_PREFIX[t] if t in ("continuation", "preamble", "dictionary") else f"{EID_PREFIX[t]}_{_sanitize_token(node.get('number'))}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
             tree_node = {"node": node, "eid": eid, "children": []}
             parent["children"].append(tree_node)

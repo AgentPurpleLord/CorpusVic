@@ -1,19 +1,19 @@
 """Tests for corpus/schema.py -- which structural types a document of
 each kind can actually be labelled with.
 
-One flat enum meant an Act's reviewer was asked whether a provision might
-be a "clause" (it never is -- that is a Bill's word for the same thing,
-see hierarchy.make_ranks) and a Bill's reviewer was offered "section".
+One flat enum meant a Bill's reviewer was offered "section", which a Bill
+never has. An Act has clauses only in its Schedules.
 review.py adds back anything a node actually carries, so filtering can
 never strand a node's own type."""
 from corpus.domain.schema import NODE_TYPES, TYPES_BY_DOCUMENT, types_for_document
 
 
-def test_an_act_is_offered_sections_and_never_clauses():
+def test_an_act_is_offered_sections_and_its_schedules_clauses_and_items():
+    """An Act's own provisions are sections; its Schedules number
+    clauses, or items in a Schedule of amendments (issue #72)."""
     types = types_for_document("act")
 
-    assert "section" in types
-    assert "clause" not in types
+    assert {"section", "clause", "item"} <= set(types)
 
 
 def test_a_bill_is_offered_clauses_and_never_sections():

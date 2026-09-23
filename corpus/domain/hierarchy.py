@@ -115,7 +115,9 @@ HIERARCHY_ORDER = list(default_hierarchy.levels)
 # its own page in the browse view and its own file in the Markdown
 # export, and doesn't repeat its number as a heading on that page) has
 # to accept both, or a Bill/EM would browse as an empty document.
-SECTION_LEVEL_TYPES = ("section", "clause")
+# A Schedule's own provisions are "clause"s, or "item"s in a Schedule of
+# amendments, at the same depth.
+SECTION_LEVEL_TYPES = ("section", "clause", "item", "preamble")
 
 
 def make_ranks(order: list[str]) -> dict[str, int]:
@@ -135,8 +137,15 @@ def make_ranks(order: list[str]) -> dict[str, int]:
     very common "is level A shallower or deeper than level B?" check a
     quick lookup instead of scanning the whole list each time."""
     ranks = {level: i for i, level in enumerate(order)}
+    if "schedule" in ranks:
+        # An Act's Dictionary (Evidence Act 2008) is a Schedule by another
+        # name: its Parts, its own clause numbering.
+        ranks["dictionary"] = ranks["schedule"]
     if "section" in ranks:
         ranks["clause"] = ranks["section"]
+        ranks["item"] = ranks["section"]
+        # A Preamble holds its recitals as a section holds its paragraphs.
+        ranks["preamble"] = ranks["section"]
     if "subsection" in ranks:
         ranks["definition"] = ranks["subsection"]
         # A continuation resumes the sentence its provision opened with,
@@ -156,7 +165,7 @@ def heading_levels(order: list[str]) -> set[str]:
     subsection/paragraph/subparagraph, which are never bold."""
     if "section" in order:
         levels = set(order[: order.index("section") + 1])
-        levels.add("clause")
+        levels.update(("clause", "item", "preamble", "dictionary"))
         return levels
     return set(order)
 
@@ -193,8 +202,9 @@ HEADING_LEVELS = heading_levels(HIERARCHY_ORDER)
 # note on why Schedule reuses that type instead of getting its own), so
 # it already starts its own unit through UNIT_ROOT_TYPES below with no
 # extra help needed here.
-UNIT_BOUNDARY_TYPES = {"schedule", "chapter", "part", "division", "subdivision", "section", "clause", "heading_group"}
-UNIT_ROOT_TYPES = {"section", "clause"}
+UNIT_BOUNDARY_TYPES = {"schedule", "dictionary", "chapter", "part", "division", "subdivision", "section", "clause",
+                       "item", "preamble", "heading_group"}
+UNIT_ROOT_TYPES = {"section", "clause", "item", "preamble"}
 
 
 def group_into_units(nodes: list[dict]) -> list[list[int]]:
@@ -221,9 +231,17 @@ def group_into_units(nodes: list[dict]) -> list[list[int]]:
     just to get it."""
     units: list[list[int]] = []
     current: list[int] | None = None
+    in_dictionary = False
     for i, node in enumerate(nodes):
         t = node["type"]
+        if t in ("dictionary", "schedule"):
+            in_dictionary = t == "dictionary"
         if t in UNIT_ROOT_TYPES:
+            current = [i]
+            units.append(current)
+        elif t == "part" and in_dictionary:
+            # A Dictionary's Part of definitions has no section to hold
+            # them: the Part is their unit, as it is their page.
             current = [i]
             units.append(current)
         elif t in UNIT_BOUNDARY_TYPES:
@@ -261,6 +279,8 @@ def schedule_numbers(nodes: list[dict]) -> list["str | None"]:
     for node in nodes:
         if node["type"] == "schedule":
             current = node.get("number")
+        elif node["type"] == "dictionary":
+            current = "Dictionary"   # numbers its own clauses from 1, as a Schedule does
         out.append(node.get("schedule") or current)
     return out
 
@@ -299,6 +319,10 @@ def schedule_is_pageable(tree_node: dict) -> bool:
     writes out the whole tree in one go rather than splitting it into
     pages.
     """
-    if tree_node["node"]["type"] != "schedule":
+    node = tree_node["node"]
+    if node["type"] == "part" and (node.get("path") or {}).get("dictionary"):
+        # A Dictionary's Part of definitions: no section to page them on.
+        return bool(tree_node["children"]) and not _subtree_has_section_level(tree_node)
+    if node["type"] != "schedule":
         return False
     return not _subtree_has_section_level(tree_node)
