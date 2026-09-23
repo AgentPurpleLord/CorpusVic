@@ -119,6 +119,55 @@ def word_diff(old: str, new: str) -> list[dict]:
     return segments
 
 
+def unit_end(nodes: list[dict], root: int) -> int:
+    """Where a provision's unit stops: the next boundary after its root."""
+    i = root + 1
+    while i < len(nodes) and nodes[i]["type"] not in UNIT_BOUNDARY_TYPES:
+        i += 1
+    return i
+
+
+def unit_text(nodes: list[dict], root: int) -> str:
+    return _unit_text(nodes, root)
+
+
+def normalise(text: str) -> str:
+    """Text as two versions are compared on: no line wraps, no printer's
+    whitespace, no stray symbol-font code points."""
+    return _SPACES.sub(" ", _unmap_pua(reflow(text or ""))).strip()
+
+
+def node_diff(old: list[tuple], new: list[tuple]) -> list[dict]:
+    """Two wordings of one provision compared piece by piece, so a change
+    is shown in the subsection or paragraph it was made to rather than
+    somewhere in one long run of words.
+
+    `old` and `new` are [(align key, text)] in document order, the key
+    being what names a piece within its provision -- "1/a" for (1)(a).
+    Returns [{"op", "old", "new", "diff"}] in reading order: "equal" and
+    "changed" pair a piece with itself (old and new are indices into each
+    list), "delete" and "insert" are pieces only one side has. A
+    renumbered piece is one of each, which is also how the amending Act
+    describes it.
+    """
+    matcher = difflib.SequenceMatcher(None, [k for k, _ in old], [k for k, _ in new], autojunk=False)
+    out = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            for i, j in zip(range(i1, i2), range(j1, j2)):
+                diff = word_diff(normalise(old[i][1]), normalise(new[j][1]))
+                changed = any(s["op"] != "equal" for s in diff)
+                out.append({"op": "changed" if changed else "equal", "old": i, "new": j, "diff": diff})
+            continue
+        for i in range(i1, i2):
+            out.append({"op": "delete", "old": i, "new": None,
+                        "diff": [{"op": "delete", "text": normalise(old[i][1])}] if old[i][1] else []})
+        for j in range(j1, j2):
+            out.append({"op": "insert", "old": None, "new": j,
+                        "diff": [{"op": "insert", "text": normalise(new[j][1])}] if new[j][1] else []})
+    return out
+
+
 def _unit_text(nodes: list[dict], root: int) -> str:
     """A provision's full text: its own lead-in plus every node nested
     under it, up to the next boundary. Reflowed, so wherever the printer

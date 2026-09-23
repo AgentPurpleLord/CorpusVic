@@ -93,10 +93,10 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 
 from corpus.search import search
-from corpus.review import review_sync, sync
+from corpus.review import inheritance, review_sync, sync
 from corpus.publishing import html_view, reader
 from corpus.storage import db
-from corpus.domain import commentary, diffing
+from corpus.domain import commentary, diffing, lineage
 from corpus.domain.act_registry import load_act_registry
 from corpus.domain.amendments import build_amendment_index, summarise_by_act
 from corpus.domain.commentary import build_commentary_index
@@ -2037,11 +2037,22 @@ def _current_nodes(slug: str) -> tuple[list[dict], list[dict], list[str]]:
     above, so a reviewer's edit still shows up on the very next request
     (the whole point of this view being live) without re-reading the Act
     for every hover."""
-    signature = _browse_state_signature(slug)
+    work, version = split_document_slug(slug)
+    siblings = _work_versions(work) if version is not None else []
+    # A version borrows review work from its siblings (see
+    # corpus/review/inheritance.py), so their parses are part of what
+    # this answer depends on; the database is already in the signature.
+    signature = (_browse_state_signature(slug), tuple(_parse_signature(s) for s in siblings))
     cached = _current_nodes_cache.get(slug)
     if cached is not None and cached[0] == signature:
         return cached[1]
     state = build_current_nodes(slug)
+    lineage_state = _work_lineage(work) if len(siblings) > 1 else None
+    if lineage_state and version in lineage_state["states"]:
+        nodes, unattached, hierarchy = state
+        state = (inheritance.overlay(nodes, lineage_state["states"][version],
+                                     lineage_state["status"][version], lineage_state["states"]),
+                 unattached, hierarchy)
     _current_nodes_cache[slug] = (signature, state)
     return state
 
@@ -2299,72 +2310,91 @@ def _parse_signature(slug: str) -> tuple:
     return (st.st_mtime_ns, st.st_size)
 
 
+def _work_signature(work: str) -> tuple:
+    """Every version's parse, and the review database they are all
+    reviewed in."""
+    slugs = _work_versions(work)
+    return (tuple(_parse_signature(slug) for slug in slugs),
+            _browse_state_signature(slugs[-1])[1:] if slugs else ())
+
+
+_lineage_cache: dict[str, tuple[tuple, dict]] = {}
+
+
+def _work_lineage(work: str) -> "dict | None":
+    """Which version vouches for which provision, across one work (see
+    corpus/domain/lineage.py) -- None for a work held in one version.
+
+    {"versions": [...], "slugs": {version: slug}, "states": {version:
+    inheritance.load_state}, "status": inheritance.resolve}."""
+    slugs = _work_versions(work)
+    if len(slugs) < 2:
+        return None
+    signature = _work_signature(work)
+    cached = _lineage_cache.get(work)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    by_version = {split_document_slug(slug)[1]: slug for slug in slugs}
+    versions = sorted(by_version)
+    states = {v: inheritance.load_state(by_version[v], BASE_DIR) for v in versions}
+    result = {"versions": versions, "slugs": by_version, "states": states,
+              "status": inheritance.resolve(versions, states)}
+    _lineage_cache[work] = (signature, result)
+    return result
+
+
 _timeline_cache: dict[str, tuple[tuple, dict]] = {}
 
 
 def _timeline(work: str) -> dict:
-    """{provision key -> its changes, oldest first} across every version of
-    one work, plus the version list it was built from.
+    """Every provision's wordings across the versions of one work held
+    here (lineage.provision_chains), plus the version slugs they came
+    from.
 
-    Cached against every version's own browse signature, because this is
-    the most expensive thing the browse view does: it holds all five
-    Criminal Procedure Act parses in memory at once and word-diffs ~690
-    provisions across each consecutive pair. That is ~0.3s, which is fine
-    once and not fine on every page view of every section.
+    Keyed on the *work*, not the version: a provision's history is the
+    same whichever reprint it is read from, so all of them share one
+    build rather than each word-diffing the whole Act again.
 
-    Keyed on the *work*, not the version: the timeline of a provision is
-    the same object whichever reprint of the Act you are reading it from,
-    so all five versions share one entry rather than each building its own
-    copy of the same comparisons.
+    Two versions' wordings are one wording when their raw parses agree,
+    whatever a reviewer has done to either -- a correction is not an
+    amendment. Only where the parses differ are the texts a reader sees
+    compared, and those carry every review decision, lent ones included.
 
-    Built from the **parses**, not from _current_nodes -- the one place in
-    the browse view that deliberately ignores review state. A reviewer
-    works through one version at a time, so merging their edits in makes
-    a correction to the parse of one version look exactly like an
-    amendment by Parliament: with review state applied, section 5 of the
-    Criminal Procedure Act reported "Part 2.2--Charge-sheet and listing of
-    matter" as inserted at version 114, when what actually happened is
-    that a reviewer split that heading out of section 5 in one version and
-    has not yet reached the other. Two raw parses come from the same
-    deterministic parser and their artefacts cancel; a reviewed one
-    against an unreviewed one is a comparison of two different things.
+    Every version should have been read by the same parser. Where they
+    were not, the parsers' own disagreements arrive here as amendments,
+    so mixed_parsers is recorded and _provision_timeline shows a history
+    only once a human has checked every wording in it.
     """
     slugs = _work_versions(work)
-    # Stamped on the parses alone. _browse_state_signature also stamps the
-    # review database, which would throw this away and rebuild all five
-    # comparisons every time a reviewer saved anything -- and, now that the
-    # timeline is built from the parses, for a change that cannot affect
-    # its result.
-    signature = tuple(_parse_signature(slug) for slug in slugs)
+    signature = _work_signature(work)
     cached = _timeline_cache.get(work)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    result = {"slugs": slugs, "entries": {}, "mixed_parsers": False}
-    # Every version has to have been read by the same parser, or the
-    # parsers' own disagreements arrive here as provisions Parliament
-    # inserted and repealed. A re-parse is done one document at a time,
-    # so a work sits in exactly that state until every version of it has
-    # been through -- and reporting a fabricated amendment on a public
-    # register of the law is worse than reporting no history at all.
+    result = {"slugs": slugs, "chains": [], "by_key": {}, "mixed_parsers": False}
     parsers = {_parse_field(slug, "parser_version") for slug in slugs}
-    if len(parsers) > 1:
-        result["mixed_parsers"] = True
-        _timeline_cache[work] = (signature, result)
-        return result
-    if len(slugs) > 1:
-        documents = []
-        for slug in slugs:
-            nodes = _parse_field(slug, "nodes", []) or []
+    result["mixed_parsers"] = len(parsers) > 1
+    lineage_state = _work_lineage(work)
+    if lineage_state:
+        docs = []
+        for version in lineage_state["versions"]:
+            slug = lineage_state["slugs"][version]
+            state = lineage_state["states"][version]
+            nodes = _current_nodes(slug)[0]
+            effective = diffing.provisions(nodes)
+            for provision in effective.values():
+                root = provision["node_index"]
+                provision["nodes"] = nodes[root:diffing.unit_end(nodes, root)]
             meta = _act_version(slug)
-            _work, version = split_document_slug(slug)
-            documents.append({
-                "version": version,
-                "as_at": meta.get("as_at"),
-                "as_at_printed": meta.get("as_at_printed"),
-                "slug": slug,
-                "nodes": nodes,
+            docs.append({
+                "version": version, "slug": slug,
+                "as_at": meta.get("as_at"), "as_at_printed": meta.get("as_at_printed"),
+                "raw": state["raw"], "effective": effective,
+                "checked": inheritance.checked_keys(nodes),
+                "loose_notes": lineage.loose_notes(state["unattached"]),
             })
-        result["entries"] = diffing.build_timeline(documents)
+        chains = lineage.provision_chains(docs, {v: lineage_state["states"][v]["links"]
+                                                 for v in lineage_state["versions"]})
+        result.update(chains)
     _timeline_cache[work] = (signature, result)
     return result
 
@@ -2432,37 +2462,49 @@ def _provision_page_url(slug: str, page_index: dict, entry: dict) -> "str | None
 
 
 def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
-                        node_type: str = "section") -> tuple[list[dict], dict]:
-    """One provision's timeline entries, and {version -> the URL of that
-    same provision in that version}, so a reader can go and read the words
-    in place rather than only in the diff.
+                        node_type: str = "section") -> tuple["dict | None", dict]:
+    """One provision's history -- its chain of wordings with "at", the
+    one this version carries -- or None where it has only ever read one
+    way; and {version -> the URL of that same provision in that version},
+    so a reader can go and read the words in place.
 
     A version whose parse doesn't page that provision (it may not have
-    existed yet) simply gets no link -- an entry that says a provision was
-    inserted at version 112 must not offer a link into version 111.
+    existed yet) simply gets no link -- a wording inserted at version 112
+    must not offer a link into version 111.
 
-    The URLs are worked out whether or not the provision has any timeline
-    entries: a provision whose words never changed has no entries at all,
-    and is exactly the one a reader checking "was this always like this?"
-    wants to be able to open in another version."""
+    The URLs are worked out whether or not there is any history: a
+    provision whose words never changed is exactly the one a reader
+    checking "was this always like this?" wants to open elsewhere."""
     if not number:
-        return [], {}
-    work, _version = split_document_slug(slug)
+        return None, {}
+    work, version = split_document_slug(slug)
     timeline = _timeline(work)
-    if timeline.get("mixed_parsers"):
-        # Nothing can honestly be said about this provision's history
-        # until every version has been read by the same parser.
-        return [], {}
     key = diffing.provision_identity(node_type, schedule, number)
-    entries = timeline["entries"].get(key) or []
+    history = None
+    chain_no = timeline["by_key"].get((version, key))
+    if chain_no is not None:
+        chain = timeline["chains"][chain_no]
+        honest = not timeline["mixed_parsers"] or all(
+            w["checked"] for w in chain["wordings"] if not w["absent"])
+        if len(chain["wordings"]) > 1 and honest:
+            history = {**chain, "at": lineage.wording_at(chain, version)}
     urls = {}
-    probe = {"type": node_type, "schedule": schedule, "number": number}
     for other in timeline["slugs"]:
         _w, other_version = split_document_slug(other)
+        other_key = key
+        if history:
+            n = lineage.wording_at(history, other_version)
+            wording = history["wordings"][n] if n is not None else None
+            if wording is None or wording["absent"]:
+                continue
+            other_key = wording["keys"].get(other_version, key)
+        probe = {"type": node_type if other_key[0] != "provision" else "section",
+                 "schedule": other_key[1] if other_key[0] == "provision" else schedule,
+                 "number": other_key[2] if other_key[0] == "provision" else number}
         url = _provision_page_url(other, _page_index(other), probe)
         if url:
             urls[other_version] = url
-    return entries, urls
+    return history, urls
 
 
 _act_title_cache: dict[str, str] = {}

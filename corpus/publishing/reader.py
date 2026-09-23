@@ -96,7 +96,7 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
     # its node type decides which identity the timeline is looked up
     # under (see diffing).
     node_type = node["type"] if node is not None else "section"
-    entries, version_urls = source._provision_timeline(slug, section_number, schedule, node_type)
+    history, version_urls = source._provision_timeline(slug, section_number, schedule, node_type)
     # Bill/EM commentary is only ever matched against an ordinary
     # numbered provision (see bill_linking.py) and never against a
     # Schedule as a whole -- a pageable Schedule
@@ -119,7 +119,7 @@ def section_page(source, slug: str, base_url: str, section_slug: str, *,
         title, base_url, section_slug,
         crossrefs=site(crossrefs),
         amendment_index=amendments["index"],
-        timeline=entries,
+        timeline=history,
         version_urls=site(version_urls),
         superseded=site(source._superseded(slug)),
         version_dates=source._version_dates(slug),

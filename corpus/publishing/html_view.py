@@ -77,7 +77,8 @@ from pathlib import Path
 from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
-from corpus.domain.diffing import provision_identity
+from corpus.domain.diffing import node_diff, provision_identity
+from corpus.review.inheritance import relative_id
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, schedule_is_pageable, schedule_numbers
 from corpus.domain.act_registry import load_act_registry
 from corpus.review.link_targets import load_known_acts
@@ -851,69 +852,165 @@ def _timeline_note_html(raw: str, base_url: str, amendment_index: "dict | None")
     return f'<span class="tl-note">{"".join(marked)}</span>'
 
 
-def _timeline_entry_html(entry: dict, base_url: str, amendment_index: "dict | None",
-                         version_urls: "dict | None") -> str:
-    """One point on a provision's timeline: the version it changed at, what
-    the Act says did the changing, and the words that moved."""
-    version = entry.get("version")
-    when = entry.get("as_at_printed")
-    stamp = f"Version {version}" if version is not None else "Earlier version"
-    if when:
-        stamp += f" \u2014 as at {_esc(when)}"
-    href = (version_urls or {}).get(version)
-    heading = f'<a class="tl-version" href="{_esc(href)}">{stamp}</a>' if href else f'<span class="tl-version">{stamp}</span>'
-
-    change = entry.get("change")
-    # The Act's own words for what happened to a provision. Using
-    # anything else here would have the timeline describe the
-    # amendment in language the amendment itself doesn't use.
-    verb = {"inserted": "Inserted", "repealed": "Repealed", "changed": "Amended"}.get(change, "Changed")
-    notes = "".join(_timeline_note_html(raw, base_url, amendment_index)
-                    for raw in entry.get("new_history") or [])
-    body = f'<div class="tl-diff">{_diff_html(entry["diff"])}</div>' if entry.get("diff") else ""
-    note_block = f'<div class="tl-notes">{notes}</div>' if notes else ""
-    return (
-        f'<li class="tl-entry tl-{_esc(change or "changed")}">'
-        f'<div class="tl-head">{heading}<span class="tl-verb">{verb}</span></div>'
-        f'{note_block}{body}</li>'
-    )
+def _wording_units(nodes: list[dict], hierarchy_order: list[str]) -> list[dict]:
+    """One wording's pieces, in the order and at the depths the page
+    itself sets them -- the same walk render_section makes, so an old
+    wording reads the way the current one does."""
+    roots, _collisions = build_hierarchy_tree([dict(n) for n in nodes], hierarchy_order)
+    if not roots:
+        return []
+    root = roots[0]
+    root_name = root["node"].get("_node_id") or root["node"].get("id") or ""
+    units = list(_iter_body_units(root))
+    for unit in units:
+        node = unit["tree_node"]["node"]
+        name = node.get("_node_id") or node.get("id")
+        rel = relative_id(name, root_name) if name else f'{node["type"]}:{unit["header_text"]}'
+        unit["align"] = (rel, unit["clause_index"])
+    return units
 
 
-def render_timeline(entries: list[dict], base_url: str, amendment_index: "dict | None" = None,
-                    version_urls: "dict | None" = None) -> str:
-    """A provision's history across the versions of the Act held here,
-    or "" where it has none.
+def _units_html(units: list[dict], texts: "list[str] | None" = None, classes: "list[str] | None" = None) -> str:
+    out = []
+    for i, unit in enumerate(units):
+        node = unit["tree_node"]["node"]
+        text_html = texts[i] if texts is not None else (
+            None if unit["text"] is None else _esc(unit["text"]))
+        out.append(_provision_html(node["type"], unit["header_text"], text_html, unit["depth"],
+                                   extra_class=classes[i] if classes else ""))
+    return "".join(out)
 
-    Newest first: a reader arriving at this control almost always
-    wants the most recent change, and having to scroll a long timeline
-    to reach it would make the common case the expensive one. The
-    collapsed summary says how many changes there are and when the
-    last one was, so the control answers the first question without
-    being opened.
 
-    Nothing to show is shown as nothing -- including where the versions
-    held here cannot be compared at all (dashboard._timeline's
-    mixed_parsers, which hands back no entries). A reader of the law has
-    no stake in which parser read which reprint, and a paragraph about
-    it above the section is a paragraph in the way.
-    """
-    if not entries:
+def _compare_html(older: list[dict], newer: list[dict]) -> str:
+    """Two wordings, piece by piece, with what went struck through in red
+    and what arrived in green. Always read older to newer, whichever of
+    the two a reader is looking at, so red means removed by Parliament
+    and green means added -- never the other way about."""
+    ops = node_diff([(u["align"], u["text"] or "") for u in older],
+                    [(u["align"], u["text"] or "") for u in newer])
+    units, texts, classes = [], [], []
+    for op in ops:
+        unit = newer[op["new"]] if op["new"] is not None else older[op["old"]]
+        units.append(unit)
+        texts.append(None if unit["text"] is None and not op["diff"] else _diff_html(op["diff"]))
+        classes.append({"delete": "prov-gone", "insert": "prov-new"}.get(op["op"], ""))
+    return _units_html(units, texts, classes)
+
+
+def _span_label(wording: dict) -> str:
+    first, last = wording["from"], wording["to"]
+    if first["version"] == last["version"]:
+        when = f" (as at {_esc(first['as_at_printed'])})" if first.get("as_at_printed") else ""
+        return f"Version {first['version']}{when}"
+    when = ""
+    if first.get("as_at_printed") and last.get("as_at_printed"):
+        when = f" ({_esc(first['as_at_printed'])} to {_esc(last['as_at_printed'])})"
+    return f"Versions {first['version']}\u2013{last['version']}{when}"
+
+
+_ENDED_VERB = {"changed": "Amended", "inserted": "Inserted", "repealed": "Repealed"}
+
+
+def _ended_html(wording: dict, base_url: str, amendment_index: "dict | None") -> str:
+    """What brought this wording to an end, as the next version's own
+    margin notes record it. The version and date are ours; the Act named
+    is the reprint's own account, linked to its Endnotes entry."""
+    ended = wording.get("ended_by")
+    if not ended:
         return ""
-    newest_first = sorted(entries, key=lambda e: (e.get("version") is None, -(e.get("version") or 0)))
-    latest = newest_first[0]
-    count = len(newest_first)
-    when = latest.get("as_at_printed")
-    summary = f"{count} change{'s' if count != 1 else ''} across the versions held here"
-    if when:
-        summary += f"; most recent as at {_esc(when)}"
-    items = "".join(_timeline_entry_html(e, base_url, amendment_index, version_urls) for e in newest_first)
-    return (
-        '<details class="timeline">'
-        f'<summary class="timeline-summary">This provision has changed &mdash; '
-        f'<span class="tl-count">{summary}</span></summary>'
-        f'<ol class="tl-list">{items}</ol>'
+    when = f" (as at {_esc(ended['as_at_printed'])})" if ended.get("as_at_printed") else ""
+    verb = _ENDED_VERB.get(ended["change"], "Changed")
+    notes = "".join(_timeline_note_html(raw, base_url, amendment_index) for raw in ended.get("notes") or [])
+    if not notes:
+        notes = '<span class="tl-note hist-quiet">The reprint does not say by what.</span>'
+    return (f'<div class="hist-ended hist-{_esc(ended["change"])}">'
+            f'<span class="tl-verb">{verb}</span> at Version {ended["version"]}{when}'
+            f'<div class="tl-notes">{notes}</div></div>')
+
+
+def render_history(history: "dict | None", base_url: str, amendment_index: "dict | None" = None,
+                   version_urls: "dict | None" = None, hierarchy_order: "list[str] | None" = None,
+                   anchor: str = "") -> tuple[str, str]:
+    """A provision's wordings across the versions held here, as
+    (the chip that opens them, the wordings themselves) -- ("", "") for a
+    provision that has only ever read one way.
+
+    `history` is dashboard._provision_timeline's: a chain of wordings
+    from corpus/domain/lineage.py, oldest first, with "at" the one this
+    page's own version carries.
+
+    Every wording is rendered whole, and every comparison a reader can
+    ask for is rendered too: the page must work as a static file with no
+    server to ask, and a provision has a handful of wordings at most.
+    Without JavaScript it is a list inside <details>; static/site/
+    history.js makes it the side-by-side timeline, one earlier wording
+    on the left and one later on the right.
+    """
+    wordings = (history or {}).get("wordings") or []
+    if len(wordings) < 2:
+        return "", ""
+    order = hierarchy_order or HIERARCHY_ORDER
+    at = history.get("at")
+    units = [None if w["absent"] else _wording_units(w["provision"].get("nodes") or [], order)
+             for w in wordings]
+    newest = at == len(wordings) - 1
+    here_label = "current" if newest else "this page"
+    panel_id = f"hist-{_esc(anchor)}" if anchor else "hist"
+
+    panels = []
+    for n, wording in enumerate(wordings):
+        classes = ["hist-panel"]
+        if wording["absent"]:
+            classes.append("hist-absent")
+        if n == at:
+            classes.append("hist-here")
+        label = _span_label(wording)
+        href = None if wording["absent"] else (version_urls or {}).get(wording.get("version"))
+        stamp = f'<a class="tl-version" href="{_esc(href)}">{label}</a>' if href else f'<span class="tl-version">{label}</span>'
+        if n == at:
+            stamp += ' <span class="hist-tag">This page</span>'
+        head = [f'<div class="hist-when">{stamp}</div>']
+        if not wording["absent"] and not wording.get("checked"):
+            head.append('<div class="hist-unchecked">Not yet checked against the printed Act.</div>')
+        head.append(_ended_html(wording, base_url, amendment_index))
+
+        views = []
+        if wording["absent"]:
+            words = ("Not yet in the Act." if n == 0 else
+                     "Not in the Act: repealed." if n == len(wordings) - 1 else "Not in the Act.")
+            views.append(f'<div class="hist-body" data-view="text"><p class="hist-gone">{words}</p></div>')
+        else:
+            heading = wording["provision"].get("heading")
+            title = f'<div class="hist-heading">{_esc(heading)}</div>' if heading else ""
+            views.append(f'<div class="hist-body hist-provisions" data-view="text">{title}{_units_html(units[n])}</div>')
+            choices = []
+            for view, other, label_text in (("here", at, f"with {here_label}"),
+                                            ("prev", n - 1, "with previous"),
+                                            ("next", n + 1, "with next")):
+                if other is None or other == n or not (0 <= other < len(wordings)) or units[other] is None:
+                    continue
+                if view != "here" and other == at:
+                    continue  # the same comparison as "with current", offered once, by that name
+                older, newer = (units[other], units[n]) if other < n else (units[n], units[other])
+                views.append(f'<div class="hist-body hist-provisions" data-view="{view}" hidden>'
+                             f'{_compare_html(older, newer)}</div>')
+                choices.append(f'<button type="button" class="hist-cmp" data-view="{view}">{label_text}</button>')
+            if choices:
+                head.append('<div class="hist-compare" role="group" aria-label="Compare">Compare '
+                            + "".join(choices) + "</div>")
+        panels.append(f'<section class="{" ".join(classes)}" data-n="{n}" aria-label="{_esc(label)}">'
+                      f'<header class="hist-head">{"".join(head)}</header>{"".join(views)}</section>')
+
+    count = len(wordings)
+    chip = (f'<button type="button" class="history-chip" aria-controls="{panel_id}" aria-expanded="false">'
+            f'History <span class="history-count">{count}</span></button>')
+    body = (
+        f'<details class="history" id="{panel_id}" data-at="{at if at is not None else count - 1}">'
+        f'<summary class="history-summary">This provision has read {count} ways in the versions held here</summary>'
+        f'<div class="hist-track">{"".join(panels)}</div>'
         "</details>"
     )
+    return chip, body
 
 
 def render_superseded_banner(version: "int | None", current: "int | None", current_url: "str | None",
@@ -1123,7 +1220,7 @@ def _scope_label(node: dict) -> str:
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
-    timeline: list[dict] | None = None, version_urls: dict | None = None,
+    timeline: dict | None = None, version_urls: dict | None = None,
     superseded: dict | None = None, version_dates: dict | None = None,
     show_review_badge: bool = True, notice: "str | None" = None,
 ) -> str | None:
@@ -1136,9 +1233,9 @@ def render_section(
     margin note name the Act behind its citation (see
     _margin_notes_html).
 
-    timeline, if given, is this provision's own entries from
-    corpus/diffing.build_timeline -- how its wording has moved
-    across the versions of the Act held here -- with version_urls
+    timeline, if given, is this provision's history from
+    dashboard._provision_timeline -- every wording it has had across
+    the versions of the Act held here (see render_history) -- with version_urls
     mapping a version number to that version's page for this same
     provision. superseded, if given, is {"version", "current",
     "current_url", "as_at_printed"} for the banner saying this reprint
@@ -1238,7 +1335,13 @@ def render_section(
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
     if show_review_badge:
         out.append(_verification_badge(verification))
-    out.append(f"<h1>{_esc(title)}</h1>")
+    history_chip, history_html = render_history(
+        timeline, base_url, amendment_index, version_urls,
+        parsed.get("hierarchy") or None, anchor=section_slug)
+    if history_chip:
+        out.append(f'<div class="section-head"><h1>{_esc(title)}</h1>{history_chip}</div>')
+    else:
+        out.append(f"<h1>{_esc(title)}</h1>")
     # Ordered the way a reader needs them: whether this is even the
     # current law first, then how this provision got to its present
     # wording, then where else it's explained. A crossref chip is no
@@ -1248,7 +1351,7 @@ def render_section(
             superseded.get("version"), superseded.get("current"),
             superseded.get("current_url"), superseded.get("as_at_printed"),
         ))
-    out.append(render_timeline(timeline or [], base_url, amendment_index, version_urls))
+    out.append(history_html)
     out.append(_crossrefs_html(crossrefs or []))
 
     # The body reads the way the Act itself does: each provision
