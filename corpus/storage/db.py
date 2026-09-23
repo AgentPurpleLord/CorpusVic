@@ -344,6 +344,24 @@ CREATE TABLE IF NOT EXISTS definition_overrides (
 );
 CREATE INDEX IF NOT EXISTS idx_definition_overrides_act ON definition_overrides(act);
 
+-- History review: whether a difference between two consecutive versions
+-- of a work is a change Parliament made or the parser's reading. Keyed by
+-- the work (act), the provision (a diffing.provisions key, as JSON), the
+-- two versions and the piece within the provision ("1/f", "heading", or
+-- "whole" for the provision appearing or going) -- names, not positions,
+-- so a re-parse leaves the decisions where they were. Nothing reaches the
+-- public histories until it is confirmed here.
+CREATE TABLE IF NOT EXISTS history_decisions (
+    act TEXT NOT NULL,
+    provision TEXT NOT NULL,
+    from_version INTEGER NOT NULL,
+    to_version INTEGER NOT NULL,
+    piece TEXT NOT NULL,
+    decision TEXT NOT NULL CHECK (decision IN ('confirmed', 'denied')),
+    decided_at TEXT NOT NULL,
+    PRIMARY KEY (act, provision, from_version, to_version, piece)
+);
+
 -- A reviewer's word that a provision in this version is one that had a
 -- different number in the version before -- "s 464AA carried from
 -- s 464A". Compared by number alone a move is a repeal and an
@@ -1117,6 +1135,38 @@ def clear_definition_override(act: str, term: str, base_dir: "str | Path | None"
             (act, (term or "").strip().lower()),
         ).rowcount
     return bool(removed)
+
+
+# ---------------------------------------------------------------------
+# History review: each change between versions confirmed or denied
+# ---------------------------------------------------------------------
+def load_history_decisions(work: str, base_dir: "str | Path | None" = None) -> dict[tuple, str]:
+    """{(provision key as JSON, from_version, to_version, piece): decision}."""
+    conn = _connect(base_dir)
+    rows = conn.execute(
+        "SELECT provision, from_version, to_version, piece, decision FROM history_decisions WHERE act = ?",
+        (work,),
+    ).fetchall()
+    return {(r[0], r[1], r[2], r[3]): r[4] for r in rows}
+
+
+def save_history_decision(work: str, provision: str, from_version: int, to_version: int, piece: str,
+                          decision: "str | None", base_dir: "str | Path | None" = None) -> None:
+    """Records a decision, or with None takes it back."""
+    if decision not in (None, "confirmed", "denied"):
+        raise ValueError(f"Unknown decision {decision!r} -- expected 'confirmed' or 'denied'.")
+    conn = _connect(base_dir)
+    with conn:
+        if decision is None:
+            conn.execute("DELETE FROM history_decisions WHERE act = ? AND provision = ? AND from_version = ? "
+                         "AND to_version = ? AND piece = ?", (work, provision, from_version, to_version, piece))
+        else:
+            conn.execute(
+                "INSERT INTO history_decisions (act, provision, from_version, to_version, piece, decision, "
+                "decided_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(act, provision, from_version, to_version, "
+                "piece) DO UPDATE SET decision = excluded.decision, decided_at = excluded.decided_at",
+                (work, provision, from_version, to_version, piece, decision, _now_iso()),
+            )
 
 
 # ---------------------------------------------------------------------

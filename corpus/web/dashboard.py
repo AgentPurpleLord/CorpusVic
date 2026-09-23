@@ -92,7 +92,8 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus.amending import load as amending_load, match as amending_match
+from corpus.amending import fetch as amending_fetch, load as amending_load, match as amending_match
+from corpus.history import changes as history_changes, versions as history_versions
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
 from corpus.publishing import html_view, reader
@@ -131,6 +132,10 @@ def discover_slugs() -> list[str]:
         for p in acts_dir.iterdir():
             if p.suffix.lower() == ".pdf":
                 slugs.add(slugify(p.stem))
+            elif p.is_dir() and p.name == amending_fetch.FOLDER:
+                # The amending Acts fetched to check reprints against are
+                # not documents of this corpus, and no card of their own.
+                continue
             elif p.is_dir():
                 # A work directory: each PDF in it is one version of that
                 # work as this pipeline reads it, addressed by the work's
@@ -1485,28 +1490,200 @@ class DefinitionOverrideRequest(BaseModel):
     section: "str | None" = None
 
 
+def _held(work: str) -> list[str]:
+    _validate_slug(work)
+    held = sorted((s for s in discover_slugs() if split_document_slug(s)[0] == work),
+                  key=lambda s: split_document_slug(s)[1] or 0)
+    if not held:
+        raise HTTPException(404, f"No document of work {work!r}")
+    return held
+
+
+@app.get("/api/acts/{work}/amending")
+def amending_status(work: str):
+    """The amending Acts this work's held versions need, and whether each
+    has been fetched and read. Reads only what is on disk."""
+    from corpus.amending.verify import status
+
+    return {"work": work, "acts": status(_held(work)[-1], BASE_DIR)}
+
+
 @app.post("/api/acts/{work}/amending")
 def fetch_amending_acts(work: str):
     """Fetches and reads the amending Acts this work's held versions need
     (corpus/amending/fetch.py), for the review tool to check each version's
     changes against. One Act failing -- no network, a moved page -- is in
     the log, and the rest still come."""
-    from corpus.amending.fetch import fetch
-
-    _validate_slug(work)
-    held = sorted((s for s in discover_slugs() if split_document_slug(s)[0] == work),
-                  key=lambda s: split_document_slug(s)[1] or 0)
-    if not held:
-        raise HTTPException(404, f"No document of work {work!r}")
+    held = _held(work)
     lines: list[str] = []
     try:
-        manifest = fetch(held[-1], BASE_DIR, log=lines.append)
+        manifest = amending_fetch.fetch(held[-1], BASE_DIR, log=lines.append)
     except Exception as e:   # the parses themselves unreadable, say
         return {"ok": False, "log": "\n".join(lines + [f"Failed: {e}"])}
     # Every open review reads the instructions once, when it starts.
     for slug in held:
         _kill_review_process(slug)
     return {"ok": True, "acts": len(manifest), "log": "\n".join(lines) or "No amending Acts are needed."}
+
+
+@app.post("/api/acts/{work}/amending/verify")
+def verify_amending_acts(work: str):
+    """Every fetched instruction checked against the versions it first
+    shows in, on the text as reviewed so far (corpus/amending/verify.py)."""
+    from corpus.amending.verify import verify
+
+    held = _held(work)
+
+    def nodes_of(slug):
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        return nodes, hierarchy
+
+    return verify(held[-1], BASE_DIR, nodes_of=nodes_of,
+                  title=amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+
+
+# ---------------------------------------------------------------------------
+# History review (corpus/history): each change between consecutive versions
+# of a work, confirmed as Parliament's or denied as the parser's.
+# ---------------------------------------------------------------------------
+
+_history_cache: dict[str, tuple[str, list]] = {}
+
+
+class HistoryDecision(BaseModel):
+    provision: str
+    from_version: int
+    to_version: int
+    piece: str
+    # None takes a decision back.
+    decision: "str | None" = None
+
+
+@app.get("/history/{work}/")
+def history_page(work: str):
+    _validate_slug(work)
+    return FileResponse(STATIC_DIR / "history.html")
+
+
+def _history_items(work: str) -> list[dict]:
+    """Every change across the work's versions with its evidence -- the
+    amending Acts' instructions and the margin notes new in the later
+    version -- cached against the text itself rather than the review
+    database, which each decision writes to."""
+    held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
+    versions = []
+    for slug in held:
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        versions.append((split_document_slug(slug)[1], nodes, hierarchy))
+    stamp = hashlib.sha256(json.dumps(
+        [(v, sorted((str(k), p["heading"], p["text"]) for k, p in diffing.provisions(n).items()))
+         for v, n, _h in versions]).encode()).hexdigest()
+    cached = _history_cache.get(work)
+    if cached and cached[0] == stamp:
+        return cached[1]
+    items = history_changes.work_changes(versions)
+    acts = amending_load.work_instructions(held[-1], BASE_DIR,
+                                           amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+    by_step: dict = {}
+    for item in items:
+        by_step.setdefault((item["key"], item["from"], item["to"]), []).append(item)
+    for (key, older_v, newer_v), group in by_step.items():
+        fetched = amending_load.fetched_for(acts, newer_v)
+        mine = [i for i in acts["by_key"].get(key, []) if i["act"] in fetched]
+        results = amending_match.match(mine, group[0]["_older"], group[0]["_newer"])["instructions"] if mine else []
+        for item in group:
+            item["instructions"], item["notes"] = [], _new_notes(item)
+        for r in results:
+            evidence = {"act": r["act"], "provision": r["provision"], "raw": r["raw"], "status": r["status"]}
+            landed = next((u for u in reversed(r["pair"]) if u is not None), None)
+            at = "heading" if r["at"] == "heading" else (landed.get("path") if landed else None)
+            if r["action"] == "insert_section":
+                at = history_changes.WHOLE
+            target = [i for i in group if i["piece"] == at] or group
+            if r["status"] == "elsewhere" and not r.get("schedule") and r.get("path") and r["pair"][1] is not None:
+                # The Act says where the piece belongs and the later
+                # version's parse has it elsewhere: a reference its review
+                # server can put it at (review.place_named).
+                path = list(r["path"])
+                if r["action"] == "insert_provision" and r.get("number"):
+                    path = path[:-1] + [r["number"]]
+                node_id = r["pair"][1]["tree_node"]["node"].get("id")
+                if node_id:
+                    evidence.update(place_as="".join(f"({p})" for p in path), node_id=node_id)
+            for item in target:
+                item["instructions"].append({**evidence, "here": item["piece"] == at})
+    public = [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
+    _history_cache[work] = (stamp, public)
+    return public
+
+
+def _new_notes(item: dict) -> list[str]:
+    """The margin notes on the changed piece in the later version that the
+    earlier one did not print."""
+    old, new = item.get("_pair", (None, None)) if item["piece"] != history_changes.WHOLE else (None, None)
+
+    def notes(unit):
+        return [h.get("raw") if isinstance(h, dict) else h
+                for h in (unit["tree_node"]["node"].get("history") or [])] if unit else []
+
+    if item["piece"] == history_changes.WHOLE:
+        units = item["_newer"] or []
+        return [n for u in units for n in notes(u) if n][:6]
+    was = set(notes(old))
+    return [n for n in notes(new) if n and n not in was]
+
+
+@app.get("/api/works/{work}/history")
+def history_items(work: str):
+    held = _held(work)
+    items = _history_items(work)
+    decisions = db.load_history_decisions(work, BASE_DIR)
+    for item in items:
+        item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
+    return {"work": work, "title": _act_title(held[-1]),
+            "versions": [{"version": split_document_slug(s)[1], "slug": s} for s in held
+                         if split_document_slug(s)[1] is not None],
+            "items": items}
+
+
+@app.post("/api/works/{work}/history/decide")
+def history_decide(work: str, req: HistoryDecision):
+    _held(work)
+    db.save_history_decision(work, req.provision, req.from_version, req.to_version, req.piece,
+                             req.decision, BASE_DIR)
+    return {"ok": True}
+
+
+_page_docs: dict = {}
+
+
+def _pdf_page(slug: str, page_no: int):
+    _validate_slug(slug)
+    path = _find_source_pdf(slug)
+    if path is None:
+        raise HTTPException(404, f"No source PDF for {slug}")
+    if slug not in _page_docs:
+        import fitz
+        _page_docs[slug] = fitz.open(path)
+    doc = _page_docs[slug]
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"{slug} has pages 1-{doc.page_count}")
+    return doc[page_no - 1], doc.page_count
+
+
+@app.get("/api/docs/{slug}/pages/{page_no}")
+def pdf_page_size(slug: str, page_no: int):
+    page, count = _pdf_page(slug, page_no)
+    return {"width": page.rect.width, "height": page.rect.height, "page_count": count}
+
+
+@app.get("/api/docs/{slug}/pages/{page_no}.png")
+def pdf_page_image(slug: str, page_no: int):
+    """One printed page, for setting two versions' pages side by side in
+    History review."""
+    import fitz
+    page, _count = _pdf_page(slug, page_no)
+    return Response(content=page.get_pixmap(matrix=fitz.Matrix(1.8, 1.8)).tobytes("png"), media_type="image/png")
 
 
 @app.get("/api/acts/{slug}/definitions")
@@ -1827,31 +2004,39 @@ def work_versions(work: str):
 async def add_work_version(work: str, pdf: UploadFile = File(...)):
     """Adds another Authorised Version of a work held here -- older or
     newer, which the PDF's own version number decides, not the person
-    adding it.
+    adding it. See _add_version."""
+    _validate_slug(work)
+    if not (pdf.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are supported")
+    return _add_version(work, await pdf.read(), Path(pdf.filename).name)
 
-    Refused unless the PDF says it is the same Act (its number and year,
+
+def _add_version(work: str, content: bytes, filename: str, version: "int | None" = None) -> dict:
+    """Refused unless the PDF says it is the same Act (its number and year,
     fixed for the Act's whole life) and a version not already held. A
     work held under its plain name is first made version N of itself
     (corpus/review/adopt_version.py), since two versions cannot share
     one name. Parsed with the profile the work's other versions were, so
-    the parses differ only where the Act does."""
+    the parses differ only where the Act does.
+
+    `version` is the site's number for a fetched PDF, which the PDF must
+    agree with: the parse is named by what the PDF says."""
     from corpus.review import adopt_version
 
-    _validate_slug(work)
-    if not (pdf.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(400, "Only PDF files are supported")
     held = _work_versions(work) or ([work] if (BASE_DIR / "data" / "parsed" / f"{work}.json").exists() else [])
     if not held:
         raise HTTPException(404, f"No work {work!r} is held here to add a version to.")
 
     incoming = BASE_DIR / "acts" / f".incoming-{secrets.token_hex(4)}.pdf"
     incoming.parent.mkdir(parents=True, exist_ok=True)
-    incoming.write_bytes(await pdf.read())
+    incoming.write_bytes(content)
     try:
         meta = read_front_matter(incoming)
         existing = _act_version(held[-1])
         if meta.get("version") is None:
             raise HTTPException(400, "This PDF states no Authorised Version number, so it cannot be placed among the others.")
+        if version is not None and meta["version"] != version:
+            raise HTTPException(400, f"The site lists this as version {version}, but the PDF says {meta['version']}.")
         if existing.get("act_no") and (str(meta.get("act_no")), meta.get("year")) != (str(existing.get("act_no")), existing.get("year")):
             raise HTTPException(400, f"This PDF is No. {meta.get('act_no')} of {meta.get('year')}, "
                                      f"not No. {existing['act_no']} of {existing.get('year')} -- a different Act.")
@@ -1864,7 +2049,7 @@ async def add_work_version(work: str, pdf: UploadFile = File(...)):
             except (adopt_version.Refused, review_sync.Unloaded) as e:
                 raise HTTPException(409, f"Could not make {work} a versioned work first: {e}")
         profile = _parse_field(_work_versions(work)[-1], "profile") or ""
-        dest = BASE_DIR / "acts" / work / Path(pdf.filename).name
+        dest = BASE_DIR / "acts" / work / filename
         if dest.exists():
             dest = dest.with_name(f"{dest.stem}-v{meta['version']}.pdf")
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1876,6 +2061,41 @@ async def add_work_version(work: str, pdf: UploadFile = File(...)):
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+
+
+def _site_versions(work: str) -> list[dict]:
+    held = _held(work)
+    info = _act_version(held[-1])
+    try:
+        return history_versions.available(_act_title(held[-1]), info.get("act_no"), info.get("year"))
+    except amending_fetch.NotFound as e:
+        raise HTTPException(404, str(e))
+    except OSError as e:
+        raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+
+
+@app.get("/api/works/{work}/versions/available")
+def work_versions_available(work: str):
+    """What legislation.vic.gov.au holds of this Act, each marked if it is
+    held here already."""
+    held = {split_document_slug(s)[1] for s in _held(work)}
+    return {"work": work, "versions": [{**v, "held": v["version"] in held} for v in _site_versions(work)]}
+
+
+@app.post("/api/works/{work}/versions/fetch/{version}")
+def fetch_work_version(work: str, version: int):
+    """Downloads one version from the site and adds it as an uploaded one
+    is. One a request, so the page can say how far a long list has got."""
+    wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
+    if not wanted or not wanted["pdf_url"]:
+        raise HTTPException(404, f"The site has no single PDF of version {version}.")
+    try:
+        content = amending_fetch._get(wanted["pdf_url"])
+    except OSError as e:
+        raise HTTPException(502, f"Could not download version {version}: {e}")
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
+    return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
 
 
 @app.post("/api/acts/{slug}/reparse")
@@ -2454,31 +2674,6 @@ def _work_lineage(work: str) -> "dict | None":
 _timeline_cache: dict[str, tuple[tuple, dict]] = {}
 
 
-def _act_amended(acts: dict, version: int, previous, current) -> "set | None":
-    """The provisions an amending Act first in this version changed, by
-    the Act's own word (see lineage._amended) -- None where no such Act
-    has been fetched, and the margin notes are all there is to go on.
-
-    An instruction counts unless the earlier version already reads as it
-    says: one the parse garbled beyond matching still says Parliament
-    changed that provision here."""
-    fetched = amending_load.fetched_for(acts, version)
-    if not fetched or previous is None:
-        return None
-    out = set()
-    for key, instructions in acts["by_key"].items():
-        mine = [i for i in instructions if i["act"] in fetched]
-        if not mine:
-            continue
-        sides = []
-        for effective, hierarchy in (previous, current):
-            provision = effective.get(key)
-            sides.append(html_view._wording_units(provision["nodes"], hierarchy) if provision else [])
-        if any(i["status"] != "earlier" for i in amending_match.match(mine, *sides)["instructions"]):
-            out.add(key)
-    return out
-
-
 def _timeline(work: str) -> dict:
     """Every provision's wordings across the versions of one work held
     here (lineage.provision_chains), plus the version slugs they came
@@ -2511,10 +2706,9 @@ def _timeline(work: str) -> dict:
     lineage_state = _work_lineage(work)
     if lineage_state:
         docs = []
-        newest = lineage_state["slugs"][lineage_state["versions"][-1]]
-        acts = amending_load.work_instructions(newest, BASE_DIR,
-                                               amending_load.work_title(newest, BASE_DIR, _act_title(newest)))
-        previous = None
+        # Only what a person has confirmed in History review is a change
+        # here (corpus/history): not a margin note, not an amending Act.
+        confirmed = history_changes.confirmed(db.load_history_decisions(work, BASE_DIR))
         for version in lineage_state["versions"]:
             slug = lineage_state["slugs"][version]
             state = lineage_state["states"][version]
@@ -2523,8 +2717,6 @@ def _timeline(work: str) -> dict:
             for provision in effective.values():
                 root = provision["node_index"]
                 provision["nodes"] = nodes[root:diffing.unit_end(nodes, root)]
-            amended = _act_amended(acts, version, previous, (effective, hierarchy))
-            previous = (effective, hierarchy)
             meta = _act_version(slug)
             result["order"][version] = list(effective)
             docs.append({
@@ -2536,10 +2728,12 @@ def _timeline(work: str) -> dict:
                 "amending_acts": {a["citation"] for a in
                                   (_parse_field(slug, "endnotes") or {}).get("amending_acts") or []
                                   if a.get("citation")},
-                "act_amended": amended,
+                "confirmed": confirmed.get(version, {}).get("text", set()),
             })
         chains = lineage.provision_chains(docs, {v: lineage_state["states"][v]["links"]
                                                  for v in lineage_state["versions"]})
+        whole = {v: step["whole"] for v, step in confirmed.items()}
+        chains["chains"] = [history_changes.gate(chain, whole) for chain in chains["chains"]]
         result.update(chains)
     _timeline_cache[work] = (signature, result)
     return result

@@ -34,13 +34,14 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-# "Authorised Version No. 114". The Act's own count of its reprints.
-_VERSION_RE = re.compile(r"Authorised\s+Version\s+No\.?\s*(\d+)", re.IGNORECASE)
+# "Authorised Version No. 114". The Act's own count of its reprints. The
+# earliest reprints, before they were authorised, say "Version No. 001".
+_VERSION_RE = re.compile(r"(?:Authorised\s+)?Version\s+No\.?\s*(\d+)", re.IGNORECASE)
 
 # "Authorised Version incorporating amendments as at\n1 July 2026" -- the
 # date sits on the line below the phrase, so this reads across the break.
 _AS_AT_RE = re.compile(
-    r"incorporating\s+amendments\s+as\s+at\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})",
+    r"(?:incorporating\s+amendments|Version)\s+as\s+at\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})",
     re.IGNORECASE,
 )
 

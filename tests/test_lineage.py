@@ -265,26 +265,25 @@ def test_a_carried_from_link_joins_two_numbers_into_one_chain():
     assert len(_chain(result, 2, S3)["wordings"]) == 2
 
 
-# Where the amending Acts first in a reprint have been fetched, their
-# instructions decide (dashboard._act_amended), not the margin notes.
+# Where a work's history has been reviewed (corpus/history), a change is
+# what a person confirmed: not a margin note, not an amending Act.
 
-def test_an_act_instruction_for_the_provision_makes_the_difference_real():
+def test_a_confirmed_change_is_a_new_wording():
     old = _noted("a person may appeal")
     new = _noted("a person may appeal within 28 days")
 
     result = provision_chains([_doc(1, old, acts={"5/2020"}),
-                               {**_doc(2, new, acts={"5/2020"}), "act_amended": {S1}}])
+                               {**_doc(2, new, acts={"5/2020"}), "confirmed": {S1}}])
 
     assert _versions(result) == [[1], [2]]
 
 
-def test_with_acts_fetched_a_note_alone_does_not_make_a_change():
-    """A margin note is only as good as the parse that placed it; the Act
-    names the provision itself, and it names nothing here."""
+def test_an_unconfirmed_difference_is_not_a_change_whatever_its_note_says():
+    """Nothing reaches the public histories until it is confirmed."""
     old = _noted("must file a charge- sheet.")
     new = _noted("must file a charge-sheet.", "S. 1(1) amended by No. 7/2026 s. 3.")
 
     result = provision_chains([_doc(1, old, acts={"7/2026"}),
-                               {**_doc(2, new, acts={"7/2026"}), "act_amended": set()}])
+                               {**_doc(2, new, acts={"7/2026"}), "confirmed": set()}])
 
     assert _versions(result) == [[1, 2]]

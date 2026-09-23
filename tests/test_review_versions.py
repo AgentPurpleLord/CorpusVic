@@ -188,15 +188,14 @@ def test_both_versions_can_be_re_parsed_from_the_review(tmp_path, monkeypatch):
     assert lineage["slugs"] == {"this": "act-v1", "reference": "act-v2"}
 
 
-def test_the_review_links_reach_the_dashboards_re_parse_menu():
-    """Older reprints have no card on the dashboard, so this link is the
-    only way to their re-parse menu."""
+def test_history_review_links_to_the_parse_menu_for_either_version():
+    """A change denied as the parser's is put right by re-parsing."""
     from corpus import PROJECT_ROOT
 
-    review_page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    history = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
     dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
 
-    assert 'href="../../?reparse=${encodeURIComponent(slug)}&mode=keep"' in review_page
+    assert 'href="../../?reparse=${encodeURIComponent(slugOf(v))}&mode=keep"' in history
     assert "loadActs().then(openRequestedReparse);" in dashboard
     assert 'params.get("reparse")' in dashboard
     assert 'openParseMenu(s.work, [slug], params.get("mode"))' in dashboard
@@ -238,14 +237,17 @@ def test_a_changed_heading_is_shown_on_the_section_itself(tmp_path, monkeypatch)
     assert '<ins class="d-ins">and reviews</ins>' in change["new_html"]
 
 
-def test_the_two_wordings_sit_side_by_side_only_in_the_changes_view():
+def test_review_checks_one_version_against_its_own_pdf():
+    """Every version's changes are History review's to decide: the review
+    page neither compares nor filters by them, nor offers the Acts' fixes."""
     from corpus import PROJECT_ROOT
 
     page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
 
-    assert "Differs from <strong>" not in page
-    assert 'if (sidebarFilter === "changes" && l && l.changes)' in page
-    assert "compareColumnsHtml(c, c.label === \"Heading\")" in page
+    for gone in ('data-filter="changes"', "compareColumnsHtml", 'id="pdf-compare-btn"', 'id="pdf-ref"',
+                 "instructionHtml", "instr-place", "Differs from <strong>"):
+        assert gone not in page, gone
+    assert "Carried from <select" in page, "which provision a unit carries on is still this version's"
 
 
 def test_the_other_versions_page_opens_on_what_changed_there(tmp_path, monkeypatch):
@@ -274,16 +276,6 @@ def test_the_other_versions_pdf_is_served_by_this_review(tmp_path, monkeypatch):
     assert image.media_type == "image/png" and image.body[:4] == b"\x89PNG"
 
 
-def test_the_pdf_panel_can_set_the_two_pages_side_by_side():
-    from corpus import PROJECT_ROOT
-
-    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
-
-    assert 'id="pdf-compare-btn"' in page and 'id="pdf-ref"' in page
-    assert "api/versions/${v}/pages/${pageNo}.png" in page
-    assert 'classList.toggle("later", view.version > META.version_info.version)' in page
-
-
 def test_one_parse_menu_per_act_parses_each_ticked_version_in_turn():
     """The card shows an Act's newest version only, and its Re-parse
     button reached no other: an older reprint could only be re-parsed
@@ -298,15 +290,6 @@ def test_one_parse_menu_per_act_parses_each_ticked_version_in_turn():
     assert "await fetch(`api/acts/${v.slug}/reparse`" in dashboard
     # One PDF's page numbers mean nothing in another's.
     assert 'getElementById("parse-pages").style.display = ticked.length === 1' in dashboard
-
-
-def test_the_current_version_does_not_announce_what_is_reviewed():
-    from corpus import PROJECT_ROOT
-
-    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
-
-    assert "Reviewed in this version." not in page
-    assert 'if (l.status === "reviewed" || (current && l.status === "inherits"))' in page
 
 
 # ---------------------------------------------------------------------
@@ -377,14 +360,16 @@ def test_the_dashboard_fetches_amending_acts_for_a_work(tmp_path, monkeypatch):
     assert killed == ["act-v1", "act-v2"], "open reviews read the instructions once, when they start"
 
 
-def test_the_pages_show_the_acts_and_fetch_them():
+def test_the_acts_are_fetched_from_history_review():
     from corpus import PROJECT_ROOT
 
-    review_page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
     dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
 
-    assert "made.map(instructionHtml)" in review_page and "No amending Act made this change" in review_page
-    assert 'onclick="fetchAmendingActs()"' in dashboard and "/amending`, { method: \"POST\" }" in dashboard
+    # Fetched from History review, not from the Parse Menu or a menu of their own.
+    assert 'id="amending-modal"' not in dashboard and "parse-amending-btn" not in dashboard
+    assert 'href="history/${encodeURIComponent(s.work)}/"' in dashboard
+    history = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+    assert "/amending`, { method: \"POST\" }" in history
 
 
 def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
@@ -396,33 +381,32 @@ def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_pat
     assert (ins["status"], ins["node_index"], ins["place_as"]) == ("elsewhere", piece["node_index"], "(2)")
 
 
-def test_the_act_decides_between_reprints_where_it_has_been_fetched(tmp_path, monkeypatch):
+def test_the_amending_acts_are_listed_and_verified_for_a_work(tmp_path, monkeypatch):
     import corpus.web.dashboard as dashboard
-    from corpus.amending import load
-    from corpus.domain import diffing
+    from corpus.amending.verify import status, verify
 
     monkeypatch.chdir(tmp_path)
     _instruction(tmp_path)
     _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
     _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days", "S. 2(1) amended by No. 7/2026 s. 3.")
 
-    def version(slug):
-        nodes = json.loads((tmp_path / "data" / "parsed" / f"{slug}.json").read_text())["nodes"]
-        effective = diffing.provisions(nodes)
-        for p in effective.values():
-            p["nodes"] = nodes[p["node_index"]:diffing.unit_end(nodes, p["node_index"])]
-        return effective, HIERARCHY
+    [act] = status("act-v2", tmp_path)
+    assert (act["citation"], act["versions"], act["fetched"], act["read"]) == ("7/2026", [2], False, 1)
 
-    acts = load.work_instructions("act-v2", tmp_path, "Appeals Act 2020")
+    report = verify("act-v2", tmp_path, title="Appeals Act 2020")
+    [item] = report["acts"][0]["items"]
+    assert (item["provision"], item["target"], item["status"], item["between"]) == ("s. 3", "s 2(1)", "matched", "v1\u2192v2")
+    assert report["counts"] == {"matched": 1}
 
-    assert dashboard._act_amended(acts, 2, version("act-v1"), version("act-v2")) == {("provision", None, "2")}
-    assert dashboard._act_amended(acts, 1, None, version("act-v1")) is None, "no Act first in the oldest"
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    assert dashboard.amending_status("act")["acts"][0]["citation"] == "7/2026"
 
 
-def test_the_place_button_uses_the_place_endpoint():
-    from corpus import PROJECT_ROOT
+def test_the_fetched_amending_acts_are_not_documents_on_the_dashboard(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
 
-    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "acts" / "amending").mkdir(parents=True)
+    (tmp_path / "acts" / "amending" / "2026-1.pdf").write_bytes(b"%PDF-1.4")
 
-    assert 'class="btn small instr-place"' in page
-    assert "api(`api/nodes/${btn.dataset.node}/place`" in page
+    assert dashboard.discover_slugs() == []

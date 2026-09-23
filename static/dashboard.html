@@ -439,8 +439,6 @@
       <div class="parse-pick">
         <button type="button" class="btn small" onclick="tickParseVersions(true)">All</button>
         <button type="button" class="btn small" onclick="tickParseVersions(false)">None</button>
-        <button type="button" class="btn small" id="parse-amending-btn" onclick="fetchAmendingActs()"
-                title="Download the Acts that amended this one between the versions held, so review can check each change against the Act that made it">Fetch amending Acts</button>
       </div>
 
       <label>Kind</label>
@@ -853,6 +851,9 @@ function actCardHtml(s) {
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
                 title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
+        ${s.version != null
+          ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
+               title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
         ${dlAkn}
         ${dlMd}
       </div>
@@ -872,7 +873,7 @@ function versionsHtml(s) {
       <div class="add-version">
         <input type="file" accept="application/pdf">
         <button class="btn small" onclick="addVersion('${s.work}', this)"
-                title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and only what differs is left to review">Add a version</button>
+                title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
       </div>
     </details>`;
 }
@@ -887,8 +888,8 @@ async function loadVersions(work, details) {
       <tr>
         <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}</td>
         <td>${escapeHtml(v.as_at_printed ? "as at " + v.as_at_printed : "")}</td>
-        <td>${v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
-        <td><a href="review/${v.slug}/" target="_blank">Review</a> &middot; <a href="browse/${v.slug}/" target="_blank">Browse</a></td>
+        <td>${!v.current || v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
+        <td>${v.current ? `<a href="review/${v.slug}/" target="_blank">Review</a> &middot; ` : ""}<a href="browse/${v.slug}/" target="_blank">Browse</a></td>
       </tr>`).join("");
     body.innerHTML = `<table>${rows}</table>`;
   } catch (e) {
@@ -1583,27 +1584,6 @@ function paintParseMenu() {
   const btn = document.getElementById("parse-submit-btn");
   btn.disabled = !ticked.length;
   btn.textContent = ticked.length > 1 ? `Parse ${ticked.length} versions` : "Parse";
-}
-
-async function fetchAmendingActs() {
-  const btn = document.getElementById("parse-amending-btn");
-  const logWrap = document.getElementById("parse-log-wrap");
-  const logEl = document.getElementById("parse-log");
-  btn.disabled = true;
-  btn.textContent = "Fetching...";
-  logWrap.style.display = "block";
-  logEl.textContent = "Fetching amending Acts from legislation.vic.gov.au...";
-  try {
-    const res = await fetch(`api/acts/${encodeURIComponent(parseMenuWork)}/amending`, { method: "POST" });
-    const data = await res.json();
-    logEl.textContent = data.log || data.detail || "(no output)";
-    toast(data.ok ? "Amending Acts fetched -- reopen a review to see them" : "Fetching failed -- see the log", !data.ok);
-  } catch (err) {
-    logEl.textContent = String(err);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Fetch amending Acts";
-  }
 }
 
 // One version after another, never at once: each is a full pipeline run,

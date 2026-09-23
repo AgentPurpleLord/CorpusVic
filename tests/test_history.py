@@ -1,0 +1,171 @@
+"""History review (corpus/history): the changes between versions, and
+nothing in the public histories until a person has confirmed it."""
+import json
+
+from corpus.history.changes import HEADING, WHOLE, confirmed, gate, key_json, work_changes
+from corpus.parsing.identity import annotate_ids
+
+HIERARCHY = ["part", "section", "subsection", "paragraph"]
+S2 = ("provision", None, "2")
+
+
+def _nodes(sections: dict, heading="Appeals") -> list[dict]:
+    nodes = [{"type": "part", "number": "1", "heading": "Preliminary", "text": ""}]
+    for number, pieces in sections.items():
+        nodes.append({"type": "section", "number": number, "heading": heading, "text": ""})
+        for sub, text in pieces:
+            nodes.append({"type": "subsection", "number": sub, "heading": None, "text": text})
+    annotate_ids(nodes, HIERARCHY)
+    return nodes
+
+
+def test_each_changed_piece_is_its_own_change():
+    changes = work_changes([
+        (1, _nodes({"2": [("1", "a person may appeal"), ("2", "the same")]}), HIERARCHY),
+        (2, _nodes({"2": [("1", "a person may appeal within 28 days"), ("2", "the same")]}), HIERARCHY),
+    ])
+
+    [change] = changes
+    assert (change["key"], change["from"], change["to"], change["piece"], change["label"]) == (S2, 1, 2, "1", "(1)")
+    assert '<ins class="d-ins">within 28 days</ins>' in change["new_html"]
+
+
+def test_a_heading_and_a_whole_section_are_changes_too():
+    changes = work_changes([
+        (1, _nodes({"2": [("1", "x")]}, heading="Appeals"), HIERARCHY),
+        (2, _nodes({"2": [("1", "x")], "3": [("1", "new")]}, heading="Appeals and reviews"), HIERARCHY),
+    ])
+
+    assert {(c["key"][2], c["piece"], c["op"]) for c in changes} == {("2", HEADING, "changed"), ("3", WHOLE, "insert")}
+
+
+def test_only_confirmed_decisions_count():
+    decisions = {(key_json(S2), 1, 2, "1"): "confirmed", (key_json(S2), 1, 2, "2"): "denied",
+                 (key_json(("provision", None, "3")), 1, 2, WHOLE): "confirmed"}
+
+    assert confirmed(decisions) == {2: {"text": {S2}, "whole": {("provision", None, "3")}}}
+
+
+def _wording(versions, absent=False, key=S2):
+    w = {"absent": absent, "versions": versions, "from": {"version": versions[0]}, "to": {"version": versions[-1]}}
+    if not absent:
+        w.update(key=key, provision={"heading": "x"})
+    return w
+
+
+def test_an_unconfirmed_arrival_or_repeal_is_not_in_the_history():
+    chain = {"wordings": [_wording([1], absent=True), {**_wording([2, 3]), "ended_by": {"version": 4}},
+                          _wording([4], absent=True)]}
+
+    assert [w["versions"] for w in gate(chain, {})["wordings"]] == [[2, 3]]
+    assert [w["versions"] for w in gate(chain, {2: {S2}, 4: {S2}})["wordings"]] == [[1], [2, 3], [4]]
+    assert "ended_by" in chain["wordings"][1], "the cached chain is left alone"
+
+
+def test_a_gap_the_parser_made_closes_up():
+    """A provision missing from one reprint, back in the next: unless its
+    going and coming back are confirmed, it was never gone."""
+    chain = {"wordings": [_wording([1]), _wording([2], absent=True), _wording([3])]}
+
+    [wording] = gate(chain, {})["wordings"]
+    assert wording["versions"] == [1, 3] and wording["from"]["version"] == 1
+
+
+def test_the_public_history_waits_for_confirmation(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    from corpus.storage import db
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    for version, text in ((1, "a person may appeal"), (2, "a person may appeal within 28 days")):
+        (parsed / f"act-v{version}.json").write_text(json.dumps({
+            "nodes": _nodes({"2": [("1", text)]}), "hierarchy": HIERARCHY, "fingerprint": f"fp{version}",
+            "version": {"version": version}}))
+
+    def chains():
+        dashboard._timeline_cache.clear()
+        dashboard._lineage_cache.clear()
+        return [c for c in dashboard._timeline("act")["chains"] if len(c["wordings"]) > 1]
+
+    assert chains() == [], "found by the parser, not yet confirmed: not public"
+    db.save_history_decision("act", key_json(S2), 1, 2, "1", "confirmed", tmp_path)
+    [chain] = chains()
+    assert [w["versions"] for w in chain["wordings"]] == [[1], [2]]
+
+
+def test_history_review_lists_each_change_with_its_evidence_and_records_decisions(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    from corpus.web.dashboard import HistoryDecision, history_decide, history_items
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    for version, text, notes in ((1, "a person may appeal", []),
+                                 (2, "a person may appeal within 28 days", ["S. 2(1) amended by No. 7/2026 s. 3."])):
+        nodes = _nodes({"2": [("1", text)]})
+        nodes[-1]["history"] = [{"raw": n} for n in notes]
+        (parsed / f"act-v{version}.json").write_text(json.dumps({
+            "nodes": nodes, "hierarchy": HIERARCHY, "fingerprint": f"fp{version}", "version": {"version": version},
+            "endnotes": {"amending_acts": [{"title": "Appeals Amendment Act 2026", "citation": "7/2026",
+                                             "act_no": "7", "year": "2026"}]}}))
+    amending = tmp_path / "data" / "amending"
+    amending.mkdir(parents=True)
+    (amending / "2026-7.json").write_text(json.dumps([{
+        "act": "7/2026", "provision": "s. 3", "target_act": "Appeals Act 2020", "schedule": None, "section": "2",
+        "path": ["1"], "heading": False, "definition": None, "action": "insert_after", "old": "appeal",
+        "new": "within 28 days", "number": None, "raw": 'In section 2(1), after "appeal" insert "within 28 days".'}]))
+
+    [item] = history_items("act")["items"]
+    assert (item["section"], item["label"], item["from"], item["to"], item["decision"]) == ("s 2", "(1)", 1, 2, None)
+    assert [(a["act"], a["status"], a["here"]) for a in item["instructions"]] == [("7/2026", "matched", True)]
+    assert item["notes"] == ["S. 2(1) amended by No. 7/2026 s. 3."]
+
+    history_decide("act", HistoryDecision(provision=item["provision"], from_version=1, to_version=2,
+                                          piece=item["piece"], decision="denied"))
+    assert history_items("act")["items"][0]["decision"] == "denied"
+
+
+def test_history_review_fetches_the_ticked_versions_one_at_a_time():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+
+    assert 'fetch(API + "/versions/available")' in page
+    assert "for (const [n, v] of ticked.entries())" in page and "fetch(`${API}/versions/fetch/${v}`" in page
+
+
+def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
+    """The Act names (2); v2's parse has the change under (1)."""
+    import corpus.web.dashboard as dashboard
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    for version, text in ((1, "a person may appeal"), (2, "a person may appeal within 28 days")):
+        nodes = _nodes({"2": [("1", text), ("2", "the same")]})
+        nodes[-2]["history"] = [{"raw": "S. 2(1) amended by No. 7/2026 s. 3."}] if version == 2 else []
+        (parsed / f"act-v{version}.json").write_text(json.dumps({
+            "nodes": nodes, "hierarchy": HIERARCHY,
+            "fingerprint": f"fp{version}", "version": {"version": version},
+            "endnotes": {"amending_acts": [{"title": "Appeals Amendment Act 2026", "citation": "7/2026",
+                                             "act_no": "7", "year": "2026"}]}}))
+    amending = tmp_path / "data" / "amending"
+    amending.mkdir(parents=True)
+    (amending / "2026-7.json").write_text(json.dumps([{
+        "act": "7/2026", "provision": "s. 3", "target_act": "Appeals Act 2020", "schedule": None, "section": "2",
+        "path": ["2"], "heading": False, "definition": None, "action": "insert_after", "old": "appeal",
+        "new": "within 28 days", "number": None, "raw": 'In section 2(2), after "appeal" insert "within 28 days".'}]))
+
+    [item] = dashboard.history_items("act")["items"]
+    [ins] = item["instructions"]
+    assert (ins["status"], ins["place_as"]) == ("elsewhere", "(2)")
+    assert ins["node_id"] == _nodes({"2": [("1", "x")]})[-1]["id"], "v2's (1), where the parse has the change"
+
+    page = (dashboard.STATIC_DIR / "history.html").read_text(encoding="utf-8")
+    assert "/api/named/${encodeURIComponent(btn.dataset.node)}/place" in page

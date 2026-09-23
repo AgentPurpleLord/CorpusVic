@@ -124,17 +124,23 @@ startup, and gives it back if the provision returns.
 
 ## A provision's history
 
-A Principal Act is reviewed at its current version, and every other
-Authorised Version of it held here is reviewed only where it differs.
-`corpus/domain/lineage.py` follows each provision through the versions:
-where two consecutive versions' raw parses of it are identical, the
-review of one is the review of the other (`corpus/review/inheritance.py`
-lends the rows). What differs is put in front of a reviewer, compared
-piece by piece with the version it is reviewed against. On the
-Criminal Procedure Act that is 12 to 20 provisions per reprint out of
-about 740, for reprints read by the same parser.
+A Principal Act is reviewed at its current version, against its own
+PDF and nothing else. Its other Authorised Versions are for **History
+review** (`corpus/history/`, from the Act's card): every change between
+consecutive versions, one sub-provision at a time, the two wordings side
+by side with both printed pages, the amending Acts' instructions and the
+new margin notes beside it. Each is confirmed as Parliament's or denied
+as the parser's, and a public history shows only confirmed changes -- an
+unconfirmed one is as if the two wordings were one. The Acts' evidence
+advises; it decides nothing. An instruction found under the wrong piece
+offers to put the piece where the Act says.
 
-Add a version from the dashboard's **Versions** on an Act's card: the
+History review's **Fetch versions** lists every version
+legislation.vic.gov.au holds and fetches and parses the ones ticked;
+**Fetch amending Acts** gets the Acts that made the changes
+(`corpus/amending/`).
+
+Or add one from the dashboard's **Versions** on an Act's card: the
 PDF is placed by the version number it states, and refused if it names a
 different Act. A work held under its plain name becomes version N of
 itself first (`python -m corpus.review.adopt_version <slug> --dry-run`

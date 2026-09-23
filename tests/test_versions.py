@@ -51,6 +51,14 @@ def test_an_authorised_version_states_its_number_and_date():
     assert meta["as_at_printed"] == "1 July 2026"
 
 
+def test_an_early_reprint_states_its_number_without_being_authorised():
+    """The CPA's first reprints, before they were Authorised Versions."""
+    meta = parse_front_matter("i\nVersion No. 001\nCriminal Procedure Act 2009\nNo. 7 of 2009\n"
+                              "Version as at 11 March 2009\nTABLE OF PROVISIONS\n")
+
+    assert (meta["version"], meta["act_no"], meta["as_at"]) == (1, "7", "2009-03-11")
+
+
 def test_the_version_number_is_an_int_so_it_sorts():
     # 110 before 111 before 112 -- as strings, "110" sorts after "11".
     assert isinstance(parse_front_matter(AUTHORISED_VERSION)["version"], int)
