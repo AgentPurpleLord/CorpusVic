@@ -1500,3 +1500,103 @@ def test_a_bold_caption_at_body_size_still_ends_a_penalty():
 
     assert find(nodes, "penalty")["text"] == "Penalty: 25 penalty units."
     assert find(nodes, "section", "8")["heading"] == "Another offence"
+
+
+# ---------------------------------------------------------------------
+# Ragged-right: a line that breaks early starts something new; a full
+# one that stopped mid-sentence is wrapping (Criminal Procedure Act v22)
+# ---------------------------------------------------------------------
+
+MARGIN = 456.0
+
+
+def _section(*body):
+    return [line("Part I—Offences", bold=True, x1=300), line("83 Admissibility", bold=True, x1=300), *body]
+
+
+def test_a_reference_wrapped_onto_a_new_line_is_not_a_new_provision():
+    """"...subject to subsections (2) and" / "(3), admissible as if..." --
+    the line above ran to the margin, so "(3)" did not fit on it."""
+    nodes = _parse(_section(
+        line("(1) The following are, subject to subsections (2) and", x0=HEAD_X0, x1=MARGIN - 3),
+        line("(3), admissible as if their contents were evidence.", x0=WRAP_X0, x1=440),
+        line("(2) A statement must be signed.", x0=HEAD_X0, x1=380),
+        line("(3) A copy must be served.", x0=HEAD_X0, x1=350),
+    )).nodes
+
+    assert [n["number"] for n in nodes if n["type"] == "subsection"] == ["1", "2", "3"]
+    assert find(nodes, "subsection", "1")["text"].endswith("subsections (2) and (3), admissible as if their contents were evidence.")
+
+
+def test_a_pinpoint_reference_ending_a_line_does_not_open_its_subsection_again():
+    nodes = _parse(_section(
+        line("(1) The Court may strike out an appeal.", x0=HEAD_X0, x1=400),
+        line("(2) If an appeal is struck out under subsection", x0=HEAD_X0, x1=MARGIN - 1),
+        line("(1)(a)—", x0=WRAP_X0, x1=250),
+        line("the appellant may apply to reinstate it.", x0=WRAP_X0, x1=420),
+    )).nodes
+
+    assert [n["number"] for n in nodes if n["type"] == "subsection"] == ["1", "2"]
+
+
+def test_an_item_after_an_or_on_its_own_line_still_opens():
+    """The line above stopped with room to spare: the break was the
+    drafter's."""
+    nodes = _parse(_section(
+        line("(1) A person is in custody if the person is—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) in a prison in the legal custody of the Secretary;", x0=PARA_X0, x1=MARGIN - 2),
+        line("or", x0=PARA_WRAP_X0, x1=274),
+        line("(b) in custody in a police gaol in the legal custody", x0=PARA_X0, x1=MARGIN - 4),
+        line("of the Chief Commissioner.", x0=PARA_WRAP_X0, x1=380),
+    )).nodes
+
+    assert [n["number"] for n in nodes if n["type"] == "paragraph"] == ["a", "b"]
+
+
+def test_a_full_line_that_ends_its_sentence_is_followed_by_a_new_provision():
+    nodes = _parse(_section(
+        line("(1) The additional evidence is inadmissible unless the court is satisfied—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) that it is relevant; and", x0=PARA_X0, x1=MARGIN - 1),
+        line("(b) that it is reliable.", x0=PARA_X0, x1=360),
+    )).nodes
+
+    assert [n["number"] for n in nodes if n["type"] == "paragraph"] == ["a", "b"]
+
+
+def test_a_provision_after_omitted_text_still_opens():
+    nodes = _parse(_section(
+        line("(1) This section applies to a charge.", x0=HEAD_X0, x1=400),
+        line("*", x0=434, x1=MARGIN - 13),
+        line("(3) Subject to subsection (4), the remaining provisions apply.", x0=HEAD_X0, x1=MARGIN),
+    )).nodes
+
+    assert [n["number"] for n in nodes if n["type"] == "subsection"] == ["1", "3"]
+
+
+def test_an_act_year_wrapped_in_a_note_is_not_a_new_note():
+    nodes = _parse(_section(
+        line("(1) Evidence may be recorded.", x0=HEAD_X0, x1=380),
+        line("Note", bold=True, size=10.0, x1=230),
+        # Bold: the line is mostly the Act's name, which a Note prints bold.
+        line("Part VI of the Evidence (Miscellaneous Provisions) Act", x0=PARA_X0, size=10.0, x1=MARGIN - 2, bold=True),
+        line("1958 provides for the recording of evidence.", x0=PARA_X0, size=10.0, x1=420),
+        line("(2) A recording is admissible.", x0=HEAD_X0, x1=360),
+    )).nodes
+
+    [note] = [n for n in nodes if n["type"] == "note"]
+    assert note["number"] is None and note["text"].endswith("Act 1958 provides for the recording of evidence.")
+    assert [n["number"] for n in nodes if n["type"] == "subsection"] == ["1", "2"]
+
+
+def test_a_reference_wrapped_in_a_note_stays_in_the_note():
+    nodes = _parse(_section(
+        line("(1) Evidence may be recorded.", x0=HEAD_X0, x1=380),
+        line("Note", bold=True, size=10.0, x1=230),
+        line("An order may also be made under section 5 and subsection", x0=PARA_X0, size=10.0, x1=MARGIN - 1),
+        line("(2) of that section applies to it.", x0=PARA_X0, size=10.0, x1=360),
+        line("(2) A recording is admissible.", x0=HEAD_X0, x1=360),
+    )).nodes
+
+    [note] = [n for n in nodes if n["type"] == "note"]
+    assert note["text"].endswith("subsection (2) of that section applies to it.")
+    assert [n["number"] for n in nodes if n["type"] == "subsection"] == ["1", "2"]

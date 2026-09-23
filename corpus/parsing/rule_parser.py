@@ -390,6 +390,50 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
 _INDENT_TOLERANCE = 3.0
 
 
+# Where a sentence or a list item has finished. The line above a new
+# provision ends one of these ways, or is a heading; "*" marks omitted
+# text.
+_CLEAN_END_RE = re.compile(r"(?:[.;:\u2014\u2013*]|;\s*(?:or|and|and/or))\s*$")
+
+
+def _right_margins(lines: list[BodyLine]) -> dict[int, float]:
+    """The right edge of the text block, by page parity -- odd and even
+    pages are printed with their margins mirrored. Read off the lines
+    that reach it, so no measure is assumed."""
+    out = {}
+    for parity in (0, 1):
+        edges = sorted(l.x1 for l in lines if l.page_no % 2 == parity)
+        if edges:
+            out[parity] = edges[int(len(edges) * 0.95)]
+    return out
+
+
+def _wraps(above: "BodyLine | None", line: BodyLine, text: str, margins: dict[int, float], body_size: float) -> bool:
+    """Is this line the sentence above carrying on, though it opens like a
+    provision ("(3), admissible as if...", "1958 provides for...")?
+
+    Acts are set ragged-right, not justified: a line breaks early only
+    where the next word would not fit. So after a line that stopped
+    mid-sentence, a bracket that would have fitted on it starts something
+    new -- "(b)" after an "or" set on its own line -- and one that would
+    not is the sentence wrapping. Measured on two CPA reprints, those two
+    cases were every one of the 154 bracketed lines that followed an
+    unfinished line.
+
+    A heading above finishes nothing, but bold alone is not a heading: a
+    Note, set smaller than the body, prints the Acts it cites in bold, and
+    a line that is mostly citation reads as bold."""
+    if above is None or _CLEAN_END_RE.search(above.text.strip()):
+        return False
+    if above.bold and round(above.size, 1) >= body_size:
+        return False
+    margin = margins.get(above.page_no % 2)
+    if margin is None:
+        return False
+    per_char = (line.x1 - line.x0) / max(len(text), 1)
+    return above.x1 + (len(text.split()[0]) + 1) * per_char > margin
+
+
 # Two printed lines belong in the same box when they follow each other
 # down the page. More clear space than this between them and they are two
 # runs of the same provision rather than one -- which is what a provision
@@ -544,6 +588,11 @@ class _LineParser:
         self.lines_total = 0
         self.lines_consumed = 0
         self.prev_text = ""
+        # The printed line before the one being read, whatever handled it
+        # -- prev_text is left stale by the marker and table paths -- and
+        # the right margin it is measured against (see _wraps).
+        self.line_above: "BodyLine | None" = None
+        self.margins: dict[int, float] = {}
         # A bare topical heading_group (e.g. a Bill's "CHAPTER 7--..."
         # caption) isn't pushed onto self.stack the way a Part, Division
         # or Section is -- it's appended straight to self.nodes instead
@@ -671,6 +720,12 @@ class _LineParser:
                 _append_text(self.stack[-1], l.text.strip(), l, char_end)
         run.clear()
 
+    def _wrapped(self, line: BodyLine, text: str) -> bool:
+        above = self.line_above
+        if above is not None and any(self.patterns[k].match(above.text.strip()) for k in ("notes_marker", "example_marker")):
+            return False   # "Note" heads what follows it, at whatever size a Note is set
+        return _wraps(above, line, text, self.margins, self.body_size)
+
     def _resolve_hanging_list(self, x0: float) -> bool:
         """A common legislative construct opens a subsection (or section)
         with lead-in text, breaks into a lettered or roman-numeral
@@ -704,6 +759,7 @@ class _LineParser:
 
     def feed(self, lines: list[BodyLine]) -> None:
         self.lines_total = len(lines)
+        self.margins = _right_margins(lines)
         # A table is claimed whole, by the run of lines it occupies, so
         # everything after its first line is already spoken for. The
         # per-line bookkeeping above still runs for each of them -- they
@@ -719,6 +775,7 @@ class _LineParser:
                 continue
             if not text:
                 continue
+            self.line_above = next((lines[j] for j in range(idx - 1, -1, -1) if lines[j].text.strip()), None)
 
             table = find_table(lines, idx)
             if table is not None:
@@ -793,6 +850,11 @@ class _LineParser:
         alone with no font information -- nothing about a definition's
         shape is something a text pattern alone can catch; only its
         typesetting gives it away."""
+        if self._wrapped(line, text):
+            # The block's own sentence carrying a reference onto the next
+            # line ("...under subsection" / "(2) of that Act"): shaped like
+            # a provision, and not one.
+            return False
         if self.marked_block_type == "penalty" and not line.bold:
             # A penalty's own wording starts lines with numbers all the
             # time -- "1200 penalty units maximum) or both;", "600
@@ -901,6 +963,10 @@ class _LineParser:
         # drafting convention, only ever a single unnumbered block per
         # callout).
         m = self.patterns["note_item"].match(text) if kind == "note" else None
+        if m and self._wrapped(line, text):
+            # An Act's year carried onto the next line ("...Provisions) Act"
+            # / "1958 provides for..."), not note 1958.
+            m = None
         # A hanging-indent note number ("1") can land as its own line,
         # separate from its text, if the PDF laid it out with a tab
         # stop rather than inline -- don't let that split fool us into
@@ -912,7 +978,7 @@ class _LineParser:
         # statement in..."), not a new note -- it falls through to the
         # boundary check below, which ends the block and lets it be
         # reclassified normally.
-        if (m or (kind == "note" and text.isdigit() and len(text) <= 3)) and not line.bold:
+        if (m or (kind == "note" and text.isdigit() and len(text) <= 3 and not self._wrapped(line, text))) and not line.bold:
             self._close_marked_block()
             self.current_marked_block = {
                 "type": kind, "number": m.group(1) if m else text, "heading": None,
@@ -1175,6 +1241,11 @@ class _LineParser:
                     # sequence ambiguity to resolve here.
                     bracket_match, level = m3, "sub_subparagraph"
         if not (level and bracket_match):
+            return False
+        if self._wrapped(line, text):
+            # A reference the sentence above carried onto this line --
+            # "subject to subsections (2) and" / "(3), admissible as if..."
+            # -- which would otherwise open a second (3) mid-sentence.
             return False
         if self.prev_text.rstrip().endswith(","):
             # A wrapped list of cross-references, not a new provision:
