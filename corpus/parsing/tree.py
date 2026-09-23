@@ -269,15 +269,48 @@ def _find_annotation(candidates: list[dict], sub_path: list[str], kind: str, wan
     return found[0], len(found) == 1
 
 
-def _find_definition(candidates: list[dict], def_name: str) -> dict | None:
-    target = " ".join(def_name.lower().replace("-", " ").split())
+def _term(name: str) -> str:
+    """A defined term as it can be compared: hyphens dropped, with any
+    space a line break left after one -- a margin note breaks
+    "correspon- ding" and "non- disclosure" alike, and only the second
+    hyphen is the term's -- case and spacing ignored."""
+    return " ".join(re.sub(r"-\s*", "", name).lower().split())
+
+
+def _find_definition(candidates: list[dict], def_name: str, leading: bool = False) -> dict | None:
+    """The definition of exactly this term. One term containing the other
+    is not enough: "Family Violence Court Division" is not "court".
+
+    `leading` also takes a term that begins the cited one, for a term the
+    parse read short where it wrapped ("litigation restraint order" for
+    "... order proceeding") -- a guess, asked only once nothing else fits."""
+    target = _term(def_name)
     for node in candidates:
-        if node.get("type") != "definition":
-            continue
-        heading = " ".join((node.get("heading") or "").lower().replace("-", " ").split())
-        if heading and (heading == target or target in heading or heading in target):
-            return node
+        if node.get("type") == "definition" and node.get("heading"):
+            term = _term(node["heading"])
+            if term == target or (leading and target.startswith(term + " ")):
+                return node
     return None
+
+
+def _claim_repealed_definition(candidates: list[dict], def_name: str, claimed: set) -> "dict | None":
+    """The row of stars where a repealed definition stood: after the term
+    that comes closest before it alphabetically, as definitions are set.
+    The row takes the term, so the reader sees which definition went."""
+    target = _term(def_name)
+    best, best_prev = None, None
+    for node in candidates:
+        if node.get("type") != "repealed" or id(node) in claimed:
+            continue
+        prev = _term((node.get("path") or {}).get("definition") or "")
+        if prev and prev >= target:
+            continue
+        if best is None or (prev and (best_prev is None or prev > best_prev)):
+            best, best_prev = node, prev
+    if best is not None:
+        claimed.add(id(best))
+        best["heading"] = re.sub(r"(\w)- (\w)", r"\1\2", def_name).strip()
+    return best
 
 
 def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
@@ -356,7 +389,11 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     wanted_specific = True
                 if target is None and note["def_name"]:
                     target = _find_definition(candidates, note["def_name"])
+                    if target is None and _REPEALED_RE.search(note["raw"]):
+                        target = _claim_repealed_definition(candidates, note["def_name"], claimed)
                     found_specific = target is not None
+                    if target is None:
+                        target = _find_definition(candidates, note["def_name"], leading=True)
                 if target is None and note["sub_path"]:
                     repealed = _REPEALED_RE.search(note["raw"])
                     if repealed and note.get("target_kind"):
