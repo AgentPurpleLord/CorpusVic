@@ -2477,6 +2477,9 @@ def _timeline(work: str) -> dict:
                 "raw": state["raw"], "effective": effective,
                 "checked": inheritance.checked_keys(nodes),
                 "loose_notes": lineage.loose_notes(state["unattached"]),
+                "amending_acts": {a["citation"] for a in
+                                  (_parse_field(slug, "endnotes") or {}).get("amending_acts") or []
+                                  if a.get("citation")},
             })
         chains = lineage.provision_chains(docs, {v: lineage_state["states"][v]["links"]
                                                  for v in lineage_state["versions"]})

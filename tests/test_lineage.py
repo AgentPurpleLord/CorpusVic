@@ -106,12 +106,15 @@ def test_a_carried_from_link_lets_a_moved_provision_inherit():
 # A provision's wordings across the versions
 # ---------------------------------------------------------------------
 
-def _doc(version, nodes, checked=(), unattached=None):
-    return {
+def _doc(version, nodes, checked=(), unattached=None, acts=None):
+    doc = {
         "version": version, "as_at": f"2026-0{version}-01", "as_at_printed": f"1 Month {version}",
         "raw": signatures(nodes), "effective": diffing.provisions(nodes), "checked": set(checked),
         "loose_notes": loose_notes(unattached or []),
     }
+    if acts is not None:
+        doc["amending_acts"] = set(acts)
+    return doc
 
 
 def _chain(result, version, key):
@@ -135,6 +138,93 @@ def test_an_amendment_starts_a_new_wording_named_by_its_margin_note():
     assert wordings[0]["ended_by"]["change"] == "changed"
     assert wordings[0]["ended_by"]["notes"] == ["S. 1(1) amended by No. 5/2026 s. 3."]
     assert wording_at({"wordings": wordings}, 2) == 1
+
+
+# The Act says what changed, not the parser: a text difference is only an
+# amendment where the Table of Amendments took in an Act and the
+# provision's own notes cite one they didn't before.
+
+def _noted(text, *notes):
+    nodes = _act(s1=text)
+    nodes[-1]["history"] = [{"raw": n} for n in notes]
+    return nodes
+
+
+def _versions(result):
+    return [w["versions"] for w in _chain(result, 1, S1)["wordings"]]
+
+
+def test_a_line_wrap_the_parser_read_differently_is_not_an_amendment():
+    old = _noted("must file a charge- sheet.", "S. 1(1) amended by No. 5/2020 s. 3.")
+    new = _noted("must file a charge-sheet.", "S. 1(1) amended by No. 5/2020 s. 3.")
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}), _doc(2, new, acts={"5/2020", "7/2026"})])
+
+    assert _versions(result) == [[1, 2]]
+
+
+def test_a_note_citing_a_new_act_makes_the_difference_an_amendment():
+    old = _noted("a person may appeal")
+    new = _noted("a person may appeal within 28 days", "S. 1(1) amended by No. 7/2026 s. 3.")
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}), _doc(2, new, acts={"5/2020", "7/2026"})])
+
+    wordings = _chain(result, 1, S1)["wordings"]
+    assert [w["versions"] for w in wordings] == [[1], [2]]
+    assert wordings[0]["ended_by"]["notes"] == ["S. 1(1) amended by No. 7/2026 s. 3."]
+
+
+def test_an_act_commencing_in_stages_still_amends():
+    """Its citation is new to the provision though the Act was already in
+    the older reprint's table -- only something else of it had commenced."""
+    old = _noted("a person may appeal")
+    new = _noted("a person may appeal within 28 days", "S. 1(1) amended by No. 5/2020 s. 9.")
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}), _doc(2, new, acts={"5/2020", "7/2026"})])
+
+    assert _versions(result) == [[1], [2]]
+
+
+def test_a_reprint_for_a_commencement_alone_still_amends():
+    """The CPA's 26 April 2026 reprint added no Act to its table; nine of
+    its provisions were amended by one listed since the reprint before."""
+    old = _noted("a person may appeal")
+    new = _noted("a person may appeal within 28 days", "S. 1(1) amended by No. 7/2026 s. 3.")
+
+    result = provision_chains([_doc(1, old, acts={"7/2026"}), _doc(2, new, acts={"7/2026"})])
+
+    assert _versions(result) == [[1], [2]]
+
+
+def test_a_note_citing_an_act_the_table_does_not_list_is_not_enough():
+    old = _noted("a person may appeal")
+    new = _noted("a person may appeal within 28 days", "S. 1(1) amended by No. 7/2026 s. 3.")
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}), _doc(2, new, acts={"5/2020"})])
+
+    assert _versions(result) == [[1, 2]]
+
+
+def test_a_loose_note_counts_as_the_provisions_own():
+    old = _noted("a person may appeal")
+    new = _noted("a person may appeal within 28 days")
+    unattached = [{"raw": "S. 1(1) substituted by No. 7/2026 s. 3.", "section": "1"}]
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}),
+                               _doc(2, new, acts={"5/2020", "7/2026"}, unattached=unattached)])
+
+    assert _versions(result) == [[1], [2]]
+
+
+def test_without_a_table_of_amendments_the_text_decides():
+    """A table that failed to parse must not read as "nothing incorporated"
+    and hide the amendments behind it."""
+    old = _noted("must file a charge- sheet.")
+    new = _noted("must file a charge-sheet.")
+
+    result = provision_chains([_doc(1, old, acts={"5/2020"}), _doc(2, new, acts=set())])
+
+    assert _versions(result) == [[1], [2]]
 
 
 def test_an_insertion_and_a_repeal_are_absent_wordings():
