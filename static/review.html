@@ -708,6 +708,7 @@
       <button class="btn small" id="pdf-zoom-in" title="Zoom in">+</button>
       <button class="btn small" id="pdf-zoom-reset" title="Fit the page to the panel width">Fit</button>
       <button class="btn small" id="pdf-boxes-btn" title="Show what the parser read on this page, as boxes you can work on">Boxes</button>
+      <button class="btn small" id="pdf-newbox-btn" title="Draw a box over text the parse missed, and make a piece of it">+ New box</button>
       <button class="btn small" id="pdf-accept-page-btn" title="Accept every provision still outstanding on this page">&#10003; Accept page</button>
       <span id="pdf-hint"></span>
     </div>
@@ -749,6 +750,12 @@
     <select id="edit-type"></select>
     <label>Number</label>
     <input type="text" id="edit-number">
+    <div id="edit-place">
+      <label>Reference <span class="hint">where it sits in the section, e.g. (1)(d)(vii) &mdash; sets its type and number</span></label>
+      <input type="text" id="edit-reference" placeholder="(1)(d)(vii)">
+      <label>Put it after</label>
+      <select id="edit-after"></select>
+    </div>
     <label>Heading</label>
     <input type="text" id="edit-heading">
     <label>Text</label>
@@ -781,6 +788,27 @@
     <div class="modal-actions">
       <button class="btn" id="insert-cancel">Cancel</button>
       <button class="btn primary" id="insert-save">Insert</button>
+    </div>
+  </div>
+</div>
+
+<!-- A piece from a box drawn over nothing (review.py's /api/boxes/*). -->
+<div class="overlay" id="newbox-overlay" hidden>
+  <div class="modal">
+    <h3>New piece from this box</h3>
+    <div class="hint" id="newbox-text"></div>
+    <label>Type</label>
+    <select id="newbox-type"></select>
+    <label>Number</label>
+    <input type="text" id="newbox-number">
+    <label>Goes after</label>
+    <div class="inline-row">
+      <span id="newbox-after-label"></span>
+      <button class="btn small" id="newbox-after-btn">Choose another&hellip;</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="newbox-cancel">Cancel</button>
+      <button class="btn primary" id="newbox-save">Create</button>
     </div>
   </div>
 </div>
@@ -1007,7 +1035,7 @@ let boxesOn = localStorage.getItem("reviewPdfBoxes") !== "off";
 let pageBoxes = null;          // the /boxes payload for currentPageNo
 let selectedNodeIndex = null;  // the piece chosen by a click, until another
 let hoverNodeIndex = null;     // the piece under the pointer, this instant
-let boxDraft = null;           // { nodeIndex, mode: "replace" | "add" }
+let boxDraft = null;           // { nodeIndex, mode: "replace" | "add" | "new" }
 let noteBeingMoved = null;     // a margin note waiting to be pointed at a box
 
 function overlayEl() { return document.getElementById("pdf-overlay"); }
@@ -1098,7 +1126,8 @@ function renderOverlay() {
   // plain JS property and leaves the element display:none.
   svg.toggleAttribute("hidden", !pageBoxes);
   document.getElementById("pdf-hint").textContent =
-    boxDraft ? "Drag a box over the text this piece covers  (Esc to cancel)"
+    boxDraft ? (boxDraft.mode === "new" ? "Drag a box over the text for the new piece  (Esc to cancel)"
+      : "Drag a box over the text this piece covers  (Esc to cancel)")
     : noteBeingMoved ? "Click the box this note belongs to  (Esc to cancel)"
     : "";
   if (!pageBoxes) return;
@@ -1341,6 +1370,7 @@ function attachDrawing() {
     draft.remove(); draft = null; start = null;
     // A click rather than a drag: nothing was drawn, so nothing changes.
     if (rect.x1 - rect.x0 < 2 || rect.y1 - rect.y0 < 2) { cancelPageAction(); return; }
+    if (mode === "new") { cancelPageAction(); openNewBoxModal(rect); return; }
     const keep = mode === "add"
       ? [...(await rectsAcrossPages(nodeIndex)), ...currentRectsFor(nodeIndex)]
       : await rectsAcrossPages(nodeIndex);
@@ -2817,9 +2847,22 @@ function openEditModal(nodeIndex) {
   document.getElementById("edit-number").value = piece.number || "";
   document.getElementById("edit-heading").value = piece.heading || "";
   document.getElementById("edit-text").value = piece.text || "";
+  // Where it sits, as the Act cites it. The section itself has nowhere
+  // within itself to go.
+  const isRoot = currentUnit.pieces[0] && currentUnit.pieces[0].node_index === nodeIndex;
+  const reference = /^\(/.test(piece.label || "") ? piece.label.replace(/\s.*$/, "") : "";
+  const refEl = document.getElementById("edit-reference");
+  const afterEl = document.getElementById("edit-after");
+  document.getElementById("edit-place").hidden = isRoot;
+  refEl.value = reference;
+  afterEl.innerHTML = `<option value="">Wherever the reference puts it</option>`
+    + currentUnit.pieces.filter((p) => p.node_index !== nodeIndex)
+      .map((p) => `<option value="${p.node_index}">${escapeHtml(pieceLabelText(p))}</option>`).join("");
   document.getElementById("edit-overlay").hidden = false;
   document.getElementById("edit-save").onclick = async () => {
     try {
+      const wanted = refEl.value.trim();
+      const placing = !isRoot && ((wanted && wanted !== reference) || afterEl.value !== "");
       await api(`api/nodes/${nodeIndex}/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2831,12 +2874,80 @@ function openEditModal(nodeIndex) {
         }),
       });
       document.getElementById("edit-overlay").hidden = true;
-      toast("Updated.");
-      await afterMutation();
+      if (!placing) { toast("Updated."); await afterMutation(); return; }
+      // After the edit, so the reference has the last word on type and
+      // number -- the edit sends back the ones the modal opened with.
+      const res = await api(`api/nodes/${nodeIndex}/place`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference: wanted || reference,
+                               after_node_index: afterEl.value === "" ? null : Number(afterEl.value) }),
+      });
+      toast(res.matches ? `Now ${res.reference}.`
+        : `Placed, but it reads as ${res.reference || "unnumbered"} there -- check what is around it.`, !res.matches);
+      await loadMeta();
+      await loadUnit(res.unit_no);
     } catch (e) { toast(e.message, true); }
   };
 }
 document.getElementById("edit-cancel").onclick = () => { document.getElementById("edit-overlay").hidden = true; };
+
+// ---------------------------------------------------------------------
+// A new piece from a box drawn over nothing: for text the parse dropped
+// or swallowed into a neighbour. The box is read first and its type,
+// number and place guessed; nothing is made until the reviewer confirms,
+// because a marker alone can't say whether "(i)" is a subparagraph or a
+// ninth paragraph.
+// ---------------------------------------------------------------------
+
+document.getElementById("pdf-newbox-btn").onclick = async () => {
+  if (!boxesOn) {
+    boxesOn = true;
+    localStorage.setItem("reviewPdfBoxes", "on");
+    document.getElementById("pdf-boxes-btn").classList.add("on");
+    await loadPageBoxes();
+  }
+  beginDraw(null, "new");
+};
+
+async function openNewBoxModal(rect) {
+  let guess;
+  try {
+    guess = await api("api/boxes/read", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rect }),
+    });
+  } catch (e) { toast(e.message, true); return; }
+  let after = guess.after_node_index;
+  const afterLabel = document.getElementById("newbox-after-label");
+  afterLabel.textContent = guess.after_label || "(the start of the document)";
+  document.getElementById("newbox-text").textContent = guess.text;
+  const sel = document.getElementById("newbox-type");
+  sel.innerHTML = META.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+  sel.value = guess.type || "continuation";
+  document.getElementById("newbox-number").value = guess.number || "";
+  document.getElementById("newbox-after-btn").onclick = () => {
+    window._pickerExclude = null;
+    openPicker("Put the new piece directly after which one?", null, (target) => {
+      after = target;
+      const chosen = currentUnit && currentUnit.pieces.find((q) => q.node_index === target);
+      afterLabel.textContent = chosen ? pieceLabelText(chosen) : `node ${target + 1}`;
+    });
+  };
+  document.getElementById("newbox-overlay").hidden = false;
+  document.getElementById("newbox-save").onclick = async () => {
+    try {
+      const res = await api("api/boxes/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rect, type: sel.value, number: document.getElementById("newbox-number").value || null,
+                               after_node_index: after == null ? DOCUMENT_START : after }),
+      });
+      document.getElementById("newbox-overlay").hidden = true;
+      toast("Piece made from the box.");
+      await loadMeta();
+      await loadUnit(res.unit_no, currentPageNo);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("newbox-cancel").onclick = () => { document.getElementById("newbox-overlay").hidden = true; };
 
 // ---------------------------------------------------------------------
 // Restructuring: add, move, remove (review.py's insert/move/delete/
