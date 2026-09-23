@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>History review</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
+    --border: color-mix(in srgb, #201e1d 30%, transparent); --accent: #ec3013;
+    --done: #16a34a; --denied: #7d7979; --flagged: #d97706;
+  }
+  :root[data-theme="dark"] {
+    --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #a39d9d;
+    --border: color-mix(in srgb, #eeeaea 30%, transparent);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--fg);
+         display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px;
+           border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  .btn { font: inherit; padding: 4px 10px; border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+         cursor: pointer; }
+  .btn.on, .btn.primary { background: var(--fg); color: var(--bg); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .counts { color: var(--muted); }
+  main { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+  #list { overflow-y: auto; border-right: 1px solid var(--border); }
+  .row { padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; gap: 8px; }
+  .row.active { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; border: 1px solid var(--muted); }
+  .dot.confirmed { background: var(--done); border-color: var(--done); }
+  .dot.denied { background: var(--denied); border-color: var(--denied); }
+  .row small { color: var(--muted); display: block; }
+  .row .ev { color: var(--done); }
+  #detail { overflow-y: auto; padding: 14px 18px; }
+  #detail h2 { margin: 0 0 4px; font-size: 18px; }
+  .step { color: var(--muted); margin-bottom: 12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .col { border: 1px solid var(--border); padding: 8px 10px; min-width: 0; }
+  .col .head { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .col .text { font-family: Georgia, serif; font-size: 15px; line-height: 1.45; }
+  .none { color: var(--muted); font-style: italic; }
+  .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: none; }
+  .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
+  .evidence { margin-top: 12px; font-size: 13px; }
+  .evidence h3 { font-size: 13px; margin: 10px 0 4px; }
+  .instr { border-left: 3px solid var(--border); padding: 3px 8px; margin: 4px 0; }
+  .instr.matched { border-left-color: var(--done); }
+  .instr.elsewhere, .instr.not-found { border-left-color: var(--flagged); }
+  .note { font-style: italic; margin: 2px 0; }
+  .decide { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
+  .decide .btn { padding: 6px 14px; }
+  .decided { font-weight: 600; }
+  .pages { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .page .head { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+  .stage { position: relative; background: white; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
+  .stage img { display: block; width: 100%; }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .hl { fill: #f59e0b; fill-opacity: .2; stroke: #d97706; stroke-width: 1.5; }
+  #log { white-space: pre-wrap; font-size: 12px; max-height: 160px; overflow: auto; background: var(--bg);
+         padding: 6px; display: none; flex-basis: 100%; margin: 0; }
+  #toast { position: fixed; bottom: 16px; right: 16px; background: var(--fg); color: var(--bg); padding: 8px 12px; display: none; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } #list { max-height: 35vh; } .cols, .pages { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>History review &mdash; <span id="work"></span></h1>
+  <span class="counts" id="counts"></span>
+  <span style="flex:1"></span>
+  <select id="step-filter" class="btn"></select>
+  <span id="filters">
+    <button class="btn on" data-filter="undecided">Undecided</button>
+    <button class="btn" data-filter="evidence">With an Act</button>
+    <button class="btn" data-filter="confirmed">Confirmed</button>
+    <button class="btn" data-filter="denied">Denied</button>
+    <button class="btn" data-filter="all">All</button>
+  </span>
+  <button class="btn" id="fetch-acts" title="Download the Acts that amended this one between the versions held, and read their instructions">Fetch amending Acts</button>
+  <a class="btn" href="../../">Dashboard</a>
+  <pre id="log"></pre>
+</header>
+<main>
+  <div id="list"></div>
+  <div id="detail"><p class="none">Loading the changes between versions&hellip;</p></div>
+</main>
+<div id="toast"></div>
+<script>
+// History review: every change between consecutive versions, one
+// sub-provision at a time, for a person to confirm as Parliament's or
+// deny as the parser's. Only confirmed changes reach the public
+// histories (corpus/history). Keys: c confirm, d deny, u undo, j/k next
+// and previous.
+const WORK = decodeURIComponent(location.pathname.split("/").filter(Boolean).slice(-1)[0]);
+const API = `../../api/works/${encodeURIComponent(WORK)}`;
+let DATA = null, shown = [], current = 0, filter = "undecided", step = "";
+try { if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+
+function esc(t) { return String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function toast(msg, bad) {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.style.background = bad ? "#ae1800" : ""; el.style.display = "block";
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = "none"; }, 2500);
+}
+const slugOf = (v) => (DATA.versions.find((x) => x.version === v) || {}).slug;
+
+async function load() {
+  const res = await fetch(API + "/history");
+  DATA = await res.json();
+  if (!res.ok) { document.getElementById("detail").textContent = DATA.detail || "Couldn't load."; return; }
+  document.getElementById("work").textContent = DATA.title || WORK;
+  const steps = [...new Set(DATA.items.map((i) => `${i.from}→${i.to}`))];
+  document.getElementById("step-filter").innerHTML = `<option value="">All steps</option>`
+    + steps.map((s) => `<option value="${s}">v${s.replace("→", " → v")}</option>`).join("");
+  render(true);
+}
+
+function matches(i) {
+  if (step && `${i.from}→${i.to}` !== step) return false;
+  if (filter === "all") return true;
+  if (filter === "undecided") return !i.decision;
+  if (filter === "evidence") return i.instructions.length > 0;
+  return i.decision === filter;
+}
+
+function render(reset) {
+  const was = shown[current];
+  shown = DATA.items.filter(matches);
+  current = reset ? 0 : Math.max(0, Math.min(shown.indexOf(was) >= 0 ? shown.indexOf(was) : current, shown.length - 1));
+  const n = (d) => DATA.items.filter((i) => i.decision === d).length;
+  document.getElementById("counts").textContent =
+    `${DATA.items.length} changes: ${n(null) + n(undefined)} undecided, ${n("confirmed")} confirmed, ${n("denied")} denied`;
+  document.getElementById("list").innerHTML = shown.map((i, k) => `
+    <div class="row${k === current ? " active" : ""}" data-k="${k}">
+      <span class="dot ${i.decision || ""}"></span>
+      <div><strong>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? "" : esc(i.label)}</strong>
+        <small>v${i.from} &rarr; v${i.to} &middot; ${esc(i.op === "insert" ? "inserted" : i.op === "delete" ? "removed" : "changed")}
+        ${i.instructions.length ? '<span class="ev">&middot; Act</span>' : ""}</small></div>
+    </div>`).join("") || `<p class="none" style="padding:10px">Nothing here.</p>`;
+  showItem();
+}
+
+function column(html, v, none) {
+  return `<div class="col"><div class="head">Version ${v}</div>`
+    + (html != null ? `<div class="text">${html}</div>` : `<div class="text none">${none}</div>`) + `</div>`;
+}
+
+function showItem() {
+  const detail = document.getElementById("detail");
+  const i = shown[current];
+  document.querySelectorAll(".row").forEach((r) => r.classList.toggle("active", Number(r.dataset.k) === current));
+  if (!i) { detail.innerHTML = `<p class="none">Nothing left in this view.</p>`; return; }
+  const status = { matched: "made here", elsewhere: "found here, though the Act names another piece",
+                   earlier: "already in the earlier version", "not found": "not found in this change",
+                   unchecked: "not checked automatically" };
+  const acts = i.instructions.map((a) => `<div class="instr ${a.status.replace(" ", "-")}">
+      <strong>No. ${esc(a.act)} ${esc(a.provision)}</strong> &mdash; ${esc(a.raw)}
+      <div class="none">${esc(status[a.status] || a.status)}${a.here ? "" : " (for another piece of this section)"}</div></div>`).join("");
+  const notes = i.notes.map((n) => `<div class="note">${esc(n)}</div>`).join("");
+  const decided = i.decision ? `<span class="decided">${i.decision === "confirmed" ? "Confirmed: shown publicly" : "Denied: a parsing issue, not shown"}</span>
+      <button class="btn" onclick="decide(null)">Undo (u)</button>` : "";
+  detail.innerHTML = `
+    <h2>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? (i.op === "insert" ? " inserted" : " removed") : esc(i.label)}</h2>
+    <div class="step">Version ${i.from} &rarr; Version ${i.to}</div>
+    <div class="cols">${column(i.old_html, i.from, "Not in this version")}${column(i.new_html, i.to, "Not in this version")}</div>
+    <div class="decide">
+      <button class="btn primary" onclick="decide('confirmed')">Confirm change (c)</button>
+      <button class="btn" onclick="decide('denied')">Deny: parsing issue (d)</button>
+      ${decided}
+    </div>
+    <div class="evidence">
+      <h3>Amending Acts</h3>${acts || '<div class="none">No fetched amending Act gives an instruction for this.</div>'}
+      <h3>Margin notes new in Version ${i.to}</h3>${notes || '<div class="none">None.</div>'}
+    </div>
+    <div class="pages">${pageHtml("old", i.from, i.old_at)}${pageHtml("new", i.to, i.new_at)}</div>`;
+  loadPage("old", i.from, i.old_at);
+  loadPage("new", i.to, i.new_at);
+}
+
+function pageHtml(side, v, at) {
+  return `<div class="page"><div class="head">Version ${v}
+      <button class="btn" onclick="turn('${side}', -1)">&larr;</button>
+      <span id="${side}-label">${at ? "page " + at.page : "no page"}</span>
+      <button class="btn" onclick="turn('${side}', 1)">&rarr;</button></div>
+    <div class="stage" id="${side}-stage"><img id="${side}-img" alt=""><svg id="${side}-svg" preserveAspectRatio="none"></svg></div></div>`;
+}
+
+const pageState = {};
+async function loadPage(side, v, at, page) {
+  const slug = slugOf(v);
+  page = page || (at && at.page);
+  if (!slug || !page) return;
+  try {
+    const res = await fetch(`../../api/docs/${encodeURIComponent(slug)}/pages/${page}`);
+    const size = await res.json();
+    if (!res.ok) throw new Error(size.detail);
+    pageState[side] = { v, at, page, count: size.page_count };
+    document.getElementById(`${side}-img`).src = `../../api/docs/${encodeURIComponent(slug)}/pages/${page}.png`;
+    const svg = document.getElementById(`${side}-svg`);
+    svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
+    svg.innerHTML = ((at && at.rects) || []).filter((r) => r.page === page).map((r) =>
+      `<rect class="hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("");
+    document.getElementById(`${side}-label`).textContent = `page ${page}`;
+  } catch (e) { document.getElementById(`${side}-label`).textContent = e.message || "no PDF"; }
+}
+function turn(side, by) {
+  const s = pageState[side];
+  if (s && s.page + by >= 1 && s.page + by <= s.count) loadPage(side, s.v, s.at, s.page + by);
+}
+
+async function decide(decision) {
+  const i = shown[current];
+  if (!i) return;
+  const res = await fetch(API + "/history/decide", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provision: i.provision, from_version: i.from, to_version: i.to, piece: i.piece, decision }),
+  });
+  if (!res.ok) { toast("Couldn't save that.", true); return; }
+  i.decision = decision;
+  toast(decision === "confirmed" ? "Confirmed." : decision === "denied" ? "Denied." : "Undone.");
+  // Move on only from a view the decision takes this change out of.
+  if (decision && !matches(i)) { shown.splice(current, 1); current = Math.min(current, shown.length - 1); render(false); }
+  else render(false);
+}
+
+document.getElementById("list").addEventListener("click", (e) => {
+  const row = e.target.closest(".row");
+  if (row) { current = Number(row.dataset.k); render(false); }
+});
+document.getElementById("filters").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  filter = b.dataset.filter;
+  document.querySelectorAll("#filters .btn").forEach((x) => x.classList.toggle("on", x === b));
+  render(true);
+});
+document.getElementById("step-filter").onchange = (e) => { step = e.target.value; render(true); };
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, select, textarea")) return;
+  if (e.key === "c") decide("confirmed");
+  else if (e.key === "d") decide("denied");
+  else if (e.key === "u") decide(null);
+  else if (e.key === "j" && current < shown.length - 1) { current++; render(false); }
+  else if (e.key === "k" && current > 0) { current--; render(false); }
+});
+document.getElementById("fetch-acts").onclick = async (e) => {
+  const btn = e.target;
+  btn.disabled = true; btn.textContent = "Fetching...";
+  const log = document.getElementById("log");
+  try {
+    const res = await fetch(`../../api/acts/${encodeURIComponent(WORK)}/amending`, { method: "POST" });
+    const data = await res.json();
+    log.style.display = "block";
+    log.textContent = data.log || data.detail || "";
+    await load();
+  } catch (err) { toast(String(err), true); }
+  finally { btn.disabled = false; btn.textContent = "Fetch amending Acts"; }
+};
+load();
+</script>
+</body>
+</html>

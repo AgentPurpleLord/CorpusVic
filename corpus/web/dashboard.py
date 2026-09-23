@@ -1542,6 +1542,140 @@ def verify_amending_acts(work: str):
                   title=amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
 
 
+# ---------------------------------------------------------------------------
+# History review (corpus/history): each change between consecutive versions
+# of a work, confirmed as Parliament's or denied as the parser's.
+# ---------------------------------------------------------------------------
+
+_history_cache: dict[str, tuple[str, list]] = {}
+
+
+class HistoryDecision(BaseModel):
+    provision: str
+    from_version: int
+    to_version: int
+    piece: str
+    # None takes a decision back.
+    decision: "str | None" = None
+
+
+@app.get("/history/{work}/")
+def history_page(work: str):
+    _validate_slug(work)
+    return FileResponse(STATIC_DIR / "history.html")
+
+
+def _history_items(work: str) -> list[dict]:
+    """Every change across the work's versions with its evidence -- the
+    amending Acts' instructions and the margin notes new in the later
+    version -- cached against the text itself rather than the review
+    database, which each decision writes to."""
+    held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
+    versions = []
+    for slug in held:
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        versions.append((split_document_slug(slug)[1], nodes, hierarchy))
+    stamp = hashlib.sha256(json.dumps(
+        [(v, sorted((str(k), p["heading"], p["text"]) for k, p in diffing.provisions(n).items()))
+         for v, n, _h in versions]).encode()).hexdigest()
+    cached = _history_cache.get(work)
+    if cached and cached[0] == stamp:
+        return cached[1]
+    items = history_changes.work_changes(versions)
+    acts = amending_load.work_instructions(held[-1], BASE_DIR,
+                                           amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+    by_step: dict = {}
+    for item in items:
+        by_step.setdefault((item["key"], item["from"], item["to"]), []).append(item)
+    for (key, older_v, newer_v), group in by_step.items():
+        fetched = amending_load.fetched_for(acts, newer_v)
+        mine = [i for i in acts["by_key"].get(key, []) if i["act"] in fetched]
+        results = amending_match.match(mine, group[0]["_older"], group[0]["_newer"])["instructions"] if mine else []
+        for item in group:
+            item["instructions"], item["notes"] = [], _new_notes(item)
+        for r in results:
+            evidence = {"act": r["act"], "provision": r["provision"], "raw": r["raw"], "status": r["status"]}
+            landed = next((u for u in reversed(r["pair"]) if u is not None), None)
+            at = "heading" if r["at"] == "heading" else (landed.get("path") if landed else None)
+            if r["action"] == "insert_section":
+                at = history_changes.WHOLE
+            target = [i for i in group if i["piece"] == at] or group
+            for item in target:
+                item["instructions"].append({**evidence, "here": item["piece"] == at})
+    public = [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
+    _history_cache[work] = (stamp, public)
+    return public
+
+
+def _new_notes(item: dict) -> list[str]:
+    """The margin notes on the changed piece in the later version that the
+    earlier one did not print."""
+    old, new = item.get("_pair", (None, None)) if item["piece"] != history_changes.WHOLE else (None, None)
+
+    def notes(unit):
+        return [h.get("raw") if isinstance(h, dict) else h
+                for h in (unit["tree_node"]["node"].get("history") or [])] if unit else []
+
+    if item["piece"] == history_changes.WHOLE:
+        units = item["_newer"] or []
+        return [n for u in units for n in notes(u) if n][:6]
+    was = set(notes(old))
+    return [n for n in notes(new) if n and n not in was]
+
+
+@app.get("/api/works/{work}/history")
+def history_items(work: str):
+    held = _held(work)
+    items = _history_items(work)
+    decisions = db.load_history_decisions(work, BASE_DIR)
+    for item in items:
+        item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
+    return {"work": work, "title": _act_title(held[-1]),
+            "versions": [{"version": split_document_slug(s)[1], "slug": s} for s in held
+                         if split_document_slug(s)[1] is not None],
+            "items": items}
+
+
+@app.post("/api/works/{work}/history/decide")
+def history_decide(work: str, req: HistoryDecision):
+    _held(work)
+    db.save_history_decision(work, req.provision, req.from_version, req.to_version, req.piece,
+                             req.decision, BASE_DIR)
+    return {"ok": True}
+
+
+_page_docs: dict = {}
+
+
+def _pdf_page(slug: str, page_no: int):
+    _validate_slug(slug)
+    path = _find_source_pdf(slug)
+    if path is None:
+        raise HTTPException(404, f"No source PDF for {slug}")
+    if slug not in _page_docs:
+        import fitz
+        _page_docs[slug] = fitz.open(path)
+    doc = _page_docs[slug]
+    if not (1 <= page_no <= doc.page_count):
+        raise HTTPException(404, f"{slug} has pages 1-{doc.page_count}")
+    return doc[page_no - 1], doc.page_count
+
+
+@app.get("/api/docs/{slug}/pages/{page_no}")
+def pdf_page_size(slug: str, page_no: int):
+    page, count = _pdf_page(slug, page_no)
+    return {"width": page.rect.width, "height": page.rect.height, "page_count": count}
+
+
+@app.get("/api/docs/{slug}/pages/{page_no}.png")
+def pdf_page_image(slug: str, page_no: int):
+    """One printed page, for setting two versions' pages side by side in
+    History review."""
+    import fitz
+    page, _count = _pdf_page(slug, page_no)
+    return Response(content=page.get_pixmap(matrix=fitz.Matrix(1.8, 1.8)).tobytes("png"), media_type="image/png")
+
+
 @app.get("/api/acts/{slug}/definitions")
 def list_definitions(slug: str):
     """Which words this document hyperlinks back to where they are

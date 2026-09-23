@@ -384,12 +384,11 @@ def test_the_pages_show_the_acts_and_fetch_them():
     dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
 
     assert "made.map(instructionHtml)" in review_page and "No amending Act made this change" in review_page
-    # Their own menu, apart from parsing: nothing about them in the Parse Menu.
-    parse_menu = dashboard[dashboard.index('id="parse-modal"'):dashboard.index("<!-- Amending Acts:")]
-    assert "amending" not in parse_menu.lower()
-    assert "onclick=\"openAmendingModal('${s.work}')\"" in dashboard
-    assert 'onclick="fetchAmendingActs()"' in dashboard and 'onclick="verifyAmendingActs()"' in dashboard
-    assert "/amending/verify`, { method: \"POST\" }" in dashboard
+    # Fetched from History review, not from the Parse Menu or a menu of their own.
+    assert 'id="amending-modal"' not in dashboard and "parse-amending-btn" not in dashboard
+    assert 'href="history/${encodeURIComponent(s.work)}/"' in dashboard
+    history = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+    assert "/amending`, { method: \"POST\" }" in history
 
 
 def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):

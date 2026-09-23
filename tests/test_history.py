@@ -93,3 +93,37 @@ def test_the_public_history_waits_for_confirmation(tmp_path, monkeypatch):
     db.save_history_decision("act", key_json(S2), 1, 2, "1", "confirmed", tmp_path)
     [chain] = chains()
     assert [w["versions"] for w in chain["wordings"]] == [[1], [2]]
+
+
+def test_history_review_lists_each_change_with_its_evidence_and_records_decisions(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    from corpus.web.dashboard import HistoryDecision, history_decide, history_items
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    for version, text, notes in ((1, "a person may appeal", []),
+                                 (2, "a person may appeal within 28 days", ["S. 2(1) amended by No. 7/2026 s. 3."])):
+        nodes = _nodes({"2": [("1", text)]})
+        nodes[-1]["history"] = [{"raw": n} for n in notes]
+        (parsed / f"act-v{version}.json").write_text(json.dumps({
+            "nodes": nodes, "hierarchy": HIERARCHY, "fingerprint": f"fp{version}", "version": {"version": version},
+            "endnotes": {"amending_acts": [{"title": "Appeals Amendment Act 2026", "citation": "7/2026",
+                                             "act_no": "7", "year": "2026"}]}}))
+    amending = tmp_path / "data" / "amending"
+    amending.mkdir(parents=True)
+    (amending / "2026-7.json").write_text(json.dumps([{
+        "act": "7/2026", "provision": "s. 3", "target_act": "Appeals Act 2020", "schedule": None, "section": "2",
+        "path": ["1"], "heading": False, "definition": None, "action": "insert_after", "old": "appeal",
+        "new": "within 28 days", "number": None, "raw": 'In section 2(1), after "appeal" insert "within 28 days".'}]))
+
+    [item] = history_items("act")["items"]
+    assert (item["section"], item["label"], item["from"], item["to"], item["decision"]) == ("s 2", "(1)", 1, 2, None)
+    assert [(a["act"], a["status"], a["here"]) for a in item["instructions"]] == [("7/2026", "matched", True)]
+    assert item["notes"] == ["S. 2(1) amended by No. 7/2026 s. 3."]
+
+    history_decide("act", HistoryDecision(provision=item["provision"], from_version=1, to_version=2,
+                                          piece=item["piece"], decision="denied"))
+    assert history_items("act")["items"][0]["decision"] == "denied"
