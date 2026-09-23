@@ -47,7 +47,9 @@ def _where(unit: "dict | None") -> "dict | None":
     node = unit["tree_node"]["node"]
     rects = node.get("rects") or []
     page = rects[0]["page"] if rects else node.get("page_start")
-    return {"page": page, "rects": rects} if page else None
+    # The words too: with no boxes, the page is searched for them.
+    return {"page": page, "page_end": node.get("page_end") or page, "rects": rects,
+            "text": " ".join((node.get("text") or node.get("heading") or "").split()[:12])} if page else None
 
 
 def step_changes(key: tuple, older: list[dict], newer: list[dict]) -> list[dict]:

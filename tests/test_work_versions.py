@@ -119,18 +119,57 @@ def test_a_title_leading_to_another_act_is_refused():
         available("Criminal Procedure Act 2009", "7", 2009, _site({114: ("/a.pdf", None)}, act_no="8"))
 
 
+class _Now:
+    """A thread that runs as it starts, so a background job is done by the
+    time the request that started it returns."""
+    def __init__(self, target, args=(), daemon=None):
+        self.target, self.args = target, args
+
+    def start(self):
+        self.target(*self.args)
+
+
+def _fetch(client, version):
+    client.post(f"/api/works/cpa/versions/fetch/{version}")
+    return client.get("/api/works/cpa/versions/fetch").json()
+
+
 def test_a_fetched_version_is_added_as_an_uploaded_one_is(held, monkeypatch):
     client, ran = held
+    monkeypatch.setattr(dashboard.threading, "Thread", _Now)
     monkeypatch.setattr(dashboard, "_site_versions", lambda work: [
         {"version": 1, "pdf_url": "https://c/p001.pdf"}, {"version": 2, "pdf_url": None}])
     monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 1, "act_no": "7", "year": 2009})
 
-    res = client.post("/api/works/cpa/versions/fetch/1")
-    assert res.status_code == 200 and res.json()["slug"] == "cpa-v1"
+    job = _fetch(client, 1)
+    assert job["state"] == "done" and job["result"]["slug"] == "cpa-v1"
     assert (dashboard.BASE_DIR / "acts" / "cpa" / "cpa-v001.pdf").read_bytes() == b"%PDF v1"
-    assert client.post("/api/works/cpa/versions/fetch/2").status_code == 404, "no single PDF to fetch"
+    assert _fetch(client, 2) == {"version": 2, "state": "failed", "result": None,
+                                 "error": "The site has no single PDF of version 2."}
 
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 3, "act_no": "7", "year": 2009})
-    res = client.post("/api/works/cpa/versions/fetch/1")
-    assert res.status_code == 400 and "the PDF says 3" in res.json()["detail"]
+    assert "the PDF says 3" in _fetch(client, 1)["error"]
+
+
+def test_an_unexpected_failure_is_reported_in_words(held, monkeypatch):
+    """Not as a bare 500, which the page could only call unparseable."""
+    client, ran = held
+    monkeypatch.setattr(dashboard.threading, "Thread", _Now)
+    monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 1, "pdf_url": "https://c/p001.pdf"}])
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
+
+    def refuse(path):
+        raise PermissionError("acts/cpa is not writable")
+    monkeypatch.setattr(dashboard, "read_front_matter", refuse)
+
+    assert _fetch(client, 1)["error"] == "PermissionError: acts/cpa is not writable"
+
+
+def test_a_second_fetch_waits_for_the_first(held, monkeypatch):
+    client, ran = held
+    monkeypatch.setattr(dashboard.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: None})())
+    monkeypatch.setattr(dashboard, "_version_fetches", {})
+
+    assert client.post("/api/works/cpa/versions/fetch/1").json()["state"] == "running"
+    assert client.post("/api/works/cpa/versions/fetch/2").status_code == 409

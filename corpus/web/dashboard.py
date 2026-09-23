@@ -1574,10 +1574,11 @@ def _history_items(work: str) -> list[dict]:
     versions = []
     for slug in held:
         nodes, _unattached, hierarchy = _current_nodes(slug)
-        versions.append((split_document_slug(slug)[1], nodes, hierarchy))
+        versions.append((split_document_slug(slug)[1], _with_rects(slug, nodes), hierarchy))
     stamp = hashlib.sha256(json.dumps(
-        [(v, sorted((str(k), p["heading"], p["text"]) for k, p in diffing.provisions(n).items()))
-         for v, n, _h in versions]).encode()).hexdigest()
+        [[_parse_signature(s) for s in held]]
+        + [(v, sorted((str(k), p["heading"], p["text"]) for k, p in diffing.provisions(n).items()))
+           for v, n, _h in versions]).encode()).hexdigest()
     cached = _history_cache.get(work)
     if cached and cached[0] == stamp:
         return cached[1]
@@ -1615,6 +1616,24 @@ def _history_items(work: str) -> list[dict]:
     public = [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
     _history_cache[work] = (stamp, public)
     return public
+
+
+def _with_rects(slug: str, nodes: list[dict]) -> list[dict]:
+    """The nodes, each accepted one given back the boxes its parse drew on
+    the page. An accepted row keeps its words, not where they were
+    printed, and History review sets each change beside its printed page."""
+    parsed = None
+    out = []
+    for node in nodes:
+        source = node.get("_source_node_index")
+        if node.get("rects") or source is None:
+            out.append(node)
+            continue
+        if parsed is None:
+            parsed = _parse_field(slug, "nodes") or []
+        drawn = parsed[source] if 0 <= source < len(parsed) else {}
+        out.append({**node, "rects": drawn.get("rects") or []})
+    return out
 
 
 def _new_notes(item: dict) -> list[str]:
@@ -1677,13 +1696,31 @@ def pdf_page_size(slug: str, page_no: int):
     return {"width": page.rect.width, "height": page.rect.height, "page_count": count}
 
 
+@app.get("/api/docs/{slug}/pages/{page_no}/find")
+def pdf_page_find(slug: str, page_no: int, q: str):
+    """Where a piece's opening words are printed on a page, for a parse made
+    before parses recorded their boxes. The longest opening that is found
+    wins, so a few common words can't mark the wrong line."""
+    page, _count = _pdf_page(slug, page_no)
+    words = q.split()
+    for n in (12, 8, 5):
+        if len(words) < n and n != 5:
+            continue
+        hits = page.search_for(" ".join(words[:n]))
+        if hits:
+            return {"rects": [{"page": page_no, "x0": r.x0, "y0": r.y0, "x1": r.x1, "y1": r.y1} for r in hits]}
+    return {"rects": []}
+
+
 @app.get("/api/docs/{slug}/pages/{page_no}.png")
-def pdf_page_image(slug: str, page_no: int):
+def pdf_page_image(slug: str, page_no: int, zoom: float = 1.0):
     """One printed page, for setting two versions' pages side by side in
-    History review."""
+    History review -- rendered at the zoom it is shown at, so zooming in
+    is more detail rather than bigger pixels."""
     import fitz
     page, _count = _pdf_page(slug, page_no)
-    return Response(content=page.get_pixmap(matrix=fitz.Matrix(1.8, 1.8)).tobytes("png"), media_type="image/png")
+    scale = 1.8 * min(max(zoom, 0.5), 3.0)
+    return Response(content=page.get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png"), media_type="image/png")
 
 
 @app.get("/api/acts/{slug}/definitions")
@@ -2082,10 +2119,54 @@ def work_versions_available(work: str):
     return {"work": work, "versions": [{**v, "held": v["version"] in held} for v in _site_versions(work)]}
 
 
+# One fetch at a time for a work, in the background: a parse takes
+# minutes, longer than a proxy will hold a request open, and two at once
+# would each restart the same review servers.
+_version_fetches: dict[str, dict] = {}
+_version_fetch_lock = threading.Lock()
+
+
 @app.post("/api/works/{work}/versions/fetch/{version}")
 def fetch_work_version(work: str, version: int):
+    """Starts fetching one version; GET .../versions/fetch says how it
+    went. One a request, so the page can say how far a long list has got."""
+    _held(work)
+    with _version_fetch_lock:
+        job = _version_fetches.get(work)
+        if job and job["state"] == "running":
+            raise HTTPException(409, f"Version {job['version']} is still being fetched.")
+        job = {"version": version, "state": "running", "result": None, "error": None}
+        _version_fetches[work] = job
+    threading.Thread(target=_fetch_version_job, args=(work, version, job), daemon=True).start()
+    return job
+
+
+@app.get("/api/works/{work}/versions/fetch")
+def fetch_work_version_status(work: str):
+    _validate_slug(work)
+    job = _version_fetches.get(work)
+    if job is None:
+        raise HTTPException(404, "Nothing is being fetched for this work.")
+    return job
+
+
+def _fetch_version_job(work: str, version: int, job: dict) -> None:
+    # Whatever goes wrong is the job's answer, in words: an unexpected
+    # error would otherwise reach the page only as a failed request.
+    try:
+        job["result"] = _fetch_version(work, version)
+        job["state"] = "done"
+    except HTTPException as e:
+        job.update(state="failed", error=str(e.detail))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
+def _fetch_version(work: str, version: int) -> dict:
     """Downloads one version from the site and adds it as an uploaded one
-    is. One a request, so the page can say how far a long list has got."""
+    is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
     if not wanted or not wanted["pdf_url"]:
         raise HTTPException(404, f"The site has no single PDF of version {version}.")
