@@ -3467,17 +3467,24 @@ def _key_label(key: tuple) -> str:
     return f"Schedule {schedule} clause {number.upper()}" if schedule else f"Section {number.upper()}"
 
 
-def _changed_pieces(older: list[dict], newer: list[dict]) -> dict:
+def _changed_pieces(older: list[dict], newer: list[dict], root: int, versions: tuple) -> dict:
     """The pieces that differ, each on its own, and which of this tool's
     pieces they are -- a section is reviewed here for the paragraph an
-    amendment touched, not read end to end for it."""
+    amendment touched, not read end to end for it. A changed heading
+    belongs to the section piece itself (`root`); `versions` is (older,
+    newer), which the two columns are headed with."""
     changes, changed = [], []
     for change in html_view._compare_pieces(older, newer):
-        index = next((u["tree_node"]["node"].get("_review_index") for u in (change["old"], change["new"])
-                      if u is not None and "_review_index" in u["tree_node"]["node"]), None)
-        if index is not None:
+        if change["label"] == "Heading":
+            index = root
+        else:
+            index = next((u["tree_node"]["node"].get("_review_index") for u in (change["old"], change["new"])
+                          if u is not None and "_review_index" in u["tree_node"]["node"]), None)
+        if index is not None and index not in changed:
             changed.append(index)
-        changes.append({"op": change["op"], "label": change["label"], "html": change["html"], "node_index": index})
+        changes.append({"op": change["op"], "label": change["label"], "html": change["html"],
+                        "old_html": change["old_html"], "new_html": change["new_html"],
+                        "older": versions[0], "newer": versions[1], "node_index": index})
     return {"changes": changes, "changed_pieces": changed}
 
 
@@ -3561,7 +3568,7 @@ def _unit_lineage_payload(unit_no: int, unit_nodes: list[dict], indices: list[in
         other = html_view._wording_units(their_nodes, order)
         older, newer = (other, mine) if reference < version else (mine, other)
         out["compare"] = html_view._compare_html(older, newer)
-        out.update(_changed_pieces(older, newer))
+        out.update(_changed_pieces(older, newer, indices[0], tuple(sorted((version, reference)))))
         out.update(_amendment_evidence(
             (version, entry["key"], unit_nodes), (reference, their_key, their_nodes)))
     # Carrying from is recorded against the later of two versions, and

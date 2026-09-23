@@ -219,7 +219,17 @@
   #lineage-panel .hist-heading { font-weight: 600; margin-bottom: 6px; }
   #lineage-panel .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
   #lineage-panel .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: line-through; }
-  #lineage-panel .lineage-change { margin-top: 8px; }
+  .piece-compare { margin: 0 0 8px; }
+  .piece-compare .pc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .piece-compare .pc-col { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; min-width: 0; }
+  .piece-compare .pc-head { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .piece-compare .pc-text { font-family: Georgia, serif; font-size: 15px; line-height: 1.45; }
+  .piece-compare .pc-none { color: var(--muted); font-style: italic; }
+  /* Also under #lineage-panel, whose own .d-del strikes through: each
+     column is one version's sentence, so nothing in it is crossed out. */
+  .piece-compare .d-del, #lineage-panel .piece-compare .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: none; }
+  .piece-compare .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
+  @media (max-width: 900px) { .piece-compare .pc-cols { grid-template-columns: 1fr; } }
   #lineage-panel .lineage-label { font-weight: 600; font-size: 13px; }
   #lineage-panel .lineage-notes { margin-top: 10px; font-size: 13px; }
   #lineage-panel .lineage-note { margin-top: 4px; }
@@ -1769,6 +1779,8 @@ document.querySelectorAll("#sidebar-filter button").forEach((btn) => {
     sidebarFilter = btn.dataset.filter;
     document.querySelectorAll("#sidebar-filter button").forEach((b) => b.classList.toggle("active", b === btn));
     renderSidebar();
+    // The side-by-side wordings belong to the Changes view only.
+    if (currentUnit) renderUnit();
   };
 });
 document.getElementById("jump-input").addEventListener("input", renderSidebar);
@@ -1916,9 +1928,25 @@ function renderUnit() {
   const changed = l && l.status === "to_review" && l.changed_pieces && l.changed_pieces.length
     ? new Set(l.changed_pieces) : null;
   const folded = [];
+  // In the Changes view each changed piece carries its two wordings side
+  // by side, earlier on the left, so the change is read where it is made.
+  const sideBySide = new Map();
+  if (sidebarFilter === "changes" && l && l.changes) {
+    for (const c of l.changes) {
+      if (c.node_index == null) continue;
+      if (!sideBySide.has(c.node_index)) sideBySide.set(c.node_index, []);
+      sideBySide.get(c.node_index).push(c);
+    }
+  }
   currentUnit.pieces.forEach((piece, idx) => {
     const el = buildPiece(piece, idx);
     if (changed && !changed.has(piece.node_index)) { el.hidden = true; folded.push(el); }
+    const mine = sideBySide.get(piece.node_index);
+    if (mine) {
+      const block = document.createElement("div");
+      block.innerHTML = mine.map((c) => compareColumnsHtml(c, c.label === "Heading")).join("");
+      el.insertBefore(block, el.firstChild);
+    }
     container.appendChild(el);
   });
   if (folded.length) {
@@ -1937,17 +1965,26 @@ function renderUnit() {
   renderUnitFooter();
 }
 
-// Only the pieces that differ, then the Act's own account of the change:
-// the margin notes the newer version added, the endnote for each Act they
-// cite, and -- where they cite nothing new -- that the difference is the
-// parser's, with the way to re-parse either version right there.
+// One changed piece's two wordings, earlier on the left and later on the
+// right whichever version is being reviewed -- so red is always what went
+// and green always what arrived.
+function compareColumnsHtml(c, withLabel) {
+  const side = (html, version) => `<div class="pc-col"><div class="pc-head">Version ${version}</div>`
+    + (html != null ? `<div class="pc-text">${html}</div>` : `<div class="pc-text pc-none">Not in Version ${version}</div>`)
+    + `</div>`;
+  const label = withLabel ? `<div class="lineage-label">${escapeHtml(c.label || "")}</div>` : "";
+  return `<div class="piece-compare">${label}<div class="pc-cols">${side(c.old_html, c.older)}${side(c.new_html, c.newer)}</div></div>`;
+}
+
+// The Act's own account of a change: the margin notes the newer version
+// added, the endnote for each Act they cite, and -- where they cite
+// nothing new -- that the difference is the parser's, with the way to
+// re-parse either version right there. A piece only the other version has
+// is shown here, having no piece of its own in this one to sit on.
 function lineageChangesHtml(l) {
-  const changes = l.changes || [];
-  const pieces = changes.length
-    ? changes.map((c) => `<div class="lineage-change"><div class="lineage-label">${escapeHtml(c.label || "")}`
-        + `${c.op === "insert" ? " &mdash; added" : c.op === "delete" ? " &mdash; removed" : ""}</div>`
-        + `<div class="compare">${c.html}</div></div>`).join("")
-    : `<div class="compare">${l.compare}</div>`;
+  const here = new Set(currentUnit.pieces.map((p) => p.node_index));
+  const pieces = (l.changes || []).filter((c) => c.node_index == null || !here.has(c.node_index))
+    .map((c) => compareColumnsHtml(c, true)).join("");
   const notes = (l.notes || []).map((n) => {
     const acts = n.acts.map((a) => `<div class="lineage-endnote"><strong>Endnote:</strong> ${escapeHtml(a.described)}`
       + (a.note ? `<div>${escapeHtml(a.note)}</div>` : "") + `</div>`).join("");
@@ -1984,8 +2021,11 @@ function renderLineage() {
   } else if (l.status === "reviewed") {
     html = "Reviewed in this version.";
   } else if (l.compare) {
-    html = `Differs from <strong>Version ${l.reference}</strong> &mdash; struck through is what the older of the two had, marked what the newer has:`
-      + lineageChangesHtml(l);
+    // Waiting for review is not the same as different: a section nobody
+    // has reviewed yet is to_review with the same words as the other
+    // version, and it used to be headed "Differs from" all the same.
+    if (!(l.changes || []).length) { panel.hidden = true; return; }
+    html = lineageChangesHtml(l);
   } else if (l.reference != null) {
     html = `Version ${l.reference} has no ${escapeHtml(l.label)}: new in this version, or moved from elsewhere.`;
   } else {
