@@ -135,7 +135,8 @@ def test_history_review_fetches_the_ticked_versions_one_at_a_time():
     page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
 
     assert 'fetch(API + "/versions/available")' in page
-    assert "for (const [n, v] of ticked.entries())" in page and "fetch(`${API}/versions/fetch/${v}`" in page
+    assert "for (const [n, { v, again }] of ticked.entries())" in page
+    assert '`${API}/versions/fetch/${v}${again ? "?replace=true" : ""}`' in page, "a held version ticked is fetched again"
     assert 'while (job.state === "running")' in page, "a parse outlasts a request, so the job is asked after"
     assert "res.json()" not in page, "every reply read through jsonOf, which reports one that isn't JSON"
 

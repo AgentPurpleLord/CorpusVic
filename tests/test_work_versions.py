@@ -189,3 +189,42 @@ def test_a_second_fetch_waits_for_the_first(held, monkeypatch):
 
     assert client.post("/api/works/cpa/versions/fetch/1").json()["state"] == "running"
     assert client.post("/api/works/cpa/versions/fetch/2").status_code == 409
+
+
+def test_a_held_version_is_fetched_again_over_its_bad_copy(held, monkeypatch):
+    """A PDF missing or bad: replaced, and re-parsed keeping what is approved."""
+    client, ran = held
+    monkeypatch.setattr(dashboard.threading, "Thread", _Now)
+    monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 114, "pdf_url": "https://c/a114.pdf"}])
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF good copy")
+    monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 114, "act_no": "7", "year": 2009})
+
+    assert "already held" in _fetch(client, 114)["error"], "not replaced unless asked"
+    client.post("/api/works/cpa/versions/fetch/114?replace=true")
+    job = client.get("/api/works/cpa/versions/fetch").json()
+
+    assert job["state"] == "done" and job["result"]["replaced"]
+    assert (dashboard.BASE_DIR / "acts" / "cpa" / "v114.pdf").read_bytes() == b"%PDF good copy"
+    assert "--keep-accepted" in ran[-1]
+    assert not list((dashboard.BASE_DIR / "acts").glob(".incoming-*"))
+
+
+def test_a_held_version_without_its_pdf_is_fetched_into_its_folder(held, monkeypatch):
+    client, ran = held
+    (dashboard.BASE_DIR / "acts" / "cpa" / "v114.pdf").unlink()
+    monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 114, "pdf_url": "https://c/a114.pdf"}])
+    assert client.get("/api/works/cpa/versions/available").json()["versions"][0]["pdf_missing"]
+
+    monkeypatch.setattr(dashboard.threading, "Thread", _Now)
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v114")
+    monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 113, "act_no": "7", "year": 2009})
+    assert "the PDF says 113" in _fetch_again(client, 114)["error"], "the wrong reprint is refused"
+
+    monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 114, "act_no": "7", "year": 2009})
+    assert _fetch_again(client, 114)["state"] == "done"
+    assert (dashboard.BASE_DIR / "acts" / "cpa" / "cpa-v114.pdf").read_bytes() == b"%PDF v114"
+
+
+def _fetch_again(client, version):
+    client.post(f"/api/works/cpa/versions/fetch/{version}?replace=true")
+    return client.get("/api/works/cpa/versions/fetch").json()
