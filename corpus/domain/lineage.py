@@ -208,12 +208,12 @@ def _amended(ordered: list[dict], a: int, members: dict, b: int) -> bool:
 
     Where the later reprint has no parsed table, the text decides: a table
     that failed to parse would otherwise hide every amendment behind it."""
-    # The amending Act's own instructions, where they have been fetched,
-    # decide: they name the provision and the words, where a margin note
-    # is only as good as the parse that placed it.
-    by_act = ordered[b].get("act_amended")
-    if by_act is not None:
-        return members[b] in by_act
+    # Where a person has reviewed the work's history (corpus/history), a
+    # change is one they confirmed and nothing else: not the margin notes,
+    # not the amending Acts, which they were shown as evidence.
+    confirmed = ordered[b].get("confirmed")
+    if confirmed is not None:
+        return members[b] in confirmed
     said = act_records_amendment(_notes_for(ordered[a], members[a]), _notes_for(ordered[b], members[b]),
                                  ordered[b].get("amending_acts"))
     return True if said is None else said

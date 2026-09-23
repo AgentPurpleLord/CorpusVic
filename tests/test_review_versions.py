@@ -401,29 +401,6 @@ def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_pat
     assert (ins["status"], ins["node_index"], ins["place_as"]) == ("elsewhere", piece["node_index"], "(2)")
 
 
-def test_the_act_decides_between_reprints_where_it_has_been_fetched(tmp_path, monkeypatch):
-    import corpus.web.dashboard as dashboard
-    from corpus.amending import load
-    from corpus.domain import diffing
-
-    monkeypatch.chdir(tmp_path)
-    _instruction(tmp_path)
-    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
-    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days", "S. 2(1) amended by No. 7/2026 s. 3.")
-
-    def version(slug):
-        nodes = json.loads((tmp_path / "data" / "parsed" / f"{slug}.json").read_text())["nodes"]
-        effective = diffing.provisions(nodes)
-        for p in effective.values():
-            p["nodes"] = nodes[p["node_index"]:diffing.unit_end(nodes, p["node_index"])]
-        return effective, HIERARCHY
-
-    acts = load.work_instructions("act-v2", tmp_path, "Appeals Act 2020")
-
-    assert dashboard._act_amended(acts, 2, version("act-v1"), version("act-v2")) == {("provision", None, "2")}
-    assert dashboard._act_amended(acts, 1, None, version("act-v1")) is None, "no Act first in the oldest"
-
-
 def test_the_place_button_uses_the_place_endpoint():
     from corpus import PROJECT_ROOT
 
