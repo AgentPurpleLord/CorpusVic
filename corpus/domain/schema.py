@@ -11,6 +11,8 @@
 # starts from.
 NODE_TYPES = [
     "schedule",
+    # An Act's Dictionary (Evidence Act 2008): a Schedule by another name.
+    "dictionary",
     "chapter",
     "part",
     "division",
@@ -69,7 +71,7 @@ NODE_TYPES = [
 # that already carry it ("em_entry" -- see em_parser.py), and review.py
 # adds back any type actually in use, so filtering can never leave a
 # node's own type missing from the list it is relabelled with.
-_STRUCTURE = ["schedule", "chapter", "part", "division", "subdivision", "heading_group"]
+_STRUCTURE = ["schedule", "dictionary", "chapter", "part", "division", "subdivision", "heading_group"]
 _SUBLEVELS = ["subsection", "paragraph", "subparagraph", "sub_subparagraph"]
 
 TYPES_BY_DOCUMENT = {

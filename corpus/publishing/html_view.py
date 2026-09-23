@@ -771,7 +771,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         nonlocal list_open
         node = tree_node["node"]
         t = node["type"]
-        pageable_schedule = t == "schedule" and schedule_is_pageable(tree_node)
+        pageable_schedule = schedule_is_pageable(tree_node)
         if t in SECTION_LEVEL_TYPES or pageable_schedule:
             href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
             # A pageable Schedule gets the same "type spelled out"
@@ -1244,7 +1244,7 @@ def _index_outline_html(ctx: dict, act_title: str, base_url: str,
         """The id to link to, and whether to look inside."""
         node = tree_node["node"]
         if node["type"] in SECTION_LEVEL_TYPES or (
-                node["type"] == "schedule" and schedule_is_pageable(tree_node)):
+                schedule_is_pageable(tree_node)):
             name = filenames_by_eid.get(tree_node["eid"])
             return (_strip_md(name) if name else None), False
         return index_slugs.get(tree_node["eid"]), True

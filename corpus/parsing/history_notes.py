@@ -66,6 +66,9 @@ _CITATION_RE = re.compile(
 # parser failures.
 _PROVENANCE_RE = re.compile(r"^(Nos?\.?\s*\d|cf\.|See:)", re.IGNORECASE)
 
+_DICTIONARY_RE = re.compile(
+    r"^Dictionary\s+Pt\s+(?P<part>\w+)(?:\s+cl\.\s+(?P<clause>\d+[A-Z]*)(?P<sub>(?:\([^)]+\))*))?")
+
 _DEF_RE = re.compile(r"def\.?\s+of\s+([^,;]+?)(?:\s+(?:inserted|substituted|amended|repealed))", re.IGNORECASE)
 
 
@@ -137,7 +140,16 @@ def parse_note(raw: str) -> dict:
         "part": None,
         "def_name": None,
     }
-    m = _CITATION_RE.match(text)
+    d = _DICTIONARY_RE.match(text)
+    if d:
+        # "Dictionary Pt 1 def. of admission amended by ...", "Dictionary
+        # Pt 2 cl. 4(1) amended by ..." -- the Evidence Act's Dictionary.
+        result["dictionary"] = True
+        result["part"] = d.group("part")
+        if d.group("clause"):
+            result["section"] = d.group("clause")
+            result["sub_path"] = _split_subpath(d.group("sub"))
+    m = None if d else _CITATION_RE.match(text)
     if m:
         gd = m.groupdict()
         if gd.get("nsection"):

@@ -93,11 +93,15 @@ def build_definition_index(nodes: list[dict]) -> dict[str, int]:
     this way (usually because the term wasn't printed in bold italic)
     still falls back to extract_terms."""
     index: dict[str, int] = {}
+    dictionary_at = next((k for k, n in enumerate(nodes) if n["type"] == "dictionary"), len(nodes))
 
     i = 0
     while i < len(nodes):
         node = nodes[i]
-        if node["type"] in _UNIT_ROOT_TYPES and looks_like_definitions_section(node.get("heading")):
+        # A Dictionary's Part of definitions (Evidence Act 2008) holds
+        # them as a Definitions section does.
+        in_dictionary = node["type"] == "part" and i > dictionary_at
+        if (node["type"] in _UNIT_ROOT_TYPES or in_dictionary) and looks_like_definitions_section(node.get("heading")):
             j = i
             while j < len(nodes) and (j == i or nodes[j]["type"] not in _UNIT_BOUNDARY_TYPES):
                 if nodes[j]["type"] == "definition" and nodes[j].get("heading"):

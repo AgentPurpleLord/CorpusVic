@@ -67,7 +67,9 @@ def _structural_types(hierarchy_order: list[str]) -> tuple[str, ...]:
     itself is a link, and the bracket levels live on a Section's own
     page."""
     rank = make_ranks(hierarchy_order)
-    return tuple(l for l in hierarchy_order if rank[l] < rank["section"])
+    levels = tuple(l for l in hierarchy_order if rank[l] < rank["section"])
+    # An Act's Dictionary heads its Parts as a Schedule does.
+    return ("dictionary", *levels) if "schedule" in levels else levels
 
 
 def _markdown_bullets(text: str) -> str:
@@ -118,7 +120,10 @@ def assign_filenames(sections: list[tuple[dict, list[dict]]]) -> tuple[dict[str,
 
     for tree_node, _breadcrumb in sections:
         number = tree_node["node"].get("number")
-        base = _section_filename(number, tree_node["node"]["type"])
+        if tree_node["node"]["type"] == "part":
+            base = f"dict-pt{_section_filename(number)[1:]}"   # a Dictionary's Part of definitions
+        else:
+            base = _section_filename(number, tree_node["node"]["type"])
         filename = base
         n = 2
         while filename in used:
@@ -780,7 +785,7 @@ def render_index(tree_roots: list[dict], act_title: str, filenames_by_eid: dict[
     def walk(tree_node, out):
         node = tree_node["node"]
         t = node["type"]
-        pageable_schedule = t == "schedule" and schedule_is_pageable(tree_node)
+        pageable_schedule = schedule_is_pageable(tree_node)
         if t in SECTION_LEVEL_TYPES or pageable_schedule:
             filename = f"{SECTIONS_DIR}/{filenames_by_eid[tree_node['eid']]}"
             # See html_view.render_index's own copy of this logic for

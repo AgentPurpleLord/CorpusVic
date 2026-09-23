@@ -1778,3 +1778,50 @@ def test_a_transitional_schedule_naming_an_amendment_act_numbers_clauses():
     ]).nodes
 
     assert find(nodes, "clause", "1")["heading"] == "Application of amendments"
+
+
+def test_an_acts_dictionary_holds_parts_of_definitions_and_clauses():
+    """Evidence Act 2008: "Part 1—Definitions" took its first term, "ACT
+    court", as the rest of its heading, and no definition after it was
+    recognised; the Dictionary's margin notes found nothing (#72)."""
+    from corpus.domain.hierarchy import group_into_units
+    from corpus.parsing.extract import PageText
+    from corpus.parsing.identity import annotate_ids
+    from corpus.parsing.tree import attach_history
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("An admission is evidence of the matter.", x0=WRAP_X0, x1=420),
+        line("Dictionary", bold=True, size=16.0, x0=261, x1=340),
+        line("Section 3", size=10.0, x0=416, x1=456),
+        line("Part 1—Definitions", bold=True, size=16.0, x0=231, x1=400),
+        line("ACT court", bold=True, x0=WRAP_X0, x1=270, leading_bold_italic="ACT court"),
+        line("Note", bold=True, size=10.0, x0=WRAP_X0, x1=240),
+        line("The Commonwealth Act includes a definition of this term.", size=10.0, x0=WRAP_X0, x1=440),
+        line("admission means a previous representation.", x0=WRAP_X0, x1=420, leading_bold_italic="admission"),
+        line("Part 2—Other expressions", bold=True, size=16.0, x0=207, x1=420),
+        line("1 References to businesses", bold=True, x0=170, x1=360),
+        line("(1) A reference to a business includes a trade.", x0=HEAD_X0, x1=430),
+    ])
+    nodes = result.nodes
+    start = next(i for i, n in enumerate(nodes) if n["type"] == "dictionary")
+    assert [(n["type"], n.get("number"), n.get("heading")) for n in nodes[start:start + 7]] == [
+        ("dictionary", None, "Dictionary (Section 3)"), ("part", "1", "Definitions"),
+        ("definition", None, "ACT court"), ("note", None, None), ("definition", None, "admission"),
+        ("part", "2", "Other expressions"), ("clause", "1", "References to businesses")]
+
+    attach_history(nodes, [PageText(page_no=1, body="", margin_notes=[
+        "Dictionary Pt 1 def. of admission amended by No. 52/2012 s. 7.",
+        "Dictionary Pt 2 cl. 1(1) amended by No. 69/2009 s. 52."])], result.hierarchy)
+    assert [(n["type"], n.get("heading") or n.get("number")) for n in nodes if n.get("history")] == [
+        ("definition", "admission"), ("subsection", "1")]
+
+    part1 = start + 1
+    assert next(u for u in group_into_units(nodes) if u[0] == part1) == [part1, part1 + 1, part1 + 2, part1 + 3], \
+        "the Part is its terms' review unit"
+    annotate_ids(nodes, result.hierarchy)
+    parsed = {"nodes": nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
+    assert '<a href="/section/dict-pt1">Part 1 - Definitions</a>' in html_view.render_index(parsed, "An Act 2008", "")
+    assert "previous representation" in html_view.render_section(parsed, "An Act 2008", "", "dict-pt1")

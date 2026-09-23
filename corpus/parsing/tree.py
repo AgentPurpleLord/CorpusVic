@@ -69,7 +69,7 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
             else:
                 # A Preamble has no number; its recitals sit under it all
                 # the same.
-                current[t] = node.get("number") or ("preamble" if t == "preamble" else None)
+                current[t] = node.get("number") or ({"preamble": "preamble", "dictionary": "dictionary"}.get(t))
                 if definition_rank is not None and rank[t] <= definition_rank:
                     current["definition"] = None
             for deeper in hierarchy_order[rank[t] + 1 :]:
@@ -77,8 +77,11 @@ def annotate_paths(nodes: list[dict], hierarchy_order: list[str] = HIERARCHY_ORD
             # The types sharing a level's depth without a slot of their own
             # -- "clause", "item", "preamble" -- close like it, or a
             # Schedule's clause stayed in the path of everything after.
+            # A definition is not one of them: it can sit inside a
+            # subsection (s 4(6)) as well as beside one.
             for other in list(current):
-                if other not in hierarchy_order and other not in (t, "definition") and rank.get(other, -1) >= rank[t]:
+                if t != "definition" and other not in (t, "definition") and rank.get(other, -1) >= rank[t] and (
+                        other not in hierarchy_order or t not in hierarchy_order):
                     current[other] = None
         node["path"] = dict(current)
     return nodes
@@ -293,7 +296,29 @@ def _find_definition(candidates: list[dict], def_name: str, leading: bool = Fals
     return None
 
 
-def _claim_repealed_definition(candidates: list[dict], def_name: str, claimed: set) -> "dict | None":
+def _as_printed(def_name: str, words: set) -> str:
+    """A term from a margin note, with each word the note broke at a line
+    end ("correspon- ding", "overseas- registered") put back as the Act
+    spells it: joined where the Act has the joined word, hyphenated where
+    it does not."""
+    def join(m):
+        whole = m.group(1) + m.group(2)
+        return whole if whole.lower() in words else f"{m.group(1)}-{m.group(2)}"
+    return re.sub(r"(\w+)- (\w+)", join, def_name).strip()
+
+
+def _words(nodes: list[dict]) -> set:
+    return {w.lower() for n in nodes for w in re.findall(r"[A-Za-z]+(?:-[A-Za-z]+)*",
+                                                         f"{n.get('heading') or ''} {n.get('text') or ''}")}
+
+
+# "def. of associated defendant amended as associated accused": the term
+# was renamed, and is printed under its new name.
+_RENAMED_RE = re.compile(r"\bamended as (.+?) by\b")
+
+
+def _claim_repealed_definition(candidates: list[dict], def_name: str, claimed: set,
+                               words: "set | None" = None) -> "dict | None":
     """The row of stars where a repealed definition stood: after the term
     that comes closest before it alphabetically, as definitions are set.
     The row takes the term, so the reader sees which definition went."""
@@ -309,8 +334,38 @@ def _claim_repealed_definition(candidates: list[dict], def_name: str, claimed: s
             best, best_prev = node, prev
     if best is not None:
         claimed.add(id(best))
-        best["heading"] = re.sub(r"(\w)- (\w)", r"\1\2", def_name).strip()
+        best["heading"] = _as_printed(def_name, words or set())
     return best
+
+
+def _dictionary_target(nodes: list[dict], note: dict, claimed: set, words: set) -> tuple:
+    """(node, found_specific, wanted_specific) for a note citing an Act's
+    Dictionary: a defined term of one of its Parts, or a clause of one --
+    the Part itself where neither is found."""
+    part = _normalize_number(note.get("part"))
+    within = [n for n in nodes if (n.get("path") or {}).get("dictionary")
+              and _normalize_number((n.get("path") or {}).get("part")) == part]
+    root = next((n for n in within if n["type"] == "part"), None)
+    target = None
+    if note.get("def_name"):
+        target = _find_definition(within, note["def_name"])
+        renamed = _RENAMED_RE.search(note["raw"])
+        if target is None and renamed:
+            target = _find_definition(within, renamed.group(1))
+        if target is None and _REPEALED_RE.search(note["raw"]):
+            target = _claim_repealed_definition(within, note["def_name"], claimed, words)
+        if target is not None:
+            return target, True, True
+        target = _find_definition(within, note["def_name"], leading=True)
+    elif note.get("section"):
+        clause = _find_by_number(within, note["section"], {"clause"})
+        if clause is not None:
+            run = [n for n in within if (n.get("path") or {}).get("clause") == clause.get("number")]
+            specific = _find_provision(run, note["sub_path"]) if note["sub_path"] else clause
+            if specific is not None:
+                return specific, True, True
+            target = clause
+    return target or root, False, True
 
 
 def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERARCHY_ORDER) -> list[dict]:
@@ -338,6 +393,7 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
 
     unattached = []
     claimed: set = set()   # repealed rows already given to a note
+    words = _words(nodes)   # how the Act spells a word a margin note broke
     for note in collect_page_notes(pages):
         target = None
         if note.get("kind") == "provenance":
@@ -356,7 +412,9 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
         wanted_specific = bool(note["sub_path"] or note["def_name"])
         found_specific = False
 
-        if note.get("schedule"):
+        if note.get("dictionary"):
+            target, found_specific, wanted_specific = _dictionary_target(nodes, note, claimed, words)
+        elif note.get("schedule"):
             root = schedule_roots.get(note["schedule"])
             if root is not None:
                 target = root
@@ -389,8 +447,11 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     wanted_specific = True
                 if target is None and note["def_name"]:
                     target = _find_definition(candidates, note["def_name"])
+                    renamed = _RENAMED_RE.search(note["raw"])
+                    if target is None and renamed:
+                        target = _find_definition(candidates, renamed.group(1))
                     if target is None and _REPEALED_RE.search(note["raw"]):
-                        target = _claim_repealed_definition(candidates, note["def_name"], claimed)
+                        target = _claim_repealed_definition(candidates, note["def_name"], claimed, words)
                     found_specific = target is not None
                     if target is None:
                         target = _find_definition(candidates, note["def_name"], leading=True)

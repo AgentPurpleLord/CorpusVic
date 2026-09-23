@@ -54,6 +54,8 @@ def _slug(value) -> str:
 
 
 def _segment(level: str, value) -> str:
+    if level == "dictionary":
+        return "dict"   # there is only ever one
     if level in _BARE:
         return _slug(value)
     if level in _PREFIX:

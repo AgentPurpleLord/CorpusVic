@@ -641,6 +641,7 @@ class _LineParser:
         # Where clause and section headings start, and the last number a
         # Schedule's list reached (see _try_schedule_item).
         self.heading_x0: "float | None" = None
+        self._term_line: "BodyLine | None" = None   # the line a defined term was last read from
         self.schedule_last_number: "str | None" = None
         # A repealed row since the last list item opened, so the next item
         # may skip the ones repealed (see _later_in_run).
@@ -714,8 +715,14 @@ class _LineParser:
             # previous one goes with it.
             self._in_definitions_section = looks_like_definitions_section(heading)
             self._definition_rank = None
-        if level == "schedule":
+        if level in ("schedule", "dictionary"):
             self.schedule_last_number = None
+        if level == "part" and any(n["type"] == "dictionary" for n in self.stack):
+            # A Dictionary's "Part 1—Definitions" is a list of defined
+            # terms with no section to announce it; its other Parts are
+            # clauses.
+            self._in_definitions_section = looks_like_definitions_section(heading)
+            self._definition_rank = None
         elif level in ("clause", "item") and self._in_schedule():
             self.schedule_last_number = number
         if level in (self.top_level_type, "clause", "item") and line.bold and heading:
@@ -1101,6 +1108,11 @@ class _LineParser:
         if not line.bold:
             return False
 
+        if text == "Dictionary" and round(line.size, 1) > self.body_size and "schedule" in self.rank:
+            # An Act's Dictionary, closing it as a Schedule would.
+            self._open_node("dictionary", None, "Dictionary", line, char_start)
+            return True
+
         for level in self._prefix_heading_levels:
             m = self.patterns[level].match(text)
             if not m:
@@ -1189,15 +1201,17 @@ class _LineParser:
         return False
 
     def _in_schedule(self) -> bool:
-        return any(n["type"] == "schedule" for n in self.stack)
+        return any(n["type"] in ("schedule", "dictionary") for n in self.stack)
 
     def _provision_type(self) -> str:
         """What a numbered provision is called here: the Act's own word
         (section, or a Bill's clause), and in a Schedule a clause -- an
         item where the Schedule is one of amendments (issue #72)."""
-        schedule = next((n for n in reversed(self.stack) if n["type"] == "schedule"), None)
+        schedule = next((n for n in reversed(self.stack) if n["type"] in ("schedule", "dictionary")), None)
         if schedule is None:
             return self.top_level_type
+        if schedule["type"] == "dictionary":
+            return "clause"
         return "item" if _AMENDING_SCHEDULE_RE.search(schedule.get("heading") or "") else "clause"
 
     def _try_schedule_item(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
@@ -1246,7 +1260,7 @@ class _LineParser:
         line as plain continuation text, instead of giving it its own
         node."""
         top = self.stack[-1] if self.stack else None
-        if top is None or top["type"] != "schedule" or top["text"] or line.bold:
+        if top is None or top["type"] not in ("schedule", "dictionary") or top["text"] or line.bold:
             return False
         if not _SCHEDULE_HANGS_OFF_RE.match(text):
             return False
@@ -1286,9 +1300,10 @@ class _LineParser:
         a section that's actually introducing them."""
         if not (self._in_definitions_section and line.leading_bold_italic):
             return False
-        if round(line.size, 1) > self.body_size or _looks_like_group_heading(
+        in_dictionary = any(n["type"] == "dictionary" for n in self.stack)
+        if round(line.size, 1) > self.body_size or (not in_dictionary and _looks_like_group_heading(
             text, self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels), next_text
-        ):
+        )):
             # A topical heading between two sections ("Theft, robbery,
             # burglary, &c.", "Fingerprinting"), not a defined term. Now
             # that a lead-in can turn definitions on part-way through a
@@ -1296,7 +1311,10 @@ class _LineParser:
             # and one of these headings can arrive first, where it would
             # otherwise be swallowed as a term and take the rest of the
             # Act's structure with it. A defined term is never set larger
-            # than body text, and never has a heading's shape.
+            # than body text, and never has a heading's shape. A
+            # Dictionary has no topical headings among its terms, and its
+            # first term can stand alone on its line under the Part
+            # heading ("ACT court", defined only by a Note).
             return False
         term = line.leading_bold_italic
         if not text.startswith(term):
@@ -1309,7 +1327,11 @@ class _LineParser:
         remainder = text[len(term) :].strip()
 
         top = self.stack[-1] if self.stack else None
-        if top is not None and top["type"] == "definition" and not top["text"]:
+        if top is not None and top["type"] == "definition" and not top["text"] and self.line_above is self._term_line:
+            # Only straight after the term's own line: a term defined by a
+            # Note alone ("ACT court" in the Evidence Act's Dictionary) has
+            # the Note between it and the next term, which is new.
+            #
             # The currently-open definition's own term wrapped onto this
             # second physical line (a long one, e.g. "indictable
             # offence that may be heard and" / "determined summarily
@@ -1326,9 +1348,11 @@ class _LineParser:
             _append_heading(top, term, char_end, line)
             if remainder:
                 _append_text(top, remainder, line, char_end)
+            self._term_line = line
             return True
 
         self._open_node("definition", None, term, line, char_start, rank=self._definition_rank)
+        self._term_line = line
         if remainder:
             _append_text(self.stack[-1], remainder, line, char_end)
         return True
