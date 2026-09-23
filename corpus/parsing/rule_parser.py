@@ -361,7 +361,22 @@ def _continues_romans(prev: str, content: str) -> bool:
     return _continues_run(prev, content, r"^[ivxlcdm]+", lambda t: _next_roman(t) or "")
 
 
-def _bracket_level(content: str, stack: list[dict]) -> str:
+def _later_in_run(prev: str, content: str, base_re: str, next_in_base, reach: int = 8) -> bool:
+    """Is `content` a later sibling of `prev`, some steps on? Only asked
+    across a repealed row: (b), "* * * * *", (d) -- the (c) between them
+    is the row -- where "d", a roman numeral too, otherwise read as the
+    start of a subparagraph list."""
+    token = _split_insertion(prev, base_re)[0]
+    for _ in range(reach):
+        token = next_in_base(token)
+        if not token:
+            return False
+        if _split_insertion(content, base_re)[0] == token:
+            return True
+    return False
+
+
+def _bracket_level(content: str, stack: list[dict], after_repeal: bool = False) -> str:
     """Works out what a bracketed token like "(1)", "(a)", "(i)" actually
     is. Digits are always a subsection. For letters, single letters and
     roman numerals overlap ("(i)", "(v)", "(x)" are valid as either), so
@@ -376,11 +391,13 @@ def _bracket_level(content: str, stack: list[dict]) -> str:
     if stack:
         top = stack[-1]
         if top["type"] == "paragraph":
-            if _continues_letters(top["number"], content):
+            if _continues_letters(top["number"], content) or (
+                    after_repeal and _later_in_run(top["number"], content, r"^[a-z]", _next_letter)):
                 return "paragraph"
             return "subparagraph"
         if top["type"] == "subparagraph":
-            if _continues_romans(top["number"], content):
+            if _continues_romans(top["number"], content) or (
+                    after_repeal and _later_in_run(top["number"], content, r"^[ivxlcdm]+", lambda t: _next_roman(t) or "")):
                 return "subparagraph"
             if len(stack) >= 2 and stack[-2]["type"] == "paragraph":
                 return "paragraph"
@@ -592,6 +609,9 @@ class _LineParser:
         # -- prev_text is left stale by the marker and table paths -- and
         # the right margin it is measured against (see _wraps).
         self.line_above: "BodyLine | None" = None
+        # A repealed row since the last list item opened, so the next item
+        # may skip the ones repealed (see _later_in_run).
+        self.repealed_since_item = False
         self.margins: dict[int, float] = {}
         # A bare topical heading_group (e.g. a Bill's "CHAPTER 7--..."
         # caption) isn't pushed onto self.stack the way a Part, Division
@@ -645,6 +665,7 @@ class _LineParser:
     def _open_node(self, level: str, number: str | None, heading: str | None, line: BodyLine,
                    char_start: int, rank: "int | None" = None) -> dict:
         self._flush_hangs_off()
+        self.repealed_since_item = False
         if rank is None:
             rank = self.rank[level]
         # Compared against the depth each open node was *opened* at, not
@@ -700,24 +721,36 @@ class _LineParser:
         is always exactly this asterisk marker, never free text a human
         or a margin annotation wrote."""
         run = self.asterisk_run
-        if len(run) >= 3:
-            first, last = run[0], run[-1]
+        # Each printed row of stars is one provision repealed: two rows
+        # one under the other are two provisions, not one repeal.
+        rows: list[list[BodyLine]] = []
+        for l in run:
+            if rows and l.page_no == rows[-1][0].page_no and abs(l.y0 - rows[-1][0].y0) < 2.0:
+                rows[-1].append(l)
+            else:
+                rows.append([l])
+        if len(run) >= 3 and not any(len(row) >= 3 for row in rows):
+            rows = [run]   # stars set one to a row: one marker, as before
+        for row in rows:
+            if len(row) < 3:
+                # Too short a run to be the repealed-text marker -- don't
+                # lose it, fold it into whatever's currently open instead.
+                for l in row:
+                    if not self.stack:
+                        self._open_node(self._preamble_level, None, "Preliminary", l, l.y0)
+                    _append_text(self.stack[-1], l.text.strip(), l, char_end)
+                continue
             marker = {
                 "type": "repealed", "number": None, "heading": None,
-                "text": ("* " * len(run)).strip(),
-                "page_start": first.page_no, "page_end": last.page_no,
+                "text": ("* " * len(row)).strip(),
+                "page_start": row[0].page_no, "page_end": row[-1].page_no,
                 "char_start": self.asterisk_start, "char_end": char_end, "source": "rules",
             }
-            for l in run:
+            for l in row:
                 add_rect(marker, l)
             self.nodes.append(marker)
-        else:
-            # Too short a run to be the repealed-text marker -- don't
-            # lose it, fold it into whatever's currently open instead.
-            for l in run:
-                if not self.stack:
-                    self._open_node(self._preamble_level, None, "Preliminary", l, l.y0)
-                _append_text(self.stack[-1], l.text.strip(), l, char_end)
+            if self.stack and self.stack[-1]["type"] in ("paragraph", "subparagraph"):
+                self.repealed_since_item = True
         run.clear()
 
     def _wrapped(self, line: BodyLine, text: str) -> bool:
@@ -1230,7 +1263,7 @@ class _LineParser:
         else:
             m2 = self.patterns["paragraph"].match(text) or self.patterns["subparagraph"].match(text)
             if m2:
-                bracket_match, level = m2, _bracket_level(m2.group(1), self.stack)
+                bracket_match, level = m2, _bracket_level(m2.group(1), self.stack, self.repealed_since_item)
             else:
                 m3 = self.patterns["sub_subparagraph"].match(text)
                 if m3:

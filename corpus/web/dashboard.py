@@ -1571,6 +1571,8 @@ def _history_items(work: str) -> list[dict]:
     version -- cached against the text itself rather than the review
     database, which each decision writes to."""
     held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
+    if not held:
+        return []   # held under its plain name: no versions yet to compare
     versions = []
     for slug in held:
         nodes, _unattached, hierarchy = _current_nodes(slug)

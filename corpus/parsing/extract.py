@@ -263,6 +263,28 @@ def _normalize_for_frequency(text: str) -> str:
     return re.sub(r"\d+", "#", text).strip()
 
 
+# How far apart two lines' tops can be and still be one printed row. Rows
+# of body text are 11pt and more apart, so this cannot merge two.
+_SAME_ROW = 2.0
+
+
+def _rows_left_to_right(body: list[tuple]) -> list[tuple]:
+    """Body lines top to bottom, and each row left to right.
+
+    A note's number sits in the margin on its first line's row, a hair
+    lower -- "1" at y0 678.3 beside "See section 14..." at 678.2 -- so by
+    height alone it came after that line, and the parser opened the note
+    one line late: s 45's note 1 split in two, s 124's note 1 took note
+    2's first line. Items are (x0, y0, ...)."""
+    rows: list[list[tuple]] = []
+    for item in sorted(body, key=lambda t: t[1]):
+        if rows and item[1] - rows[-1][0][1] < _SAME_ROW:
+            rows[-1].append(item)
+        else:
+            rows.append([item])
+    return [item for row in rows for item in sorted(row, key=lambda t: t[0])]
+
+
 def extract_pages(pdf_path: str) -> list[PageText]:
     doc = fitz.open(pdf_path)
     raw_pages = []
@@ -364,7 +386,7 @@ def extract_pages(pdf_path: str) -> list[PageText]:
         margin.sort(key=lambda t: t[0])
         header.sort(key=lambda t: t[0])
         footer.sort(key=lambda t: t[0])
-        body.sort(key=lambda t: t[1])
+        body = _rows_left_to_right(body)
         body_lines = [
             BodyLine(text=text, x0=x0, x1=x1, y0=y0, y1=y1, page_no=page_no, size=size, bold=bold, leading_bold_italic=lbi)
             for x0, y0, x1, y1, text, size, bold, lbi in body

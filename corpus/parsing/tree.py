@@ -5,6 +5,8 @@ the node it belongs to. No AI model is asked to produce a nested tree or
 parent references directly -- that's more error-prone than building the
 tree ourselves from a flat list we already trust.
 """
+import re
+
 from corpus.domain.hierarchy import HIERARCHY_ORDER, make_ranks, schedule_numbers
 from corpus.parsing.history_notes import collect_page_notes
 
@@ -126,6 +128,110 @@ def _inside(node: dict, sub_path: list[str]) -> bool:
     return True
 
 
+def _levels(node: dict) -> list[str]:
+    path = node.get("path") or {}
+    return [_normalize_number(path.get(level)) for level in _SUB_LEVELS if path.get(level)]
+
+
+def _find_provision(candidates: list[dict], sub_path: list[str]) -> "dict | None":
+    """The provision a citation's bracketed tail names, by the whole tail.
+
+    Matching the last bracket alone sent "S. 124(4)(c) repealed" to
+    s 124(3)(c) and "S. 124(3)(a) amended" to (1AA)(a): every subsection
+    has its own (a). Levels are matched in order, not by position, for
+    the reason _inside gives."""
+    wanted = [_normalize_number(n) for n in sub_path]
+    for node in candidates:
+        if node.get("type") in _SUB_LEVELS and _normalize_number(node.get("number")) == wanted[-1] \
+                and _levels(node) == wanted:
+            return node
+    return None
+
+
+# A citation whose last word is that the provision was repealed:
+# "S. 124(6) inserted by No. 55/2014 s. 109(4), repealed by No. 38/2022".
+_REPEALED_RE = re.compile(r"\brepealed by\b[^,]*$", re.IGNORECASE)
+
+_ROMAN = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100, "d": 500, "m": 1000}
+
+
+def _roman(token: str) -> int:
+    total = 0
+    for a, b in zip(token, token[1:] + " "):
+        total += -_ROMAN[a] if _ROMAN.get(b, 0) > _ROMAN[a] else _ROMAN[a]
+    return total
+
+
+def _before(a: str, b: str) -> bool:
+    """Does provision number `a` come before `b` in a run? As drafted:
+    7, 7A, 8; b, ba, c; iii, iv -- numerals by value only where one of
+    the two has more than one letter, since (c) and (d) read the same
+    either way."""
+    da, db = re.match(r"(\d+)(.*)", a), re.match(r"(\d+)(.*)", b)
+    if da and db:
+        return (int(da.group(1)), da.group(2)) < (int(db.group(1)), db.group(2))
+    if re.fullmatch(r"[ivxlcdm]+", a) and re.fullmatch(r"[ivxlcdm]+", b) and max(len(a), len(b)) > 1:
+        return _roman(a) < _roman(b)
+    return a < b
+
+
+def _claim_repealed(candidates: list[dict], sub_path: list[str], claimed: set, number_it: bool = True,
+                    inside: bool = False) -> "dict | None":
+    """The row of stars printed where a repealed provision stood.
+
+    A repeal leaves no number on the page to find it by, only the row. Its
+    place is the row under the same provision whose nearest earlier
+    sibling comes closest before the repealed number: after (b) for a
+    repealed (c). The row takes the number -- unless what was repealed is
+    the provision's note, which is not the provision -- and is claimed, so
+    the next note looking for a row does not take the same one.
+
+    `inside` looks for the row within the provision itself, after its
+    last piece: where a provision's note was printed, and repealed."""
+    wanted = [_normalize_number(n) for n in sub_path]
+    parent, number = (wanted, None) if inside else (wanted[:-1], wanted[-1])
+    best, best_prev = None, None
+    for node in candidates:
+        if node.get("type") != "repealed" or id(node) in claimed:
+            continue
+        levels = _levels(node)
+        if levels[:len(parent)] != parent or (inside and len(levels) == len(parent)):
+            continue
+        prev = levels[len(parent)] if len(levels) > len(parent) else None
+        if prev is not None and number is not None and not _before(prev, number):
+            continue
+        if best is None or (prev is not None and (best_prev is None or _before(best_prev, prev))):
+            best, best_prev = node, prev
+    if best is not None:
+        claimed.add(id(best))
+        if number_it:
+            best["number"] = number
+    return best
+
+
+def _claim_repealed_section(section_runs: dict, number: str, claimed: set) -> "dict | None":
+    """The row where a repealed section stood: among the rows closing the
+    section before it, the first not yet claimed -- their notes come in
+    printed order, 375 before 375A."""
+    prev = None
+    for k in section_runs:
+        if _before(_normalize_number(k), _normalize_number(number)) and (
+                prev is None or _before(_normalize_number(prev), _normalize_number(k))):
+            prev = k
+    if prev is None:
+        return None
+    run = section_runs[prev]
+    tail = len(run)
+    while tail and run[tail - 1].get("type") == "repealed":
+        tail -= 1
+    for node in run[tail:]:
+        if id(node) not in claimed:
+            claimed.add(id(node))
+            node["number"] = number
+            return node
+    return None
+
+
 def _find_annotation(candidates: list[dict], sub_path: list[str], kind: str, wanted_id) -> tuple:
     """The note or example a citation like "Note to s. 6(1)" is about.
 
@@ -190,6 +296,7 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
             in_schedule.setdefault(schedules[idx], []).append(node)
 
     unattached = []
+    claimed: set = set()   # repealed rows already given to a note
     for note in collect_page_notes(pages):
         target = None
         if note.get("kind") == "provenance":
@@ -243,15 +350,26 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     target = _find_definition(candidates, note["def_name"])
                     found_specific = target is not None
                 if target is None and note["sub_path"]:
-                    sub_path = list(note["sub_path"])
-                    while sub_path and target is None:
-                        target = _find_by_number(
-                            candidates, sub_path[-1], {"subsection", "paragraph", "subparagraph"}
-                        )
-                        sub_path.pop()
+                    repealed = _REPEALED_RE.search(note["raw"])
+                    if repealed and note.get("target_kind"):
+                        target = _claim_repealed(candidates, note["sub_path"], claimed, number_it=False, inside=True)
+                    if target is None:
+                        target = _find_provision(candidates, note["sub_path"])
+                    if target is None and repealed:
+                        target = _claim_repealed(candidates, note["sub_path"], claimed,
+                                                 number_it=not note.get("target_kind"))
                     found_specific = target is not None and not note.get("target_kind")
+                    # Not found: the provision it sits in, never a namesake
+                    # under another -- and a guess, so low confidence.
+                    sub_path = list(note["sub_path"][:-1])
+                    while target is None and sub_path:
+                        target = _find_provision(candidates, sub_path)
+                        sub_path.pop()
                 if target is None:
                     target = candidates[0]
+            elif _REPEALED_RE.search(note["raw"]) and not note["sub_path"]:
+                target = _claim_repealed_section(section_runs, note["section"], claimed)
+                found_specific = target is not None
         elif note["division"]:
             candidates = division_runs.get(note["division"], [])
             if candidates:

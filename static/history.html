@@ -403,7 +403,8 @@ async function fetchTicked(e) {
   await load();
 }
 
-load();
+// The dashboard's "Fetch versions..." opens this page on the list.
+load().then(() => { if (location.hash === "#fetch") document.getElementById("fetch-versions").click(); });
 </script>
 </body>
 </html>

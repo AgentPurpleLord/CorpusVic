@@ -235,3 +235,27 @@ def test_the_page_images_are_reached_through_the_router(tmp_path, monkeypatch):
     image = client.get("/api/docs/act-v1/pages/1.png?zoom=1.5")
     assert image.status_code == 200 and image.content[:4] == b"\x89PNG"
     assert client.get("/api/docs/act-v1/pages/1/find", params={"q": "A person may appeal."}).json()["rects"]
+
+
+def test_every_act_can_fetch_versions_and_accepted_repeals_are_not_grey(tmp_path, monkeypatch):
+    """An Act held under its plain name has no second version yet, which
+    is exactly when fetching one is wanted."""
+    import corpus.web.dashboard as dashboard
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+    assert '${s.kind === "act" && s.parsed\n          ? `<a class="btn small" href="history/' in page
+    assert 'href="history/${encodeURIComponent(s.work)}/#fetch"' in page
+    history = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+    assert 'location.hash === "#fetch"' in history
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "appeals-act.json").write_text(json.dumps({
+        "nodes": _nodes({"2": [("1", "x")]}), "hierarchy": HIERARCHY, "fingerprint": "fp"}))
+    assert dashboard.history_items("appeals-act")["items"] == []
+
+    review = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    assert '.piece[data-type="repealed"]:not(.piece-accepted):not(.piece-flagged) { background: var(--repealed-bg); }' in review

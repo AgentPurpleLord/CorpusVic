@@ -851,7 +851,7 @@ function actCardHtml(s) {
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
                 title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
-        ${s.version != null
+        ${s.kind === "act" && s.parsed
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
         ${dlAkn}
@@ -874,6 +874,8 @@ function versionsHtml(s) {
         <input type="file" accept="application/pdf">
         <button class="btn small" onclick="addVersion('${s.work}', this)"
                 title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/${encodeURIComponent(s.work)}/#fetch" target="_blank"
+           title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions&hellip;</a>
       </div>
     </details>`;
 }
