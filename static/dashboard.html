@@ -257,6 +257,9 @@
   #parse-versions { border: 1px solid var(--border); max-height: 220px; overflow-y: auto; padding: 2px 8px 8px; }
   .modal label.parse-version { margin: 6px 0 0; gap: 4px; }
   .parse-pick { display: flex; gap: 6px; margin-top: 6px; }
+  .amending-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .amending-table td { border-top: 1px solid var(--border); padding: 6px 4px; vertical-align: top; }
+  .amending-item { color: var(--muted); margin-top: 2px; }
   .modal label:has(input[type=checkbox]) {
     display: flex; align-items: center; font-size: 13px; color: var(--fg); margin: 12px 0 0;
   }
@@ -439,8 +442,6 @@
       <div class="parse-pick">
         <button type="button" class="btn small" onclick="tickParseVersions(true)">All</button>
         <button type="button" class="btn small" onclick="tickParseVersions(false)">None</button>
-        <button type="button" class="btn small" id="parse-amending-btn" onclick="fetchAmendingActs()"
-                title="Download the Acts that amended this one between the versions held, so review can check each change against the Act that made it">Fetch amending Acts</button>
       </div>
 
       <label>Kind</label>
@@ -517,6 +518,29 @@
     <div id="parse-log-wrap" style="display:none">
       <label>Output</label>
       <pre id="parse-log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Amending Acts: fetched and checked apart from parsing, for an Act held
+     in more than one version. The Acts are this Act's evidence, not
+     documents of the corpus, so they have no card of their own. -->
+<div class="overlay" id="amending-modal">
+  <div class="modal">
+    <h2>Amending Acts &mdash; <span id="amending-work"></span></h2>
+    <p class="hint">The Acts that amended this one between the versions held. Each version's changes are
+      checked against the Act that made them, in review and in the public history.</p>
+    <div id="amending-list"></div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeModal('amending-modal')">Close</button>
+      <button type="button" class="btn" id="amending-verify-btn" onclick="verifyAmendingActs()"
+              title="Check every instruction against the versions it first shows in">Verify</button>
+      <button type="button" class="btn primary" id="amending-fetch-btn" onclick="fetchAmendingActs()"
+              title="Download from legislation.vic.gov.au whichever of them is missing, and read them">Fetch</button>
+    </div>
+    <div id="amending-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="amending-log"></pre>
     </div>
   </div>
 </div>
@@ -853,6 +877,9 @@ function actCardHtml(s) {
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
                 title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
+        ${ACTS.filter((a) => a.work === s.work && a.parsed && a.version != null).length > 1
+          ? `<button class="btn small" onclick="openAmendingModal('${s.work}')"
+               title="The Acts that amended this one between its versions, fetched and checked">Amending Acts</button>` : ""}
         ${dlAkn}
         ${dlMd}
       </div>
@@ -1585,25 +1612,75 @@ function paintParseMenu() {
   btn.textContent = ticked.length > 1 ? `Parse ${ticked.length} versions` : "Parse";
 }
 
-async function fetchAmendingActs() {
-  const btn = document.getElementById("parse-amending-btn");
-  const logWrap = document.getElementById("parse-log-wrap");
-  const logEl = document.getElementById("parse-log");
-  btn.disabled = true;
-  btn.textContent = "Fetching...";
-  logWrap.style.display = "block";
-  logEl.textContent = "Fetching amending Acts from legislation.vic.gov.au...";
+// ---------------------------------------------------------------------
+// Amending Acts (corpus/amending): fetched and verified on their own,
+// apart from parsing.
+// ---------------------------------------------------------------------
+
+let amendingWork = null;
+
+async function openAmendingModal(work) {
+  amendingWork = work;
+  document.getElementById("amending-work").textContent = work;
+  document.getElementById("amending-log-wrap").style.display = "none";
+  openModal("amending-modal");
+  await loadAmendingStatus();
+}
+
+async function loadAmendingStatus(report) {
+  const list = document.getElementById("amending-list");
   try {
-    const res = await fetch(`api/acts/${encodeURIComponent(parseMenuWork)}/amending`, { method: "POST" });
+    const res = await fetch(`api/acts/${encodeURIComponent(amendingWork)}/amending`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't read them.");
+    if (!data.acts.length) { list.innerHTML = "<p>No Act amended this one between the versions held.</p>"; return; }
+    const checked = Object.fromEntries(((report || {}).acts || []).map((a) => [a.citation, a]));
+    list.innerHTML = `<table class="amending-table">${data.acts.map((a) => {
+      const state = !a.fetched ? "not fetched"
+        : a.read == null ? "fetched, not read" : `${a.read} instructions read, ${a.unparsed} not recognised`;
+      const c = checked[a.citation];
+      const verdict = c ? Object.entries(c.counts).map(([k, n]) => `${n} ${k}`).join(", ") : "";
+      const items = c ? c.items.filter((i) => i.status === "elsewhere" || i.status === "not found")
+        .map((i) => `<div class="amending-item">${escapeHtml(i.provision)} &rarr; ${escapeHtml(i.target)}:
+            ${escapeHtml(i.status)}${i.at ? ` (at ${escapeHtml(i.at)})` : ""}, ${escapeHtml(i.between)}</div>`).join("") : "";
+      return `<tr><td><strong>No. ${escapeHtml(a.citation)}</strong><br>${escapeHtml(a.title)}</td>
+        <td>first in ${a.versions.map((v) => "v" + v).join(", ")}</td>
+        <td>${escapeHtml(state)}${verdict ? `<br><strong>${escapeHtml(verdict)}</strong>` : ""}${items}</td></tr>`;
+    }).join("")}</table>`;
+  } catch (e) { list.textContent = e.message; }
+}
+
+async function amendingAction(button, label, run) {
+  const btn = document.getElementById(button);
+  const logWrap = document.getElementById("amending-log-wrap");
+  const logEl = document.getElementById("amending-log");
+  btn.disabled = true;
+  btn.textContent = label;
+  try { await run(logWrap, logEl); }
+  catch (err) { logWrap.style.display = "block"; logEl.textContent = String(err); }
+  finally { btn.disabled = false; btn.textContent = button === "amending-fetch-btn" ? "Fetch" : "Verify"; }
+}
+
+function fetchAmendingActs() {
+  return amendingAction("amending-fetch-btn", "Fetching...", async (logWrap, logEl) => {
+    logWrap.style.display = "block";
+    logEl.textContent = "Fetching from legislation.vic.gov.au...";
+    const res = await fetch(`api/acts/${encodeURIComponent(amendingWork)}/amending`, { method: "POST" });
     const data = await res.json();
     logEl.textContent = data.log || data.detail || "(no output)";
-    toast(data.ok ? "Amending Acts fetched -- reopen a review to see them" : "Fetching failed -- see the log", !data.ok);
-  } catch (err) {
-    logEl.textContent = String(err);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Fetch amending Acts";
-  }
+    toast(data.ok ? "Fetched -- reopen a review to see them" : "Fetching failed -- see the output", !data.ok);
+    await loadAmendingStatus();
+  });
+}
+
+function verifyAmendingActs() {
+  return amendingAction("amending-verify-btn", "Verifying...", async () => {
+    const res = await fetch(`api/acts/${encodeURIComponent(amendingWork)}/amending/verify`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't verify.");
+    await loadAmendingStatus(data);
+    toast(`Verified: ${Object.entries(data.counts).map(([k, n]) => `${n} ${k}`).join(", ") || "nothing to check"}`);
+  });
 }
 
 // One version after another, never at once: each is a full pipeline run,

@@ -75,9 +75,14 @@ def locate(act: dict, get=_get) -> dict:
     return {"page": f"https://www.legislation.vic.gov.au{path}", "pdf_url": url}
 
 
+# Under acts/, where the Act PDFs are, but not one of them: the dashboard
+# lists every other folder there as a work (see dashboard.discover_slugs).
+FOLDER = "amending"
+
+
 def pdf_path(citation: str, base_dir=None):
     act_no, year = citation.split("/")
-    return (base_dir or PROJECT_ROOT) / "acts" / "amending" / f"{year}-{act_no}.pdf"
+    return (base_dir or PROJECT_ROOT) / "acts" / FOLDER / f"{year}-{act_no}.pdf"
 
 
 def instructions_path(citation: str, base_dir=None):

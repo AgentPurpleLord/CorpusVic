@@ -92,7 +92,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from corpus.amending import load as amending_load, match as amending_match
+from corpus.amending import fetch as amending_fetch, load as amending_load, match as amending_match
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
 from corpus.publishing import html_view, reader
@@ -131,6 +131,10 @@ def discover_slugs() -> list[str]:
         for p in acts_dir.iterdir():
             if p.suffix.lower() == ".pdf":
                 slugs.add(slugify(p.stem))
+            elif p.is_dir() and p.name == amending_fetch.FOLDER:
+                # The amending Acts fetched to check reprints against are
+                # not documents of this corpus, and no card of their own.
+                continue
             elif p.is_dir():
                 # A work directory: each PDF in it is one version of that
                 # work as this pipeline reads it, addressed by the work's
@@ -1485,28 +1489,56 @@ class DefinitionOverrideRequest(BaseModel):
     section: "str | None" = None
 
 
+def _held(work: str) -> list[str]:
+    _validate_slug(work)
+    held = sorted((s for s in discover_slugs() if split_document_slug(s)[0] == work),
+                  key=lambda s: split_document_slug(s)[1] or 0)
+    if not held:
+        raise HTTPException(404, f"No document of work {work!r}")
+    return held
+
+
+@app.get("/api/acts/{work}/amending")
+def amending_status(work: str):
+    """The amending Acts this work's held versions need, and whether each
+    has been fetched and read. Reads only what is on disk."""
+    from corpus.amending.verify import status
+
+    return {"work": work, "acts": status(_held(work)[-1], BASE_DIR)}
+
+
 @app.post("/api/acts/{work}/amending")
 def fetch_amending_acts(work: str):
     """Fetches and reads the amending Acts this work's held versions need
     (corpus/amending/fetch.py), for the review tool to check each version's
     changes against. One Act failing -- no network, a moved page -- is in
     the log, and the rest still come."""
-    from corpus.amending.fetch import fetch
-
-    _validate_slug(work)
-    held = sorted((s for s in discover_slugs() if split_document_slug(s)[0] == work),
-                  key=lambda s: split_document_slug(s)[1] or 0)
-    if not held:
-        raise HTTPException(404, f"No document of work {work!r}")
+    held = _held(work)
     lines: list[str] = []
     try:
-        manifest = fetch(held[-1], BASE_DIR, log=lines.append)
+        manifest = amending_fetch.fetch(held[-1], BASE_DIR, log=lines.append)
     except Exception as e:   # the parses themselves unreadable, say
         return {"ok": False, "log": "\n".join(lines + [f"Failed: {e}"])}
     # Every open review reads the instructions once, when it starts.
     for slug in held:
         _kill_review_process(slug)
     return {"ok": True, "acts": len(manifest), "log": "\n".join(lines) or "No amending Acts are needed."}
+
+
+@app.post("/api/acts/{work}/amending/verify")
+def verify_amending_acts(work: str):
+    """Every fetched instruction checked against the versions it first
+    shows in, on the text as reviewed so far (corpus/amending/verify.py)."""
+    from corpus.amending.verify import verify
+
+    held = _held(work)
+
+    def nodes_of(slug):
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        return nodes, hierarchy
+
+    return verify(held[-1], BASE_DIR, nodes_of=nodes_of,
+                  title=amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
 
 
 @app.get("/api/acts/{slug}/definitions")

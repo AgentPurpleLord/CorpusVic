@@ -384,7 +384,12 @@ def test_the_pages_show_the_acts_and_fetch_them():
     dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
 
     assert "made.map(instructionHtml)" in review_page and "No amending Act made this change" in review_page
-    assert 'onclick="fetchAmendingActs()"' in dashboard and "/amending`, { method: \"POST\" }" in dashboard
+    # Their own menu, apart from parsing: nothing about them in the Parse Menu.
+    parse_menu = dashboard[dashboard.index('id="parse-modal"'):dashboard.index("<!-- Amending Acts:")]
+    assert "amending" not in parse_menu.lower()
+    assert "onclick=\"openAmendingModal('${s.work}')\"" in dashboard
+    assert 'onclick="fetchAmendingActs()"' in dashboard and 'onclick="verifyAmendingActs()"' in dashboard
+    assert "/amending/verify`, { method: \"POST\" }" in dashboard
 
 
 def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
@@ -426,3 +431,34 @@ def test_the_place_button_uses_the_place_endpoint():
 
     assert 'class="btn small instr-place"' in page
     assert "api(`api/nodes/${btn.dataset.node}/place`" in page
+
+
+def test_the_amending_acts_are_listed_and_verified_for_a_work(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    from corpus.amending.verify import status, verify
+
+    monkeypatch.chdir(tmp_path)
+    _instruction(tmp_path)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days", "S. 2(1) amended by No. 7/2026 s. 3.")
+
+    [act] = status("act-v2", tmp_path)
+    assert (act["citation"], act["versions"], act["fetched"], act["read"]) == ("7/2026", [2], False, 1)
+
+    report = verify("act-v2", tmp_path, title="Appeals Act 2020")
+    [item] = report["acts"][0]["items"]
+    assert (item["provision"], item["target"], item["status"], item["between"]) == ("s. 3", "s 2(1)", "matched", "v1\u2192v2")
+    assert report["counts"] == {"matched": 1}
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    assert dashboard.amending_status("act")["acts"][0]["citation"] == "7/2026"
+
+
+def test_the_fetched_amending_acts_are_not_documents_on_the_dashboard(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    (tmp_path / "acts" / "amending").mkdir(parents=True)
+    (tmp_path / "acts" / "amending" / "2026-1.pdf").write_bytes(b"%PDF-1.4")
+
+    assert dashboard.discover_slugs() == []
