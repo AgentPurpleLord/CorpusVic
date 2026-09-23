@@ -92,6 +92,7 @@ from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
+from corpus.amending import load as amending_load, match as amending_match
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
 from corpus.publishing import html_view, reader
@@ -1484,6 +1485,30 @@ class DefinitionOverrideRequest(BaseModel):
     section: "str | None" = None
 
 
+@app.post("/api/acts/{work}/amending")
+def fetch_amending_acts(work: str):
+    """Fetches and reads the amending Acts this work's held versions need
+    (corpus/amending/fetch.py), for the review tool to check each version's
+    changes against. One Act failing -- no network, a moved page -- is in
+    the log, and the rest still come."""
+    from corpus.amending.fetch import fetch
+
+    _validate_slug(work)
+    held = sorted((s for s in discover_slugs() if split_document_slug(s)[0] == work),
+                  key=lambda s: split_document_slug(s)[1] or 0)
+    if not held:
+        raise HTTPException(404, f"No document of work {work!r}")
+    lines: list[str] = []
+    try:
+        manifest = fetch(held[-1], BASE_DIR, log=lines.append)
+    except Exception as e:   # the parses themselves unreadable, say
+        return {"ok": False, "log": "\n".join(lines + [f"Failed: {e}"])}
+    # Every open review reads the instructions once, when it starts.
+    for slug in held:
+        _kill_review_process(slug)
+    return {"ok": True, "acts": len(manifest), "log": "\n".join(lines) or "No amending Acts are needed."}
+
+
 @app.get("/api/acts/{slug}/definitions")
 def list_definitions(slug: str):
     """Which words this document hyperlinks back to where they are
@@ -2429,6 +2454,31 @@ def _work_lineage(work: str) -> "dict | None":
 _timeline_cache: dict[str, tuple[tuple, dict]] = {}
 
 
+def _act_amended(acts: dict, version: int, previous, current) -> "set | None":
+    """The provisions an amending Act first in this version changed, by
+    the Act's own word (see lineage._amended) -- None where no such Act
+    has been fetched, and the margin notes are all there is to go on.
+
+    An instruction counts unless the earlier version already reads as it
+    says: one the parse garbled beyond matching still says Parliament
+    changed that provision here."""
+    fetched = amending_load.fetched_for(acts, version)
+    if not fetched or previous is None:
+        return None
+    out = set()
+    for key, instructions in acts["by_key"].items():
+        mine = [i for i in instructions if i["act"] in fetched]
+        if not mine:
+            continue
+        sides = []
+        for effective, hierarchy in (previous, current):
+            provision = effective.get(key)
+            sides.append(html_view._wording_units(provision["nodes"], hierarchy) if provision else [])
+        if any(i["status"] != "earlier" for i in amending_match.match(mine, *sides)["instructions"]):
+            out.add(key)
+    return out
+
+
 def _timeline(work: str) -> dict:
     """Every provision's wordings across the versions of one work held
     here (lineage.provision_chains), plus the version slugs they came
@@ -2461,14 +2511,20 @@ def _timeline(work: str) -> dict:
     lineage_state = _work_lineage(work)
     if lineage_state:
         docs = []
+        newest = lineage_state["slugs"][lineage_state["versions"][-1]]
+        acts = amending_load.work_instructions(newest, BASE_DIR,
+                                               amending_load.work_title(newest, BASE_DIR, _act_title(newest)))
+        previous = None
         for version in lineage_state["versions"]:
             slug = lineage_state["slugs"][version]
             state = lineage_state["states"][version]
-            nodes = _current_nodes(slug)[0]
+            nodes, _unattached, hierarchy = _current_nodes(slug)
             effective = diffing.provisions(nodes)
             for provision in effective.values():
                 root = provision["node_index"]
                 provision["nodes"] = nodes[root:diffing.unit_end(nodes, root)]
+            amended = _act_amended(acts, version, previous, (effective, hierarchy))
+            previous = (effective, hierarchy)
             meta = _act_version(slug)
             result["order"][version] = list(effective)
             docs.append({
@@ -2480,6 +2536,7 @@ def _timeline(work: str) -> dict:
                 "amending_acts": {a["citation"] for a in
                                   (_parse_field(slug, "endnotes") or {}).get("amending_acts") or []
                                   if a.get("citation")},
+                "act_amended": amended,
             })
         chains = lineage.provision_chains(docs, {v: lineage_state["states"][v]["links"]
                                                  for v in lineage_state["versions"]})

@@ -307,3 +307,122 @@ def test_the_current_version_does_not_announce_what_is_reviewed():
 
     assert "Reviewed in this version." not in page
     assert 'if (l.status === "reviewed" || (current && l.status === "inherits"))' in page
+
+
+# ---------------------------------------------------------------------
+# The amending Act's own instruction beside the change it made
+# ---------------------------------------------------------------------
+
+def _instruction(tmp_path, **fields):
+    ins = {"act": "7/2026", "provision": "s. 3", "target_act": "Appeals Act 2020", "schedule": None,
+           "section": "2", "path": ["1"], "heading": False, "definition": None, "action": "insert_after",
+           "old": "appeal", "new": "within 28 days", "number": None,
+           "raw": 'In section 2(1) of the Appeals Act 2020, after "appeal" insert "within 28 days".', **fields}
+    folder = tmp_path / "data" / "amending"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "2026-7.json").write_text(json.dumps([ins]))
+
+
+def _with_instructions(tmp_path, monkeypatch, **fields):
+    monkeypatch.chdir(tmp_path)
+    _instruction(tmp_path, **fields)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days",
+                     "S. 2(1) amended by No. 7/2026 s. 3.")
+    review._load_state("act-v1")
+    # No source PDF here to read the Act's title from.
+    monkeypatch.setattr(review, "_act_title", "Appeals Act 2020")
+    return review.get_unit(_unit("2")["unit_no"])
+
+
+def test_the_act_that_made_a_change_is_shown_on_the_piece_it_made_it_to(tmp_path, monkeypatch):
+    unit = _with_instructions(tmp_path, monkeypatch)
+
+    [ins] = unit["lineage"]["instructions"]
+    piece = next(p for p in unit["pieces"] if p["text"] == "a person may appeal")
+    assert (ins["act"], ins["provision"], ins["status"], ins["target"]) == ("7/2026", "s. 3", "matched", "s 2(1)")
+    assert ins["node_index"] == piece["node_index"], "this version's own piece, though the change is v2's"
+    assert unit["lineage"]["unexplained"] == []
+
+
+def test_a_change_no_fetched_act_made_is_listed_as_unexplained(tmp_path, monkeypatch):
+    unit = _with_instructions(tmp_path, monkeypatch, old="hearing", new="and review")
+
+    [ins] = unit["lineage"]["instructions"]
+    piece = next(p for p in unit["pieces"] if p["text"] == "a person may appeal")
+    assert ins["status"] == "not found"
+    assert unit["lineage"]["unexplained"] == [piece["node_index"]]
+
+
+def test_without_fetched_acts_the_margin_notes_are_all_there_is(tmp_path, monkeypatch):
+    lineage = _changed_section(tmp_path, monkeypatch, "S. 2(1) amended by No. 7/2026 s. 3.")["lineage"]
+
+    assert "instructions" not in lineage and lineage["evidenced"] is True
+
+
+def test_the_dashboard_fetches_amending_acts_for_a_work(tmp_path, monkeypatch):
+    import corpus.amending.fetch as fetch_module
+    import corpus.web.dashboard as dashboard
+
+    ran, killed = [], []
+    monkeypatch.setattr(dashboard, "discover_slugs", lambda: ["act-v1", "act-v2", "other-act"])
+    monkeypatch.setattr(dashboard, "_kill_review_process", killed.append)
+    monkeypatch.setattr(fetch_module, "fetch",
+                        lambda slug, base, log: (ran.append(slug), log("7/2026: fetched"), {"7/2026": {}})[2])
+
+    result = dashboard.fetch_amending_acts("act")
+
+    assert ran == ["act-v2"], "from the newest version, which sees every reprint held"
+    assert result["ok"] and "7/2026: fetched" in result["log"]
+    assert killed == ["act-v1", "act-v2"], "open reviews read the instructions once, when they start"
+
+
+def test_the_pages_show_the_acts_and_fetch_them():
+    from corpus import PROJECT_ROOT
+
+    review_page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+
+    assert "made.map(instructionHtml)" in review_page and "No amending Act made this change" in review_page
+    assert 'onclick="fetchAmendingActs()"' in dashboard and "/amending`, { method: \"POST\" }" in dashboard
+
+
+def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_path, monkeypatch):
+    """The Act names (2); the parse has the change under (1)."""
+    unit = _with_instructions(tmp_path, monkeypatch, path=["2"])
+
+    [ins] = unit["lineage"]["instructions"]
+    piece = next(p for p in unit["pieces"] if p["text"] == "a person may appeal")
+    assert (ins["status"], ins["node_index"], ins["place_as"]) == ("elsewhere", piece["node_index"], "(2)")
+
+
+def test_the_act_decides_between_reprints_where_it_has_been_fetched(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    from corpus.amending import load
+    from corpus.domain import diffing
+
+    monkeypatch.chdir(tmp_path)
+    _instruction(tmp_path)
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days", "S. 2(1) amended by No. 7/2026 s. 3.")
+
+    def version(slug):
+        nodes = json.loads((tmp_path / "data" / "parsed" / f"{slug}.json").read_text())["nodes"]
+        effective = diffing.provisions(nodes)
+        for p in effective.values():
+            p["nodes"] = nodes[p["node_index"]:diffing.unit_end(nodes, p["node_index"])]
+        return effective, HIERARCHY
+
+    acts = load.work_instructions("act-v2", tmp_path, "Appeals Act 2020")
+
+    assert dashboard._act_amended(acts, 2, version("act-v1"), version("act-v2")) == {("provision", None, "2")}
+    assert dashboard._act_amended(acts, 1, None, version("act-v1")) is None, "no Act first in the oldest"
+
+
+def test_the_place_button_uses_the_place_endpoint():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+
+    assert 'class="btn small instr-place"' in page
+    assert "api(`api/nodes/${btn.dataset.node}/place`" in page

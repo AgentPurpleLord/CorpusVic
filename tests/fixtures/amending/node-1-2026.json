@@ -1,0 +1,200 @@
+{
+ "data": {
+  "id": "d36012b6-0101-4263-8cc0-4650683c6a78",
+  "type": "node--act_as_made",
+  "attributes": {
+   "title": "Justice Legislation Amendment (Family Violence, Stalking and Other Matters) Act 2026",
+   "field_act_sr_number": "1",
+   "field_act_sr_year": "2026"
+  },
+  "relationships": {
+   "field_as_made_authorized_version": {
+    "data": [
+     {
+      "type": "media--pdf",
+      "id": "39663272-7daf-48ae-8afb-20489dbcdecb",
+      "meta": {
+       "drupal_internal__target_id": 89554
+      }
+     }
+    ],
+    "links": {
+     "related": {
+      "href": "https://content.legislation.vic.gov.au/api/v1/node/act_as_made/d36012b6-0101-4263-8cc0-4650683c6a78/field_as_made_authorized_version?resourceVersion=id%3A65311"
+     },
+     "self": {
+      "href": "https://content.legislation.vic.gov.au/api/v1/node/act_as_made/d36012b6-0101-4263-8cc0-4650683c6a78/relationships/field_as_made_authorized_version?resourceVersion=id%3A65311"
+     }
+    }
+   }
+  }
+ },
+ "included": [
+  {
+   "type": "media--pdf",
+   "id": "39663272-7daf-48ae-8afb-20489dbcdecb",
+   "links": {
+    "self": {
+     "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb?resourceVersion=id%3A89557"
+    },
+    "working-copy": {
+     "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb?resourceVersion=rel%3Aworking-copy"
+    }
+   },
+   "attributes": {
+    "drupal_internal__mid": 89554,
+    "drupal_internal__vid": 89557,
+    "langcode": "en",
+    "revision_created": "2026-02-10T00:50:57+00:00",
+    "status": true,
+    "name": "26-001aa authorised.pdf",
+    "created": "2026-02-10T00:50:28+00:00",
+    "changed": "2026-02-10T00:50:57+00:00",
+    "default_langcode": true,
+    "revision_translation_affected": true,
+    "metatag": [
+     {
+      "tag": "link",
+      "attributes": {
+       "rel": "canonical",
+       "href": "/media/89554"
+      }
+     },
+     {
+      "tag": "meta",
+      "attributes": {
+       "property": "og:locale",
+       "content": "en-AU"
+      }
+     }
+    ],
+    "path": {
+     "alias": null,
+     "pid": null,
+     "langcode": "en"
+    },
+    "field_pdf_colour": "no",
+    "field_pdf_page_count": "97"
+   },
+   "relationships": {
+    "bundle": {
+     "data": null,
+     "links": {
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/relationships/bundle?resourceVersion=id%3A89557"
+      }
+     }
+    },
+    "revision_user": {
+     "data": null,
+     "links": {
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/relationships/revision_user?resourceVersion=id%3A89557"
+      }
+     }
+    },
+    "uid": {
+     "data": null,
+     "links": {
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/relationships/uid?resourceVersion=id%3A89557"
+      }
+     }
+    },
+    "thumbnail": {
+     "data": {
+      "type": "file--file",
+      "id": "f74cbe91-b5f4-4b55-949b-eed789a0f8c9",
+      "meta": {
+       "alt": "",
+       "title": null,
+       "width": 180,
+       "height": 180,
+       "drupal_internal__target_id": 3
+      }
+     },
+     "links": {
+      "related": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/thumbnail?resourceVersion=id%3A89557"
+      },
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/relationships/thumbnail?resourceVersion=id%3A89557"
+      }
+     }
+    },
+    "field_media_file": {
+     "data": {
+      "type": "file--file",
+      "id": "3e367886-3a7a-4bba-ae5f-76499945342d",
+      "meta": {
+       "display": true,
+       "description": "",
+       "drupal_internal__target_id": 92189
+      }
+     },
+     "links": {
+      "related": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/field_media_file?resourceVersion=id%3A89557"
+      },
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/relationships/field_media_file?resourceVersion=id%3A89557"
+      }
+     }
+    },
+    "field_media_site": {
+     "data": [
+      {
+       "type": "taxonomy_term--sites",
+       "id": "705c540d-acdd-479a-8a9c-67518b8ee03a",
+       "meta": {
+        "drupal_internal__target_id": 6
+       }
+      }
+     ],
+     "links": {
+      "related": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/field_media_site?resourceVersion=id%3A89557"
+      },
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/media/pdf/39663272-7daf-48ae-8afb-20489dbcdecb/relationships/field_media_site?resourceVersion=id%3A89557"
+      }
+     }
+    }
+   }
+  },
+  {
+   "type": "file--file",
+   "id": "3e367886-3a7a-4bba-ae5f-76499945342d",
+   "links": {
+    "self": {
+     "href": "https://content.legislation.vic.gov.au/api/v1/file/file/3e367886-3a7a-4bba-ae5f-76499945342d"
+    }
+   },
+   "attributes": {
+    "drupal_internal__fid": 92189,
+    "langcode": "en",
+    "filename": "26-001aa-authorised.pdf",
+    "uri": {
+     "value": "public://2026-02/26-001aa-authorised.pdf",
+     "url": "/sites/default/files/2026-02/26-001aa-authorised.pdf"
+    },
+    "filemime": "application/pdf",
+    "filesize": 601893,
+    "status": true,
+    "created": "2026-02-10T00:50:48+00:00",
+    "changed": "2026-02-10T00:50:57+00:00",
+    "url": "https://content.legislation.vic.gov.au/sites/default/files/2026-02/26-001aa-authorised.pdf"
+   },
+   "relationships": {
+    "uid": {
+     "data": null,
+     "links": {
+      "self": {
+       "href": "https://content.legislation.vic.gov.au/api/v1/file/file/3e367886-3a7a-4bba-ae5f-76499945342d/relationships/uid"
+      }
+     }
+    }
+   }
+  }
+ ]
+}
