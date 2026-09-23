@@ -1690,7 +1690,9 @@ def _pdf_page(slug: str, page_no: int):
     return doc[page_no - 1], doc.page_count
 
 
-@app.get("/api/docs/{slug}/pages/{page_no}")
+# Digits only: "{page_no}" alone also matches "46.png", and would take the
+# image requests below and refuse them as not a number.
+@app.get("/api/docs/{slug}/pages/{page_no:int}")
 def pdf_page_size(slug: str, page_no: int):
     page, count = _pdf_page(slug, page_no)
     return {"width": page.rect.width, "height": page.rect.height, "page_count": count}
@@ -2091,6 +2093,12 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
             dest = dest.with_name(f"{dest.stem}-v{meta['version']}.pdf")
         dest.parent.mkdir(parents=True, exist_ok=True)
         incoming.rename(dest)
+    except PermissionError as e:
+        # A folder copied onto the server by another user than the
+        # dashboard's: the fix is on the server, so say what it is.
+        user = pwd.getpwuid(os.getuid()).pw_name
+        raise HTTPException(500, f"The dashboard (user {user}) may not write to {dest.parent}. On the server: "
+                                 f"sudo chown -R {user}:{user} {BASE_DIR / 'acts'}") from e
     finally:
         incoming.unlink(missing_ok=True)
 

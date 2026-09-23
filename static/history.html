@@ -263,7 +263,8 @@ async function showPdf(key, v, at, page) {
   const pages = [page - 1, page, page + 1].filter((p) => p >= 1 && p <= size.page_count);
   scroll.innerHTML = pages.map((p) => `<div class="stage" data-page="${p}"
       style="width: ${pdfZoom * 100}%; aspect-ratio: ${size.width} / ${size.height}">
-      <img src="${docs(slug)}/pages/${p}.png?zoom=${pdfZoom}" alt="Version ${v}, page ${p}">
+      <img src="${docs(slug)}/pages/${p}.png?zoom=${pdfZoom}" alt="Version ${v}, page ${p}"
+        onerror="this.parentElement.insertAdjacentHTML('beforeend', '<div class=&quot;none&quot; style=&quot;position:absolute;top:40%;width:100%;text-align:center&quot;>This page could not be drawn.</div>')">
       <svg preserveAspectRatio="none" viewBox="0 0 ${size.width} ${size.height}">${hl.filter((r) => r.page === p).map((r) =>
         `<rect class="hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("")}</svg>
       <span class="pno">page ${p}</span></div>`).join("");

@@ -160,10 +160,26 @@ def test_an_unexpected_failure_is_reported_in_words(held, monkeypatch):
     monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
 
     def refuse(path):
-        raise PermissionError("acts/cpa is not writable")
+        raise RuntimeError("the front matter could not be read")
     monkeypatch.setattr(dashboard, "read_front_matter", refuse)
 
-    assert _fetch(client, 1)["error"] == "PermissionError: acts/cpa is not writable"
+    assert _fetch(client, 1)["error"] == "RuntimeError: the front matter could not be read"
+
+
+def test_a_folder_the_dashboard_may_not_write_to_says_how_to_give_it_back(held, monkeypatch):
+    client, ran = held
+    monkeypatch.setattr(dashboard.threading, "Thread", _Now)
+    monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 1, "pdf_url": "https://c/p001.pdf"}])
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
+    monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 1, "act_no": "7", "year": 2009})
+
+    def refuse(self, target):
+        raise PermissionError(13, "Permission denied")
+    monkeypatch.setattr(dashboard.Path, "rename", refuse)
+
+    error = _fetch(client, 1)["error"]
+    assert "may not write to" in error and f"sudo chown -R" in error and str(dashboard.BASE_DIR / "acts") in error
+    assert not ran and not list((dashboard.BASE_DIR / "acts").glob(".incoming-*"))
 
 
 def test_a_second_fetch_waits_for_the_first(held, monkeypatch):
