@@ -93,7 +93,7 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 
 from corpus.amending import fetch as amending_fetch, load as amending_load, match as amending_match
-from corpus.history import changes as history_changes
+from corpus.history import changes as history_changes, versions as history_versions
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
 from corpus.publishing import html_view, reader
@@ -1994,31 +1994,39 @@ def work_versions(work: str):
 async def add_work_version(work: str, pdf: UploadFile = File(...)):
     """Adds another Authorised Version of a work held here -- older or
     newer, which the PDF's own version number decides, not the person
-    adding it.
+    adding it. See _add_version."""
+    _validate_slug(work)
+    if not (pdf.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are supported")
+    return _add_version(work, await pdf.read(), Path(pdf.filename).name)
 
-    Refused unless the PDF says it is the same Act (its number and year,
+
+def _add_version(work: str, content: bytes, filename: str, version: "int | None" = None) -> dict:
+    """Refused unless the PDF says it is the same Act (its number and year,
     fixed for the Act's whole life) and a version not already held. A
     work held under its plain name is first made version N of itself
     (corpus/review/adopt_version.py), since two versions cannot share
     one name. Parsed with the profile the work's other versions were, so
-    the parses differ only where the Act does."""
+    the parses differ only where the Act does.
+
+    `version` is the site's number for a fetched PDF, which the PDF must
+    agree with: the parse is named by what the PDF says."""
     from corpus.review import adopt_version
 
-    _validate_slug(work)
-    if not (pdf.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(400, "Only PDF files are supported")
     held = _work_versions(work) or ([work] if (BASE_DIR / "data" / "parsed" / f"{work}.json").exists() else [])
     if not held:
         raise HTTPException(404, f"No work {work!r} is held here to add a version to.")
 
     incoming = BASE_DIR / "acts" / f".incoming-{secrets.token_hex(4)}.pdf"
     incoming.parent.mkdir(parents=True, exist_ok=True)
-    incoming.write_bytes(await pdf.read())
+    incoming.write_bytes(content)
     try:
         meta = read_front_matter(incoming)
         existing = _act_version(held[-1])
         if meta.get("version") is None:
             raise HTTPException(400, "This PDF states no Authorised Version number, so it cannot be placed among the others.")
+        if version is not None and meta["version"] != version:
+            raise HTTPException(400, f"The site lists this as version {version}, but the PDF says {meta['version']}.")
         if existing.get("act_no") and (str(meta.get("act_no")), meta.get("year")) != (str(existing.get("act_no")), existing.get("year")):
             raise HTTPException(400, f"This PDF is No. {meta.get('act_no')} of {meta.get('year')}, "
                                      f"not No. {existing['act_no']} of {existing.get('year')} -- a different Act.")
@@ -2031,7 +2039,7 @@ async def add_work_version(work: str, pdf: UploadFile = File(...)):
             except (adopt_version.Refused, review_sync.Unloaded) as e:
                 raise HTTPException(409, f"Could not make {work} a versioned work first: {e}")
         profile = _parse_field(_work_versions(work)[-1], "profile") or ""
-        dest = BASE_DIR / "acts" / work / Path(pdf.filename).name
+        dest = BASE_DIR / "acts" / work / filename
         if dest.exists():
             dest = dest.with_name(f"{dest.stem}-v{meta['version']}.pdf")
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -2043,6 +2051,41 @@ async def add_work_version(work: str, pdf: UploadFile = File(...)):
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+
+
+def _site_versions(work: str) -> list[dict]:
+    held = _held(work)
+    info = _act_version(held[-1])
+    try:
+        return history_versions.available(_act_title(held[-1]), info.get("act_no"), info.get("year"))
+    except amending_fetch.NotFound as e:
+        raise HTTPException(404, str(e))
+    except OSError as e:
+        raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+
+
+@app.get("/api/works/{work}/versions/available")
+def work_versions_available(work: str):
+    """What legislation.vic.gov.au holds of this Act, each marked if it is
+    held here already."""
+    held = {split_document_slug(s)[1] for s in _held(work)}
+    return {"work": work, "versions": [{**v, "held": v["version"] in held} for v in _site_versions(work)]}
+
+
+@app.post("/api/works/{work}/versions/fetch/{version}")
+def fetch_work_version(work: str, version: int):
+    """Downloads one version from the site and adds it as an uploaded one
+    is. One a request, so the page can say how far a long list has got."""
+    wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
+    if not wanted or not wanted["pdf_url"]:
+        raise HTTPException(404, f"The site has no single PDF of version {version}.")
+    try:
+        content = amending_fetch._get(wanted["pdf_url"])
+    except OSError as e:
+        raise HTTPException(502, f"Could not download version {version}: {e}")
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
+    return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
 
 
 @app.post("/api/acts/{slug}/reparse")

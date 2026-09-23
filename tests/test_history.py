@@ -127,3 +127,12 @@ def test_history_review_lists_each_change_with_its_evidence_and_records_decision
     history_decide("act", HistoryDecision(provision=item["provision"], from_version=1, to_version=2,
                                           piece=item["piece"], decision="denied"))
     assert history_items("act")["items"][0]["decision"] == "denied"
+
+
+def test_history_review_fetches_the_ticked_versions_one_at_a_time():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+
+    assert 'fetch(API + "/versions/available")' in page
+    assert "for (const [n, v] of ticked.entries())" in page and "fetch(`${API}/versions/fetch/${v}`" in page

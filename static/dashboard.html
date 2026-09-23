@@ -851,7 +851,7 @@ function actCardHtml(s) {
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
                 title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
-        ${ACTS.filter((a) => a.work === s.work && a.parsed && a.version != null).length > 1
+        ${s.version != null
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
         ${dlAkn}
