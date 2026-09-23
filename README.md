@@ -122,6 +122,39 @@ attached to whatever now sits at its old position, and never dropped
 either: the review server keeps it as it is, says how many there are at
 startup, and gives it back if the provision returns.
 
+## A provision's history
+
+A Principal Act is reviewed at its current version, and every other
+Authorised Version of it held here is reviewed only where it differs.
+`corpus/domain/lineage.py` follows each provision through the versions:
+where two consecutive versions' raw parses of it are identical, the
+review of one is the review of the other (`corpus/review/inheritance.py`
+lends the rows). What differs is put in front of a reviewer, compared
+piece by piece with the version it is reviewed against. On the
+Criminal Procedure Act that is 12 to 20 provisions per reprint out of
+about 740, for reprints read by the same parser.
+
+Add a version from the dashboard's **Versions** on an Act's card: the
+PDF is placed by the version number it states, and refused if it names a
+different Act. A work held under its plain name becomes version N of
+itself first (`python -m corpus.review.adopt_version <slug> --dry-run`
+shows what that moves). A provision renumbered between versions is, to
+a comparison by number, a repeal and an insertion; the reviewer can
+record it as carried from its old number, which joins the two.
+
+On the site, a provision that has read more than one way gets a
+**History** chip. It opens every wording it has had, oldest to newest,
+each saying which versions carried it and what the next version's
+margin notes say changed it, with any wording comparable to the current
+one or its neighbours: removed words struck through in red, added words
+in green. A section repealed outright keeps its address and its place in
+the contents, greyed, and its page is its history.
+
+Where the versions were read by different parsers, their raw text
+differs where the Act does not, so a history is shown only once a human
+has checked every wording in it. Re-parsing the older versions fixes
+that and shrinks their review queues to what Parliament changed.
+
 ## Reviewing against the page
 
 `review.py` shows the PDF with a box drawn over every provision the

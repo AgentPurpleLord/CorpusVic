@@ -1770,6 +1770,89 @@ async def new_act(
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
 
 
+def _kill_work_review_processes(work: str) -> None:
+    """Every version's review server works out once, at start, what its
+    siblings vouch for -- so a version added or renamed beside them
+    leaves each one answering from a work that no longer exists."""
+    for slug in list(_review_procs):
+        if split_document_slug(slug)[0] == work:
+            _kill_review_process(slug)
+
+
+@app.get("/api/works/{work}/versions")
+def work_versions(work: str):
+    """The versions of one work held here, with how much of each is left
+    to review now that each only reviews what differs (see
+    corpus/review/inheritance.py). A work held in one version has one
+    row and nothing to compare it with."""
+    _validate_slug(work)
+    slugs = _work_versions(work)
+    if len(slugs) < 2:
+        return {"work": work, "versions": [
+            {"version": split_document_slug(slug)[1], "slug": slug, "current": True,
+             "as_at_printed": _act_version(slug).get("as_at_printed"), "to_review": None}
+            for slug in slugs or ([work] if (BASE_DIR / "data" / "parsed" / f"{work}.json").exists() else [])]}
+    state = inheritance.work_review(slugs[-1], BASE_DIR)
+    return {"work": work, "versions": [
+        {k: v[k] for k in ("version", "slug", "as_at_printed", "to_review", "current")}
+        for v in state["versions"]]}
+
+
+@app.post("/api/works/{work}/versions")
+async def add_work_version(work: str, pdf: UploadFile = File(...)):
+    """Adds another Authorised Version of a work held here -- older or
+    newer, which the PDF's own version number decides, not the person
+    adding it.
+
+    Refused unless the PDF says it is the same Act (its number and year,
+    fixed for the Act's whole life) and a version not already held. A
+    work held under its plain name is first made version N of itself
+    (corpus/review/adopt_version.py), since two versions cannot share
+    one name. Parsed with the profile the work's other versions were, so
+    the parses differ only where the Act does."""
+    from corpus.review import adopt_version
+
+    _validate_slug(work)
+    if not (pdf.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are supported")
+    held = _work_versions(work) or ([work] if (BASE_DIR / "data" / "parsed" / f"{work}.json").exists() else [])
+    if not held:
+        raise HTTPException(404, f"No work {work!r} is held here to add a version to.")
+
+    incoming = BASE_DIR / "acts" / f".incoming-{secrets.token_hex(4)}.pdf"
+    incoming.parent.mkdir(parents=True, exist_ok=True)
+    incoming.write_bytes(await pdf.read())
+    try:
+        meta = read_front_matter(incoming)
+        existing = _act_version(held[-1])
+        if meta.get("version") is None:
+            raise HTTPException(400, "This PDF states no Authorised Version number, so it cannot be placed among the others.")
+        if existing.get("act_no") and (str(meta.get("act_no")), meta.get("year")) != (str(existing.get("act_no")), existing.get("year")):
+            raise HTTPException(400, f"This PDF is No. {meta.get('act_no')} of {meta.get('year')}, "
+                                     f"not No. {existing['act_no']} of {existing.get('year')} -- a different Act.")
+        slug = document_slug(work, meta["version"])
+        if slug in held or (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
+            raise HTTPException(400, f"Version {meta['version']} is already held.")
+        if split_document_slug(held[-1])[1] is None:
+            try:
+                adopt_version.adopt(held[-1], BASE_DIR)
+            except (adopt_version.Refused, review_sync.Unloaded) as e:
+                raise HTTPException(409, f"Could not make {work} a versioned work first: {e}")
+        profile = _parse_field(_work_versions(work)[-1], "profile") or ""
+        dest = BASE_DIR / "acts" / work / Path(pdf.filename).name
+        if dest.exists():
+            dest = dest.with_name(f"{dest.stem}-v{meta['version']}.pdf")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        incoming.rename(dest)
+    finally:
+        incoming.unlink(missing_ok=True)
+
+    _kill_work_review_processes(work)
+    _act_title_cache.pop(slug, None)
+    ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+
+
 @app.post("/api/acts/{slug}/reparse")
 def reparse_act(
     slug: str,

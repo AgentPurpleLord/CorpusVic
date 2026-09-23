@@ -178,6 +178,13 @@
   .badge.publish.off { background: var(--badge-bg); color: var(--pending); }
   .badge.publish:hover { border-color: currentColor; }
   .act-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  /* A work's versions: each reviewed only where it differs from another
+     (see corpus/review/inheritance.py), so the count is the real work. */
+  .act-card .versions { margin-top: 10px; font-size: 13px; }
+  .act-card .versions summary { cursor: pointer; }
+  .act-card .versions table { border-collapse: collapse; margin: 6px 0; }
+  .act-card .versions td { padding: 2px 12px 2px 0; }
+  .act-card .versions .add-version { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
   /* Bill + Act + Explanatory Memorandum all inter-relate. Shown as one row. */
   .doc-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
   .doc-row .act-card { flex: 1 1 260px; margin: 0; }
@@ -834,7 +841,66 @@ function actCardHtml(s) {
         ${dlAkn}
         ${dlMd}
       </div>
+      ${s.kind === "act" && s.parsed ? versionsHtml(s) : ""}
     </div>`;
+}
+
+// Opened on demand: how much is left to review in each version is worked
+// out by comparing every version, which is not something to pay for on
+// every render of the list.
+function versionsHtml(s) {
+  const held = ACTS.filter((a) => a.work === s.work && a.parsed).length;
+  return `
+    <details class="versions" ontoggle="this.open && loadVersions('${s.work}', this)">
+      <summary>Versions (${held})</summary>
+      <div class="versions-body">Loading&hellip;</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('${s.work}', this)"
+                title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and only what differs is left to review">Add a version</button>
+      </div>
+    </details>`;
+}
+
+async function loadVersions(work, details) {
+  const body = details.querySelector(".versions-body");
+  try {
+    const res = await fetch(`api/works/${encodeURIComponent(work)}/versions`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't load the versions.");
+    const rows = data.versions.slice().reverse().map((v) => `
+      <tr>
+        <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}</td>
+        <td>${escapeHtml(v.as_at_printed ? "as at " + v.as_at_printed : "")}</td>
+        <td>${v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
+        <td><a href="review/${v.slug}/" target="_blank">Review</a> &middot; <a href="browse/${v.slug}/" target="_blank">Browse</a></td>
+      </tr>`).join("");
+    body.innerHTML = `<table>${rows}</table>`;
+  } catch (e) {
+    body.textContent = e.message;
+  }
+}
+
+async function addVersion(work, btn) {
+  const input = btn.parentElement.querySelector("input[type=file]");
+  if (!input.files.length) { toast("Choose the version's PDF first.", true); return; }
+  const form = new FormData();
+  form.append("pdf", input.files[0]);
+  btn.disabled = true;
+  btn.textContent = "Parsing…";
+  try {
+    const res = await fetch(`api/works/${encodeURIComponent(work)}/versions`, { method: "POST", body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't add it.");
+    if (!data.ok) throw new Error(`The parse failed:\n${data.log || ""}`);
+    toast(`Added ${data.slug}. Only what differs from its neighbours is left to review.`);
+    await loadActs();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Add a version";
+  }
 }
 
 let ACTS = [];
@@ -842,10 +908,9 @@ let BILL_LINKS = [];
 
 // One card per work, using whichever version is highest -- the one still
 // unparsed if a newer PDF was just added, since that's the one needing
-// attention. Older versions aren't lost: a changed provision's own
-// timeline (see the browse view) still links into them; they just don't
-// get a card of their own here, so the dashboard shows what's current
-// without a version menu to maintain.
+// attention. The others are listed inside that card (versionsHtml),
+// each with what is left of it to review, rather than as cards of their
+// own: they are one Act, reviewed as one.
 function currentPerWork(acts) {
   const byWork = new Map();
   for (const s of acts) {
