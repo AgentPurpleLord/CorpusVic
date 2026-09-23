@@ -2108,6 +2108,10 @@ function renderLineage() {
   const panel = document.getElementById("lineage-panel");
   const l = currentUnit.lineage;
   if (!l) { panel.hidden = true; return; }
+  // Reviewed needs no saying, and nor, in the current version, does a
+  // section taking its review from an older one: the tick says it.
+  const current = META.version_info && META.version_info.versions.some((v) => v.version === META.version_info.version && v.current);
+  if (l.status === "reviewed" || (current && l.status === "inherits")) { panel.hidden = true; return; }
   panel.hidden = false;
   panel.className = l.status;
   let html;
@@ -2115,8 +2119,6 @@ function renderLineage() {
     html = `Same words as <strong>Version ${l.source}</strong>, where this is reviewed, so it reads here as it was reviewed there. Accept it here only to decide it differently.`;
   } else if (l.status === "follows") {
     html = `Same words as <strong>Version ${l.source}</strong>. It is reviewed there, and this version will take that review.`;
-  } else if (l.status === "reviewed") {
-    html = "Reviewed in this version.";
   } else if (l.compare) {
     // Waiting for review is not the same as different: a section nobody
     // has reviewed yet is to_review with the same words as the other

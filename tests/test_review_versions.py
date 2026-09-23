@@ -198,7 +198,8 @@ def test_the_review_links_reach_the_dashboards_re_parse_menu():
 
     assert 'href="../../?reparse=${encodeURIComponent(slug)}&mode=keep"' in review_page
     assert "loadActs().then(openRequestedReparse);" in dashboard
-    assert 'params.get("reparse")' in dashboard and "openParseModal(slug)" in dashboard
+    assert 'params.get("reparse")' in dashboard
+    assert 'openParseMenu(s.work, [slug], params.get("mode"))' in dashboard
 
 
 def test_the_same_words_waiting_for_review_are_not_a_change(tmp_path, monkeypatch):
@@ -281,3 +282,28 @@ def test_the_pdf_panel_can_set_the_two_pages_side_by_side():
     assert 'id="pdf-compare-btn"' in page and 'id="pdf-ref"' in page
     assert "api/versions/${v}/pages/${pageNo}.png" in page
     assert 'classList.toggle("later", view.version > META.version_info.version)' in page
+
+
+def test_one_parse_menu_per_act_parses_each_ticked_version_in_turn():
+    """The card shows an Act's newest version only, and its Re-parse
+    button reached no other: an older reprint could only be re-parsed
+    through a link from its review."""
+    from corpus import PROJECT_ROOT
+
+    dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+
+    assert "openParseMenu('${s.work}')\">Parse Menu</button>" in dashboard
+    assert 'id="parse-versions"' in dashboard and "Re-parse\u2026" not in dashboard
+    assert "for (const [n, v] of ticked.entries())" in dashboard
+    assert "await fetch(`api/acts/${v.slug}/reparse`" in dashboard
+    # One PDF's page numbers mean nothing in another's.
+    assert 'getElementById("parse-pages").style.display = ticked.length === 1' in dashboard
+
+
+def test_the_current_version_does_not_announce_what_is_reviewed():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+
+    assert "Reviewed in this version." not in page
+    assert 'if (l.status === "reviewed" || (current && l.status === "inherits"))' in page
