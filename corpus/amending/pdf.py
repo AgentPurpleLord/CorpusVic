@@ -23,10 +23,19 @@ _SECTION = re.compile(r"^(?P<number>\d+[A-Z]*)\s+(?P<heading>\S.*)$")
 _SUBSECTION = re.compile(r"^\((?P<number>\d+[A-Z]*)\)\s+")
 # In a Schedule of consequential amendments: "2 Criminal Procedure Act
 # 2009", then its items "2.1 In item 22A of Schedule 3, for ...".
-_SCHEDULE_ACT = re.compile(r"^(?P<number>\d+)\s+(?P<act>\S.* Act \d{4})$")
+_SCHEDULE_ACT_START = re.compile(r"^(?P<number>\d+)\s+(?P<act>\S.*)$")
+_ACT_NAME_ENDS = re.compile(r" Act \d{4}$")
 _ITEM = re.compile(r"^(?P<number>\d+\.\d+[A-Z]*)\s+(?P<text>\S.*)$")
 _ENACTED_BY = re.compile(r"^Sections? (?P<number>\d+[A-Z]*)")
-_START = "The Parliament of Victoria enacts"
+# "Schedule 1—Consequential amendments", or the number alone. Not any
+# line opening with the word: a Division heading that wraps onto
+# "Schedule 2 offences" made the rest of the Bail Amendment Act 2023 a
+# Schedule, and its s. 67 amending the Criminal Procedure Act was read as
+# a Schedule's Act heading with nothing under it.
+_SCHEDULE_HEADING = re.compile(r"^Schedule(?: \d+[A-Z]*)?\s*(?:—|$)")
+# "therefore" where the Act has a preamble. Missing that, No. 39/2022 was
+# read from its first page, and stopped at "Endnotes" in its contents.
+_START = re.compile(r"^The Parliament of Victoria (?:\w+ )?enacts")
 
 
 def _lines(doc) -> list[dict]:
@@ -63,7 +72,7 @@ def read_pdf(path) -> list[dict]:
     enacting words to the Endnotes. A schedule also carries "section",
     the one that enacts it."""
     lines = _lines(fitz.open(path))
-    start = next((i for i, l in enumerate(lines) if l["text"].startswith(_START)), 0)
+    start = next((i for i, l in enumerate(lines) if _START.match(l["text"])), 0)
     nodes: list[dict] = []
     heading_open = in_block = False
     for line in lines[start + 1:]:
@@ -77,7 +86,16 @@ def read_pdf(path) -> list[dict]:
         if enacted and nodes and nodes[-1]["type"] == "schedule" and _BODY_TOP <= line["y"]:
             nodes[-1]["section"] = enacted.group("number")
             continue
-        if not (_BODY_TOP <= line["y"] <= _BODY_BOTTOM) or line["size"] < 11.5:
+        if not (_BODY_TOP <= line["y"] <= _BODY_BOTTOM):
+            continue
+        if line["size"] < 11.5:
+            # Small type is left out of the text -- the footer is small too
+            # -- but can still close a quote: inserted text ending on a Note,
+            # set small, closed there, and missing the close ran Part 8 of
+            # No. 30/2021 and its amendments to the Criminal Procedure Act
+            # into the section before.
+            if in_block and _CLOSES.search(text):
+                in_block = False
             continue
         if nodes and nodes[-1]["type"] in ("section", "subsection", "item") and (in_block or _OPENS.match(text)):
             nodes[-1]["text"] = f"{nodes[-1]['text']} {text}".strip()
@@ -86,7 +104,7 @@ def read_pdf(path) -> list[dict]:
             continue
         if line["size"] >= 13.5 and line["bold"]:
             kind = ("part" if text.startswith("Part") else "division" if text.startswith("Division")
-                    else "schedule" if text.startswith("Schedule") else None)
+                    else "schedule" if _SCHEDULE_HEADING.match(text) else None)
             if kind or (nodes and nodes[-1]["type"] in ("part", "division", "schedule") and heading_open):
                 if kind == "schedule":
                     number = re.match(r"^Schedule (\d+[A-Z]*)", text)
@@ -105,12 +123,20 @@ def read_pdf(path) -> list[dict]:
             heading_open = True
             continue
         in_schedule = any(n["type"] == "schedule" for n in nodes)
+        # An Act's name too long for the line: "14 Charter of Human Rights
+        # and Responsibilities" then "Act 2006". Read as a section, it ended
+        # the Schedule and every item after it went unread.
+        if (in_schedule and heading_open and nodes[-1]["type"] == "schedule_act" and line["bold"]
+                and not _ITEM.match(text)):
+            nodes[-1]["heading"] += " " + text
+            heading_open = not _ACT_NAME_ENDS.search(nodes[-1]["heading"])
+            continue
         if in_schedule and line["x"] < 200:
-            act, item = _SCHEDULE_ACT.match(text), _ITEM.match(text)
-            if act and line["bold"]:
+            act, item = _SCHEDULE_ACT_START.match(text), _ITEM.match(text)
+            if act and line["bold"] and not item:
                 nodes.append({"type": "schedule_act", "number": act.group("number"), "heading": act.group("act"),
                               "text": ""})
-                heading_open = False
+                heading_open = not _ACT_NAME_ENDS.search(act.group("act"))
                 continue
             if item:
                 nodes.append({"type": "item", "number": item.group("number"), "heading": None,

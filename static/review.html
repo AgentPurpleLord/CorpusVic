@@ -24,6 +24,7 @@
   <button class="btn" id="pdf-toggle-btn" style="display:none">Show PDF</button>
   <button class="btn" id="history-toggle-btn">History notes</button>
   <button class="btn" id="types-btn" title="Add, rename or remove the piece types you can label with">Types</button>
+  <button class="btn" id="keys-btn" title="Keyboard shortcuts (?)">Keys</button>
   <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <div class="spacer"></div>
   <span class="stat">Legend:</span>
@@ -230,6 +231,16 @@
     <div class="hint">Lowercase letters, digits and underscores.</div>
     <div class="modal-actions">
       <button class="btn" id="types-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="keys-overlay" hidden>
+  <div class="modal">
+    <h3>Keys</h3>
+    <table class="keys-table"><tbody id="keys-list"></tbody></table>
+    <div class="modal-actions">
+      <button class="btn" id="keys-cancel">Close</button>
     </div>
   </div>
 </div>
@@ -1026,6 +1037,102 @@ document.getElementById("pdf-stage").addEventListener("click", () => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && (boxDraft || noteBeingMoved)) cancelPageAction();
 });
+
+// ---------------------------------------------------------------------
+// Keys
+// ---------------------------------------------------------------------
+//
+// Bare letters, as History review has them: a reviewer working down an
+// Act has one hand on the keys and none to spare for a modifier. Ignored
+// while typing, with a dialog open, or with Ctrl/Cmd/Alt held, so the
+// browser's own shortcuts still work.
+const KEYS = [
+  ["j / k", "Next / previous piece (runs on into the next section)", (e) => stepPiece(e.key === "j" ? 1 : -1), ["j", "k"]],
+  ["n / p", "Next / previous section", (e) => stepUnit(e.key === "n" ? 1 : -1), ["n", "p"]],
+  ["N", "Next section still pending", () => nextPendingUnit(), ["N"]],
+  ["→ / ←", "Next / previous page of the PDF", (e) => stepPage(e.key === "ArrowRight" ? 1 : -1), ["ArrowRight", "ArrowLeft"]],
+  ["a / f", "Accept / flag the chosen piece", (e) => withChosenPiece((i) => acceptPiece(i, e.key === "f")), ["a", "f"]],
+  ["A / F", "Accept / flag the whole section", (e) => decideUnit(e.key === "F"), ["A", "F"]],
+  ["e", "Edit the chosen piece", () => withChosenPiece(openEditModal), ["e"]],
+  ["v", "Text / split / PDF view", () => cycleViewMode(), ["v"]],
+  ["b", "Boxes on the page on / off", () => setBoxesOn(!boxesOn), ["b"]],
+  ["+ / −", "Zoom the page in / out", (e) => stepPdfZoom(e.key === "-" ? -1 : 1), ["+", "=", "-"]],
+  ["/", "Jump to a section", () => document.getElementById("jump-input").focus(), ["/"]],
+  ["?", "Show these keys", () => { document.getElementById("keys-overlay").hidden = false; }, ["?"]],
+];
+
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest("input, select, textarea, [contenteditable]")) return;
+  const open = document.querySelector(".overlay:not([hidden])");
+  if (open) {
+    // Every dialog's own Cancel, so whatever it tidies up is tidied.
+    if (e.key === "Escape") { const cancel = open.querySelector('[id$="-cancel"]'); if (cancel) cancel.click(); }
+    return;
+  }
+  if (e.key === "Escape") { hideMenu(); return; }
+  if (!currentUnit && e.key !== "?" && e.key !== "/") return;
+  const key = KEYS.find(([, , , keys]) => keys.includes(e.key));
+  if (!key) return;
+  e.preventDefault();   // "/" would otherwise type itself into the box it focuses
+  hideMenu();
+  key[2](e);
+});
+
+function chosenPiece() {
+  return currentUnit.pieces.find((p) => p.node_index === selectedNodeIndex) || null;
+}
+
+function withChosenPiece(act) {
+  const piece = chosenPiece();
+  if (!piece) { toast("Choose a piece first: j / k, or click one.", true); return; }
+  act(piece.node_index);
+}
+
+// Chosen the way a click chooses it: lit in the panel and, with the PDF
+// showing, on the page -- turning to its page if it is printed elsewhere.
+function choosePiece(piece) {
+  const div = document.querySelector(`.piece[data-node-index="${piece.node_index}"]`);
+  if (div) div.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (viewMode === "text") setSelected(piece.node_index);
+  else selectPieceOnPage(piece);
+}
+
+async function stepPiece(direction) {
+  const pieces = currentUnit.pieces;
+  const at = pieces.findIndex((p) => p.node_index === selectedNodeIndex);
+  const next = at === -1 ? (direction > 0 ? 0 : pieces.length - 1) : at + direction;
+  if (next >= 0 && next < pieces.length) { choosePiece(pieces[next]); return; }
+  // Off either end is the section before or after, which is where a
+  // reader going piece by piece is going anyway.
+  if (await stepUnit(direction)) {
+    const ps = currentUnit.pieces;
+    if (ps.length) choosePiece(direction > 0 ? ps[0] : ps[ps.length - 1]);
+  }
+}
+
+async function stepUnit(direction) {
+  const n = currentUnitNo + direction;
+  if (n < 0 || n >= META.unit_count) return false;
+  await loadUnit(n);
+  return true;
+}
+
+async function nextPendingUnit() {
+  const next = META.units.find((u) => u.unit_no > currentUnitNo && u.status === "pending");
+  if (!next) { toast("Nothing pending after this section."); return; }
+  await loadUnit(next.unit_no);
+}
+
+function stepPage(direction) {
+  if (viewMode === "text") { toast("The PDF is hidden: v shows it.", true); return; }
+  document.getElementById(direction > 0 ? "pdf-next" : "pdf-prev").click();
+}
+
+document.getElementById("keys-list").innerHTML = KEYS
+  .map(([keys, what]) => `<tr><td><kbd>${escapeHtml(keys)}</kbd></td><td>${escapeHtml(what)}</td></tr>`).join("");
+document.getElementById("keys-cancel").onclick = () => { document.getElementById("keys-overlay").hidden = true; };
+document.getElementById("keys-btn").onclick = () => { document.getElementById("keys-overlay").hidden = false; };
 document.getElementById("pdf-zoom-in").onclick = () => stepPdfZoom(1);
 document.getElementById("pdf-zoom-out").onclick = () => stepPdfZoom(-1);
 document.getElementById("pdf-zoom-reset").onclick = () => setPdfZoom(1);

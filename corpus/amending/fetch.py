@@ -41,6 +41,22 @@ def slug(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
+# The words the site's address generator leaves out of some Acts' addresses
+# and not others: "(Trial by Judge Alone ...)" is at .../trial-judge-alone-...
+# and "(References to the Sovereign)" at .../references-sovereign-..., while
+# older Acts keep every word. Both are tried; the Act's number and year are
+# what say which is right.
+_DROPPED = {"a", "an", "as", "at", "before", "but", "by", "for", "from", "is", "in", "into", "like",
+            "of", "off", "on", "onto", "per", "since", "than", "the", "this", "that", "to", "up",
+            "via", "with"}
+
+
+def slugs(title: str) -> list[str]:
+    full = slug(title)
+    short = "-".join(w for w in full.split("-") if w not in _DROPPED)
+    return [full] if short == full else [full, short]
+
+
 def _get(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": _AGENT, "Accept": "*/*"})
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -53,11 +69,16 @@ class NotFound(Exception):
 
 def locate(act: dict, get=_get) -> dict:
     """{"page", "pdf_url"} for one Act from acts_between."""
-    path = f"/as-made/acts/{slug(act['title'])}"
-    try:
-        route = json.loads(get(f"{CONTENT}/api/v1/route?" + urllib.parse.urlencode({"site": SITE, "path": path})))
-    except Exception as e:
-        raise NotFound(f"no as-made page at {path} ({e})") from e
+    tried = []
+    for candidate in slugs(act["title"]):
+        path = f"/as-made/acts/{candidate}"
+        try:
+            route = json.loads(get(f"{CONTENT}/api/v1/route?" + urllib.parse.urlencode({"site": SITE, "path": path})))
+            break
+        except Exception as e:
+            tried.append(f"{path} ({e})")
+    else:
+        raise NotFound("no as-made page at " + " or ".join(tried))
     endpoint = route["data"]["attributes"]["endpoint"]
     node = json.loads(get(f"{endpoint}?" + urllib.parse.urlencode(
         {"site": SITE, "include": "field_as_made_authorized_version.field_media_file"})))
