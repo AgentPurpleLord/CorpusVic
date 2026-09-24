@@ -32,6 +32,7 @@
   <span class="stat"><mark class="label-defined_term">&nbsp;</mark> Defined term</span>
   <span class="stat"><mark class="label-bill_reference">&nbsp;</mark> Bill ref</span>
   <span class="stat"><mark class="label-em_reference">&nbsp;</mark> EM ref</span>
+  <span class="stat" title="On the PDF">Boxes: dashed = the parser's, solid = yours</span>
 </header>
 <div id="layout">
   <div id="sidebar">
@@ -58,6 +59,7 @@
           <button class="btn small" id="next-btn">Next &rarr;</button>
         </div>
       </div>
+      <div id="reparse-notice" hidden></div>
       <div id="lineage-panel" hidden></div>
       <div id="pieces"></div>
       <div id="deleted-pieces" hidden></div>
@@ -134,8 +136,8 @@
     <label>Number</label>
     <input type="text" id="edit-number">
     <div id="edit-place">
-      <label>Reference <span class="hint">where it sits in the section, e.g. (1)(d)(vii) &mdash; sets its type and number</span></label>
-      <input type="text" id="edit-reference" placeholder="(1)(d)(vii)">
+      <label>Reference <span class="hint">where it sits in the section, e.g. (1)(d)(vii), or 4.4(a) in a Schedule item &mdash; sets its type and number</span></label>
+      <input type="text" id="edit-reference" placeholder="(1)(d)(vii) or 4.4(a)">
       <label>Put it after</label>
       <select id="edit-after"></select>
     </div>
@@ -1296,6 +1298,8 @@ async function loadUnit(n, pdfPage) {
   const arrivingAtANewUnit = n !== currentUnitNo;
   currentUnit = await api(`api/units/${n}`);
   currentUnitNo = n;
+  const notice = document.getElementById("reparse-notice");
+  if (notice.dataset.unit !== String(n)) notice.hidden = true;
   location.hash = `unit=${n}`;
   document.getElementById("empty-state").style.display = "none";
   document.getElementById("unit-header").style.display = "flex";
@@ -2008,17 +2012,43 @@ document.getElementById("reparse-unit-btn").onclick = async () => {
   btn.textContent = "Re-parsing\u2026";
   try {
     const result = await api(`api/units/${currentUnitNo}/reparse`, { method: "POST" });
-    toast(result.detail);
     // The parse is new, so everything is reloaded -- unit numbers can
     // have moved, and the server says where this section landed.
     await loadMeta();
     await loadUnit(result.unit_no == null ? currentUnitNo : result.unit_no);
+    // loadUnit only reloads the page when arriving at a different unit,
+    // so on the same one the overlay went on showing the old parse's
+    // boxes, in the old colours -- a flagged section still looked flagged.
+    const page = currentPageNo ?? (currentUnit.pieces[0] && currentUnit.pieces[0].page_start);
+    if (viewMode !== "text" && page) loadPdfPage(page);
+    showReparseNotice(result);
   } catch (e) { toast(e.message, true); }
   finally {
     btn.disabled = false;
     btn.textContent = "Re-parse section\u2026";
   }
 };
+
+// What the re-parse did, kept on screen until the unit is left: a toast
+// was gone before the boxes it described had even been redrawn.
+function showReparseNotice(result) {
+  const el = document.getElementById("reparse-notice");
+  const c = result.changes;
+  if (!c) { el.textContent = result.detail; el.hidden = false; el.dataset.unit = currentUnitNo; return; }
+  const changed = c.changed;
+  const parts = [
+    changed ? `${changed} piece${changed === 1 ? "" : "s"} changed (${c.pieces_before} \u2192 ${c.pieces_after})`
+            : `the pieces are the same (${c.pieces_after})`,
+    c.boxes_redrawn ? `${c.boxes_redrawn} box${c.boxes_redrawn === 1 ? "" : "es"} redrawn` : "no box moved",
+  ];
+  let text = `Re-parsed from the PDF: ${parts.join(", ")}.`;
+  if (c.flag_cleared) text += " Your flag was cleared with the section's other decisions, so it is pending again.";
+  if (c.drawn_kept) text += ` ${c.drawn_kept} box${c.drawn_kept === 1 ? "" : "es"} you drew ${c.drawn_kept === 1 ? "was" : "were"} kept`
+    + " (solid; the parser's are dashed). Right-click one \u2192 Back to the parser's box to see what the parser reads there.";
+  el.textContent = text;
+  el.dataset.unit = currentUnitNo;
+  el.hidden = false;
+}
 
 // Deciding one piece used to reload the whole unit and the whole sidebar:
 // two round trips, then every piece in the unit and all several hundred
@@ -2117,6 +2147,10 @@ function updateUnitRowStatus(unitNo, status) {
 async function afterMutation(pdfPage) {
   await loadMeta();
   await loadUnit(currentUnitNo, pdfPage);
+  // loadUnit reloads the page only on arriving at another unit, so after
+  // an edit the boxes kept their old labels -- a retyped piece still read
+  // as what it had been.
+  if (!pdfPage) await loadPageBoxes();
 }
 
 async function submitBlindGuess(pieceDiv, nodeIndex) {
@@ -2284,7 +2318,8 @@ function openEditModal(nodeIndex) {
   // Where it sits, as the Act cites it. The section itself has nowhere
   // within itself to go.
   const isRoot = currentUnit.pieces[0] && currentUnit.pieces[0].node_index === nodeIndex;
-  const reference = /^\(/.test(piece.label || "") ? piece.label.replace(/\s.*$/, "") : "";
+  // "(1)(d)(vii)", or in a Schedule item "4.4(a)" -- the label as review shows it.
+  const reference = /^(\(|\d+(\.\d+)*[A-Z]*(\(|$))/.test(piece.label || "") ? piece.label.replace(/\s.*$/, "") : "";
   const refEl = document.getElementById("edit-reference");
   const afterEl = document.getElementById("edit-after");
   document.getElementById("edit-place").hidden = isRoot;

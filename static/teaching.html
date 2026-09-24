@@ -64,7 +64,10 @@ function paint(status) {
   out.innerHTML = `<h2>Where the parser and you disagree</h2>
     <table><tr><th>Page</th><th>Line</th><th>You said</th><th>The parser says</th></tr>
     ${score.failures.map((f) => `<tr class="${broken.has(f.id) ? "new" : ""}" title="${broken.has(f.id) ? "Passed last time" : ""}">
-      <td>${f.page}</td><td class="line">${esc(f.text)}</td><td>${esc(said(f.expected))}</td><td>${esc(said(f.got))}</td></tr>`).join("")}
+      <td>${f.page}</td><td class="line">${esc(f.text)}</td><td>${esc(said(f.expected))}</td>
+      <td>${f.split ? `${esc(said(f.got))}, but opens ${esc(said(f.split.got))} inside it, at
+        <span class="line">\u201c${esc(f.split.text)}\u201d</span>${f.split.page !== f.page ? ` (p${f.split.page})` : ""}`
+        : esc(said(f.got))}</td></tr>`).join("")}
     </table>`;
 }
 

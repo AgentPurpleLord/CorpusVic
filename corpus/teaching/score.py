@@ -59,17 +59,42 @@ def _opened_at(nodes: list[dict]) -> dict:
     return at
 
 
+def _split_inside(e: dict, by_page: dict) -> "dict | None":
+    """A node the parse opens part-way down a piece the reviewer kept
+    whole: a line that carries its text on, read as a new provision."""
+    if e["expected"] is None:
+        return None
+    for r in e.get("rects") or []:
+        for n in by_page.get(r["page"], ()):
+            s = n["seen"]
+            # The line's middle, not its top: under tight leading a box's
+            # last line reaches below the top of the line after it (s 131's
+            # heading over its (1)).
+            middle = s["y0"] + (s.get("size") or 12.0) / 2
+            if r["y0"] + 1 < s["y0"] and middle < r["y1"] and r["x0"] - 2 <= s["x0"] <= r["x1"] \
+                    and not (s["page"] == e["seen"]["page"] and abs(s["y0"] - e["seen"]["y0"]) <= 1):
+                return n
+    return None
+
+
 def check(examples: list[dict], nodes: list[dict]) -> list[dict]:
     """Each example with what the parse now opens on its line ("got") and
-    whether that is what the reviewer said."""
+    whether that is what the reviewer said -- and nothing opened inside
+    the piece, which is what a false split does ("split")."""
     at = _opened_at(nodes)
+    by_page: dict = {}
+    for n in nodes:
+        if n.get("seen"):
+            by_page.setdefault(n["seen"]["page"], []).append(n)
     out = []
     for e in examples:
         seen = e["seen"]
         found = [n for dy in (0, -1, 1) for n in at.get((seen["page"], round(seen["y0"]) + dy), [])
                  if n["seen"]["text"][:30] == seen["text"][:30]]
         got = teaching_examples.said(found[0]) if found else None
-        out.append({**e, "got": got, "passed": teaching_examples.agree(got, e["expected"])})
+        split = _split_inside(e, by_page)
+        out.append({**e, "got": got, "passed": teaching_examples.agree(got, e["expected"]) and split is None,
+                    "split": None if split is None else {"seen": split["seen"], "got": teaching_examples.said(split)}})
     return out
 
 
@@ -92,7 +117,10 @@ def score(act: str, base_dir=None, nodes: "list[dict] | None" = None) -> dict:
     passed_before = set(json.loads(last_path.read_text(encoding="utf-8")).get("passed", [])) if last_path.exists() else set()
     passed = [r["id"] for r in results if r["passed"]]
     failures = [{k: r[k] for k in ("id", "kind", "parser", "expected", "got")}
-                | {"page": r["seen"]["page"], "text": r["seen"]["text"]} for r in results if not r["passed"]]
+                | {"page": r["seen"]["page"], "text": r["seen"]["text"],
+                   "split": r["split"] and {"page": r["split"]["seen"]["page"], "text": r["split"]["seen"]["text"],
+                                            "got": r["split"]["got"]}}
+                for r in results if not r["passed"]]
     summary = {
         "act": act, "total": len(results), "passed": len(passed), "failed": len(failures),
         "newly_broken": [f for f in failures if f["id"] in passed_before],

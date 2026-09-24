@@ -221,3 +221,97 @@ def test_the_page_offers_a_margin_box_as_a_note():
     page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
 
     assert 'guess.kind === "note"' in page and '"api/history/create"' in page
+
+
+def test_a_reparse_says_what_it_did_to_the_section(s110, tmp_path, monkeypatch):
+    """The boxes were redrawn, or weren't, and nothing said which -- least
+    of all that a flag had gone with the section's other decisions."""
+    import subprocess
+
+    accept_unit(0, AcceptRequest(flagged=True))
+    reread = [dict(n) for n in s110]
+    reread[8] = {**reread[8], "type": "subparagraph", "rects": [{"page": 1, "x0": 1, "y0": 2, "x1": 3, "y1": 4}]}
+
+    def parse_again(cmd, **kwargs):
+        (tmp_path / "data" / "parsed" / "act.json").write_text(
+            json.dumps({"nodes": reread, "hierarchy": HIERARCHY, "fingerprint": "fp"}))
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(review, "_source_pdf_path", "act.pdf")
+    monkeypatch.setattr(review.subprocess, "run", parse_again)
+    changes = review.reparse_unit_endpoint(0)["changes"]
+
+    assert changes["changed"] == 1 and changes["boxes_redrawn"] == 1
+    assert changes["pieces_before"] == changes["pieces_after"] == len(s110)
+    assert changes["flag_cleared"] and changes["drawn_kept"] == 0
+
+
+def test_the_page_redraws_the_boxes_after_a_reparse():
+    """loadUnit reloads the page only on arriving at another unit, so a
+    re-parse of the one in view left the old parse's boxes on it."""
+    import re
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    handler = re.search(r'getElementById\("reparse-unit-btn"\)\.onclick = async \(\) => \{(.*?)\n\};', page, re.S).group(1)
+    assert "loadPdfPage(" in handler and "showReparseNotice(result)" in handler
+
+
+@pytest.fixture
+def item4(tmp_path, monkeypatch):
+    """CPA Schedule 2 item 4: sub-items with paragraphs, one read wrongly."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [
+        {**_n("item", "4", ""), "heading": "Indictable offences"},
+        _n("subitem", "4.4", "Offences under section 74, if—"),
+        _n("paragraph", "a", "the amount does not exceed $100 000; or"),
+        _n("subitem", "b", "the property is a motor vehicle."),       # (b), read as a sub-item
+        _n("paragraph", "4.13", "Offences under section 88, if—"),    # 4.13, read as a paragraph
+        _n("paragraph", "a", "the goods are a motor vehicle; or"),
+    ]
+    from corpus.parsing import tree
+    tree.annotate_paths(nodes, HIERARCHY)
+    annotate_ids(nodes, HIERARCHY)
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    (parsed / "act.json").write_text(json.dumps({"nodes": nodes, "hierarchy": HIERARCHY, "fingerprint": "fp"}))
+    db.save_parse_fingerprint("act", "fp")
+    review._load_state("act")
+    return nodes
+
+
+def test_a_schedule_item_is_placed_by_its_sub_item_reference(item4):
+    b = place_node_endpoint(3, PlaceRequest(reference="4.4(b)"))
+    assert (b["type"], b["reference"], b["matches"]) == ("paragraph", "4.4(b)", True)
+
+    sub = place_node_endpoint(4, PlaceRequest(reference="4.13"))
+    assert (sub["type"], sub["reference"], sub["matches"]) == ("subitem", "4.13", True)
+    assert _labels()[5] == "4.13(a)", "its own (a) now sits under it"
+
+
+def test_a_section_has_no_sub_items_to_name(s110):
+    with pytest.raises(review.HTTPException, match="names a sub-item"):
+        place_node_endpoint(8, PlaceRequest(reference="4.4(a)"))
+
+
+def test_a_retyped_section_shows_its_new_type_in_the_unit_list(s110):
+    """The list was built from the parse, so a retype never reached it."""
+    review.edit_node_endpoint(0, review.EditRequest(type="clause", number="110", heading="Hand-up brief", text=""))
+
+    assert review.get_meta()["units"][0]["type"] == "clause"
+
+
+def test_a_box_is_labelled_with_what_its_piece_is_now(s110):
+    """compute_unit_labels calls a unit's own piece SECTION whatever it
+    is; on the page that outlived a retype."""
+    assert review._box_label("SECTION", {"type": "clause", "number": "110"}) == "CLAUSE 110"
+    assert review._box_label("(1)(d)", {"type": "paragraph", "number": "d"}) == "(1)(d)"
+
+
+def test_the_page_redraws_the_boxes_after_an_edit():
+    import re
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    body = re.search(r"async function afterMutation\(pdfPage\) \{(.*?)\n\}", page, re.S).group(1)
+    assert "loadPageBoxes()" in body

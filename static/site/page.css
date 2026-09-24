@@ -329,6 +329,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 
 /* Historical mode, once history.js has taken the list over. */
 .history.hist-js > .history-summary { display: none; }
+/* A provision with definitions has a timeline per definition, each named. */
+.hist-subject { font-weight: 600; margin: 4px 0 6px; }
+.history:not(.hist-js) .hist-subject { display: none; }
 .history.hist-js .hist-track { border: none; }
 .reader-section:not(.historical) .history.hist-js { display: none; }
 .reader-section.historical > .provisions,

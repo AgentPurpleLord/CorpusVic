@@ -1133,7 +1133,8 @@ def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: d
         save_verified(_act, _verified)
 
 
-_NESTABLE_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph", "definition")
+_NESTABLE_LEVELS = ("subsection", "subitem", "subclause", "paragraph", "subparagraph", "sub_subparagraph",
+                    "definition")
 
 
 def _depth_rank(i: int) -> "int | None":
@@ -1713,12 +1714,21 @@ class NodeTypeDeleteRequest(BaseModel):
 def index():
     return FileResponse(STATIC_DIR / "review.html")
 
+def _box_label(label: "str | None", node: dict) -> str:
+    """What a box is called on the page. compute_unit_labels calls a unit's
+    own piece "SECTION" whatever it is, which on the page read as a
+    section still after it was retyped a clause or a Part."""
+    return pieces_label(node) if label in (None, "", "SECTION") else label
+
+
 @app.get("/api/meta")
 def get_meta():
-    tree_info = compute_unit_tree_info([_parse_node(indices[0])["type"] for indices in _units], _hierarchy)
+    # As the unit reads now, edits included: from the parse alone, a
+    # section you retyped went on showing its old type in the list.
+    tree_info = compute_unit_tree_info([_current_node(indices[0])["type"] for indices in _units], _hierarchy)
     units_summary = []
     for u, indices in enumerate(_units):
-        root = _parse_node(indices[0])
+        root = _current_node(indices[0])
         units_summary.append({
             "unit_no": u,
             "type": root["type"],
@@ -1951,7 +1961,7 @@ def get_page_boxes(page_no: int):
             boxes.append({
                 "node_index": i,
                 "unit_no": unit_no,
-                "label": labels.get(i) or pieces_label(node),
+                "label": _box_label(labels.get(i), node),
                 "type": node["type"],
                 "status": _piece_status(i),
                 "preview": reflow_with_map(node.get("text") or node.get("heading") or "")[0][:140],
@@ -2771,17 +2781,30 @@ class PlaceRequest(BaseModel):
     after_node_index: "int | None" = None
 
 
+# The first level of an item or clause unit, where a section has its
+# subsections: "4.4" in "4.4(a)", as review labels it.
+_SUB_ITEM_LEVELS = ("subitem", "subclause")
+
+
 def _chain(node: dict) -> str:
     path = node.get("path") or {}
-    return "".join(f"({path[level]})" for level in _CHAIN_LEVELS if path.get(level))
+    head = path.get("subitem") or path.get("subclause") or ""
+    return head + "".join(f"({path[level]})" for level in _CHAIN_LEVELS if path.get(level))
 
 
-def _reference_segments(reference: str) -> list[str]:
+def _render_reference(segments: list[str], headed: bool) -> str:
+    return (segments[0] if headed else f"({segments[0]})") + "".join(f"({seg})" for seg in segments[1:])
+
+
+def _reference_segments(reference: str) -> tuple[list[str], bool]:
+    """The levels a reference names, and whether it opens with a sub-item
+    number ("4.4(a)") rather than a bracket ("(1)(d)(vii)")."""
     text = re.sub(r"\s+", "", reference or "")
-    segments = re.findall(r"\(([^()]+)\)", text)
-    if not segments or "".join(f"({seg})" for seg in segments) != text:
-        raise HTTPException(400, f"{reference!r} isn't a reference like (1)(d)(vii).")
-    return segments
+    m = re.fullmatch(r"(\d+(?:\.\d+)*[A-Z]*)?((?:\([^()]+\))*)", text)
+    if not text or not m:
+        raise HTTPException(400, f"{reference!r} isn't a reference like (1)(d)(vii) or 4.4(a).")
+    head = [m.group(1)] if m.group(1) else []
+    return head + re.findall(r"\(([^()]+)\)", m.group(2)), bool(head)
 
 
 def _block(unit_indices: list[int], i: int, as_type: "str | None" = None) -> list[int]:
@@ -2839,25 +2862,32 @@ def place_node_endpoint(node_index: int, req: PlaceRequest):
     right, it stays; otherwise it goes to the end of its new parent, or
     after `after_node_index` when that is given."""
     _require_live(node_index)
-    segments = _reference_segments(req.reference)
+    segments, headed = _reference_segments(req.reference)
     unit_no = _unit_of_index[node_index]
     unit = [i for i in _units[unit_no] if i not in _merged_away]
     if unit[0] == node_index:
         raise HTTPException(400, "The section itself has no reference within it to change.")
+    root_type = _current_node(unit[0])["type"]
+    if headed and root_type not in ("item", "clause"):
+        raise HTTPException(400, f"{req.reference!r} names a sub-item, and this {root_type} has none.")
     old_block = _block(unit, node_index)
     others = [i for i in unit[1:] if i not in old_block]
 
-    wanted_parent = "".join(f"({seg})" for seg in segments[:-1]).lower()
+    wanted_parent = _render_reference(segments[:-1], headed).lower() if segments[:-1] else ""
     parent = None
     if segments[:-1]:
-        parent = next((i for i in others if _current_node(i)["type"] in _CHAIN_LEVELS
+        parent = next((i for i in others if _current_node(i)["type"] in _CHAIN_LEVELS + _SUB_ITEM_LEVELS
                        and _chain(_current_node(i)).lower() == wanted_parent), None)
         if parent is None:
             raise HTTPException(400, f"This section has no {wanted_parent} to put it under.")
-        level = _CHAIN_LEVELS.index(_current_node(parent)["type"]) + 1
+        parent_type = _current_node(parent)["type"]
+        # A sub-item's own list is paragraphs, as a subsection's is.
+        level = 1 if parent_type in _SUB_ITEM_LEVELS else _CHAIN_LEVELS.index(parent_type) + 1
         if level >= len(_CHAIN_LEVELS):
             raise HTTPException(400, "Nothing nests deeper than a sub-subparagraph.")
         new_type = _CHAIN_LEVELS[level]
+    elif headed:
+        new_type = "subclause" if root_type == "clause" else "subitem"
     else:
         # A section's top level is whatever its other pieces start at:
         # subsections, or paragraphs straight under the section.
@@ -2877,7 +2907,7 @@ def place_node_endpoint(node_index: int, req: PlaceRequest):
     _mutate_node(node_index, type=new_type, number=segments[-1])
     _recompute_unit_paths(unit_no)
 
-    wanted = "".join(f"({seg})" for seg in segments)
+    wanted = _render_reference(segments, headed)
     if after is None and _chain(_current_node(node_index)).lower() != wanted.lower():
         # The end of the new parent's own list, or of the section.
         if parent is not None:
@@ -3413,6 +3443,11 @@ def clear_unit_endpoint(unit_no: int):
         raise HTTPException(404, "No such unit")
     cleared = 0
     for i in _units[unit_no]:
+        # A merge is a decision too. A finished unit's pieces missing from
+        # its decisions are taken to have been merged away -- so after a
+        # re-parse of a section you had flagged, every piece the parser
+        # now reads differently vanished, box and all, even once cleared.
+        _merged_away.discard(i)
         _pending_edits.pop(i, None)
         row = _verified_by_source_index.pop(i, None)
         if row is not None:
@@ -3469,6 +3504,7 @@ def reparse_unit_endpoint(unit_no: int):
         raise HTTPException(400, "This document has no source PDF recorded, so it can't be parsed again.")
     root = _parse_node(_units[unit_no][0])
     identity = (root["type"], root.get("number"), root.get("heading"))
+    before = _unit_snapshot(unit_no)
 
     cmd = reparse_command(_document_type, _source_pdf_path)
     result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=900)
@@ -3486,12 +3522,46 @@ def reparse_unit_endpoint(unit_no: int):
         # The parse no longer has this section at all. Everything else is
         # already re-anchored, so this is a real finding rather than a
         # failure -- say so instead of clearing a different section.
-        return {"unit_no": None, "cleared": 0, "reparsed": True,
+        return {"unit_no": None, "cleared": 0, "reparsed": True, "changes": None,
                 "detail": f"{_act} was parsed again, but no section matching "
                           f"{identity[1] or identity[0]} is in the new parse."}
     cleared = clear_unit_endpoint(found)
     return {"unit_no": found, "cleared": cleared["cleared"], "reparsed": True,
+            "changes": _unit_changes(before, _unit_snapshot(found)),
             "detail": f"{_act} was parsed again; this section's {cleared['cleared']} decision(s) were cleared."}
+
+
+def _unit_snapshot(unit_no: int) -> list[dict]:
+    """A unit's pieces as the parse has them and as they are drawn on the
+    page -- what a re-parse is asked to reconsider."""
+    return [{"said": (_parse_node(i).get("type"), _parse_node(i).get("number")),
+             "rects": tuple(tuple(sorted(r.items())) for r in _parse_node(i).get("rects") or []),
+             "drawn": i in _node_rects,
+             "flagged": bool((_verified_by_source_index.get(i) or {}).get("needs_followup"))}
+            for i in _units[unit_no] if i not in _merged_away]
+
+
+def _unit_changes(before: list[dict], after: list[dict]) -> dict:
+    """What a re-parse did to one unit, so the page can say it: without
+    this the boxes were redrawn (or weren't) and nothing told you which.
+    Compared by what the pieces say and where they print, not by name: a
+    piece read at a new level gets a new name, and is exactly the change
+    worth counting."""
+    from collections import Counter
+
+    def boxes(snapshot):
+        return Counter(p["rects"] for p in snapshot if not p["drawn"] and p["rects"])
+
+    return {
+        "pieces_before": len(before), "pieces_after": len(after),
+        "changed": sum((Counter(p["said"] for p in after) - Counter(p["said"] for p in before)).values())
+                   + max(0, len(before) - len(after)),
+        "boxes_redrawn": sum((boxes(after) - boxes(before)).values()),
+        "drawn_kept": sum(p["drawn"] for p in after),
+        # A flag is a decision like any other, and a re-parse clears this
+        # unit's decisions -- worth saying, since it was put there on purpose.
+        "flag_cleared": any(p["flagged"] for p in before),
+    }
 
 
 class CarriedFromRequest(BaseModel):

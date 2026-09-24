@@ -90,6 +90,8 @@ example of what its printed line is, in `data/teaching/<act>.jsonl`,
 keyed by the line rather than the parser's name for it. The **Teaching**
 button on an Act re-reads its PDF with the parser as it stands and checks
 it against all of them, naming any that passed last time and now fail.
+A piece you kept whole also fails if the parser now opens anything part-way
+down it -- a false split opens a line no example is about.
 
 Where the parser and you disagree the same way on three or more lines
 that look alike, the **Lessons** page proposes a rule: "a line matching

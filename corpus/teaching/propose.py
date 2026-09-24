@@ -75,13 +75,25 @@ def _brief(f: dict) -> dict:
             "expected": f["expected"], "got": f["got"]}
 
 
+def _lessons(failures: list[dict]):
+    """Each failure as the line it is about. A split is about the line
+    opened inside the piece -- one that should have carried its text on --
+    not the piece's own first line, which may well still be right."""
+    for f in failures:
+        split = f.get("split")
+        if split:
+            yield {**f, "id": f"{f['id']}:split", "seen": split["seen"], "expected": None, "got": split["got"]}
+        if not split or not teaching_examples.agree(f.get("got"), f["expected"]):
+            yield f
+
+
 def propose(failures: list[dict], decided: "set[str]" = frozenset()) -> list[dict]:
     """Candidate rules, most-supported first, leaving out any already
     approved or rejected (`decided`, by signature)."""
     from corpus.parsing.versions import split_document_slug
 
     groups: dict = {}
-    for f in failures:
+    for f in _lessons(failures):
         expected = f["expected"]
         if expected and expected["type"] in _UNSTATABLE:
             continue

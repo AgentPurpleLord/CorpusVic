@@ -64,6 +64,9 @@ def harvest(act: str) -> list[dict]:
         for u in finished_units(units, list(verified), markers_are_complete=True):
             removed.update(i for i in units[u] if i not in by_index and not _was_inserted(edits, i))
 
+    from corpus.storage import db
+
+    drawn = db.load_node_rects(act)
     out = []
     for i, node in enumerate(nodes):
         seen = node.get("seen")
@@ -72,8 +75,13 @@ def harvest(act: str) -> list[dict]:
         expected = None if i in removed else said(by_index[i])
         parser = said(node)
         kind = "removed" if expected is None else ("confirmed" if agree(parser, expected) else "corrected")
+        # Where the piece prints -- your box if you drew one -- so a later
+        # parse opening something in the middle of it is caught: a false
+        # split opens a line no example is about.
+        rects = drawn.get(node.get("id")) or node.get("rects") or []
         out.append({"id": example_id(act, seen), "act": act, "kind": kind, "node_id": node.get("id"),
-                    "parser": parser, "expected": expected, "seen": seen})
+                    "parser": parser, "expected": expected, "seen": seen,
+                    "rects": [{k: r[k] for k in ("page", "x0", "y0", "x1", "y1")} for r in rects]})
     return out
 
 

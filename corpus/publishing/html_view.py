@@ -1056,7 +1056,7 @@ def _ended_html(wording: dict, base_url: str, amendment_index: "dict | None") ->
 
 def render_history(history: "dict | None", base_url: str, amendment_index: "dict | None" = None,
                    version_urls: "dict | None" = None, hierarchy_order: "list[str] | None" = None,
-                   anchor: str = "", open_: bool = False) -> tuple[str, str]:
+                   anchor: str = "", open_: bool = False, subject: "str | None" = None) -> tuple[str, str]:
     """A provision's wordings across the versions held here, as
     (the chip that opens them, the wordings themselves) -- ("", "") for a
     provision that has only ever read one way.
@@ -1133,11 +1133,150 @@ def render_history(history: "dict | None", base_url: str, amendment_index: "dict
     body = (
         f'<details class="history" id="{panel_id}" data-at="{at if at is not None else count - 1}"'
         f'{" open" if open_ else ""}>'
-        f'<summary class="history-summary">This provision has read {count} ways in the versions held here</summary>'
-        f'<div class="hist-track">{"".join(panels)}</div>'
+        f'<summary class="history-summary">{_esc(subject) if subject else "This provision"} has read {count} ways '
+        'in the versions held here</summary>'
+        + (f'<div class="hist-subject">{_esc(subject)}</div>' if subject else "")
+        + f'<div class="hist-track">{"".join(panels)}</div>'
         "</details>"
     )
     return chip, body
+
+
+# Where a group of definitions ends: anything at the level the definitions
+# themselves hang from, or above.
+_ENDS_DEFINITION = {"definition", "subsection", "section", "clause", "item", "subclause", "subitem",
+                    "part", "division", "subdivision", "chapter", "schedule"}
+
+
+def _definition_groups(nodes: list[dict]) -> "tuple[list[dict], dict[str, list[dict]]]":
+    """A provision's nodes as the words outside any definition, and each
+    definition with what hangs under it ("means-- (a) ...; (b) ..."), by
+    its term."""
+    rest, groups, term = [], {}, None
+    for k, node in enumerate(nodes):
+        if k and node.get("type") == "definition":
+            term = " ".join((node.get("heading") or "").split())
+            groups.setdefault(term, []).append(node)
+        elif k and term is not None and node.get("type") not in _ENDS_DEFINITION:
+            groups[term].append(node)
+        else:
+            term = None
+            rest.append(node)
+    return rest, groups
+
+
+def _words_of(nodes: "list[dict] | None") -> "tuple | None":
+    if nodes is None:
+        return None
+    return tuple((n.get("type"), n.get("number"), normalise(n.get("heading") or ""), normalise(n.get("text") or ""))
+                 for n in nodes)
+
+
+def _about_definition(note: str) -> "str | None":
+    """The term a margin note is about -- 'S. 3 def. of "accused" amended
+    by ...' -- or None for a note about the provision itself."""
+    m = re.search(r"\bdefs?\.? of [\"\u201c']([^\"\u201d']+)[\"\u201d']", note, re.I)
+    return " ".join(m.group(1).split()).lower() if m else None
+
+
+def _chain_of(history: dict, part) -> "dict | None":
+    """One part of a provision -- a definition, or the words outside them
+    -- as a chain of wordings of its own: the provision's wordings, each
+    cut down to that part, with a run of them that read the same as one.
+    Only the margin notes about that part are kept for it."""
+    wordings = history["wordings"]
+    cut = [None if w["absent"] else part(w["provision"].get("nodes") or []) for w in wordings]
+    runs: list[list[int]] = []
+    for n, nodes in enumerate(cut):
+        if runs and _words_of(cut[runs[-1][0]]) == _words_of(nodes):
+            runs[-1].append(n)
+        else:
+            runs.append([n])
+    if len(runs) < 2:
+        return None
+    out = []
+    for r, run in enumerate(runs):
+        first, last = wordings[run[0]], wordings[run[-1]]
+        nodes = cut[run[-1]]
+        wording = {"absent": nodes is None, "from": first["from"], "to": last["to"],
+                   "versions": [v for n in run for v in wordings[n].get("versions", [])]}
+        if nodes is not None:
+            wording.update(version=last.get("version"), checked=last.get("checked"),
+                           provision={**last["provision"], "nodes": nodes,
+                                      "heading": last["provision"].get("heading") if part.heading else None})
+        ended = last.get("ended_by")
+        if ended and r + 1 < len(runs):
+            following = cut[runs[r + 1][0]]
+            change = "repealed" if following is None else "inserted" if nodes is None else "changed"
+            wording["ended_by"] = {**ended, "change": change,
+                                   "notes": [note for note in ended.get("notes") or [] if part.about(note)]}
+        out.append(wording)
+    at = history.get("at")
+    return {**history, "wordings": out,
+            "at": None if at is None else next(r for r, run in enumerate(runs) if at in run)}
+
+
+def _definition_histories(history: "dict | None") -> "tuple[dict | None, list[tuple[str, dict]]] | None":
+    """A provision with definitions, split so that each definition has a
+    history of its own -- comparing a definitions section whole across
+    versions means reading a hundred definitions to find the one that
+    changed. (the rest's history, [(term, history)]), each None or left
+    out where it never changed; None for a provision with no definitions."""
+    wordings = (history or {}).get("wordings") or []
+    terms: list[str] = []
+    for w in reversed(wordings):   # the newest order first, then any since repealed
+        if not w["absent"]:
+            for term in _definition_groups(w["provision"].get("nodes") or [])[1]:
+                if term not in terms:
+                    terms.append(term)
+    if not terms or len(wordings) < 2:
+        return None
+
+    def rest(nodes):
+        return _definition_groups(nodes)[0]
+    rest.about = lambda note: _about_definition(note) is None
+    rest.heading = True
+
+    parts = []
+    for term in terms:
+        def one(nodes, term=term):
+            group = _definition_groups(nodes)[1].get(term)
+            # Under the provision's own node, emptied: the definition is
+            # read in place, without the section's words around it.
+            return None if group is None else [{**nodes[0], "text": "", "heading": None}, *group]
+        one.about = lambda note, term=term: _about_definition(note) == term.lower()
+        one.heading = False
+        chain = _chain_of(history, one)
+        if chain:
+            parts.append((term, chain))
+    return _chain_of(history, rest), parts
+
+
+def render_provision_history(history: "dict | None", base_url: str, amendment_index: "dict | None" = None,
+                             version_urls: "dict | None" = None, hierarchy_order: "list[str] | None" = None,
+                             anchor: str = "") -> tuple[str, str]:
+    """render_history for a section page: a provision with definitions has
+    one timeline per definition that changed, and one for its other words
+    if they did, rather than one of the whole provision."""
+    split = _definition_histories(history)
+    if split is None:
+        return render_history(history, base_url, amendment_index, version_urls, hierarchy_order, anchor=anchor)
+    rest, parts = split
+    bodies = []
+    if rest:
+        bodies.append(render_history(rest, base_url, amendment_index, version_urls, hierarchy_order,
+                                     anchor=anchor, subject="The rest of this provision")[1])
+    for k, (term, chain) in enumerate(parts):
+        bodies.append(render_history(chain, base_url, amendment_index, version_urls, hierarchy_order,
+                                     anchor=f"{anchor}-def{k}", subject=f"The definition of \u201c{term}\u201d")[1])
+    if not bodies:
+        return "", ""
+    changed = f"{len(parts)} definition{'s' if len(parts) != 1 else ''}" + (" and its other words" if rest else "")
+    first = re.search(r'<details class="history" id="([^"]+)"', bodies[0]).group(1)
+    chip = (f'<button type="button" class="history-chip" aria-controls="{first}"'
+            f' aria-expanded="false" title="{_esc(changed)} have read differently in the versions held here">'
+            f'History <span class="history-count">{len(bodies)}</span></button>')
+    return chip, "".join(bodies)
 
 
 def render_ghost(ghost: dict, act_title: str, base_url: str, amendment_index: "dict | None" = None,
@@ -1507,7 +1646,7 @@ def render_section(
     out.append(f'<div class="breadcrumb">{" &raquo; ".join(crumb_bits)}</div>')
     if show_review_badge:
         out.append(_verification_badge(verification))
-    history_chip, history_html = render_history(
+    history_chip, history_html = render_provision_history(
         timeline, base_url, amendment_index, version_urls,
         parsed.get("hierarchy") or None, anchor=section_slug)
     if history_chip:
