@@ -25,6 +25,31 @@ press **Restart the public site** on the dashboard. A pure CSS change
 only needs the files on disk, but restarting costs nothing and removes
 the question.
 
+## Without a server: the style preview
+
+`style-preview/index.html` opens straight from disk. It holds frozen
+copies of real pages, both the public site and the admin tools: a
+section with notes, a table, definitions, an Example, dot points, the
+contents page, search results, the dashboard, review and its Edit window,
+and more.
+
+They link the stylesheets in `static/site/` and `static/admin/` by
+relative path, so **edit a stylesheet, save, reload**. The bar in the
+bottom corner switches light and dark.
+
+The copies have no scripts, so buttons don't work and nothing loads. The
+markup is whatever the pages looked like when the copies were taken.
+After changing a page's HTML (not its CSS), take them again:
+
+```bash
+python -m corpus.publishing.style_preview
+```
+
+That needs Playwright and its Chromium (`pip install playwright &&
+playwright install chromium`), or `CHROMIUM=/path/to/chrome` for one
+already installed. It works from the committed `data/` in a throwaway
+directory and never touches your own database.
+
 ## Where things live
 
 | To change | Edit |
@@ -39,8 +64,10 @@ the question.
 | "Only part of this document has been reviewed…" | `export_static_site.py` → `_partial_notice_html` |
 | "This provision has not been checked by a human." | `export_static_site.py` → `_unverified_notice_html` |
 | Where "the authorised text" points | `export_static_site.py` → `OFFICIAL_SOURCE_URL` / `_NAME` |
-| The admin dashboard's look | `static/dashboard.html` (self-contained `<style>`) |
-| The review GUI's look | `static/review.html` (same) |
+| The admin dashboard's look | `static/admin/dashboard.css` |
+| The review GUI's look | `static/admin/review.css` |
+| History review, Teaching, Lessons | `static/admin/history.css`, `teaching.css`, `lessons.css` |
+| The admin tools' font | `static/admin/fonts.css` |
 
 The first six are the ones you will want most, and none of them is code.
 

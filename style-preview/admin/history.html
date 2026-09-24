@@ -1,0 +1,2652 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<title>History review</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../static/admin/history.css">
+<script>
+try { if (localStorage.getItem("stylePreviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
+</head>
+<body>
+<div id="style-preview-bar" style="position:fixed;right:10px;bottom:10px;z-index:2147483647;
+  font:12px/1.4 system-ui,sans-serif;background:#fff;color:#111;border:1px solid #999;border-radius:4px;
+  padding:5px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)">
+  <b>admin/history</b> &middot; <a href="../index.html" style="color:#0645ad">all pages</a> &middot;
+  <button type="button" style="font:inherit" onclick="
+    var d = document.documentElement.dataset; if (d.theme === 'dark') delete d.theme; else d.theme = 'dark';
+    try { localStorage.setItem('stylePreviewTheme', d.theme || 'light'); } catch (e) {}">Light / dark</button>
+</div>
+
+<header>
+  <h1>History review — <span id="work">Criminal Procedure Act 2009</span></h1>
+  <span class="counts" id="counts">430 changes: 430 undecided, 0 confirmed, 0 denied</span>
+  <span style="flex:1"></span>
+  <select id="step-filter" class="btn"><option value="">All steps</option><option value="110→111">v110 → v111</option><option value="111→112">v111 → v112</option><option value="112→113">v112 → v113</option><option value="113→114">v113 → v114</option></select>
+  <span id="filters">
+    <button class="btn on" data-filter="undecided">Undecided</button>
+    <button class="btn" data-filter="evidence">With an Act</button>
+    <button class="btn" data-filter="confirmed">Confirmed</button>
+    <button class="btn" data-filter="denied">Denied</button>
+    <button class="btn" data-filter="all">All</button>
+  </span>
+  <button class="btn" id="fetch-versions" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse">Fetch versions…</button>
+  <button class="btn" id="fetch-acts" title="Download the Acts that amended this one between the versions held, and read their instructions">Fetch amending Acts</button>
+  <a class="btn" href="../../">Dashboard</a>
+  <div id="versions-panel" hidden=""></div>
+  <pre id="log"></pre>
+</header>
+<main>
+  <div id="list">
+    <div class="row active" data-k="0">
+      <span class="dot "></span>
+      <div><strong>s 7A(3)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="1">
+      <span class="dot "></span>
+      <div><strong>s 12(5)(c)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="2">
+      <span class="dot "></span>
+      <div><strong>s 12(5)(c)(2)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="3">
+      <span class="dot "></span>
+      <div><strong>s 45(3)(1)</strong>
+        <small>v110 → v111 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="4">
+      <span class="dot "></span>
+      <div><strong>s 45(3) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="5">
+      <span class="dot "></span>
+      <div><strong>s 78(5) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="6">
+      <span class="dot "></span>
+      <div><strong>s 78(5)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="7">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="8">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="9">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(2)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="10">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="11">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="12">
+      <span class="dot "></span>
+      <div><strong>s 187(2) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="13">
+      <span class="dot "></span>
+      <div><strong>s 187(2)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="14">
+      <span class="dot "></span>
+      <div><strong>s 217(b)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="15">
+      <span class="dot "></span>
+      <div><strong>s 217(b)(2)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="16">
+      <span class="dot "></span>
+      <div><strong>s 329(3)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="17">
+      <span class="dot "></span>
+      <div><strong>s 329(3)(2)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="18">
+      <span class="dot "></span>
+      <div><strong>s 331(2)(c) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="19">
+      <span class="dot "></span>
+      <div><strong>s 331(2)(c)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="20">
+      <span class="dot "></span>
+      <div><strong>s 387I(b)(iii) example</strong>
+        <small>v110 → v111 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="21">
+      <span class="dot "></span>
+      <div><strong>s 387I(b)(iii) example</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="22">
+      <span class="dot "></span>
+      <div><strong>s 387Mexample</strong>
+        <small>v110 → v111 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="23">
+      <span class="dot "></span>
+      <div><strong>s 387Mexample</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="24">
+      <span class="dot "></span>
+      <div><strong>s 389E</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="25">
+      <span class="dot "></span>
+      <div><strong>s 389E(2006)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="26">
+      <span class="dot "></span>
+      <div><strong>s 392(4)(b) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="27">
+      <span class="dot "></span>
+      <div><strong>s 392(4)(b)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="28">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c) note</strong>
+        <small>v110 → v111 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="29">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c)(1)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="30">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c)(2)</strong>
+        <small>v110 → v111 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="31">
+      <span class="dot "></span>
+      <div><strong>Schedule 3</strong>
+        <small>v110 → v111 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="32">
+      <span class="dot "></span>
+      <div><strong>s 4(8C)(f)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="33">
+      <span class="dot "></span>
+      <div><strong>s 4(8C)(f)(c)</strong>
+        <small>v111 → v112 · removed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="34">
+      <span class="dot "></span>
+      <div><strong>s 7A(3)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="35">
+      <span class="dot "></span>
+      <div><strong>s 12(5)(c)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="36">
+      <span class="dot "></span>
+      <div><strong>s 12(5)(c)(2)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="37">
+      <span class="dot "></span>
+      <div><strong>s 45(3) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="38">
+      <span class="dot "></span>
+      <div><strong>s 45(3)(1)</strong>
+        <small>v111 → v112 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="39">
+      <span class="dot "></span>
+      <div><strong>s 78(5) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="40">
+      <span class="dot "></span>
+      <div><strong>s 78(5)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="41">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="42">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="43">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(2)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="44">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="45">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="46">
+      <span class="dot "></span>
+      <div><strong>s 181(2)(d)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="47">
+      <span class="dot "></span>
+      <div><strong>s 187(2) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="48">
+      <span class="dot "></span>
+      <div><strong>s 187(2)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="49">
+      <span class="dot "></span>
+      <div><strong>s 217(b)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="50">
+      <span class="dot "></span>
+      <div><strong>s 217(b)(2)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="51">
+      <span class="dot "></span>
+      <div><strong>s 329(3)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="52">
+      <span class="dot "></span>
+      <div><strong>s 329(3)(2)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="53">
+      <span class="dot "></span>
+      <div><strong>s 331(2)(c) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="54">
+      <span class="dot "></span>
+      <div><strong>s 331(2)(c)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="55">
+      <span class="dot "></span>
+      <div><strong>s 353(1)(b)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="56">
+      <span class="dot "></span>
+      <div><strong>s 353(1)(c)</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="57">
+      <span class="dot "></span>
+      <div><strong>s 359(1)(b)(ba)</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="58">
+      <span class="dot "></span>
+      <div><strong>s 366 heading</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="59">
+      <span class="dot "></span>
+      <div><strong>s 366(1)(ac)</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="60">
+      <span class="dot "></span>
+      <div><strong>s 366(1)(d)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="61">
+      <span class="dot "></span>
+      <div><strong>s 369(1)(b)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="62">
+      <span class="dot "></span>
+      <div><strong>s 369(1)(c)</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="63">
+      <span class="dot "></span>
+      <div><strong>s 371(1A)(b)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="64">
+      <span class="dot "></span>
+      <div><strong>s 371(1A)(c)</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="65">
+      <span class="dot "></span>
+      <div><strong>s 371(1B)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="66">
+      <span class="dot "></span>
+      <div><strong>s 374(2)(b)(ii)(A)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="67">
+      <span class="dot "></span>
+      <div><strong>s 374(2)(iii)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="68">
+      <span class="dot "></span>
+      <div><strong>s 387I(b)(iii) example</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="69">
+      <span class="dot "></span>
+      <div><strong>s 387I(b)(iii) example</strong>
+        <small>v111 → v112 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="70">
+      <span class="dot "></span>
+      <div><strong>s 387Mexample</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="71">
+      <span class="dot "></span>
+      <div><strong>s 387Mexample</strong>
+        <small>v111 → v112 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="72">
+      <span class="dot "></span>
+      <div><strong>s 389A(1)(b)(ba)</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="73">
+      <span class="dot "></span>
+      <div><strong>s 389A(1)(d)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="74">
+      <span class="dot "></span>
+      <div><strong>s 389E</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="75">
+      <span class="dot "></span>
+      <div><strong>s 389E(2006)</strong>
+        <small>v111 → v112 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="76">
+      <span class="dot "></span>
+      <div><strong>s 392(4)(b) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="77">
+      <span class="dot "></span>
+      <div><strong>s 392(4)(b)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="78">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c) note</strong>
+        <small>v111 → v112 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="79">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c)(1)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="80">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c)(2)</strong>
+        <small>v111 → v112 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="81">
+      <span class="dot "></span>
+      <div><strong>s 464</strong>
+        <small>v111 → v112 · inserted
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="82">
+      <span class="dot "></span>
+      <div><strong>s 7A(3)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="83">
+      <span class="dot "></span>
+      <div><strong>s 12(5)(c)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="84">
+      <span class="dot "></span>
+      <div><strong>s 12(5)(c)(2)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="85">
+      <span class="dot "></span>
+      <div><strong>s 45(3)(1)</strong>
+        <small>v112 → v113 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="86">
+      <span class="dot "></span>
+      <div><strong>s 45(3) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="87">
+      <span class="dot "></span>
+      <div><strong>s 78(5) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="88">
+      <span class="dot "></span>
+      <div><strong>s 78(5)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="89">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="90">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="91">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(2)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="92">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="93">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="94">
+      <span class="dot "></span>
+      <div><strong>s 187(2) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="95">
+      <span class="dot "></span>
+      <div><strong>s 187(2)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="96">
+      <span class="dot "></span>
+      <div><strong>s 217(b)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="97">
+      <span class="dot "></span>
+      <div><strong>s 217(b)(2)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="98">
+      <span class="dot "></span>
+      <div><strong>s 329(3)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="99">
+      <span class="dot "></span>
+      <div><strong>s 329(3)(2)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="100">
+      <span class="dot "></span>
+      <div><strong>s 331(2)(c) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="101">
+      <span class="dot "></span>
+      <div><strong>s 331(2)(c)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="102">
+      <span class="dot "></span>
+      <div><strong>s 387I(b)(iii) example</strong>
+        <small>v112 → v113 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="103">
+      <span class="dot "></span>
+      <div><strong>s 387I(b)(iii) example</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="104">
+      <span class="dot "></span>
+      <div><strong>s 387Mexample</strong>
+        <small>v112 → v113 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="105">
+      <span class="dot "></span>
+      <div><strong>s 387Mexample</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="106">
+      <span class="dot "></span>
+      <div><strong>s 389E</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="107">
+      <span class="dot "></span>
+      <div><strong>s 389E(2006)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="108">
+      <span class="dot "></span>
+      <div><strong>s 392(4)(b) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="109">
+      <span class="dot "></span>
+      <div><strong>s 392(4)(b)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="110">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c) note</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="111">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c)(1)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="112">
+      <span class="dot "></span>
+      <div><strong>s 394(1)(c)(2)</strong>
+        <small>v112 → v113 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="113">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 26A</strong>
+        <small>v112 → v113 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="114">
+      <span class="dot "></span>
+      <div><strong>s 4(1)(a)(i)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="115">
+      <span class="dot "></span>
+      <div><strong>s 4(8C)</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="116">
+      <span class="dot "></span>
+      <div><strong>s 4(6)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="117">
+      <span class="dot "></span>
+      <div><strong>s 4(6)(definition-commercial-sexual-services)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="118">
+      <span class="dot "></span>
+      <div><strong>s 4(6)(definition-sexual)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="119">
+      <span class="dot "></span>
+      <div><strong>s 4(6)(definition-sexual-performance)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="120">
+      <span class="dot "></span>
+      <div><strong>s 4(6)(definition-taking-part-in-a-sexual-act)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="121">
+      <span class="dot "></span>
+      <div><strong>s 7A(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="122">
+      <span class="dot "></span>
+      <div><strong>s 7A(3)(table-table)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="123">
+      <span class="dot "></span>
+      <div><strong>s 10(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="124">
+      <span class="dot "></span>
+      <div><strong>s 11(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="125">
+      <span class="dot "></span>
+      <div><strong>s 11(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="126">
+      <span class="dot "></span>
+      <div><strong>s 12(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="127">
+      <span class="dot "></span>
+      <div><strong>s 12(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="128">
+      <span class="dot "></span>
+      <div><strong>s 14(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="129">
+      <span class="dot "></span>
+      <div><strong>s 14(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="130">
+      <span class="dot "></span>
+      <div><strong>s 19(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="131">
+      <span class="dot "></span>
+      <div><strong>s 19(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="132">
+      <span class="dot "></span>
+      <div><strong>s 30(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="133">
+      <span class="dot "></span>
+      <div><strong>s 30(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="134">
+      <span class="dot "></span>
+      <div><strong>s 30(7)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="135">
+      <span class="dot "></span>
+      <div><strong>s 30(7) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="136">
+      <span class="dot "></span>
+      <div><strong>s 30(7) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="137">
+      <span class="dot "></span>
+      <div><strong>s 31</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="138">
+      <span class="dot "></span>
+      <div><strong>s 31continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="139">
+      <span class="dot "></span>
+      <div><strong>s 33</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="140">
+      <span class="dot "></span>
+      <div><strong>s 33continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="141">
+      <span class="dot "></span>
+      <div><strong>s 34(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="142">
+      <span class="dot "></span>
+      <div><strong>s 34(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="143">
+      <span class="dot "></span>
+      <div><strong>s 39(1A)(a)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="144">
+      <span class="dot "></span>
+      <div><strong>s 41(1)(e)(vi)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="145">
+      <span class="dot "></span>
+      <div><strong>s 41(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="146">
+      <span class="dot "></span>
+      <div><strong>s 51(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="147">
+      <span class="dot "></span>
+      <div><strong>s 51(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="148">
+      <span class="dot "></span>
+      <div><strong>s 51(9)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="149">
+      <span class="dot "></span>
+      <div><strong>s 51(9) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="150">
+      <span class="dot "></span>
+      <div><strong>s 52(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="151">
+      <span class="dot "></span>
+      <div><strong>s 52(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="152">
+      <span class="dot "></span>
+      <div><strong>s 52(1)(d) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="153">
+      <span class="dot "></span>
+      <div><strong>s 54(7)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="154">
+      <span class="dot "></span>
+      <div><strong>s 54(7) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="155">
+      <span class="dot "></span>
+      <div><strong>s 59(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="156">
+      <span class="dot "></span>
+      <div><strong>s 59(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="157">
+      <span class="dot "></span>
+      <div><strong>s 61(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="158">
+      <span class="dot "></span>
+      <div><strong>s 61(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="159">
+      <span class="dot "></span>
+      <div><strong>s 61(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="160">
+      <span class="dot "></span>
+      <div><strong>s 61(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="161">
+      <span class="dot "></span>
+      <div><strong>s 72(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="162">
+      <span class="dot "></span>
+      <div><strong>s 72(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="163">
+      <span class="dot "></span>
+      <div><strong>s 73(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="164">
+      <span class="dot "></span>
+      <div><strong>s 73(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="165">
+      <span class="dot "></span>
+      <div><strong>s 74(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="166">
+      <span class="dot "></span>
+      <div><strong>s 74(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="167">
+      <span class="dot "></span>
+      <div><strong>s 80(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="168">
+      <span class="dot "></span>
+      <div><strong>s 80(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="169">
+      <span class="dot "></span>
+      <div><strong>s 82(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="170">
+      <span class="dot "></span>
+      <div><strong>s 82(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="171">
+      <span class="dot "></span>
+      <div><strong>s 83(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="172">
+      <span class="dot "></span>
+      <div><strong>s 83(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="173">
+      <span class="dot "></span>
+      <div><strong>s 84(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="174">
+      <span class="dot "></span>
+      <div><strong>s 84(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="175">
+      <span class="dot "></span>
+      <div><strong>s 86(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="176">
+      <span class="dot "></span>
+      <div><strong>s 86(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="177">
+      <span class="dot "></span>
+      <div><strong>s 86(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="178">
+      <span class="dot "></span>
+      <div><strong>s 86(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="179">
+      <span class="dot "></span>
+      <div><strong>s 94(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="180">
+      <span class="dot "></span>
+      <div><strong>s 94(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="181">
+      <span class="dot "></span>
+      <div><strong>s 100(1A)(a) note</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="182">
+      <span class="dot "></span>
+      <div><strong>s 100(1A)(a) note</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="183">
+      <span class="dot "></span>
+      <div><strong>s 110(1)(d)(vi)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="184">
+      <span class="dot "></span>
+      <div><strong>s 110(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="185">
+      <span class="dot "></span>
+      <div><strong>s 110(1)(e)(vi)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="186">
+      <span class="dot "></span>
+      <div><strong>s 110(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="187">
+      <span class="dot "></span>
+      <div><strong>s 111(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="188">
+      <span class="dot "></span>
+      <div><strong>s 111(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="189">
+      <span class="dot "></span>
+      <div><strong>s 119(c)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="190">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(i)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="191">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(iii)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="192">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(iv)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="193">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(iv)(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="194">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(iv)(1AA)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="195">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(iv)(1A)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="196">
+      <span class="dot "></span>
+      <div><strong>s 119(c)(iv)(2)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="197">
+      <span class="dot "></span>
+      <div><strong>s 121(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="198">
+      <span class="dot "></span>
+      <div><strong>s 121(4)(definition-bail-guarantor)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="199">
+      <span class="dot "></span>
+      <div><strong>s 123(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="200">
+      <span class="dot "></span>
+      <div><strong>s 124(1AA)(a) note</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="201">
+      <span class="dot "></span>
+      <div><strong>s 124(1AA)(a) note</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="202">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="203">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g) note</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="204">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(1)</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="205">
+      <span class="dot "></span>
+      <div><strong>s 124(4)(g)(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="206">
+      <span class="dot "></span>
+      <div><strong>s 124(5A)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="207">
+      <span class="dot "></span>
+      <div><strong>s 124(5A)(definition-specified-witness)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="208">
+      <span class="dot "></span>
+      <div><strong>s 124A</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="209">
+      <span class="dot "></span>
+      <div><strong>s 125(1A)(a) note</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="210">
+      <span class="dot "></span>
+      <div><strong>s 125(1A)(a) note</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="211">
+      <span class="dot "></span>
+      <div><strong>s 126(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="212">
+      <span class="dot "></span>
+      <div><strong>s 126(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="213">
+      <span class="dot "></span>
+      <div><strong>s 127(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="214">
+      <span class="dot "></span>
+      <div><strong>s 127(3) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="215">
+      <span class="dot "></span>
+      <div><strong>s 130(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="216">
+      <span class="dot "></span>
+      <div><strong>s 130(1)(definition-recording)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="217">
+      <span class="dot "></span>
+      <div><strong>s 130(1)(definition-recording) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="218">
+      <span class="dot "></span>
+      <div><strong>s 130(1)(definition-statement)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="219">
+      <span class="dot "></span>
+      <div><strong>s 130(6)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="220">
+      <span class="dot "></span>
+      <div><strong>s 136</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="221">
+      <span class="dot "></span>
+      <div><strong>s 136continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="222">
+      <span class="dot "></span>
+      <div><strong>s 137</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="223">
+      <span class="dot "></span>
+      <div><strong>s 137continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="224">
+      <span class="dot "></span>
+      <div><strong>s 138</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="225">
+      <span class="dot "></span>
+      <div><strong>s 138continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="226">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c) note</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="227">
+      <span class="dot "></span>
+      <div><strong>s 144(2)(c)(1)</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="228">
+      <span class="dot "></span>
+      <div><strong>s 145(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="229">
+      <span class="dot "></span>
+      <div><strong>s 145(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="230">
+      <span class="dot "></span>
+      <div><strong>s 157(5)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="231">
+      <span class="dot "></span>
+      <div><strong>s 157(5) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="232">
+      <span class="dot "></span>
+      <div><strong>s 164(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="233">
+      <span class="dot "></span>
+      <div><strong>s 164(1)(definition-fresh-indictment)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="234">
+      <span class="dot "></span>
+      <div><strong>s 167(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="235">
+      <span class="dot "></span>
+      <div><strong>s 167(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="236">
+      <span class="dot "></span>
+      <div><strong>s 168A(1)(b)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="237">
+      <span class="dot "></span>
+      <div><strong>s 168A(7A)</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="238">
+      <span class="dot "></span>
+      <div><strong>s 173</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="239">
+      <span class="dot "></span>
+      <div><strong>s 173continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="240">
+      <span class="dot "></span>
+      <div><strong>s 178(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="241">
+      <span class="dot "></span>
+      <div><strong>s 178(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="242">
+      <span class="dot "></span>
+      <div><strong>s 185(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="243">
+      <span class="dot "></span>
+      <div><strong>s 185(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="244">
+      <span class="dot "></span>
+      <div><strong>s 185(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="245">
+      <span class="dot "></span>
+      <div><strong>s 185(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="246">
+      <span class="dot "></span>
+      <div><strong>s 188(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="247">
+      <span class="dot "></span>
+      <div><strong>s 188(1)(definition-additional-evidence)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="248">
+      <span class="dot "></span>
+      <div><strong>s 190(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="249">
+      <span class="dot "></span>
+      <div><strong>s 190(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="250">
+      <span class="dot "></span>
+      <div><strong>s 190(8)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="251">
+      <span class="dot "></span>
+      <div><strong>s 190(8) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="252">
+      <span class="dot "></span>
+      <div><strong>s 191(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="253">
+      <span class="dot "></span>
+      <div><strong>s 191(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="254">
+      <span class="dot "></span>
+      <div><strong>s 191(1)(d) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="255">
+      <span class="dot "></span>
+      <div><strong>s 192</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="256">
+      <span class="dot "></span>
+      <div><strong>s 192continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="257">
+      <span class="dot "></span>
+      <div><strong>s 194(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="258">
+      <span class="dot "></span>
+      <div><strong>s 194(1)(definition-sexual-offence)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="259">
+      <span class="dot "></span>
+      <div><strong>s 197(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="260">
+      <span class="dot "></span>
+      <div><strong>s 197(1)(definition-private-law-practice)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="261">
+      <span class="dot "></span>
+      <div><strong>s 197(1)(definition-private-legal-practitioner)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="262">
+      <span class="dot "></span>
+      <div><strong>s 197(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="263">
+      <span class="dot "></span>
+      <div><strong>s 197(3) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="264">
+      <span class="dot "></span>
+      <div><strong>s 197(5)(c)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="265">
+      <span class="dot "></span>
+      <div><strong>s 197(5) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="266">
+      <span class="dot "></span>
+      <div><strong>s 198B(4)(b)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="267">
+      <span class="dot "></span>
+      <div><strong>s 206G(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="268">
+      <span class="dot "></span>
+      <div><strong>s 206G(3) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="269">
+      <span class="dot "></span>
+      <div><strong>s 209(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="270">
+      <span class="dot "></span>
+      <div><strong>s 209(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="271">
+      <span class="dot "></span>
+      <div><strong>s 225(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="272">
+      <span class="dot "></span>
+      <div><strong>s 225(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="273">
+      <span class="dot "></span>
+      <div><strong>s 232(2)(a)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="274">
+      <span class="dot "></span>
+      <div><strong>s 233(1)(b)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="275">
+      <span class="dot "></span>
+      <div><strong>s 233(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="276">
+      <span class="dot "></span>
+      <div><strong>s 233(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="277">
+      <span class="dot "></span>
+      <div><strong>s 233(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="278">
+      <span class="dot "></span>
+      <div><strong>s 241(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="279">
+      <span class="dot "></span>
+      <div><strong>s 241(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="280">
+      <span class="dot "></span>
+      <div><strong>s 242(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="281">
+      <span class="dot "></span>
+      <div><strong>s 242(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="282">
+      <span class="dot "></span>
+      <div><strong>s 243(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="283">
+      <span class="dot "></span>
+      <div><strong>s 243(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="284">
+      <span class="dot "></span>
+      <div><strong>s 247(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="285">
+      <span class="dot "></span>
+      <div><strong>s 247(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="286">
+      <span class="dot "></span>
+      <div><strong>s 248</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="287">
+      <span class="dot "></span>
+      <div><strong>s 248continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="288">
+      <span class="dot "></span>
+      <div><strong>s 250</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="289">
+      <span class="dot "></span>
+      <div><strong>s 250continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="290">
+      <span class="dot "></span>
+      <div><strong>s 252(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="291">
+      <span class="dot "></span>
+      <div><strong>s 252(1) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="292">
+      <span class="dot "></span>
+      <div><strong>s 252(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="293">
+      <span class="dot "></span>
+      <div><strong>s 252(2) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="294">
+      <span class="dot "></span>
+      <div><strong>s 253B</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="295">
+      <span class="dot "></span>
+      <div><strong>s 253Bcontinuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="296">
+      <span class="dot "></span>
+      <div><strong>s 263(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="297">
+      <span class="dot "></span>
+      <div><strong>s 263(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="298">
+      <span class="dot "></span>
+      <div><strong>s 267(1A)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="299">
+      <span class="dot "></span>
+      <div><strong>s 267(1A) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="300">
+      <span class="dot "></span>
+      <div><strong>s 277(1)(c)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="301">
+      <span class="dot "></span>
+      <div><strong>s 277(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="302">
+      <span class="dot "></span>
+      <div><strong>s 277(1)(f)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="303">
+      <span class="dot "></span>
+      <div><strong>s 277(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="304">
+      <span class="dot "></span>
+      <div><strong>s 283(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="305">
+      <span class="dot "></span>
+      <div><strong>s 283(1)(definition-imprisonment)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="306">
+      <span class="dot "></span>
+      <div><strong>s 304(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="307">
+      <span class="dot "></span>
+      <div><strong>s 304(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="308">
+      <span class="dot "></span>
+      <div><strong>s 308(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="309">
+      <span class="dot "></span>
+      <div><strong>s 308(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="310">
+      <span class="dot "></span>
+      <div><strong>s 325(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="311">
+      <span class="dot "></span>
+      <div><strong>s 325(1)(definition-ancillary-order)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="312">
+      <span class="dot "></span>
+      <div><strong>s 326A(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="313">
+      <span class="dot "></span>
+      <div><strong>s 326A(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="314">
+      <span class="dot "></span>
+      <div><strong>s 326E(1)(c)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="315">
+      <span class="dot "></span>
+      <div><strong>s 326E(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="316">
+      <span class="dot "></span>
+      <div><strong>s 326E(1)(f)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="317">
+      <span class="dot "></span>
+      <div><strong>s 326E(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="318">
+      <span class="dot "></span>
+      <div><strong>s 326M(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="319">
+      <span class="dot "></span>
+      <div><strong>s 326M(2)(definition-ancillary-order)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="320">
+      <span class="dot "></span>
+      <div><strong>s 327E(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="321">
+      <span class="dot "></span>
+      <div><strong>s 327E(1)(definition-an-offence-of-which-a-person-has-previou)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="322">
+      <span class="dot "></span>
+      <div><strong>s 327E(1)(definition-reinvestigation)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="323">
+      <span class="dot "></span>
+      <div><strong>s 327E(1)(definition-senior-police-officer)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="324">
+      <span class="dot "></span>
+      <div><strong>s 327E(8)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="325">
+      <span class="dot "></span>
+      <div><strong>s 327E(8) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="326">
+      <span class="dot "></span>
+      <div><strong>s 327I(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="327">
+      <span class="dot "></span>
+      <div><strong>s 327I(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="328">
+      <span class="dot "></span>
+      <div><strong>s 327P</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="329">
+      <span class="dot "></span>
+      <div><strong>s 327Pcontinuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="330">
+      <span class="dot "></span>
+      <div><strong>s 328(d)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="331">
+      <span class="dot "></span>
+      <div><strong>s 328continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="332">
+      <span class="dot "></span>
+      <div><strong>s 331(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="333">
+      <span class="dot "></span>
+      <div><strong>s 331(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="334">
+      <span class="dot "></span>
+      <div><strong>s 331(6)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="335">
+      <span class="dot "></span>
+      <div><strong>s 331(6) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="336">
+      <span class="dot "></span>
+      <div><strong>s 333(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="337">
+      <span class="dot "></span>
+      <div><strong>s 333(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="338">
+      <span class="dot "></span>
+      <div><strong>s 334(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="339">
+      <span class="dot "></span>
+      <div><strong>s 334(1)(definition-representative)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="340">
+      <span class="dot "></span>
+      <div><strong>s 334(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="341">
+      <span class="dot "></span>
+      <div><strong>s 334(3) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="342">
+      <span class="dot "></span>
+      <div><strong>s 334(4)(d)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="343">
+      <span class="dot "></span>
+      <div><strong>s 334(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="344">
+      <span class="dot "></span>
+      <div><strong>s 335</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="345">
+      <span class="dot "></span>
+      <div><strong>s 335continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="346">
+      <span class="dot "></span>
+      <div><strong>s 338(b)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="347">
+      <span class="dot "></span>
+      <div><strong>s 349</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="348">
+      <span class="dot "></span>
+      <div><strong>s 349(a)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="349">
+      <span class="dot "></span>
+      <div><strong>s 368(5)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="350">
+      <span class="dot "></span>
+      <div><strong>s 368(5) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="351">
+      <span class="dot "></span>
+      <div><strong>s 374(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="352">
+      <span class="dot "></span>
+      <div><strong>s 374(1)(definition-recording)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="353">
+      <span class="dot "></span>
+      <div><strong>s 378(5)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="354">
+      <span class="dot "></span>
+      <div><strong>s 378(5)(definition-complainant)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="355">
+      <span class="dot "></span>
+      <div><strong>s 378(5)(definition-recording)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="356">
+      <span class="dot "></span>
+      <div><strong>s 387(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="357">
+      <span class="dot "></span>
+      <div><strong>s 387(1)(definition-hearsay-rule)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="358">
+      <span class="dot "></span>
+      <div><strong>s 387L(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="359">
+      <span class="dot "></span>
+      <div><strong>s 387L(1) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="360">
+      <span class="dot "></span>
+      <div><strong>s 387L(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="361">
+      <span class="dot "></span>
+      <div><strong>s 387L(2)(b) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="362">
+      <span class="dot "></span>
+      <div><strong>s 387L(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="363">
+      <span class="dot "></span>
+      <div><strong>s 387L(3) penalty</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="364">
+      <span class="dot "></span>
+      <div><strong>s 387L(9)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="365">
+      <span class="dot "></span>
+      <div><strong>s 387L(9)(definition-member-of-victoria-police-personnel)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="366">
+      <span class="dot "></span>
+      <div><strong>s 387L(9)(definition-prescribed-person)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="367">
+      <span class="dot "></span>
+      <div><strong>s 387L(9)(definition-publish)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="368">
+      <span class="dot "></span>
+      <div><strong>s 387L(9)(definition-respondent)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="369">
+      <span class="dot "></span>
+      <div><strong>s 391(4)(d)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="370">
+      <span class="dot "></span>
+      <div><strong>s 391(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="371">
+      <span class="dot "></span>
+      <div><strong>s 391(5)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="372">
+      <span class="dot "></span>
+      <div><strong>s 391(5) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="373">
+      <span class="dot "></span>
+      <div><strong>s 392(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="374">
+      <span class="dot "></span>
+      <div><strong>s 392(1)(definition-informant)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="375">
+      <span class="dot "></span>
+      <div><strong>s 392(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="376">
+      <span class="dot "></span>
+      <div><strong>s 392(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="377">
+      <span class="dot "></span>
+      <div><strong>s 394(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="378">
+      <span class="dot "></span>
+      <div><strong>s 394(2) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="379">
+      <span class="dot "></span>
+      <div><strong>s 403</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="380">
+      <span class="dot "></span>
+      <div><strong>s 403continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="381">
+      <span class="dot "></span>
+      <div><strong>s 404(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="382">
+      <span class="dot "></span>
+      <div><strong>s 404(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="383">
+      <span class="dot "></span>
+      <div><strong>s 404(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="384">
+      <span class="dot "></span>
+      <div><strong>s 404(3) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="385">
+      <span class="dot "></span>
+      <div><strong>s 406(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="386">
+      <span class="dot "></span>
+      <div><strong>s 406(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="387">
+      <span class="dot "></span>
+      <div><strong>s 406(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="388">
+      <span class="dot "></span>
+      <div><strong>s 406(3) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="389">
+      <span class="dot "></span>
+      <div><strong>s 406(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="390">
+      <span class="dot "></span>
+      <div><strong>s 406(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="391">
+      <span class="dot "></span>
+      <div><strong>s 410(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="392">
+      <span class="dot "></span>
+      <div><strong>s 410(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="393">
+      <span class="dot "></span>
+      <div><strong>s 416A(2)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="394">
+      <span class="dot "></span>
+      <div><strong>s 449(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="395">
+      <span class="dot "></span>
+      <div><strong>s 449(1)(definition-amending-act)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="396">
+      <span class="dot "></span>
+      <div><strong>s 454(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="397">
+      <span class="dot "></span>
+      <div><strong>s 454(1)(definition-amending-act)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="398">
+      <span class="dot "></span>
+      <div><strong>s 454A(6)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="399">
+      <span class="dot "></span>
+      <div><strong>s 454A(6)(definition-trial-by-judge-alone)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="400">
+      <span class="dot "></span>
+      <div><strong>s 461(8)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="401">
+      <span class="dot "></span>
+      <div><strong>s 461(8)(definition-trial-by-judge-alone)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="402">
+      <span class="dot "></span>
+      <div><strong>Schedule 1 clause 3(3)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="403">
+      <span class="dot "></span>
+      <div><strong>Schedule 1 clause 3(3) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="404">
+      <span class="dot "></span>
+      <div><strong>Schedule 1 clause 12(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="405">
+      <span class="dot "></span>
+      <div><strong>Schedule 1 clause 12(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="406">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="407">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(a)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="408">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(b)</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="409">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="410">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="411">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(a)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="412">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(b)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="413">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(a)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="414">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(b)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="415">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(a)</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="416">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4(b)</strong>
+        <small>v113 → v114 · removed
+        </small></div>
+    </div>
+    <div class="row" data-k="417">
+      <span class="dot "></span>
+      <div><strong>Schedule 2 clause 4continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="418">
+      <span class="dot "></span>
+      <div><strong>Schedule 3</strong>
+        <small>v113 → v114 · changed
+        <span class="ev">· Act</span></small></div>
+    </div>
+    <div class="row" data-k="419">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(1)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="420">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(1) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="421">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(3A)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="422">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(3A) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="423">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(3B)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="424">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(3B) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="425">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="426">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 8(4) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div>
+    <div class="row" data-k="427">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 12(4)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="428">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 12(6)</strong>
+        <small>v113 → v114 · changed
+        </small></div>
+    </div>
+    <div class="row" data-k="429">
+      <span class="dot "></span>
+      <div><strong>Schedule 4 clause 12(6) continuation</strong>
+        <small>v113 → v114 · inserted
+        </small></div>
+    </div></div>
+  <div id="detail">
+    <h2>s 7A(3)</h2>
+    <div class="step">Version 110 → Version 111</div>
+    <div class="decide">
+      <button class="btn primary" onclick="decide('confirmed')">Confirm change (c)</button>
+      <button class="btn" onclick="decide('denied')">Deny: parsing issue (d)</button>
+      
+    </div>
+    <div class="cols"><div class="side"><div class="col"><div class="head">Version 110</div><div class="text"><span class="d-eq">Without limiting any other defence available to a person charged, because of subsection (1), with an offence of a kind described in column 1 of the Table in this subsection, the person may rely on a defence described in column 2 of that Table in relation to that offence. Table Column 1 Column 2 An offence against a A defence that would</span> <del class="d-del">be available under</del> <span class="d-eq">child under the age of 16</span> <span class="d-eq">section 45(4) of the Crimes Act 1958 if the person were charged with an offence under section 45(1) of that Act An offence against a A defence that would be available under 16 or 17 year old child section 48(2) of the Crimes Act 1958 if the person were charged with an offence under section 48(1) of that Act</span></div></div>
+    <div class="pdf"><div class="pdf-bar">Version 110 PDF
+      <button class="btn" onclick="turn('old', -1)" title="Earlier page">←</button>
+      <span id="old-label"></span>
+      <button class="btn" onclick="turn('old', 1)" title="Later page">→</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="zoom(-1)" title="Zoom out">−</button>
+      <button class="btn" onclick="zoom(1)" title="Zoom in">+</button></div>
+      <div class="pdf-scroll" id="old-scroll"><div class="none">No source PDF for criminal-procedure-act-v110</div></div></div></div><div class="side"><div class="col"><div class="head">Version 111</div><div class="text"><span class="d-eq">Without limiting any other defence available to a person charged, because of subsection (1), with an offence of a kind described in column 1 of the Table in this subsection, the person may rely on a defence described in column 2 of that Table in relation to that offence. Table Column 1 Column 2 An offence against a A defence that would</span> <span class="d-eq">child under the age of 16</span> <ins class="d-ins">be available under</ins> <span class="d-eq">section 45(4) of the Crimes Act 1958 if the person were charged with an offence under section 45(1) of that Act An offence against a A defence that would be available under 16 or 17 year old child section 48(2) of the Crimes Act 1958 if the person were charged with an offence under section 48(1) of that Act</span></div></div>
+    <div class="pdf"><div class="pdf-bar">Version 111 PDF
+      <button class="btn" onclick="turn('new', -1)" title="Earlier page">←</button>
+      <span id="new-label"></span>
+      <button class="btn" onclick="turn('new', 1)" title="Later page">→</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="zoom(-1)" title="Zoom out">−</button>
+      <button class="btn" onclick="zoom(1)" title="Zoom in">+</button></div>
+      <div class="pdf-scroll" id="new-scroll"><div class="none">No source PDF for criminal-procedure-act-v111</div></div></div></div></div>
+    <div class="decide"><a class="btn" target="_blank" rel="noopener" href="../../?reparse=criminal-procedure-act-v110&amp;mode=keep" title="The dashboard's Parse Menu for this version, keeping what is approved">Re-parse v110…</a> <a class="btn" target="_blank" rel="noopener" href="../../?reparse=criminal-procedure-act-v111&amp;mode=keep" title="The dashboard's Parse Menu for this version, keeping what is approved">Re-parse v111…</a></div>
+    <div class="evidence">
+      <h3>Amending Acts</h3><div class="none">No fetched amending Act gives an instruction for this.</div>
+      <h3>Margin notes new in Version 111</h3><div class="none">None.</div>
+    </div></div>
+</main>
+<div id="toast"></div>
+</body></html>

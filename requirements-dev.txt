@@ -12,3 +12,5 @@
 -r requirements-site.txt
 pytest
 xmlschema
+# Not needed for the suite: `python -m corpus.publishing.style_preview`
+# (docs/STYLING.md) also wants playwright and its Chromium.

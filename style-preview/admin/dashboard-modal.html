@@ -1,0 +1,883 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<title>Legislation pipeline dashboard</title>
+<!-- Inter and Junicode are self-hosted. --->
+<link rel="stylesheet" href="../../static/admin/fonts.css">
+<link rel="stylesheet" href="../../static/admin/dashboard.css">
+<script>
+try { if (localStorage.getItem("stylePreviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
+</head>
+<body>
+<div id="style-preview-bar" style="position:fixed;right:10px;bottom:10px;z-index:2147483647;
+  font:12px/1.4 system-ui,sans-serif;background:#fff;color:#111;border:1px solid #999;border-radius:4px;
+  padding:5px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)">
+  <b>admin/dashboard-modal</b> &middot; <a href="../index.html" style="color:#0645ad">all pages</a> &middot;
+  <button type="button" style="font:inherit" onclick="
+    var d = document.documentElement.dataset; if (d.theme === 'dark') delete d.theme; else d.theme = 'dark';
+    try { localStorage.setItem('stylePreviewTheme', d.theme || 'light'); } catch (e) {}">Light / dark</button>
+</div>
+
+
+<!-- Filled from /api/profiles on load; see loadProfiles(). -->
+<datalist id="profile-options"><option value="criminal-procedure-act"></option><option value="evidence-act"></option></datalist>
+
+<header>
+  <h1>Legislation pipeline dashboard</h1>
+  <div class="stat" id="summary">17 Act(s)/Bill(s)/EM(s), 21 document(s)</div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="loadActs()">Refresh</button>
+  <button class="btn primary" onclick="openModal('add-modal')">+ Add Act / Bill / EM</button>
+  <button class="btn" id="theme-toggle-btn" title="Switch to dark mode">🌙</button>
+  <button class="btn" onclick="logout()">Log out</button>
+</header>
+
+<main>
+  <!-- Where the review work stands against GitHub, and the one button
+       that puts it there. Above the documents because it is about all of
+       them at once, and because unpushed work is the thing worth seeing
+       on arrival rather than hunting for. -->
+  <section id="sync" class="sync" data-state="blocked">
+    <div class="sync-state">
+      <strong id="sync-headline">Can't reach GitHub</strong>
+      <span class="sync-detail" id="sync-detail">fatal: not a git repository (or any of the parent directories): .git</span>
+    </div>
+    <input id="sync-message" class="sync-message" type="text" placeholder="What changed (optional)" autocomplete="off">
+    <!-- Ordered by how often they are wanted, and by how much they cost
+         to get wrong: the two routine ones first, then the local-only
+         fallback, then the one that throws work away, set apart. -->
+    <div class="sync-actions">
+      <button class="btn" id="sync-refresh" onclick="loadSync()" title="Re-read this checkout and the remote">Refresh</button>
+      <button class="btn primary" id="sync-push" onclick="pushWork()" disabled="" title="GitHub can't be reached.">Push to GitHub</button>
+      <button class="btn" id="sync-pull" onclick="pullWork()" disabled="" title="GitHub can't be reached.">Pull</button>
+      <button class="btn" id="sync-commit" onclick="commitWork()" disabled="" title="Nothing to commit.">Save locally</button>
+      <button class="btn danger" id="sync-discard" onclick="discardWork()" disabled="" title="Nothing uncommitted to discard.">Discard…</button>
+    </div>
+  </section>
+
+  <!-- Shown only when the checkout has moved past the code answering
+       this page: a pull that brought new Python changes nothing until
+       the service restarts, and nothing else would ever say so. -->
+  <section id="stale" class="sync" data-state="blocked" hidden="">
+    <div class="sync-state">
+      <strong>The code on disk is newer than the code running</strong>
+      <span class="sync-detail" id="stale-detail"></span>
+    </div>
+    <button class="btn primary" id="stale-restart" onclick="restartService()">Restart the dashboard</button>
+  </section>
+
+  <!-- The public site is a separate process on the same box, holding its
+       own handles on the database and the search index for as long as it
+       runs. A pull that brings new code reaches it only when it starts
+       again -- the same staleness the strip above exists for, one
+       process over, and until now the only one you had to notice for
+       yourself. Hidden entirely where there is no such unit, so a laptop
+       is not told about a service it does not have. -->
+  <section id="public-service" class="sync" data-state="clean" hidden="">
+    <div class="sync-state">
+      <strong id="public-headline">The public site</strong>
+      <span class="sync-detail" id="public-detail"></span>
+    </div>
+    <button class="btn" id="public-refresh" onclick="loadPublicService()" title="Ask systemd how the public site is doing">Refresh</button>
+    <button class="btn" id="public-restart" onclick="restartPublicService()" disabled="">Restart the public site</button>
+    <!-- The evidence, not a sentence asserting a conclusion. The first
+         version of this strip said one thing whatever the cause -- "add
+         this sudoers line" -- which is the one message that cannot help
+         somebody who has already added it. -->
+    <details class="public-why" id="public-why" hidden="">
+      <summary id="public-why-summary">Why can't I restart it?</summary>
+      <dl id="public-diagnosis"></dl>
+    </details>
+  </section>
+
+  <div id="tools-row">
+    <button class="btn" onclick="openLinkModal()">Associate a Bill / Act / EM</button>
+    <!-- Named for what it does now. The public site reads the database
+         directly, so nothing here has to run for a review decision to
+         reach it -- and a button called "Rebuild the public site" is
+         exactly what would make somebody believe otherwise. -->
+    <button class="btn" onclick="rebuildSite()" id="site-rebuild" title="The live site needs no rebuild. This writes the static copy in _site/ -- the archive, and the rollback.">Rebuild the offline archive</button>
+    <button class="btn" onclick="rebuildSearch()" id="search-rebuild" title="The public site's search reads this index. Rebuilt automatically when you publish or withdraw a work.">Rebuild search index</button>
+    <button class="btn" onclick="openAiModal()">🤖 AI-assist model</button>
+    <a class="btn" href="lessons/" target="_blank" title="Rules proposed from your corrections, which the parser applies once you approve them">Lessons</a>
+    <span class="site-state" id="site-state">No offline archive built on this server yet.</span>
+    <span class="site-state" id="search-state">Search index is up to date.</span>
+  </div>
+  <div id="acts"><div class="doc-row">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">crimes-act</span>
+        <span class="badge in-progress">reviewing 7/906 units</span>
+        <button class="badge publish on" onclick="togglePublication('crimes-act', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 26 April 2026</span>
+        <span class="badge">7275 nodes, 906 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/crimes-act/" target="_blank">Review</a>
+        <a class="btn small" href="browse/crimes-act/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('crimes-act','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('crimes-act','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('crimes-act')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('crimes-act')">🤖 AI scan</button>
+        <a class="btn small" href="history/crimes-act/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/crimes-act/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('crimes-act', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('crimes-act', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/crimes-act/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div></div><div class="doc-row grouped">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">criminal-procedure-act</span>
+        <span class="badge in-progress">reviewing 229/741 units</span>
+        <button class="badge publish on" onclick="togglePublication('criminal-procedure-act', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">v114 — as at 1 July 2026</span>
+        <span class="badge">4820 nodes, 741 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/criminal-procedure-act-v114/" target="_blank">Review</a>
+        <a class="btn small" href="browse/criminal-procedure-act-v114/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('criminal-procedure-act-v114','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('criminal-procedure-act-v114','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('criminal-procedure-act-v114')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('criminal-procedure-act-v114')">🤖 AI scan</button>
+        <a class="btn small" href="history/criminal-procedure-act/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/criminal-procedure-act-v114/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('criminal-procedure-act', this)">
+      <summary>Versions (5)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('criminal-procedure-act', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/criminal-procedure-act/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">criminal-procedure-bill-2008</span>
+        <span class="badge in-progress">reviewing 2/492 units</span>
+        <button class="badge publish on" onclick="togglePublication('criminal-procedure-bill-2008', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Bill</span>
+        
+        <span class="badge">3009 nodes, 492 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/criminal-procedure-bill-2008/" target="_blank">Review</a>
+        <a class="btn small" href="browse/criminal-procedure-bill-2008/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('criminal-procedure-bill-2008','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('criminal-procedure-bill-2008','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('criminal-procedure-bill-2008')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('criminal-procedure-bill-2008')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/criminal-procedure-bill-2008/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">criminal-procedure-bill-2008-em</span>
+        <span class="badge in-progress">reviewing 13/440 units</span>
+        <button class="badge publish on" onclick="togglePublication('criminal-procedure-bill-2008-em', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Explanatory Memorandum</span>
+        
+        <span class="badge">807 nodes, 440 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/criminal-procedure-bill-2008-em/" target="_blank">Review</a>
+        <a class="btn small" href="browse/criminal-procedure-bill-2008-em/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('criminal-procedure-bill-2008-em','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('criminal-procedure-bill-2008-em','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('criminal-procedure-bill-2008-em')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('criminal-procedure-bill-2008-em')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/criminal-procedure-bill-2008-em/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div></div><div class="doc-row grouped">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">evidence-act</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('evidence-act', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 25 March 2024</span>
+        <span class="badge">1999 nodes, 390 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/evidence-act/" target="_blank">Review</a>
+        <a class="btn small" href="browse/evidence-act/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('evidence-act','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('evidence-act','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('evidence-act')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('evidence-act')">🤖 AI scan</button>
+        <a class="btn small" href="history/evidence-act/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/evidence-act/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('evidence-act', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('evidence-act', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/evidence-act/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">evidence-bill</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('evidence-bill', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Bill</span>
+        
+        <span class="badge">1793 nodes, 325 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/evidence-bill/" target="_blank">Review</a>
+        <a class="btn small" href="browse/evidence-bill/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('evidence-bill','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('evidence-bill','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('evidence-bill')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('evidence-bill')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/evidence-bill/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">evidence-bill-em</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('evidence-bill-em', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Explanatory Memorandum</span>
+        
+        <span class="badge">314 nodes, 258 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/evidence-bill-em/" target="_blank">Review</a>
+        <a class="btn small" href="browse/evidence-bill-em/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('evidence-bill-em','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('evidence-bill-em','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('evidence-bill-em')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('evidence-bill-em')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/evidence-bill-em/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div></div><div class="doc-row grouped">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">family-violence-protection-act-2008</span>
+        <span class="badge in-progress">reviewing 41/470 units</span>
+        <button class="badge publish on" onclick="togglePublication('family-violence-protection-act-2008', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 26 April 2026</span>
+        <span class="badge">2979 nodes, 470 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/family-violence-protection-act-2008/" target="_blank">Review</a>
+        <a class="btn small" href="browse/family-violence-protection-act-2008/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('family-violence-protection-act-2008','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('family-violence-protection-act-2008','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('family-violence-protection-act-2008')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('family-violence-protection-act-2008')">🤖 AI scan</button>
+        <a class="btn small" href="history/family-violence-protection-act-2008/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/family-violence-protection-act-2008/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('family-violence-protection-act-2008', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('family-violence-protection-act-2008', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/family-violence-protection-act-2008/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">family-violence-protection-bill-2008</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('family-violence-protection-bill-2008', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Bill</span>
+        
+        <span class="badge">2029 nodes, 445 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/family-violence-protection-bill-2008/" target="_blank">Review</a>
+        <a class="btn small" href="browse/family-violence-protection-bill-2008/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('family-violence-protection-bill-2008','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('family-violence-protection-bill-2008','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('family-violence-protection-bill-2008')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('family-violence-protection-bill-2008')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/family-violence-protection-bill-2008/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">family-violence-protection-bill-2008-em</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('family-violence-protection-bill-2008-em', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Explanatory Memorandum</span>
+        
+        <span class="badge">592 nodes, 492 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/family-violence-protection-bill-2008-em/" target="_blank">Review</a>
+        <a class="btn small" href="browse/family-violence-protection-bill-2008-em/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('family-violence-protection-bill-2008-em','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('family-violence-protection-bill-2008-em','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('family-violence-protection-bill-2008-em')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('family-violence-protection-bill-2008-em')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/family-violence-protection-bill-2008-em/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div></div><div class="doc-row">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">interpretation</span>
+        <span class="badge reviewed">reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('interpretation', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 1 May 2026</span>
+        <span class="badge">858 nodes, 113 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/interpretation/" target="_blank">Review</a>
+        <a class="btn small" href="browse/interpretation/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('interpretation','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('interpretation','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('interpretation')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('interpretation')">🤖 AI scan</button>
+        <a class="btn small" href="history/interpretation/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/interpretation/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('interpretation', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('interpretation', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/interpretation/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div></div><div class="doc-row">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">magistrates-court-act</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('magistrates-court-act', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 15 April 2026</span>
+        <span class="badge">1954 nodes, 280 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/magistrates-court-act/" target="_blank">Review</a>
+        <a class="btn small" href="browse/magistrates-court-act/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('magistrates-court-act','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('magistrates-court-act','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('magistrates-court-act')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('magistrates-court-act')">🤖 AI scan</button>
+        <a class="btn small" href="history/magistrates-court-act/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/magistrates-court-act/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('magistrates-court-act', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('magistrates-court-act', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/magistrates-court-act/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div></div><div class="doc-row">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">sentencing-act</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('sentencing-act', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 15 April 2026</span>
+        <span class="badge">4639 nodes, 595 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/sentencing-act/" target="_blank">Review</a>
+        <a class="btn small" href="browse/sentencing-act/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('sentencing-act','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('sentencing-act','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('sentencing-act')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('sentencing-act')">🤖 AI scan</button>
+        <a class="btn small" href="history/sentencing-act/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/sentencing-act/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('sentencing-act', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('sentencing-act', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/sentencing-act/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div></div><div class="doc-row grouped">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">sex-offenders-registration-act-2004</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('sex-offenders-registration-act-2004', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 9 February 2026</span>
+        <span class="badge">2119 nodes, 350 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/sex-offenders-registration-act-2004/" target="_blank">Review</a>
+        <a class="btn small" href="browse/sex-offenders-registration-act-2004/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('sex-offenders-registration-act-2004','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('sex-offenders-registration-act-2004','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('sex-offenders-registration-act-2004')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('sex-offenders-registration-act-2004')">🤖 AI scan</button>
+        <a class="btn small" href="history/sex-offenders-registration-act-2004/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/sex-offenders-registration-act-2004/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('sex-offenders-registration-act-2004', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('sex-offenders-registration-act-2004', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/sex-offenders-registration-act-2004/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">sex-offenders-registration-bill-2004</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('sex-offenders-registration-bill-2004', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Bill</span>
+        
+        <span class="badge">614 nodes, 601 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/sex-offenders-registration-bill-2004/" target="_blank">Review</a>
+        <a class="btn small" href="browse/sex-offenders-registration-bill-2004/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('sex-offenders-registration-bill-2004','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('sex-offenders-registration-bill-2004','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('sex-offenders-registration-bill-2004')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('sex-offenders-registration-bill-2004')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/sex-offenders-registration-bill-2004/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div>
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">sex-offenders-registration-bill-2004-explanatory-memorandum</span>
+        <span class="badge not-started">not yet reviewed</span>
+        <button class="badge publish on" onclick="togglePublication('sex-offenders-registration-bill-2004-explanatory-memorandum', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        <span class="badge">Explanatory Memorandum</span>
+        
+        <span class="badge">192 nodes, 86 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/sex-offenders-registration-bill-2004-explanatory-memorandum/" target="_blank">Review</a>
+        <a class="btn small" href="browse/sex-offenders-registration-bill-2004-explanatory-memorandum/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('sex-offenders-registration-bill-2004-explanatory-memorandum','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('sex-offenders-registration-bill-2004-explanatory-memorandum','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('sex-offenders-registration-bill-2004-explanatory-memorandum')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('sex-offenders-registration-bill-2004-explanatory-memorandum')">🤖 AI scan</button>
+        
+        <a class="btn small" href="teaching/sex-offenders-registration-bill-2004-explanatory-memorandum/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    </div></div><div class="doc-row">
+    <div class="act-card">
+      <div class="head">
+        <span class="slug">summary-offences-act</span>
+        <span class="badge in-progress">reviewing 37/162 units</span>
+        <button class="badge publish on" onclick="togglePublication('summary-offences-act', false, this)" title="On the public site -- click to take it down">On the public site</button>
+        
+        <span class="badge">as at 4 March 2026</span>
+        <span class="badge">1127 nodes, 162 units</span>
+        
+        
+      </div>
+      <div class="actions">
+        <button class="btn small" disabled="" title="No source PDF in acts/">Parse Menu</button>
+        <a class="btn small" href="review/summary-offences-act/" target="_blank">Review</a>
+        <a class="btn small" href="browse/summary-offences-act/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>
+        <button class="btn small" onclick="runExport('summary-offences-act','akn',this)">Export AKN</button>
+        <button class="btn small" onclick="runExport('summary-offences-act','markdown',this)">Export Markdown</button>
+        <button class="btn small" onclick="openDefinitionsModal('summary-offences-act')" title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
+        <button class="btn small" onclick="openAiScanModal('summary-offences-act')">🤖 AI scan</button>
+        <a class="btn small" href="history/summary-offences-act/" target="_blank" title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>
+        <a class="btn small" href="teaching/summary-offences-act/" target="_blank" title="Your review decisions, kept as examples the parser is checked against">Teaching</a>
+        
+        
+      </div>
+      
+    <details class="versions" ontoggle="this.open &amp;&amp; loadVersions('summary-offences-act', this)">
+      <summary>Versions (1)</summary>
+      <div class="versions-body">Loading…</div>
+      <div class="add-version">
+        <input type="file" accept="application/pdf">
+        <button class="btn small" onclick="addVersion('summary-offences-act', this)" title="An older or newer Authorised Version of this Act: it is placed by the version number it states, and what differs goes to History review">Add a version</button>
+        <a class="btn small" href="history/summary-offences-act/#fetch" target="_blank" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse -- an Act held in one version too">Fetch versions…</a>
+      </div>
+    </details>
+    </div></div></div>
+  <div id="empty" style="display:none">No Acts yet -- click "+ Add Act / Bill / EM" to parse your first one.</div>
+</main>
+
+<!-- Add Act/Bill/EM modal -->
+<div class="overlay open" id="add-modal">
+  <div class="modal">
+    <h2>Add a new Act, Bill, or Explanatory Memorandum</h2>
+    <form id="add-form">
+      <label>PDF file</label>
+      <input type="file" name="pdf" accept="application/pdf" required="">
+
+      <label>Kind</label>
+      <select name="kind" id="add-kind" onchange="onKindChange()">
+        <option value="act">Act</option>
+        <option value="bill">Bill</option>
+        <option value="em">Explanatory Memorandum</option>
+      </select>
+
+      <div id="act-bill-fields">
+        <label>Profile</label>
+        <!-- A list, not a text box: the names are few and getting one
+             wrong is not a small mistake. Still an input rather than a
+             select, so a profile added to the repo but not yet known to
+             this page can still be typed. -->
+        <input type="text" name="profile" list="profile-options" autocomplete="off" placeholder="Leave blank to work it out from the document">
+
+        <div class="row">
+          <div>
+            <label>Start page (optional)</label>
+            <input type="number" name="start_page" min="1">
+          </div>
+          <div>
+            <label>End page (optional)</label>
+            <input type="number" name="end_page" min="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <button type="button" class="btn" onclick="closeModal('add-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Parse</button>
+      </div>
+    </form>
+    <div id="add-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Parse menu: one per Act, over whichever of its versions are ticked.
+     Every version gets the same settings, parsed one after another. -->
+<div class="overlay" id="parse-modal">
+  <div class="modal">
+    <h2>Parse menu — <span id="parse-work"></span></h2>
+    <form id="parse-form">
+      <label>Versions to parse</label>
+      <div id="parse-versions"></div>
+      <div class="parse-pick">
+        <button type="button" class="btn small" onclick="tickParseVersions(true)">All</button>
+        <button type="button" class="btn small" onclick="tickParseVersions(false)">None</button>
+      </div>
+
+      <label>Kind</label>
+      <select name="kind" id="parse-kind" onchange="onParseKindChange()">
+        <option value="act">Act</option>
+        <option value="bill">Bill</option>
+        <option value="em">Explanatory Memorandum</option>
+      </select>
+
+      <div id="parse-act-bill-fields">
+        <label>Profile</label>
+        <!-- A list, not a text box: the names are few and getting one
+             wrong is not a small mistake. Still an input rather than a
+             select, so a profile added to the repo but not yet known to
+             this page can still be typed. -->
+        <input type="text" name="profile" list="profile-options" autocomplete="off" placeholder="Leave blank to work it out from the document">
+
+        <!-- Pages are one PDF's own, so they are offered only for one. -->
+        <div class="row" id="parse-pages">
+          <div>
+            <label>Start page (optional)</label>
+            <input type="number" name="start_page" min="1">
+          </div>
+          <div>
+            <label>End page (optional)</label>
+            <input type="number" name="end_page" min="1">
+          </div>
+        </div>
+      </div>
+
+      <!-- Re-anchoring reviewed pieces onto the new parse is the right
+           default, and what happens when this is left alone. It is the
+           wrong answer after a parser change big enough that the stored
+           decisions describe provisions that no longer exist in that
+           shape -- and then resetting them one at a time is the only
+           other way out. -->
+      <div id="parse-mode-group" style="display:none">
+        <label style="display:flex">
+          <input type="radio" name="mode" value="carry" checked="" style="width:auto; margin-right:6px;">
+          Carry my review across — anything the parser now reads differently comes back for another look
+        </label>
+        <label style="display:flex">
+          <input type="radio" name="mode" value="keep" style="width:auto; margin-right:6px;">
+          Re-parse only what I haven't approved — approved provisions keep their text and their tick
+        </label>
+        <label style="display:flex">
+          <input type="radio" name="mode" value="discard" style="width:auto; margin-right:6px;">
+          Start the review again — discard every stored decision for this document
+        </label>
+      </div>
+      <div id="parse-keep-note" class="warning" style="display:none">
+        A flagged piece is re-read from the new parse, so its stored wording is replaced — that is
+        what makes an improved parse visible for the pieces you marked as wrong. It stays flagged and
+        unreviewed, so it is still in your queue.
+      </div>
+      <div id="parse-discard-note" class="warning" style="display:none">
+        Accepted pieces, flags, link annotations, independent assessments and AI scan findings for this
+        document will be deleted. This cannot be undone. The log of past corrections and your own custom
+        types are kept — neither is tied to a position in the parse.
+      </div>
+
+      <div id="parse-warning" class="warning" style="display:none"></div>
+      <label id="parse-confirm-label" style="display:none">
+        <input type="checkbox" id="parse-confirm-checkbox" style="width:auto; margin-right:6px;">
+        I understand -- replace the existing parse anyway
+      </label>
+
+      <div class="footer">
+        <button type="button" class="btn" onclick="closeModal('parse-modal')">Cancel</button>
+        <button type="submit" class="btn primary" id="parse-submit-btn">Parse</button>
+      </div>
+    </form>
+    <div id="parse-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="parse-log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Bill-link modal -->
+<div class="overlay" id="link-modal">
+  <div class="modal">
+    <h2>Associate a Bill, its Act, and its Explanatory Memorandum</h2>
+
+    <!-- What is already associated, and a way out of it. Linking by hand
+         means getting it wrong by hand, and the only way back used to be
+         deleting files on the server. -->
+    <div id="link-existing"></div>
+
+    <form id="link-form">
+      <label>Bill</label>
+      <select name="bill_slug" id="link-bill" required=""></select>
+      <label>Act it became</label>
+      <select name="act_slug" id="link-act" required=""></select>
+      <label>Explanatory Memorandum (optional)</label>
+      <select name="em_slug" id="link-em"></select>
+      <div class="hint">Only parsed documents can be associated -- linking matches their
+        provisions against each other, so both have to have been read first.</div>
+      <div class="footer">
+        <button type="button" class="btn" onclick="closeModal('link-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Link</button>
+      </div>
+    </form>
+    <div id="link-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="link-log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- AI-assist model modal -->
+<div class="overlay" id="ai-modal">
+  <div class="modal">
+    <h2>AI-assist model</h2>
+    <div class="hint">
+      An optional local model gives a second opinion on pieces diagnostics has already flagged as
+      uncertain, in each Act's review screen -- it never parses anything itself, and its answer is
+      never applied automatically. Everything runs on this machine via <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>,
+      an open-source model server; nothing is sent anywhere else.
+    </div>
+    <div id="ai-status"></div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeModal('ai-modal')">Close</button>
+      <button type="button" class="btn" id="ai-refresh-btn" onclick="loadAiStatus()">Check again</button>
+      <button type="button" class="btn primary" id="ai-install-btn" onclick="installAiModel()" style="display:none">Download model</button>
+    </div>
+    <div id="ai-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="ai-log"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Whole-document AI scan modal -->
+<div class="overlay" id="ai-scan-modal">
+  <div class="modal">
+    <h2>AI scan — <span id="ai-scan-slug"></span></h2>
+    <div class="hint">
+      The same local model reads every unit of this document, not just the pieces diagnostics has
+      already flagged, and says whether each one's type/number/heading/text classification looks
+      right. This can take a long time on a real Act -- it runs in the background and picks up
+      where it left off if stopped or restarted. Nothing it finds is applied automatically: results
+      show up as findings in this Act's review screen, hidden the same way every other finding is
+      until a reviewer has recorded their own independent judgement first.
+    </div>
+    <div id="ai-scan-status"></div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeAiScanModal()">Close</button>
+      <button type="button" class="btn" id="ai-scan-stop-btn" onclick="stopAiScan()" style="display:none">Stop</button>
+      <button type="button" class="btn" id="ai-scan-restart-btn" onclick="startAiScan(true)" style="display:none">Restart from scratch</button>
+      <button type="button" class="btn primary" id="ai-scan-start-btn" onclick="startAiScan(false)" style="display:none">Start scan</button>
+    </div>
+    <div id="ai-scan-log-wrap" style="display:none">
+      <label>Output</label>
+      <pre id="ai-scan-log"></pre>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="definitions-modal">
+  <div class="modal wide">
+    <h2>Defined terms — <span id="definitions-slug"></span></h2>
+    <div class="hint">
+      The site hyperlinks a defined word back to where the Act defines it. Which words those are is
+      worked out from drafting convention — "<em>term</em> means…", "has the same meaning as in
+      section N", inside a Section headed Definitions or Interpretation — so it misses a term
+      phrased unusually and now and then catches a phrase that is not a definition at all. This is
+      where you say otherwise. Changes reach the live site straight away; the offline archive picks
+      them up on its next rebuild.
+    </div>
+    <input id="definitions-filter" class="sync-message" type="text" autocomplete="off" placeholder="Filter…" oninput="renderDefinitions()" style="width:100%;margin-top:10px">
+    <div class="term-list" id="definitions-list"></div>
+    <div class="term-count" id="definitions-count"></div>
+    <div class="term-add">
+      <div>
+        <label for="definitions-new-term">Add a term the matcher missed</label>
+        <input id="definitions-new-term" type="text" autocomplete="off" placeholder="e.g. safety notice">
+      </div>
+      <div style="flex:0 0 140px">
+        <label for="definitions-new-section">Defined in section</label>
+        <select id="definitions-new-section"></select>
+      </div>
+      <button type="button" class="btn" onclick="addDefinition()">Add</button>
+    </div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="closeModal('definitions-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+</body></html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Published legislation</title>
+
+<link rel="stylesheet" href="../../static/site/tokens.css">
+<link rel="stylesheet" href="../../static/site/page.css">
+<link rel="stylesheet" href="../../static/site/reader.css">
+<script>
+try { if (localStorage.getItem("stylePreviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
+</head>
+<body>
+<div id="style-preview-bar" style="position:fixed;right:10px;bottom:10px;z-index:2147483647;
+  font:12px/1.4 system-ui,sans-serif;background:#fff;color:#111;border:1px solid #999;border-radius:4px;
+  padding:5px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)">
+  <b>public/landing</b> &middot; <a href="../index.html" style="color:#0645ad">all pages</a> &middot;
+  <button type="button" style="font:inherit" onclick="
+    var d = document.documentElement.dataset; if (d.theme === 'dark') delete d.theme; else d.theme = 'dark';
+    try { localStorage.setItem('stylePreviewTheme', d.theme || 'light'); } catch (e) {}">Light / dark</button>
+</div>
+
+
+<header class="siteheader">
+  <a class="home" href="/">Corpus</a>
+  <form class="sitesearch" action="/search" method="get" role="search"><input type="search" name="q" value="" placeholder="Search" aria-label="Search the corpus"></form>
+  <button class="theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>
+</header>
+<div class="page">
+<div class="disclaimer"><strong>These are not official legislative texts.</strong> For full, authorised legislative texts you must refer to <a href="https://www.legislation.vic.gov.au" rel="noopener">legislation.vic.gov.au</a>. This site provides a computer-based interpretation of that text, with enhanced linking.</div><h1>Published legislation</h1><p>Automatically generated from this project’s review pipeline. Each document is published in full, and every provision a human has not yet checked against the official PDF says so at the top of its own page — the counts below say how much of each document that is.</p><ul class="section-list"><li><a href="/browse/crimes-act/">Crimes Act 1958</a> <span class="text-muted">Act · as at 26 April 2026</span></li><li><a href="/browse/criminal-procedure-act/">Criminal Procedure Act 2009</a> <span class="text-muted">Act · as at 1 July 2026</span></li><li><a href="/browse/evidence-act/">Evidence Act 2008</a> <span class="text-muted">Act · as at 25 March 2024</span></li><li><a href="/browse/family-violence-protection-act-2008/">Family Violence Protection Act 2008</a> <span class="text-muted">Act · as at 26 April 2026</span></li><li><a href="/browse/interpretation/">Interpretation of Legislation Act 1984</a> <span class="text-muted">Act · as at 1 May 2026</span></li><li><a href="/browse/magistrates-court-act/">Magistrates' Court Act 1989</a> <span class="text-muted">Act · as at 15 April 2026</span></li><li><a href="/browse/sentencing-act/">Sentencing Act 1991</a> <span class="text-muted">Act · as at 15 April 2026</span></li><li><a href="/browse/sex-offenders-registration-act-2004/">Sex Offenders Registration Act 2004</a> <span class="text-muted">Act · as at 9 February 2026</span></li><li><a href="/browse/summary-offences-act/">Summary Offences Act 1966</a> <span class="text-muted">Act · as at 4 March 2026</span></li></ul><footer class="site-footer">
+    <div class="footer-column-01">
+        <p>Corpus Vic is not a source of official legislative text.</p>
+        <p>For full, authorised versions of legislation you must refer to
+            <a href="https://www.legislation.vic.gov.au" rel="noopener">legislation.vic.gov.au</a>.</p>
+        <p>This site does not provide legal advice or commentary. Relying upon the interpreted text is done so at your own risk.</p>
+        <p>Corpus Vic is not related to the Victorian Government or any of its agencies.</p>
+    </div>
+    <div class="footer-column-02">
+                <p><a href="https://github.com/AgentPurpleLord/CorpusVic/issues" rel="noopener">Report a bug or issue</a></p>
+    </div>
+</footer>
+</div>
+</body></html>
