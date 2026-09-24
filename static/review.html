@@ -678,10 +678,26 @@ function selectPieceOnPage(piece) {
 
 let revealSelectedOnRender = false;
 
+// Scrolls one panel and nothing else. scrollIntoView scrolls every
+// scrollable ancestor as well, and when stepping with j/k the PDF's reveal
+// started straight after the text's, cutting the text's scroll short -- so
+// the piece stopped half in view at the bottom.
+function scrollWithin(container, el, where) {
+  if (!container || !el) return;
+  const box = el.getBoundingClientRect(), frame = container.getBoundingClientRect();
+  const top = box.top - frame.top + container.scrollTop;
+  const left = box.left - frame.left + container.scrollLeft;
+  container.scrollTo({
+    top: where === "start" ? top - 8 : top - (frame.height - box.height) / 2,
+    left: where === "start" ? container.scrollLeft : left - (frame.width - box.width) / 2,
+    behavior: "smooth",
+  });
+}
+
 function revealSelected() {
   const g = selectedNodeIndex == null ? null
     : overlayEl().querySelector(`.box-group[data-node-index="${selectedNodeIndex}"]`);
-  if (g) g.scrollIntoView({ block: "center", behavior: "smooth" });
+  scrollWithin(document.getElementById("pdf-image-wrap"), g, "center");
 }
 
 function paintHotState() {
@@ -1094,8 +1110,9 @@ function withChosenPiece(act) {
 // Chosen the way a click chooses it: lit in the panel and, with the PDF
 // showing, on the page -- turning to its page if it is printed elsewhere.
 function choosePiece(piece) {
-  const div = document.querySelector(`.piece[data-node-index="${piece.node_index}"]`);
-  if (div) div.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  // To the top of the panel, so a long piece is read from its start
+  // rather than stopping wherever its first line came into view.
+  scrollWithin(document.getElementById("main"), document.querySelector(`.piece[data-node-index="${piece.node_index}"]`), "start");
   if (viewMode === "text") setSelected(piece.node_index);
   else selectPieceOnPage(piece);
 }

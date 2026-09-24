@@ -154,24 +154,90 @@ def discover_slugs() -> list[str]:
     return sorted(slugs)
 
 
-_pdf_version_cache: dict[tuple, "int | None"] = {}
+# What the document list needs from files that are slow to read -- each
+# version PDF's front matter, and a few facts out of each multi-megabyte
+# parse -- kept against the file's size and mtime, and on disk, so the
+# first load after a restart doesn't read them all again. Gitignored:
+# rebuilt from the files whenever they change.
+_list_cache: "dict | None" = None
+_SUMMARY_KEYS = ("source", "profile", "document_type", "version")
+
+
+def _list_cache_path() -> Path:
+    return BASE_DIR / "data" / ".cache" / "dashboard-list.json"
+
+
+def _cache() -> dict:
+    global _list_cache
+    if _list_cache is None or _list_cache.get("base") != str(BASE_DIR):
+        try:
+            _list_cache = json.loads(_list_cache_path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _list_cache = {}
+        _list_cache = {"summaries": _list_cache.get("summaries") or {},
+                       "pdf_versions": _list_cache.get("pdf_versions") or {}, "base": str(BASE_DIR)}
+    return _list_cache
+
+
+def _save_cache() -> None:
+    cache = _cache()
+    if not cache.pop("dirty", False):
+        return
+    path = _list_cache_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(cache), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        pass   # a cache that can't be written is a slower load, not an error
+
+
+def _stamp(path: Path) -> "str | None":
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return f"{st.st_mtime_ns}:{st.st_size}"
 
 
 def _pdf_version(pdf: Path) -> "int | None":
     """This PDF's version number (as it states it -- see
-    corpus/versions.py), cached against the file's own
-    mtime and size -- discover_slugs runs on every dashboard load, and
-    reading the front matter of every version of every Act on each one
-    would be paying repeatedly for something that only changes when a file
-    does."""
-    try:
-        st = pdf.stat()
-    except OSError:
+    corpus/versions.py). discover_slugs asks on every dashboard load, and
+    reading the front matter of every version of every Act each time --
+    or after every restart -- pays repeatedly for what only changes when a
+    file does."""
+    stamp = _stamp(pdf)
+    if stamp is None:
         return None
-    key = (str(pdf), st.st_mtime_ns, st.st_size)
-    if key not in _pdf_version_cache:
-        _pdf_version_cache[key] = read_front_matter(pdf).get("version")
-    return _pdf_version_cache[key]
+    cache = _cache()["pdf_versions"]
+    entry = cache.get(str(pdf))
+    if not entry or entry["stamp"] != stamp:
+        entry = cache[str(pdf)] = {"stamp": stamp, "version": read_front_matter(pdf).get("version")}
+        _cache()["dirty"] = True
+    return entry["version"]
+
+
+def _parse_summary(slug: str) -> "dict | None":
+    """The few facts the list and the page chrome want from a parse, read
+    once per change to the file rather than on every request."""
+    path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
+    stamp = _stamp(path)
+    if stamp is None:
+        return None
+    cache = _cache()["summaries"]
+    entry = cache.get(slug)
+    if entry and entry["stamp"] == stamp:
+        return entry
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    nodes = data.get("nodes", [])
+    entry = cache[slug] = {"stamp": stamp, **{k: data.get(k) for k in _SUMMARY_KEYS},
+                           "node_count": len(nodes), "units": group_into_units(nodes)}
+    _cache()["dirty"] = True
+    return entry
 
 
 def act_status(slug: str, publication: "dict | None" = None) -> dict:
@@ -208,7 +274,7 @@ def act_status(slug: str, publication: "dict | None" = None) -> dict:
         # was handed "criminal-procedure-act-v114", which is not a
         # profile that exists: its Parts stopped matching and Chapter 2
         # swallowed Part 2.1's heading, with nothing to say why.
-        "profile": profile_for(slug, BASE_DIR),
+        "profile": profile_for(slug, BASE_DIR, recorded=(_parse_summary(slug) or {}).get("profile")),
         "parsed": parsed_path.exists(),
         # "act" / "bill" / "em" -- what the pipeline recorded when it
         # parsed this one (filled in below, from the parse this function
@@ -222,14 +288,13 @@ def act_status(slug: str, publication: "dict | None" = None) -> dict:
         "akn_exported": (BASE_DIR / "data" / "akn" / f"{slug}.xml").exists(),
         "markdown_exported": (BASE_DIR / "data" / "markdown" / slug / "index.md").exists(),
     }
-    if not parsed_path.exists():
+    summary = _parse_summary(slug)
+    if summary is None:
         return status
-    data = json.loads(parsed_path.read_text(encoding="utf-8"))
-    status["kind"] = data.get("document_type") or "act"
-    status["version_as_at"] = (data.get("version") or {}).get("as_at_printed")
-    nodes = data.get("nodes", [])
-    units = group_into_units(nodes)
-    status["node_count"] = len(nodes)
+    status["kind"] = summary.get("document_type") or "act"
+    status["version_as_at"] = (summary.get("version") or {}).get("as_at_printed")
+    units = summary["units"]
+    status["node_count"] = summary["node_count"]
     status["unit_count"] = len(units)
 
     verified = db.load_verified(slug, base_dir=BASE_DIR)
@@ -873,9 +938,10 @@ def sync_status():
         "needs_import": needs_import,
         "running_head": _RUNNING_HEAD,
         "checkout_head": on_disk,
-        # Both known and different: the checkout has moved since this
+        # Both known and different: the code on disk has moved since this
         # process started, so what is being served is not what is there.
-        "code_stale": bool(_RUNNING_HEAD and on_disk and _RUNNING_HEAD != on_disk),
+        # The code, not the commit -- see sync.CODE_PATHS.
+        "code_stale": bool(_RUNNING_CODE and (code := sync.code_version(BASE_DIR)) and _RUNNING_CODE != code),
         "can_restart": can_restart,
         "restart_blocked": why_not,
     }
@@ -915,6 +981,7 @@ def _default_commit_message() -> str:
 # is exactly the shape of failure the pull was meant to fix.
 
 _RUNNING_HEAD = sync.head(BASE_DIR)
+_RUNNING_CODE = sync.code_version(BASE_DIR)
 
 # systemd sets this for every service it starts, and nothing else does.
 # Its absence means a restart here would stop the dashboard and leave it
@@ -1482,7 +1549,9 @@ def index():
 @app.get("/api/acts")
 def list_acts():
     publication = db.load_publication(BASE_DIR)
-    return [act_status(slug, publication) for slug in discover_slugs()]
+    statuses = [act_status(slug, publication) for slug in discover_slugs()]
+    _save_cache()
+    return statuses
 
 
 class DefinitionOverrideRequest(BaseModel):
@@ -1551,7 +1620,44 @@ def verify_amending_acts(work: str):
 # of a work, confirmed as Parliament's or denied as the parser's.
 # ---------------------------------------------------------------------------
 
-_history_cache: dict[str, tuple[str, list]] = {}
+# Each step between two consecutive versions, kept against what it was
+# worked out from -- both versions' parses and review state, the amending
+# Acts, the code -- in memory and on disk (gitignored). A work with many
+# versions recomputed every step on every load, and all of them after a
+# restart; now only a step whose versions changed is worked out again.
+_history_steps: dict[str, dict] = {}
+
+
+def _history_cache_path(work: str) -> Path:
+    return BASE_DIR / "data" / ".cache" / f"history-{work}.json"
+
+
+def _history_steps_for(work: str) -> dict:
+    where = f"{BASE_DIR}|{work}"
+    if where not in _history_steps:
+        try:
+            _history_steps[where] = json.loads(_history_cache_path(work).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _history_steps[where] = {}
+    return _history_steps[where]
+
+
+def _save_history_steps(work: str) -> None:
+    path = _history_cache_path(work)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(_history_steps_for(work)), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        pass
+
+
+def _amending_stamp() -> str:
+    root = BASE_DIR / "data" / "amending"
+    files = sorted(p for p in root.rglob("*") if p.is_file()) if root.exists() else []
+    return hashlib.sha1(repr([(str(p.relative_to(root)), p.stat().st_mtime_ns, p.stat().st_size)
+                              for p in files]).encode()).hexdigest()
 
 
 class HistoryDecision(BaseModel):
@@ -1743,25 +1849,46 @@ def lesson_withdraw(rid: str):
 def _history_items(work: str) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later
-    version -- cached against the text itself rather than the review
-    database, which each decision writes to."""
+    version -- one step between consecutive versions at a time, each
+    cached against what it was worked out from (_history_steps)."""
     held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
-    if not held:
-        return []   # held under its plain name: no versions yet to compare
-    versions = []
-    for slug in held:
-        nodes, _unattached, hierarchy = _current_nodes(slug)
-        versions.append((split_document_slug(slug)[1], _with_rects(slug, nodes), hierarchy))
-    stamp = hashlib.sha256(json.dumps(
-        [[_parse_signature(s) for s in held]]
-        + [(v, sorted((str(k), p["heading"], p["text"]) for k, p in diffing.provisions(n).items()))
-           for v, n, _h in versions]).encode()).hexdigest()
-    cached = _history_cache.get(work)
-    if cached and cached[0] == stamp:
-        return cached[1]
-    items = history_changes.work_changes(versions)
-    acts = amending_load.work_instructions(held[-1], BASE_DIR,
-                                           amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+    if len(held) < 2:
+        return []   # held under its plain name, or in one version: nothing to compare
+    cache = _history_steps_for(work)
+    stamps = {slug: [_parse_signature(slug), db.act_signature(slug, BASE_DIR)] for slug in held}
+    common = [_RUNNING_CODE, _amending_stamp()]
+    loaded: dict = {}
+    acts = None
+
+    def version(slug):
+        if slug not in loaded:
+            nodes, _unattached, hierarchy = _current_nodes(slug)
+            loaded[slug] = (split_document_slug(slug)[1], _with_rects(slug, nodes), hierarchy)
+        return loaded[slug]
+
+    items, steps, changed = [], set(), False
+    for older, newer in zip(held, held[1:]):
+        key, stamp = f"{older}|{newer}", json.dumps([common, stamps[older], stamps[newer]])
+        steps.add(key)
+        entry = cache.get(key)
+        if not entry or entry["stamp"] != stamp:
+            if acts is None:
+                acts = amending_load.work_instructions(
+                    held[-1], BASE_DIR, amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+            entry = cache[key] = {"stamp": stamp, "items": _history_step(version(older), version(newer), acts)}
+            changed = True
+        items.extend(entry["items"])
+    for gone in set(cache) - steps:
+        del cache[gone]
+        changed = True
+    if changed:
+        _save_history_steps(work)
+    return items
+
+
+def _history_step(older: tuple, newer: tuple, acts: dict) -> list[dict]:
+    """The changes from one version to the next, with their evidence."""
+    items = history_changes.work_changes([older, newer])
     by_step: dict = {}
     for item in items:
         by_step.setdefault((item["key"], item["from"], item["to"]), []).append(item)
@@ -1771,6 +1898,10 @@ def _history_items(work: str) -> list[dict]:
         results = amending_match.match(mine, group[0]["_older"], group[0]["_newer"])["instructions"] if mine else []
         for item in group:
             item["instructions"], item["notes"] = [], _new_notes(item)
+            # The Act's own record of an official change of wording. A
+            # change without one is taken to be the parser reading the two
+            # versions differently, and is not put up for review.
+            item["noted"] = bool(item["notes"])
         for r in results:
             evidence = {"act": r["act"], "provision": r["provision"], "raw": r["raw"], "status": r["status"]}
             landed = next((u for u in reversed(r["pair"]) if u is not None), None)
@@ -1791,9 +1922,7 @@ def _history_items(work: str) -> list[dict]:
                     evidence.update(place_as="".join(f"({p})" for p in path), node_id=node_id)
             for item in target:
                 item["instructions"].append({**evidence, "here": item["piece"] == at})
-    public = [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
-    _history_cache[work] = (stamp, public)
-    return public
+    return [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
 
 
 def _with_rects(slug: str, nodes: list[dict]) -> list[dict]:
@@ -1825,7 +1954,10 @@ def _new_notes(item: dict) -> list[str]:
 
     if item["piece"] == history_changes.WHOLE:
         units = item["_newer"] or []
-        return [n for u in units for n in notes(u) if n][:6]
+        # A repeal leaves only its row of stars, which carries the note.
+        row = item.get("_row")
+        row_notes = [h.get("raw") if isinstance(h, dict) else h for h in (row or {}).get("history") or []]
+        return [n for n in [*row_notes, *(n for u in units for n in notes(u))] if n][:6]
     was = set(notes(old))
     return [n for n in notes(new) if n and n not in was]
 
@@ -1833,7 +1965,7 @@ def _new_notes(item: dict) -> list[str]:
 @app.get("/api/works/{work}/history")
 def history_items(work: str):
     held = _held(work)
-    items = _history_items(work)
+    items = [dict(item) for item in _history_items(work)]
     decisions = db.load_history_decisions(work, BASE_DIR)
     for item in items:
         item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
@@ -2369,6 +2501,42 @@ def fetch_work_version(work: str, version: int, replace: bool = False):
         _version_fetches[work] = job
     threading.Thread(target=_fetch_version_job, args=(work, version, job, replace), daemon=True).start()
     return job
+
+
+@app.post("/api/works/{work}/versions/fetch-all")
+def fetch_all_work_versions(work: str):
+    """Starts fetching every version the site has a PDF of and this work
+    does not hold yet, oldest first, as one background job: forty reprints
+    at a few minutes' parse apiece outlasts any page kept open for it."""
+    held = {split_document_slug(s)[1] for s in _held(work)}
+    wanted = sorted(v["version"] for v in _site_versions(work) if v.get("pdf_url") and v["version"] not in held)
+    if not wanted:
+        raise HTTPException(400, "Every version the site has a PDF of is held here already.")
+    with _version_fetch_lock:
+        job = _version_fetches.get(work)
+        if job and job["state"] == "running":
+            raise HTTPException(409, f"Version {job['version']} is still being fetched.")
+        job = {"version": wanted[0], "all": wanted, "done": [], "failed": [], "state": "running",
+               "result": None, "error": None}
+        _version_fetches[work] = job
+    threading.Thread(target=_fetch_all_job, args=(work, job), daemon=True).start()
+    return job
+
+
+def _fetch_all_job(work: str, job: dict) -> None:
+    for version in job["all"]:
+        job["version"] = version
+        try:
+            result = _fetch_version(work, version)
+            (job["done"] if result.get("ok") else job["failed"]).append(
+                {"version": version, "slug": result.get("slug"), "error": None if result.get("ok") else "the parse failed"})
+        except HTTPException as e:
+            job["failed"].append({"version": version, "error": str(e.detail)})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            job["failed"].append({"version": version, "error": f"{type(e).__name__}: {e}"})
+    job["state"] = "done"
 
 
 @app.get("/api/works/{work}/versions/fetch")
@@ -3238,6 +3406,10 @@ def _parse_field(slug: str, key: str, default=None):
     browse pages want two small things out of it (the title and the
     version block) on every request -- so both go through here and through
     _act_title's cache rather than each re-reading the file."""
+    if key in _SUMMARY_KEYS:
+        summary = _parse_summary(slug)
+        value = summary.get(key) if summary else None
+        return default if value is None else value
     parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     if not parsed_path.exists():
         return default

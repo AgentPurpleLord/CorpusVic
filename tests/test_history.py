@@ -300,3 +300,79 @@ def test_the_page_says_repealed():
 
     page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
     assert 'repeal: "repealed"' in page and "OP_WORDS[i.op]" in page
+
+
+def _two_versions(tmp_path, monkeypatch, *, noted_s3=False):
+    """s 2(1) amended with its margin note; s 3(1) read differently with
+    none -- the parser's, not Parliament's."""
+    import corpus.web.dashboard as dashboard
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True, exist_ok=True)
+    for version, s2, s3 in ((1, "a person may appeal", "the court may"), (2, "a person may appeal within 28 days", "the court rnay")):
+        nodes = _nodes({"2": [("1", s2)], "3": [("1", s3)]})
+        if version == 2:
+            nodes[2]["history"] = [{"raw": "S. 2(1) amended by No. 7/2026 s. 3."}]
+            if noted_s3:
+                nodes[4]["history"] = [{"raw": "S. 3(1) amended by No. 7/2026 s. 4."}]
+        (parsed / f"act-v{version}.json").write_text(json.dumps({
+            "nodes": nodes, "hierarchy": HIERARCHY, "fingerprint": f"fp{version}", "version": {"version": version}}))
+    return dashboard
+
+
+def test_only_a_change_with_a_margin_note_is_up_for_review(tmp_path, monkeypatch):
+    """The Act prints a note beside every official change of wording; a
+    change without one is taken to be the parser reading the two versions
+    differently."""
+    dashboard = _two_versions(tmp_path, monkeypatch)
+
+    items = dashboard.history_items("act")["items"]
+    assert {(i["section"], i["noted"]) for i in items} == {("s 2", True), ("s 3", False)}
+
+
+def test_each_step_is_worked_out_once_until_its_versions_change(tmp_path, monkeypatch):
+    """A work with many versions recomputed every step on every load, and
+    again after every restart."""
+    from corpus.history import changes as history_changes
+
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    calls = []
+    real = history_changes.work_changes
+    monkeypatch.setattr(history_changes, "work_changes", lambda versions: calls.append(1) or real(versions))
+
+    dashboard.history_items("act")
+    monkeypatch.setattr(dashboard, "_history_steps", {})   # a restart: only the file on disk is left
+    dashboard.history_items("act")
+    assert len(calls) == 1 and (tmp_path / "data" / ".cache" / "history-act.json").exists()
+
+    _two_versions(tmp_path, monkeypatch, noted_s3=True)   # a re-parse of version 2
+    import os
+    os.utime(tmp_path / "data" / "parsed" / "act-v2.json", ns=(1, 10**18))
+    assert all(i["noted"] for i in dashboard.history_items("act")["items"]) and len(calls) == 2
+
+
+def test_every_version_not_held_is_fetched_in_one_job(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+
+    class Now:
+        def __init__(self, target, args=(), daemon=None):
+            self.target, self.args = target, args
+
+        def start(self):
+            self.target(*self.args)
+
+    monkeypatch.setattr(dashboard, "_held", lambda work: ["act-v110"])
+    monkeypatch.setattr(dashboard, "_site_versions", lambda work: [
+        {"version": v, "pdf_url": f"https://x/{v}.pdf" if v != 112 else None} for v in (109, 110, 111, 112, 113)])
+    fetched = []
+    monkeypatch.setattr(dashboard, "_fetch_version", lambda work, v: fetched.append(v) or {"ok": v != 113, "slug": f"act-v{v}"})
+    monkeypatch.setattr(dashboard.threading, "Thread", Now)
+
+    job = dashboard.fetch_all_work_versions("act")
+
+    assert fetched == [109, 111, 113], "oldest first, skipping the held one and the one with no single PDF"
+    assert job["state"] == "done" and [d["version"] for d in job["done"]] == [109, 111]
+    assert [f["version"] for f in job["failed"]] == [113]

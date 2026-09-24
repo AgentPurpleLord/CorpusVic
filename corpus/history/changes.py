@@ -134,7 +134,8 @@ def work_changes(versions: list[tuple]) -> list[dict]:
                                 "new_html": _row_html(row) if going else words,
                                 "old_at": _where(units[0] if units else None) if going else _row_at(row),
                                 "new_at": _row_at(row) if going else _where(units[0] if units else None),
-                                "_older": units if going else [], "_newer": [] if going else units})
+                                "_older": units if going else [], "_newer": [] if going else units,
+                                "_row": row})
                     continue
                 out.append({**base, "piece": WHOLE, "label": "whole provision",
                             "op": "insert" if key in b_prov else "delete",

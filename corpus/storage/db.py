@@ -549,6 +549,19 @@ def load_verified(act: str, base_dir: "str | Path | None" = None) -> list[dict]:
     return [_verified_row_to_dict(row) for row in rows]
 
 
+def act_signature(act: str, base_dir: "str | Path | None" = None) -> list:
+    """A cheap stamp of one document's review state -- what it has
+    decided, restructured and drawn -- for a cache of something built from
+    it to know when to build again, without loading any of it. Every
+    decision writes a verified_at, and removing one changes a count."""
+    conn = _connect(base_dir)
+    return [list(conn.execute(sql, (act,)).fetchone()) for sql in (
+        "SELECT count(*), max(verified_at), total(length(text)) FROM verified WHERE act = ?",
+        "SELECT count(*), total(length(node_id) + length(coalesce(after_id, ''))) FROM structure_edits WHERE act = ?",
+        "SELECT count(*), max(updated_at) FROM node_rects WHERE act = ?",
+    )]
+
+
 def save_verified(act: str, verified: list[dict], base_dir: "str | Path | None" = None) -> None:
     """Replaces every stored verified entry for this Act with exactly
     what's in `verified` now. This matches the "overwrite the whole
