@@ -69,9 +69,10 @@ from corpus.parsing.identity import annotate_ids
 from corpus.parsing.tree import attach_history
 
 
-def run_parser(pages, act_slug: str, profile_name: str | None, document_type: str = "act"):
+def run_parser(pages, act_slug: str, profile_name: str | None, document_type: str = "act",
+               learned: "list[dict] | None" = None):
     top_level_type = "clause" if document_type == "bill" else "section"
-    result = parse_act(pages, profile_name=profile_name, top_level_type=top_level_type)
+    result = parse_act(pages, profile_name=profile_name, top_level_type=top_level_type, act=act_slug, learned=learned)
     print(f"[{act_slug}] parser -> {len(result.nodes)} nodes, {result.lines_consumed}/{result.lines_total} lines consumed")
     for w in result.warnings:
         print(f"  ! {w}")
@@ -146,6 +147,13 @@ def main():
     (extracted_dir / f"{act_slug}.json").write_text(
         json.dumps(pages_to_dicts(pages), indent=2), encoding="utf-8"
     )
+    # Every printed line with what the parser reads off it, so a rule
+    # learned from review can be previewed across Acts without re-reading
+    # their PDFs (corpus/teaching).
+    (extracted_dir / f"{act_slug}.lines.json").write_text(json.dumps([
+        {"page": l.page_no, "y0": round(l.y0, 1), "x0": round(l.x0, 1), "x1": round(l.x1, 1),
+         "size": round(l.size, 1), "bold": l.bold, "lbi": l.leading_bold_italic, "text": l.text.strip()}
+        for p in pages for l in p.body_lines]), encoding="utf-8")
 
     # A profile named after the Act applies to it without being asked for.
     # It only ever took effect with an explicit --profile before, so a

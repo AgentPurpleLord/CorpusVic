@@ -133,3 +133,9 @@ id_ecdsa*
 # the exporters all cite, so it stays tracked.
 acts/*
 !acts/profiles/
+
+# The scoreboard's memory of the last run (corpus/teaching/score.py); the
+# examples themselves are committed.
+data/teaching/.last/
+# The second opinion (corpus/teaching/model.py), rebuilt from the examples.
+data/teaching/.model.json

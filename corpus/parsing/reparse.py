@@ -90,6 +90,11 @@ def parser_version() -> str:
     digest = hashlib.sha256()
     for module in (rule_parser, em_parser, hierarchy):
         digest.update(inspect.getsource(module).encode("utf-8"))
+    # Rules approved from review change how a PDF is read as surely as the
+    # code does (corpus/teaching).
+    from corpus.teaching.rules import rules_path
+    if rules_path().exists():
+        digest.update(rules_path().read_bytes())
     return digest.hexdigest()[:16]
 
 

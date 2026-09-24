@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lessons</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
+    --border: color-mix(in srgb, #201e1d 30%, transparent); --accent: #ec3013;
+    --done: #16a34a; --flagged: #d97706;
+  }
+  :root[data-theme="dark"] {
+    --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #a39d9d;
+    --border: color-mix(in srgb, #eeeaea 30%, transparent);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--fg); }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px;
+           border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  .btn { font: inherit; padding: 4px 10px; border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+         cursor: pointer; text-decoration: none; }
+  .btn.primary { background: var(--fg); color: var(--bg); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .muted { color: var(--muted); }
+  .card { border: 1px solid var(--border); padding: 10px 14px; margin: 10px 0; }
+  .card p { margin: 4px 0 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  td.line { font-family: Georgia, serif; }
+  code { font-size: 12px; }
+  .bad { color: var(--accent); }
+  .good { color: var(--done); }
+  h2 { font-size: 15px; margin: 18px 0 6px; }
+  details summary { cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Lessons</h1>
+  <span style="flex:1"></span>
+  <a class="btn" href="../">Dashboard</a>
+</header>
+<main>
+  <p class="muted">Where the parser and your decisions disagree the same way on lines that look alike, the
+    agreement is proposed here as a rule. Proposals come from each Act's last Teaching check. A rule changes
+    nothing until you approve it; preview it first to see every line it would change across the Acts held here,
+    and which of your examples it fixes or breaks. Approving changes the parser, so held Acts will ask to be
+    re-parsed.</p>
+  <div id="out"></div>
+</main>
+<script>
+// Proposals and approved rules (corpus/teaching/propose.py, rules.py).
+const API = "../api/lessons";
+function esc(t) { return String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+async function jsonOf(res) {
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {
+    throw new Error(`${res.status} ${res.statusText}: ${text.replace(/<[^>]*>/g, " ").trim().slice(0, 200)}`);
+  }
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+const said = (x) => x ? `${x.type}${x.number ? " " + x.number : ""}` : "nothing opens here";
+const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+                                          body: body ? JSON.stringify(body) : undefined }).then(jsonOf);
+
+function previewHtml(p) {
+  if (!p) return "";
+  if (p.state === "running") return `<p>Previewing&hellip; ${esc(p.at || "")}</p>`;
+  if (p.state === "failed") return `<p class="bad">${esc(p.error)}</p>`;
+  const r = p.result;
+  const rows = r.changes.slice(0, 200).map((c) => `<tr><td>${esc(c.act)}</td><td>${c.page}</td>
+    <td class="line">${esc(c.text)}</td><td>${esc(said(c.before))}</td><td>${esc(said(c.after))}</td></tr>`).join("");
+  return `<p>Across ${r.acts.length} Act(s): <b>${r.changes.length}</b> line(s) read differently;
+    your examples <span class="good">${r.fixed.length} fixed</span>,
+    <span class="${r.broken.length ? "bad" : ""}">${r.broken.length} broken</span>.</p>
+    ${r.changes.length ? `<details ${r.changes.length <= 30 ? "open" : ""}><summary>The lines</summary>
+      <table><tr><th>Act</th><th>Page</th><th>Line</th><th>Now</th><th>With this rule</th></tr>${rows}</table>
+      ${r.changes.length > 200 ? `<p class="muted">and ${r.changes.length - 200} more</p>` : ""}</details>` : ""}`;
+}
+
+function candidateHtml(c) {
+  const ex = c.examples.map((e) => `<tr><td>${esc(e.act)}</td><td>${e.page}</td><td class="line">${esc(e.text)}</td>
+    <td>${esc(said(e.expected))}</td><td>${esc(said(e.got))}</td></tr>`).join("");
+  const done = c.preview && c.preview.state === "done";
+  return `<div class="card" data-id="${c.id}">
+    <p><b>${esc(c.description)}</b></p>
+    <p class="muted">From ${c.count} of your decisions. Pattern <code>${esc(c.when.pattern)}</code></p>
+    <details><summary>The decisions it came from</summary>
+      <table><tr><th>Act</th><th>Page</th><th>Line</th><th>You said</th><th>The parser said</th></tr>${ex}</table>
+    </details>
+    <div class="preview">${previewHtml(c.preview)}</div>
+    <div class="row">
+      <button class="btn" data-act="preview">${c.preview ? "Preview again" : "Preview"}</button>
+      <label>Apply to <select data-scope>
+        <option value="${esc(c.scope)}">${esc(c.scope === "all" ? "every Act" : c.scope)}</option>
+        ${c.scope !== "all" ? `<option value="all">every Act</option>` : ""}
+        ${[...new Set(c.examples.map((e) => e.act))].filter((a) => a !== c.scope)
+          .map((a) => `<option value="${esc(a)}">${esc(a)} only</option>`).join("")}
+      </select></label>
+      <button class="btn primary" data-act="approve" ${done ? "" : "disabled"}
+              title="${done ? "" : "Preview it first"}">Approve</button>
+      <button class="btn" data-act="reject">Reject</button>
+    </div></div>`;
+}
+
+function ruleHtml(r) {
+  return `<div class="card" data-rule="${r.id}">
+    <p><b>${esc(r.description)}</b></p>
+    <p class="muted">Applies to ${esc(r.scope === "all" ? "every Act" : r.scope)}; approved ${esc(r.approved_at)};
+      learned from ${r.learned_from.length} decision(s).</p>
+    <button class="btn" data-act="withdraw">Withdraw</button></div>`;
+}
+
+function modelHtml(m) {
+  const pct = (x) => `${(x * 100).toFixed(1)}%`;
+  return `<h2>Second opinion</h2>
+    <p class="muted">A small decision tree trained on every example, which flags pieces in review it reads
+      differently from the parser ("Model disagrees" in review's unit list). It advises; it never changes a parse.
+      It is retrained after each Teaching check, and review picks it up the next time an Act is opened.</p>
+    ${m ? `<p>Trained on ${m.examples} examples from ${m.acts.length} Act(s).</p>
+      <table><tr><th>Tested on</th><th>Lines</th><th>Model right</th><th>Parser right (when reviewed)</th></tr>
+      ${m.held_out.map((h) => `<tr><td>${esc(h.held_out)}</td><td>${h.lines}</td><td>${pct(h.model)}</td>
+        <td>${pct(h.parser)}</td></tr>`).join("")}</table>
+      ${m.acts.length < 2 ? `<p class="muted">With one Act reviewed, it is tested on a fifth of that Act's lines it
+        didn't train on. Reviewing a second Act lets it be tested on an Act it has never seen, the test that counts.</p>` : ""}`
+      : `<p class="muted">Not trained yet.</p>`}
+    <button class="btn" data-act="train">Train now</button>`;
+}
+
+let polling = false;
+async function refresh() {
+  const data = await jsonOf(await fetch(API));
+  document.getElementById("out").innerHTML =
+    `<h2>Proposed (${data.candidates.length})</h2>`
+    + (data.candidates.map(candidateHtml).join("")
+       || `<p class="muted">Nothing to propose. Run a Teaching check on an Act; three or more alike
+            disagreements make a proposal.</p>`)
+    + `<h2>Approved rules (${data.rules.length})</h2>`
+    + (data.rules.map(ruleHtml).join("") || `<p class="muted">None yet.</p>`)
+    + (data.rejected ? `<p class="muted">${data.rejected} rejected or withdrawn, not proposed again.</p>` : "")
+    + modelHtml(data.model);
+  const running = data.candidates.some((c) => c.preview && c.preview.state === "running");
+  if (running && !polling) {
+    polling = true;
+    setTimeout(() => { polling = false; refresh().catch(fail); }, 4000);
+  }
+}
+function fail(err) { document.getElementById("out").insertAdjacentHTML("afterbegin", `<p class="bad">${esc(err.message)}</p>`); }
+
+document.getElementById("out").onclick = async (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const card = btn.closest(".card");
+  if (btn.dataset.act === "train") {
+    btn.disabled = true;
+    try { await post(`${API}/model`); await refresh(); } catch (err) { fail(err); } finally { btn.disabled = false; }
+    return;
+  }
+  btn.disabled = true;
+  try {
+    if (btn.dataset.act === "withdraw") {
+      if (!confirm("Withdraw this rule? The parser stops applying it, and it won't be proposed again.")) return;
+      await post(`${API}/rules/${card.dataset.rule}/withdraw`);
+    } else if (btn.dataset.act === "preview") {
+      await post(`${API}/${card.dataset.id}/preview`);
+    } else if (btn.dataset.act === "approve") {
+      await post(`${API}/${card.dataset.id}/decide`, { decision: "approve", scope: card.querySelector("[data-scope]").value });
+    } else if (btn.dataset.act === "reject") {
+      await post(`${API}/${card.dataset.id}/decide`, { decision: "reject" });
+    }
+    await refresh();
+  } catch (err) { fail(err); } finally { btn.disabled = false; }
+};
+refresh().catch(fail);
+</script>
+</body>
+</html>

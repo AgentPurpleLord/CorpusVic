@@ -1565,6 +1565,177 @@ def history_page(work: str):
     return FileResponse(STATIC_DIR / "history.html")
 
 
+# -- Teaching: your decisions as examples the parser is checked against ----
+# (corpus/teaching). A check re-reads the Act's PDF, which takes a minute or
+# two, so it runs in the background and the page asks after it.
+
+_teaching_checks: dict[str, dict] = {}
+
+
+@app.get("/teaching/{slug}/")
+def teaching_page(slug: str):
+    _validate_slug(slug)
+    return FileResponse(STATIC_DIR / "teaching.html")
+
+
+@app.get("/api/teaching/{slug}")
+def teaching_status(slug: str):
+    from corpus.teaching import examples as teaching_examples
+
+    _validate_slug(slug)
+    stored = teaching_examples.load(slug, BASE_DIR)
+    kinds: dict = {}
+    for e in stored:
+        kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
+    return {"slug": slug, "examples": len(stored), "kinds": kinds, "check": _teaching_checks.get(slug)}
+
+
+@app.post("/api/teaching/{slug}/check")
+def teaching_check(slug: str):
+    """Collects this Act's decisions as examples, then checks the parser as
+    it stands against all of them."""
+    _validate_slug(slug)
+    if _find_source_pdf(slug) is None:
+        raise HTTPException(404, f"No source PDF for {slug}, so the parser has nothing to re-read.")
+    job = _teaching_checks.get(slug)
+    if job and job["state"] == "running":
+        raise HTTPException(409, "A check is already running for this Act.")
+    job = _teaching_checks[slug] = {"state": "running", "harvest": None, "score": None, "error": None}
+    threading.Thread(target=_teaching_check_job, args=(slug, job), daemon=True).start()
+    return job
+
+
+def _teaching_check_job(slug: str, job: dict) -> None:
+    from corpus.teaching import examples as teaching_examples, score as teaching_score
+    try:
+        job["harvest"] = teaching_examples.update(slug, BASE_DIR)
+        job["score"] = teaching_score.score(slug, BASE_DIR)
+        # The second opinion kept in step with the examples it learns from.
+        from corpus.teaching import model as teaching_model
+        if teaching_model.all_examples(BASE_DIR):
+            teaching_model.build(BASE_DIR)
+        job["state"] = "done"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
+# -- Lessons: rules proposed from where the parser and you disagree -------
+# (corpus/teaching/propose.py). A preview re-reads every held Act in the
+# rule's scope twice, so it too runs in the background.
+
+_lesson_previews: dict[str, dict] = {}
+_LESSON_ID_RE = re.compile(r"^[0-9a-f]{12}$")
+
+
+class LessonDecision(BaseModel):
+    decision: str   # "approve" or "reject"
+    scope: "str | None" = None
+
+
+def _candidate(cid: str) -> dict:
+    from corpus.teaching import propose as teaching_propose
+
+    if not _LESSON_ID_RE.match(cid):
+        raise HTTPException(400, "Not a lesson id.")
+    found = next((c for c in teaching_propose.candidates(BASE_DIR) if c["id"] == cid), None)
+    if found is None:
+        raise HTTPException(404, "No such proposal. Run a check on the Act it came from again.")
+    return found
+
+
+@app.get("/lessons/")
+def lessons_page():
+    return FileResponse(STATIC_DIR / "lessons.html")
+
+
+@app.get("/api/lessons")
+def lessons():
+    from corpus.teaching import propose as teaching_propose, rules as teaching_rules
+
+    data = teaching_rules.load_all(BASE_DIR)
+    return {
+        "candidates": [c | {"preview": _lesson_previews.get(c["id"])} for c in teaching_propose.candidates(BASE_DIR)],
+        "rules": [r | {"description": teaching_rules.describe(r)} for r in data["rules"]],
+        "rejected": len(data["rejected"]),
+        "model": _model_summary(),
+    }
+
+
+def _model_summary() -> "dict | None":
+    from corpus.teaching import model as teaching_model
+
+    trained = teaching_model.load(BASE_DIR)
+    return None if trained is None else {k: v for k, v in trained.items() if k != "tree"}
+
+
+@app.post("/api/lessons/model")
+def lesson_train_model():
+    """Trains the second opinion on every example held and measures it on
+    what it wasn't trained on. Seconds, not minutes: a shallow tree."""
+    from corpus.teaching import model as teaching_model
+    try:
+        return teaching_model.build(BASE_DIR)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/lessons/{cid}/preview")
+def lesson_preview(cid: str):
+    candidate = _candidate(cid)
+    job = _lesson_previews.get(cid)
+    if job and job["state"] == "running":
+        raise HTTPException(409, "This preview is already running.")
+    job = _lesson_previews[cid] = {"state": "running", "at": None, "result": None, "error": None}
+    threading.Thread(target=_lesson_preview_job, args=(candidate, job), daemon=True).start()
+    return job
+
+
+@app.get("/api/lessons/{cid}/preview")
+def lesson_preview_status(cid: str):
+    if cid not in _lesson_previews:
+        raise HTTPException(404, "No preview run for this proposal.")
+    return _lesson_previews[cid]
+
+
+def _lesson_preview_job(candidate: dict, job: dict) -> None:
+    from corpus.teaching import propose as teaching_propose
+    try:
+        job["result"] = teaching_propose.preview(
+            candidate, BASE_DIR, progress=lambda act, i, n: job.update(at=f"{act} ({i + 1} of {n})"))
+        job["state"] = "done"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
+@app.post("/api/lessons/{cid}/decide")
+def lesson_decide(cid: str, body: LessonDecision):
+    from corpus.teaching import rules as teaching_rules
+
+    candidate = _candidate(cid)
+    if body.decision == "reject":
+        teaching_rules.reject(cid, BASE_DIR)
+        return {"rejected": cid}
+    if body.decision != "approve":
+        raise HTTPException(400, "Decide approve or reject.")
+    scope = body.scope or candidate["scope"]
+    _validate_slug(scope)
+    return {"approved": teaching_rules.approve(candidate, scope, BASE_DIR)}
+
+
+@app.post("/api/lessons/rules/{rid}/withdraw")
+def lesson_withdraw(rid: str):
+    from corpus.teaching import rules as teaching_rules
+
+    if not any(r["id"] == rid for r in teaching_rules.load_all(BASE_DIR)["rules"]):
+        raise HTTPException(404, "No such rule.")
+    teaching_rules.reject(rid, BASE_DIR)
+    return {"withdrawn": rid}
+
+
 def _history_items(work: str) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later

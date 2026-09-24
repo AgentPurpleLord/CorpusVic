@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Teaching</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
+    --border: color-mix(in srgb, #201e1d 30%, transparent); --accent: #ec3013;
+    --done: #16a34a; --flagged: #d97706;
+  }
+  :root[data-theme="dark"] {
+    --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #a39d9d;
+    --border: color-mix(in srgb, #eeeaea 30%, transparent);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--fg); }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px;
+           border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  .btn { font: inherit; padding: 4px 10px; border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+         cursor: pointer; text-decoration: none; }
+  .btn.primary { background: var(--fg); color: var(--bg); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .muted { color: var(--muted); }
+  .tiles { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+  .tile { border: 1px solid var(--border); padding: 10px 14px; min-width: 130px; }
+  .tile b { display: block; font-size: 22px; }
+  .tile.bad b { color: var(--accent); }
+  .tile.good b { color: var(--done); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  td.line { font-family: Georgia, serif; }
+  tr.new td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  h2 { font-size: 15px; margin: 18px 0 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Teaching &mdash; <span id="slug"></span></h1>
+  <span style="flex:1"></span>
+  <button class="btn primary" id="check">Check the parser against my decisions</button>
+  <a class="btn" href="../../lessons/">Lessons</a>
+  <a class="btn" href="../../">Dashboard</a>
+</header>
+<main>
+  <p class="muted">Every piece you have accepted, corrected, merged away or deleted is kept as an example of what
+    that printed line is. A check re-reads this Act's PDF with the parser as it stands and asks, line by line,
+    whether it now says what you said. Nothing is changed by a check.</p>
+  <div class="tiles" id="tiles"></div>
+  <div id="result"></div>
+</main>
+<script>
+// The Act's decisions, kept as examples, and the parser checked against
+// them (corpus/teaching). A check takes a minute or two, so it runs in the
+// background and this page asks after it.
+const SLUG = decodeURIComponent(location.pathname.split("/").filter(Boolean).slice(-1)[0]);
+const API = `../../api/teaching/${encodeURIComponent(SLUG)}`;
+document.getElementById("slug").textContent = SLUG;
+
+function esc(t) { return String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+async function jsonOf(res) {
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {
+    throw new Error(`${res.status} ${res.statusText}: ${text.replace(/<[^>]*>/g, " ").trim().slice(0, 200)}`);
+  }
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+const said = (x) => x ? `${x.type}${x.number ? " " + x.number : ""}${x.heading ? " “" + x.heading + "”" : ""}`
+                      : "nothing opens here";
+
+function tile(label, value, cls = "") { return `<div class="tile ${cls}"><b>${value}</b>${label}</div>`; }
+
+function paint(status) {
+  const k = status.kinds || {};
+  const check = status.check;
+  const score = check && check.score;
+  document.getElementById("tiles").innerHTML =
+    tile("examples", status.examples)
+    + tile("kept as the parser read them", k.confirmed || 0)
+    + tile("corrected by you", k.corrected || 0)
+    + tile("merged away or deleted", k.removed || 0)
+    + (score ? tile("pass", score.passed, "good") + tile("fail", score.failed, score.failed ? "bad" : "")
+               + tile("newly broken", score.newly_broken.length, score.newly_broken.length ? "bad" : "") : "");
+  const out = document.getElementById("result");
+  if (!check) { out.innerHTML = `<p class="muted">No check run yet.</p>`; return; }
+  if (check.state === "running") { out.innerHTML = `<p>Checking&hellip;</p>`; return; }
+  if (check.state === "failed") { out.innerHTML = `<p style="color:var(--accent)">${esc(check.error)}</p>`; return; }
+  if (!score.failures.length) { out.innerHTML = `<p>The parser says what you said on every one of ${score.total} lines.</p>`; return; }
+  const broken = new Set(score.newly_broken.map((f) => f.id));
+  out.innerHTML = `<h2>Where the parser and you disagree</h2>
+    <table><tr><th>Page</th><th>Line</th><th>You said</th><th>The parser says</th></tr>
+    ${score.failures.map((f) => `<tr class="${broken.has(f.id) ? "new" : ""}" title="${broken.has(f.id) ? "Passed last time" : ""}">
+      <td>${f.page}</td><td class="line">${esc(f.text)}</td><td>${esc(said(f.expected))}</td><td>${esc(said(f.got))}</td></tr>`).join("")}
+    </table>`;
+}
+
+async function refresh() {
+  const status = await jsonOf(await fetch(API));
+  paint(status);
+  return status;
+}
+
+document.getElementById("check").onclick = async (e) => {
+  e.target.disabled = true;
+  try {
+    await jsonOf(await fetch(`${API}/check`, { method: "POST" }));
+    let status = await refresh();
+    while (status.check && status.check.state === "running") {
+      await new Promise((r) => setTimeout(r, 4000));
+      status = await refresh();
+    }
+  } catch (err) {
+    document.getElementById("result").innerHTML = `<p style="color:var(--accent)">${esc(err.message)}</p>`;
+  } finally { e.target.disabled = false; }
+};
+refresh().catch((err) => { document.getElementById("result").textContent = err.message; });
+</script>
+</body>
+</html>

@@ -373,6 +373,8 @@
     <button class="btn" onclick="rebuildSearch()" id="search-rebuild"
             title="The public site's search reads this index. Rebuilt automatically when you publish or withdraw a work.">Rebuild search index</button>
     <button class="btn" onclick="openAiModal()">&#129302; AI-assist model</button>
+    <a class="btn" href="lessons/" target="_blank"
+       title="Rules proposed from your corrections, which the parser applies once you approve them">Lessons</a>
     <span class="site-state" id="site-state"></span>
     <span class="site-state" id="search-state"></span>
   </div>
@@ -854,6 +856,8 @@ function actCardHtml(s) {
         ${s.kind === "act" && s.parsed
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
+        ${s.parsed ? `<a class="btn small" href="teaching/${encodeURIComponent(s.slug)}/" target="_blank"
+               title="Your review decisions, kept as examples the parser is checked against">Teaching</a>` : ""}
         ${dlAkn}
         ${dlMd}
       </div>
