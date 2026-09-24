@@ -211,10 +211,16 @@ def provision_label(node: dict) -> str:
     own heading (a defined term has no number of its own) and finally to
     its type, so a provision is never listed as an empty string."""
     path = node.get("path") or {}
-    section = path.get("section") or path.get("clause") or path.get("item")
-    if not section:
+    # A sub-item's own number ("4.4"), not its item's: without it every
+    # sub-item's (a) read as item 4's.
+    if path.get("item"):
+        label = f"item {path.get('subitem') or path['item']}"
+    elif path.get("clause"):
+        label = f"cl. {path.get('subclause') or path['clause']}"
+    elif path.get("section"):
+        label = f"s. {path['section']}"
+    else:
         return node.get("heading") or node.get("type") or "?"
-    label = f"s. {section}"
     label += "".join(f"({path[level]})" for level in _PROVISION_SUBLEVELS if path.get(level))
     if path.get("definition"):
         label += f' def. of "{path["definition"]}"'

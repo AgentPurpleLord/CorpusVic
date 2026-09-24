@@ -813,12 +813,20 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
     labels = ["SECTION"]
     counters: dict[str, int] = {}
     for node in unit_nodes[1:]:
-        if node["type"] in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") and node.get("number"):
-            path = node.get("path") or {}
+        path = node.get("path") or {}
+        # A sub-item ("4.4") is the first level of its unit, where a
+        # section would have a subsection: a chain without it read "(a)"
+        # under every sub-item, and "(a) #2" from the second on.
+        sub_item = path.get("subitem") or path.get("subclause")
+        if node["type"] in ("subitem", "subclause") and node.get("number"):
+            labels.append(node["number"])
+        elif node["type"] in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") and node.get("number"):
             chain = "".join(
                 f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") if path.get(level)
             )
             chain = chain or f"({node['number']})"
+            if sub_item:
+                chain = f"{sub_item}{chain}"
             if path.get("definition"):
                 chain = f"{path['definition']} {chain}"
             labels.append(chain)
@@ -831,10 +839,11 @@ def compute_unit_labels(unit_nodes: list[dict]) -> list[str]:
             # (Criminal Procedure Act s 11(1) is the shape). Labelled
             # "[continuation 1]", it read as a separate provision that
             # happened to land there, which is exactly what it isn't.
-            path = node.get("path") or {}
             chain = "".join(
                 f"({path[level]})" for level in ("subsection", "paragraph", "subparagraph", "sub_subparagraph") if path.get(level)
             )
+            if sub_item:
+                chain = f"{sub_item}{chain}"
             if path.get("definition"):
                 chain = f"{path['definition']} {chain}".strip()
             labels.append(f"{chain} continuation" if chain else "SECTION continuation")

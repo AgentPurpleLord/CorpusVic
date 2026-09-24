@@ -195,3 +195,10 @@ def test_linkify_note_without_an_index_still_links_every_detected_citation():
 
     citation_runs = [r for r in runs if "citation" in r]
     assert citation_runs == [{"text": "No. 68/2009", "citation": {"act_no": "68", "year": 2009}}]
+
+
+def test_provision_label_names_the_sub_item_a_paragraph_sits_under():
+    node = make_node("paragraph", "a", None, "text")
+    node["path"] = {"schedule": "2", "item": "4", "subitem": "4.4", "paragraph": "a"}
+
+    assert provision_label(node) == "item 4.4(a)"

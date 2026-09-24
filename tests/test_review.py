@@ -186,6 +186,20 @@ def test_compute_unit_labels_are_unique_even_with_repeated_note_markers():
     assert labels[2:] == ["[note 1]", "[note 2]", "[note 3]"]
 
 
+def test_a_sub_items_paragraphs_are_labelled_by_their_sub_item():
+    """CPA Schedule 2 item 4: every sub-item has its own (a), which read
+    "(a)", "(a) #2", "(a) #3" when the chain left the sub-item out."""
+    from corpus.parsing.tree import annotate_paths
+
+    unit_nodes = [make_node("item", "4", "Indictable offences")]
+    for sub, paras in (("4.3", ""), ("4.4", "ab"), ("4.13", "a")):
+        unit_nodes.append(make_node("subitem", sub, None, "Offences under—"))
+        unit_nodes += [make_node("paragraph", p, None, "a thing") for p in paras]
+    annotate_paths(unit_nodes, ["schedule", "section", "subsection", "paragraph", "subparagraph"])
+
+    assert compute_unit_labels(unit_nodes) == ["SECTION", "4.3", "4.4", "4.4(a)", "4.4(b)", "4.13", "4.13(a)"]
+
+
 def test_commit_unit_stamps_verified_at_unless_flagged(isolate_corrections):
     section = make_node("section", "1", "Murder")
     subsection = make_node("subsection", "1", None, "text")
