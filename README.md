@@ -83,6 +83,23 @@ re-judges every provision already parsed and reports where the rules and
 the recorded parse disagree. It is a comparison, not a verdict: either
 side can be the one that is wrong.
 
+## Teaching the parser from review
+
+Every piece you accept, correct, merge away or delete is kept as an
+example of what its printed line is, in `data/teaching/<act>.jsonl`,
+keyed by the line rather than the parser's name for it. The **Teaching**
+button on an Act re-reads its PDF with the parser as it stands and checks
+it against all of them, naming any that passed last time and now fail.
+
+Where the parser and you disagree the same way on three or more lines
+that look alike, the **Lessons** page proposes a rule: "a line matching
+`^(\d+(?:\.\d+)*[A-Z]*)`, not bold, after a line that finished: starts a
+new subitem". Preview it to see every line across the held Acts it would
+change and which examples it fixes or breaks; approve it for one Act, its
+work, or every Act; or reject it, and it isn't proposed again. Approved
+rules live in `data/teaching/rules.json` and are tried before the
+parser's own judgement.
+
 ## How a provision is named
 
 Review work is attached to provisions, and a provision is named by what

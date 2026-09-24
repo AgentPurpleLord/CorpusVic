@@ -442,12 +442,20 @@ def _next_item_number(prev: "str | None", number: str) -> bool:
 _CLEAN_END_RE = re.compile(r"(?:[.;:\u2014\u2013*]|;\s*(?:or|and|and/or))\s*$")
 
 
-def seen_record(line: BodyLine, above: "BodyLine | None", parent: "dict | None", margin: "float | None") -> dict:
+def _brief_node(node: "dict | None") -> "dict | None":
+    return None if node is None else {"type": node["type"], "x0": round(node["rects"][0]["x0"], 1)
+                                      if node.get("rects") else None}
+
+
+def seen_record(line: BodyLine, above: "BodyLine | None", parent: "dict | None", margin: "float | None",
+                body: "float | None" = None, open_node: "dict | None" = None) -> dict:
     """What the parser had in front of it when it opened a node: the line,
     the line above, the provision it sat in. Kept on the node so a
     reviewer's correction of it can be learned from and checked against
     later parses (corpus/teaching) -- a parse otherwise forgets why it
-    decided what it did."""
+    decided what it did. `parent` is where the node ended up; `open` is
+    what was open when its line arrived, before the parser decided -- the
+    one a learned rule can be judged on."""
     return {
         "page": line.page_no, "y0": round(line.y0, 1), "x0": round(line.x0, 1), "x1": round(line.x1, 1),
         "size": round(line.size, 1), "bold": line.bold, "lbi": line.leading_bold_italic,
@@ -455,9 +463,10 @@ def seen_record(line: BodyLine, above: "BodyLine | None", parent: "dict | None",
         "above": None if above is None else {
             "text": above.text.strip()[-40:], "x1": round(above.x1, 1), "bold": above.bold,
             "size": round(above.size, 1)},
-        "parent": None if parent is None else {"type": parent["type"], "x0": round(parent["rects"][0]["x0"], 1)
-                                               if parent.get("rects") else None},
+        "parent": _brief_node(parent),
+        "open": _brief_node(open_node),
         "margin": None if margin is None else round(margin, 1),
+        "body": body,
     }
 
 
@@ -602,8 +611,11 @@ class _LineParser:
     line."""
 
     def __init__(self, patterns: dict, body_size: float, hierarchy_order: list[str], top_level_type: str = "section",
-                 item_schedules: "frozenset[str]" = frozenset()):
+                 item_schedules: "frozenset[str]" = frozenset(), learned: "list[dict] | None" = None):
         self.patterns = patterns
+        # Rules you approved from your own corrections (corpus/teaching),
+        # tried before the parser's own judgement.
+        self.learned = learned or []
         # The Schedules whose own margin notes call their entries items
         # ("Sch. 2 item 4.1") -- the Act's word, whether or not they amend.
         self.item_schedules = item_schedules
@@ -662,6 +674,7 @@ class _LineParser:
         # the right margin it is measured against (see _wraps).
         self.line_above: "BodyLine | None" = None
         self._seen_count = 0
+        self._open_at_line = None
         self._lines: list[BodyLine] = []
         # Where clause and section headings start, and the last number a
         # Schedule's list reached (see _try_schedule_item).
@@ -822,12 +835,56 @@ class _LineParser:
             # Made when the next line arrives, so its own line is recorded
             # here rather than that one.
             above = self._line_before(row[0])
-            marker["seen"] = seen_record(row[0], above, self.stack[-1] if self.stack else None,
-                                         self.margins.get(row[0].page_no % 2))
+            top = self.stack[-1] if self.stack else None
+            marker["seen"] = seen_record(row[0], above, top, self.margins.get(row[0].page_no % 2), self.body_size, top)
             self.nodes.append(marker)
             if self.stack and self.stack[-1]["type"] in ("paragraph", "subparagraph"):
                 self.repealed_since_item = True
         run.clear()
+
+    def _apply_learned(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """The first approved rule this line satisfies decides it."""
+        from corpus.teaching.rules import matches
+
+        top = self.stack[-1] if self.stack else None
+        seen = seen_record(line, self.line_above, top, self.margins.get(line.page_no % 2), self.body_size, top)
+        for rule in self.learned:
+            m = matches(rule, seen)
+            if not m:
+                continue
+            then = rule["then"]
+            if then.get("continue"):
+                if self.marked_block_type and self.current_marked_block is not None:
+                    _append_text(self.current_marked_block, text, line, char_end)
+                else:
+                    self._consume_as_continuation(line, text, char_start, char_end)
+                return True
+            level = then.get("open")
+            if level not in self.rank and level not in ("note", "example"):
+                continue
+            number, rest = None, text
+            if then.get("number") and not isinstance(m, bool) and m.groups():
+                number, rest = m.group(1), text[m.end():].strip()
+            self._close_marked_block()
+            if level in ("note", "example"):
+                # Its following lines join it as they would under a
+                # printed marker.
+                self.marked_block_type = level
+                node = self.current_marked_block = {
+                    "type": level, "number": number, "heading": None, "text": rest,
+                    "page_start": line.page_no, "page_end": line.page_no,
+                    "char_start": char_start, "char_end": char_end, "source": "rules",
+                }
+                add_rect(node, line)
+                self.nodes.append(node)
+            else:
+                self.marked_block_type = None
+                node = self._open_node(level, number, None, line, char_start)
+                if rest:
+                    _append_text(node, rest, line, char_end)
+            node["learned"] = rule["id"]   # opened on your say-so, not the parser's
+            return True
+        return False
 
     def _line_before(self, line: BodyLine) -> "BodyLine | None":
         i = self._position.get(id(line), 0)
@@ -840,7 +897,8 @@ class _LineParser:
             for node in self.nodes[self._seen_count:]:
                 if "seen" not in node:
                     parent = next((n for n in reversed(self.stack) if n is not node), None)
-                    node["seen"] = seen_record(line, self.line_above, parent, self.margins.get(line.page_no % 2))
+                    node["seen"] = seen_record(line, self.line_above, parent, self.margins.get(line.page_no % 2),
+                                               self.body_size, self._open_at_line)
         self._seen_count = len(self.nodes)
 
     def _wrapped(self, line: BodyLine, text: str) -> bool:
@@ -903,6 +961,10 @@ class _LineParser:
             self._record_seen()
             self.line_above = next((lines[j] for j in range(idx - 1, -1, -1) if lines[j].text.strip()), None)
             self._seen_line = line
+            self._open_at_line = self.stack[-1] if self.stack else None
+            if self.learned and not self.asterisk_run and self._apply_learned(line, text, char_start, char_end):
+                self.prev_text = text
+                continue
 
             table = find_table(lines, idx)
             if table is not None:
@@ -1683,6 +1745,8 @@ def parse_act(
     pages: list[PageText],
     profile_name: str | None = None,
     top_level_type: str = "section",
+    act: "str | None" = None,
+    learned: "list[dict] | None" = None,
 ) -> ParseResult:
     """top_level_type: "section" for an enacted Act (the default),
     "clause" to parse a Bill instead -- same drafting shape and the
@@ -1708,8 +1772,11 @@ def parse_act(
     if skipped:
         warnings.append(f"skipped {skipped} front-matter line(s) before the enacting words")
     lines = remaining
+    if learned is None:
+        from corpus.teaching.rules import for_act
+        learned = for_act(act) if act else []
     parser = _LineParser(patterns, _body_font_size(lines), hierarchy_order, top_level_type=top_level_type,
-                         item_schedules=_item_schedules(pages))
+                         item_schedules=_item_schedules(pages), learned=learned)
     parser.feed(lines)
     result = parser.result()
     result.warnings = warnings + result.warnings

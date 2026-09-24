@@ -69,9 +69,10 @@ from corpus.parsing.identity import annotate_ids
 from corpus.parsing.tree import attach_history
 
 
-def run_parser(pages, act_slug: str, profile_name: str | None, document_type: str = "act"):
+def run_parser(pages, act_slug: str, profile_name: str | None, document_type: str = "act",
+               learned: "list[dict] | None" = None):
     top_level_type = "clause" if document_type == "bill" else "section"
-    result = parse_act(pages, profile_name=profile_name, top_level_type=top_level_type)
+    result = parse_act(pages, profile_name=profile_name, top_level_type=top_level_type, act=act_slug, learned=learned)
     print(f"[{act_slug}] parser -> {len(result.nodes)} nodes, {result.lines_consumed}/{result.lines_total} lines consumed")
     for w in result.warnings:
         print(f"  ! {w}")

@@ -1617,6 +1617,102 @@ def _teaching_check_job(slug: str, job: dict) -> None:
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
 
 
+# -- Lessons: rules proposed from where the parser and you disagree -------
+# (corpus/teaching/propose.py). A preview re-reads every held Act in the
+# rule's scope twice, so it too runs in the background.
+
+_lesson_previews: dict[str, dict] = {}
+_LESSON_ID_RE = re.compile(r"^[0-9a-f]{12}$")
+
+
+class LessonDecision(BaseModel):
+    decision: str   # "approve" or "reject"
+    scope: "str | None" = None
+
+
+def _candidate(cid: str) -> dict:
+    from corpus.teaching import propose as teaching_propose
+
+    if not _LESSON_ID_RE.match(cid):
+        raise HTTPException(400, "Not a lesson id.")
+    found = next((c for c in teaching_propose.candidates(BASE_DIR) if c["id"] == cid), None)
+    if found is None:
+        raise HTTPException(404, "No such proposal. Run a check on the Act it came from again.")
+    return found
+
+
+@app.get("/lessons/")
+def lessons_page():
+    return FileResponse(STATIC_DIR / "lessons.html")
+
+
+@app.get("/api/lessons")
+def lessons():
+    from corpus.teaching import propose as teaching_propose, rules as teaching_rules
+
+    data = teaching_rules.load_all(BASE_DIR)
+    return {
+        "candidates": [c | {"preview": _lesson_previews.get(c["id"])} for c in teaching_propose.candidates(BASE_DIR)],
+        "rules": [r | {"description": teaching_rules.describe(r)} for r in data["rules"]],
+        "rejected": len(data["rejected"]),
+    }
+
+
+@app.post("/api/lessons/{cid}/preview")
+def lesson_preview(cid: str):
+    candidate = _candidate(cid)
+    job = _lesson_previews.get(cid)
+    if job and job["state"] == "running":
+        raise HTTPException(409, "This preview is already running.")
+    job = _lesson_previews[cid] = {"state": "running", "at": None, "result": None, "error": None}
+    threading.Thread(target=_lesson_preview_job, args=(candidate, job), daemon=True).start()
+    return job
+
+
+@app.get("/api/lessons/{cid}/preview")
+def lesson_preview_status(cid: str):
+    if cid not in _lesson_previews:
+        raise HTTPException(404, "No preview run for this proposal.")
+    return _lesson_previews[cid]
+
+
+def _lesson_preview_job(candidate: dict, job: dict) -> None:
+    from corpus.teaching import propose as teaching_propose
+    try:
+        job["result"] = teaching_propose.preview(
+            candidate, BASE_DIR, progress=lambda act, i, n: job.update(at=f"{act} ({i + 1} of {n})"))
+        job["state"] = "done"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
+@app.post("/api/lessons/{cid}/decide")
+def lesson_decide(cid: str, body: LessonDecision):
+    from corpus.teaching import rules as teaching_rules
+
+    candidate = _candidate(cid)
+    if body.decision == "reject":
+        teaching_rules.reject(cid, BASE_DIR)
+        return {"rejected": cid}
+    if body.decision != "approve":
+        raise HTTPException(400, "Decide approve or reject.")
+    scope = body.scope or candidate["scope"]
+    _validate_slug(scope)
+    return {"approved": teaching_rules.approve(candidate, scope, BASE_DIR)}
+
+
+@app.post("/api/lessons/rules/{rid}/withdraw")
+def lesson_withdraw(rid: str):
+    from corpus.teaching import rules as teaching_rules
+
+    if not any(r["id"] == rid for r in teaching_rules.load_all(BASE_DIR)["rules"]):
+        raise HTTPException(404, "No such rule.")
+    teaching_rules.reject(rid, BASE_DIR)
+    return {"withdrawn": rid}
+
+
 def _history_items(work: str) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later

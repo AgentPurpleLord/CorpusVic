@@ -18,12 +18,11 @@ from corpus import PROJECT_ROOT
 from corpus.teaching import examples as teaching_examples
 
 
-def reparse(act: str, base_dir=None) -> list[dict]:
-    """This Act's PDF read by the current parser, as run_pipeline reads it."""
-    from corpus.domain.profiles import profile_for
+def body_pages(act: str, base_dir=None) -> list:
+    """This Act's body pages, as run_pipeline reads them: the part of a
+    re-parse worth doing once when the parser runs over it twice."""
     from corpus.parsing.endnotes import detect_endnotes_start
     from corpus.parsing.extract import extract_pages
-    from corpus.parsing.run_pipeline import run_parser
     from corpus.parsing.toc import detect_body_start
 
     base = Path(base_dir or PROJECT_ROOT)
@@ -31,9 +30,23 @@ def reparse(act: str, base_dir=None) -> list[dict]:
     pages = extract_pages(str(base / parsed["source"]))
     start = detect_body_start(pages) - 1
     end = detect_endnotes_start(pages)
-    body = pages[start:(end - 1) if end else len(pages)]
-    nodes, _result = run_parser(body, act, parsed.get("profile") or profile_for(act),
-                                document_type=parsed.get("document_type") or "act")
+    return pages[start:(end - 1) if end else len(pages)]
+
+
+def reparse(act: str, base_dir=None, learned: "list[dict] | None" = None, body: "list | None" = None) -> list[dict]:
+    """This Act's PDF read by the current parser. `learned` stands in for
+    the approved rules, to try the parser with a rule not yet approved."""
+    from corpus.domain.profiles import profile_for
+    from corpus.parsing.run_pipeline import run_parser
+
+    base = Path(base_dir or PROJECT_ROOT)
+    parsed = json.loads((base / "data" / "parsed" / f"{act}.json").read_text(encoding="utf-8"))
+    if learned is None:
+        from corpus.teaching.rules import for_act
+        learned = for_act(act, base_dir)
+    nodes, _result = run_parser(body if body is not None else body_pages(act, base_dir), act,
+                                parsed.get("profile") or profile_for(act),
+                                document_type=parsed.get("document_type") or "act", learned=learned)
     return nodes
 
 
@@ -60,6 +73,14 @@ def check(examples: list[dict], nodes: list[dict]) -> list[dict]:
     return out
 
 
+def last_failures(base_dir=None) -> list[dict]:
+    """Every Act's failures as its last check left them."""
+    out = []
+    for path in sorted((Path(base_dir or PROJECT_ROOT) / "data" / "teaching" / ".last").glob("*.json")):
+        out.extend(json.loads(path.read_text(encoding="utf-8")).get("failures", []))
+    return out
+
+
 def _last_path(act: str, base_dir=None) -> Path:
     return Path(base_dir or PROJECT_ROOT) / "data" / "teaching" / ".last" / f"{act}.json"
 
@@ -78,7 +99,10 @@ def score(act: str, base_dir=None, nodes: "list[dict] | None" = None) -> dict:
         "failures": failures,
     }
     last_path.parent.mkdir(parents=True, exist_ok=True)
-    last_path.write_text(json.dumps({"passed": passed}), encoding="utf-8")
+    # The failures in full, with what the parser saw, for the rule miner
+    # (corpus/teaching/propose.py).
+    last_path.write_text(json.dumps({"passed": passed, "failures": [r for r in results if not r["passed"]]}),
+                         encoding="utf-8")
     return summary
 
 

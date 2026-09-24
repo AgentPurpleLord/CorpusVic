@@ -123,3 +123,101 @@ def test_the_dashboard_checks_in_the_background(tmp_path, monkeypatch):
     check = client.get("/api/teaching/act").json()["check"]
     assert check["state"] == "done" and check["score"]["passed"] == 3
     assert client.get("/teaching/act/").status_code == 200
+
+
+# -- Stage 2: rules proposed from disagreements, applied once approved ------
+
+from corpus.teaching import propose, rules
+
+
+def _failures_like(seen, numbers, expected_type="subparagraph", act="act"):
+    """Disagreements on lines that look like `seen`, one per number."""
+    out = []
+    for n in numbers:
+        text = seen["text"].replace("(b)", f"({n})", 1)
+        out.append({"id": f"ex-{n}", "act": act, "kind": "corrected", "parser": {"type": "paragraph", "number": n},
+                    "expected": {"type": expected_type, "number": n}, "got": {"type": "paragraph", "number": n},
+                    "seen": {**seen, "text": text}})
+    return out
+
+
+def test_a_line_shape_captures_the_number_you_gave_it():
+    assert propose.shape("1.2 The court may", "1.2") == r"^(\d+(?:\.\d+)*[A-Z]*)(?:\s|$)"
+    assert propose.shape("(iv) a thing", "iv") == r"^\(([a-z]+)\)(?:\s|$)"
+    assert propose.shape("(3), admissible as if", None) == r"^\(\d+\),(?:\s|$)"
+    assert propose.shape("Section 12 says", "12") is None, "a number past the opening word can't be read"
+
+
+def test_three_alike_disagreements_make_a_rule_that_changes_the_parse(act):
+    b = next(n for n in act if n["number"] == "b")
+    assert propose.propose(_failures_like(b["seen"], ["b", "c"])) == [], "two is not a lesson"
+
+    [rule] = propose.propose(_failures_like(b["seen"], ["b", "c", "d"]))
+    assert rule["then"] == {"open": "subparagraph", "number": True}
+    assert rule["scope"] == "act" and rule["count"] == 3
+    assert "subparagraph" in rule["description"]
+    assert rules.matches(rule, b["seen"])
+
+    reread = next(n for n in parse_act([page(_lines())], learned=[rule]).nodes if n["number"] == "b")
+    assert (reread["type"], reread.get("learned")) == ("subparagraph", rule["id"])
+    assert reread["text"] == "the second thing."
+    assert propose.propose(_failures_like(b["seen"], ["b", "c", "d"]), decided={rule["id"]}) == []
+
+
+def test_a_learned_rule_can_start_an_example_or_carry_on_the_line_above():
+    base = {"pattern": r"^\(b\)(?:\s|$)"}
+    example = parse_act([page(_lines())], learned=[{"id": "r1", "when": base, "then": {"open": "example"}}]).nodes
+    assert [n["text"] for n in example if n["type"] == "example"] == ["(b) the second thing."]
+
+    carried = parse_act([page(_lines())], learned=[{"id": "r2", "when": base, "then": {"continue": True}}]).nodes
+    assert not any(n["number"] == "b" for n in carried)
+    assert next(n for n in carried if n["number"] == "a")["text"].endswith("(b) the second thing.")
+
+
+def test_a_preview_shows_every_line_a_rule_would_change(act, tmp_path, monkeypatch):
+    b = next(n for n in act if n["number"] == "b")
+    _accept(act, **{b["id"]: {"type": "subparagraph", "number": "b"}})
+    examples.update("act", tmp_path)
+    monkeypatch.setattr(score, "body_pages", lambda a, base=None: [page(_lines())])
+    [rule] = propose.propose(_failures_like(b["seen"], ["b", "c", "d"]))
+
+    out = propose.preview(rule, tmp_path, acts=["act"])
+    assert [(c["text"], c["before"]["type"], c["after"]["type"]) for c in out["changes"]] == \
+           [("(b) the second thing.", "paragraph", "subparagraph")]
+    assert [f["id"] for f in out["fixed"]] == [examples.example_id("act", b["seen"])] and out["broken"] == []
+
+
+def test_the_lessons_page_approves_rejects_and_withdraws(act, tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import corpus.web.dashboard as dashboard
+
+    class Now:
+        def __init__(self, target, args=(), daemon=None):
+            self.target, self.args = target, args
+
+        def start(self):
+            self.target(*self.args)
+
+    b = next(n for n in act if n["number"] == "b")
+    last = tmp_path / "data" / "teaching" / ".last" / "act.json"
+    last.parent.mkdir(parents=True)
+    last.write_text(json.dumps({"passed": [], "failures": _failures_like(b["seen"], ["b", "c", "d"])}))
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_DASHBOARD_USERNAME", None)
+    monkeypatch.setattr(dashboard.threading, "Thread", Now)
+    monkeypatch.setattr(propose, "preview", lambda rule, base, progress=None: {"changes": [], "fixed": [], "broken": []})
+    client = TestClient(dashboard.app)
+
+    [c] = client.get("/api/lessons").json()["candidates"]
+    assert client.post(f"/api/lessons/{c['id']}/preview").json()["state"] == "done"
+    assert client.get("/api/lessons").json()["candidates"][0]["preview"]["state"] == "done"
+
+    client.post(f"/api/lessons/{c['id']}/decide", json={"decision": "approve", "scope": "all"})
+    listed = client.get("/api/lessons").json()
+    assert listed["candidates"] == [] and [r["scope"] for r in listed["rules"]] == ["all"]
+    assert rules.for_act("anything-else", tmp_path)[0]["id"] == c["id"]
+
+    client.post(f"/api/lessons/rules/{c['id']}/withdraw")
+    listed = client.get("/api/lessons").json()
+    assert (listed["candidates"], listed["rules"], listed["rejected"]) == ([], [], 1), "withdrawn stays withdrawn"
+    assert client.get("/lessons/").status_code == 200
