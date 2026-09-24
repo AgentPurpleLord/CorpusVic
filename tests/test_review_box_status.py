@@ -84,19 +84,26 @@ def test_deciding_one_piece_leaves_the_others_alone(one_section):
 # --- and the page acts on it --------------------------------------------
 
 REVIEW_HTML = Path(__file__).resolve().parent.parent / "static" / "review.html"
+REVIEW_CSS = Path(__file__).resolve().parent.parent / "static" / "admin" / "review.css"
+
+
+def _review_page() -> str:
+    """The page with its stylesheet: the rules these tests read live in
+    static/admin/review.css."""
+    return REVIEW_HTML.read_text(encoding="utf-8") + REVIEW_CSS.read_text(encoding="utf-8")
 
 
 def test_deciding_a_piece_repaints_its_box():
     """Repainted in acceptPiece rather than in applyPieceDecision, which
     only patches the panel and does nothing when the provision decided is
     not in the unit being read -- which a box on the page often is not."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"async function acceptPiece\(nodeIndex, flagged\) \{(.*?)\n\}", page, re.S).group(1)
     assert "setBoxStatus(result.node_index, result.status)" in body
 
 
 def test_deciding_a_whole_unit_refreshes_the_boxes():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"async function decideUnit\(flagged\) \{(.*?)\n\}", page, re.S).group(1)
     assert "loadPageBoxes()" in body
 
@@ -104,7 +111,7 @@ def test_deciding_a_whole_unit_refreshes_the_boxes():
 def test_every_status_the_server_can_report_has_a_colour():
     """A status with no rule of its own would render as whatever the
     previous one left behind."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     coloured = set(re.findall(r'\.box-group\[data-status="(\w+)"\]', page))
     assert {"pending", "accepted", "flagged"} <= coloured
 
@@ -173,27 +180,27 @@ def test_a_provision_printed_elsewhere_is_untouched(one_page, monkeypatch):
 # --- what the page does with it -----------------------------------------
 
 def test_the_toolbar_offers_the_page_button():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     assert 'id="pdf-accept-page-btn"' in page
     assert 'document.getElementById("pdf-accept-page-btn").onclick = acceptPage;' in page
 
 
 def test_accepting_a_page_repaints_every_box_it_reports():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"async function acceptPage\(\) \{(.*?)\n\}", page, re.S).group(1)
     assert "result.statuses" in body and "setBoxStatus" in body
     assert "result.units" in body and "updateUnitRowStatus" in body
 
 
 def test_each_box_carries_an_accept_and_a_flag():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"function boxActions\(box, rect\) \{(.*?)\n\}\n", page, re.S).group(1)
     assert "acceptPiece(box.node_index, false)" in body
     assert "acceptPiece(box.node_index, true)" in body
 
 
 def test_a_decided_box_shows_its_verdict_instead_of_buttons():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"function boxActions\(box, rect\) \{(.*?)\n\}\n", page, re.S).group(1)
     assert 'box.status !== "pending"' in body
     assert "box-verdict" in body
@@ -202,13 +209,13 @@ def test_a_decided_box_shows_its_verdict_instead_of_buttons():
 def test_a_decision_from_the_page_updates_the_unit_it_belongs_to():
     """Not the unit open in the panel: a box on the page can be any
     provision printed on it."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"async function acceptPiece\(nodeIndex, flagged\) \{(.*?)\n\}", page, re.S).group(1)
     assert "updateUnitRowStatus(result.unit_no, result.unit_status)" in body
 
 
 def test_the_tool_opens_with_the_page_showing():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     assert 'localStorage.getItem("reviewViewMode") || "split"' in page
 
 
@@ -250,7 +257,7 @@ def test_writes_are_allowed_when_it_is_not_read_only(one_section):
 # box. Two states, so a choice outlasts the pointer without silencing it.
 
 def test_hover_and_selection_are_no_longer_the_same_thing():
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
 
     assert "boxIsSticky" not in page, "the sticky flag is what swallowed every hover"
     assert "let selectedNodeIndex" in page and "let hoverNodeIndex" in page
@@ -259,14 +266,14 @@ def test_hover_and_selection_are_no_longer_the_same_thing():
 def test_a_box_says_what_it_is_when_pointed_at_not_only_when_clicked():
     """The label is drawn to the left of the box; what was missing was
     anything revealing it on hover once something had been clicked."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
 
     assert re.search(r"\.box-hot \.box-label[^{]*\{[^}]*opacity: 1", page)
 
 
 def test_the_hover_style_is_actually_reachable_now():
     """`.box-hot` sat in the stylesheet with nothing in the JS setting it."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
 
     assert 'classList.toggle("box-hot"' in page
 
@@ -274,8 +281,8 @@ def test_the_hover_style_is_actually_reachable_now():
 def test_the_tick_and_flag_are_on_every_box():
     """They were opacity: 0 until a box was selected, so there was no way
     to see from the page which provisions could be decided from it."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
-    rule = re.search(r"\n  \.box-action \{([^}]*)\}", page).group(1)
+    page = _review_page()
+    rule = re.search(r"\n\s*\.box-action \{([^}]*)\}", page).group(1)
 
     assert "opacity: 0;" not in rule, "still hidden until selected"
     assert "pointer-events: auto" in rule, "visible but not clickable is worse than hidden"
@@ -284,8 +291,8 @@ def test_the_tick_and_flag_are_on_every_box():
 def test_but_held_back_until_the_box_is_pointed_at():
     """Two buttons beside every provision at full contrast is a margin
     louder than the Act."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
-    resting = float(re.search(r"\n  \.box-action \{[^}]*opacity: ([\d.]+)", page).group(1))
+    page = _review_page()
+    resting = float(re.search(r"\n\s*\.box-action \{[^}]*opacity: ([\d.]+)", page).group(1))
 
     assert 0 < resting < 1
     assert re.search(r"\.box-(hot|selected) \.box-action[^{]*\{[^}]*opacity: 1", page)
@@ -293,7 +300,7 @@ def test_but_held_back_until_the_box_is_pointed_at():
 
 def test_choosing_a_piece_shows_its_box_on_the_page():
     """The reverse of clicking a box, which has always chosen the piece."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     body = re.search(r"function selectPieceOnPage\(piece\) \{(.*?)\n\}", page, re.S).group(1)
 
     assert "setSelected(piece.node_index)" in body
@@ -304,7 +311,7 @@ def test_selecting_text_in_a_piece_is_not_a_click_on_it():
     """A piece's text is drag-selected to mark a correction (the #pieces
     mouseup handler). Treating that as "show me this box" would turn every
     correction into a page turn."""
-    page = REVIEW_HTML.read_text(encoding="utf-8")
+    page = _review_page()
     handler = re.search(r'div\.addEventListener\("click", \(e\) => \{(.*?)\n    \}\);', page, re.S).group(1)
 
     assert "getSelection" in handler and "isCollapsed" in handler

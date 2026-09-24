@@ -257,5 +257,5 @@ def test_every_act_can_fetch_versions_and_accepted_repeals_are_not_grey(tmp_path
         "nodes": _nodes({"2": [("1", "x")]}), "hierarchy": HIERARCHY, "fingerprint": "fp"}))
     assert dashboard.history_items("appeals-act")["items"] == []
 
-    review = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    review = (PROJECT_ROOT / "static" / "admin" / "review.css").read_text(encoding="utf-8")
     assert '.piece[data-type="repealed"]:not(.piece-accepted):not(.piece-flagged) { background: var(--repealed-bg); }' in review

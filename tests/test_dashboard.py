@@ -1637,3 +1637,24 @@ def test_asking_for_a_mode_that_does_not_exist_is_refused(monkeypatch, tmp_path)
     res = _reparse(monkeypatch, tmp_path, mode="keep-everything-forever")
 
     assert res.status_code == 400
+
+
+def test_every_admin_page_finds_its_stylesheets(monkeypatch):
+    """The admin pages link their CSS by relative path (static/admin/), so
+    each has to resolve from wherever the page is served."""
+    import re
+    from urllib.parse import urljoin
+    from fastapi.testclient import TestClient
+    from corpus.review import review
+
+    monkeypatch.setattr(dashboard, "_DASHBOARD_USERNAME", None)
+    pages = [(dashboard.app, "/"), (dashboard.app, "/history/act/"), (dashboard.app, "/teaching/act/"),
+             (dashboard.app, "/lessons/"), (review.app, "/")]
+    for app, url in pages:
+        client = TestClient(app)
+        html = client.get(url).text
+        hrefs = re.findall(r'<link rel="stylesheet" href="([^"]+)"', html)
+        assert hrefs, url
+        for href in hrefs:
+            css = client.get(urljoin(f"http://testserver{url}", href))
+            assert css.status_code == 200 and "text/css" in css.headers["content-type"], (url, href)
