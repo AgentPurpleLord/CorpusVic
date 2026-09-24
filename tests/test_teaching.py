@@ -221,3 +221,74 @@ def test_the_lessons_page_approves_rejects_and_withdraws(act, tmp_path, monkeypa
     listed = client.get("/api/lessons").json()
     assert (listed["candidates"], listed["rules"], listed["rejected"]) == ([], [], 1), "withdrawn stays withdrawn"
     assert client.get("/lessons/").status_code == 200
+
+
+# -- Stage 3: "Find others like this" in review ------------------------------
+
+def _two_sections():
+    def section(n, y):
+        return [
+            line(f"{n} Orders", bold=True, x0=170, x1=250, y0=y),
+            line("(1) The court may make an order that is set out", x0=HEAD_X0, x1=400, y0=y + 20),
+            line("in full under subsection", x0=WRAP_X0, x1=300, y0=y + 40),
+            line("(2) and then stops.", x0=HEAD_X0, x1=300, y0=y + 60),
+            line("(3) The court must—", x0=HEAD_X0, x1=320, y0=y + 80),
+            line("(a) the first thing; and", x0=PARA_X0, x1=380, y0=y + 100),
+            line("(b) the second thing.", x0=PARA_X0, x1=360, y0=y + 120),
+        ]
+    return [line("Part 1—Preliminary", bold=True, size=16.0, x1=300, y0=80)] + section(1, 100) + section(2, 300)
+
+
+@pytest.fixture
+def reviewing(tmp_path, monkeypatch):
+    from corpus.review import review
+
+    monkeypatch.chdir(tmp_path)
+    result = _parse(_two_sections())
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "act.json").write_text(json.dumps(
+        {"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}))
+    db.save_parse_fingerprint("act", "fp")
+    review._load_state("act")
+    return review, result.nodes
+
+
+def _at(nodes, section, type_, number):
+    """Index of the piece in the given section (1 or 2)."""
+    return [i for i, n in enumerate(nodes) if (n["type"], n["number"]) == (type_, number)][section - 1]
+
+
+def test_a_retype_finds_the_same_misreading_elsewhere_and_fixes_it(reviewing):
+    from fastapi.testclient import TestClient
+
+    review, nodes = reviewing
+    client = TestClient(review.app)
+    first, second = _at(nodes, 1, "paragraph", "b"), _at(nodes, 2, "paragraph", "b")
+    client.post(f"/api/nodes/{first}/edit", json={"type": "subparagraph", "number": "b", "text": "the second thing."})
+
+    found = client.get(f"/api/nodes/{first}/alike").json()
+    # Not the (a)s: the same shape, but met with a subsection open, not a paragraph.
+    assert [m["node_index"] for m in found["matches"]] == [second]
+    assert found["matches"][0]["new_number"] == "b" and "subparagraph" in found["description"]
+
+    out = client.post(f"/api/nodes/{first}/alike", json={"targets": [second]}).json()
+    assert out == {"applied": [second], "skipped": []}
+    assert review._current_node(second)["type"] == "subparagraph"
+    assert client.get(f"/api/nodes/{first}/alike").json()["matches"] == [], "already reads that way"
+
+
+def test_a_false_split_merged_away_finds_its_twin(reviewing):
+    from fastapi.testclient import TestClient
+
+    review, nodes = reviewing
+    client = TestClient(review.app)
+    split, twin = _at(nodes, 1, "subsection", "2"), _at(nodes, 2, "subsection", "2")
+    client.post("/api/merge", json={"target_node_index": split - 1, "source_node_indices": [split]})
+
+    found = client.get(f"/api/nodes/{split}/alike?merging=true").json()
+    # Not (3): its line above finished a sentence.
+    assert [m["node_index"] for m in found["matches"]] == [twin]
+
+    client.post(f"/api/nodes/{split}/alike", json={"merging": True, "targets": [twin]})
+    assert twin in review._merged_away
+    assert review._current_node(twin - 1)["text"].endswith("and then stops.")

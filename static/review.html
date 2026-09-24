@@ -841,6 +841,19 @@
 </div>
 
 <!-- Merge sources modal -->
+<div class="overlay" id="alike-overlay" hidden>
+  <div class="modal">
+    <h3 id="alike-title">Others like this</h3>
+    <p class="hint" id="alike-rule"></p>
+    <div class="picker-list" id="alike-list"></div>
+    <p class="hint">Each stays undecided until you accept its unit, and becomes an example for the parser then.</p>
+    <div class="modal-actions">
+      <button class="btn" id="alike-cancel">Not now</button>
+      <button class="btn primary" id="alike-confirm">Fix the ticked ones</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="merge-overlay" hidden>
   <div class="modal">
     <h3 id="merge-title">Merge which piece(s) into it?</h3>
@@ -2245,6 +2258,7 @@ function attachPieceDragAndDrop(div, nodeIndex) {
         toast("Merged.");
       }
       await afterMutation();
+      if (mode !== "nest") await offerAlike(draggedIndex, true);
     } catch (err) { toast(err.message, true); }
   });
 
@@ -2777,7 +2791,9 @@ function openEditModal(nodeIndex) {
         }),
       });
       document.getElementById("edit-overlay").hidden = true;
-      if (!placing) { toast("Updated."); await afterMutation(); return; }
+      const corrected = sel.value !== piece.type
+        || (document.getElementById("edit-number").value || "") !== (piece.number || "");
+      if (!placing) { toast("Updated."); await afterMutation(); if (corrected) await offerAlike(nodeIndex, false); return; }
       // After the edit, so the reference has the last word on type and
       // number -- the edit sends back the ones the modal opened with.
       const res = await api(`api/nodes/${nodeIndex}/place`, {
@@ -3064,9 +3080,49 @@ function openMergeSourcesModal(targetIndex) {
       document.getElementById("merge-overlay").hidden = true;
       toast("Merged.");
       await afterMutation();
+      if (selected.size === 1) await offerAlike([...selected][0], true);
     } catch (e) { toast(e.message, true); }
   };
 }
+// "Find others like this": after a retype, renumber or merge, the other
+// undecided pieces in this Act printed the same way (corpus/teaching/
+// alike.py), offered for the same fix. Silent when there are none.
+async function offerAlike(nodeIndex, merging) {
+  let found;
+  try { found = await api(`api/nodes/${nodeIndex}/alike?merging=${merging}`); } catch (e) { return; }
+  if (!found.matches.length) return;
+  const n = found.matches.length;
+  document.getElementById("alike-title").textContent =
+    `${n} other piece${n === 1 ? "" : "s"} in this Act ${n === 1 ? "looks" : "look"} like the one you just ${merging ? "merged" : "corrected"}`;
+  document.getElementById("alike-rule").textContent = found.description;
+  const list = document.getElementById("alike-list");
+  list.innerHTML = found.matches.map((m) => {
+    const now = `${m.type}${m.number ? " " + m.number : ""}`;
+    const then = merging ? "joins the piece above" : `${found.fix.type}${m.new_number ? " " + m.new_number : ""}`;
+    return `<div class="picker-item"><input type="checkbox" id="alike-${m.node_index}" value="${m.node_index}" checked>
+      <label for="alike-${m.node_index}" style="cursor:pointer;flex:1;display:flex;gap:8px;">
+      <span class="picker-label">p${m.page}</span>
+      <span class="picker-preview">${escapeHtml(m.text.slice(0, 70))}</span>
+      <span class="picker-label">${escapeHtml(now)} &rarr; ${escapeHtml(then)}</span></label></div>`;
+  }).join("");
+  document.getElementById("alike-overlay").hidden = false;
+  document.getElementById("alike-confirm").onclick = async () => {
+    const targets = [...list.querySelectorAll("input:checked")].map((cb) => Number(cb.value));
+    if (!targets.length) { document.getElementById("alike-overlay").hidden = true; return; }
+    try {
+      const res = await api(`api/nodes/${nodeIndex}/alike`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ merging, targets }),
+      });
+      document.getElementById("alike-overlay").hidden = true;
+      toast(`Fixed ${res.applied.length}` + (res.skipped.length ? `; ${res.skipped.length} skipped (${res.skipped[0].why})` : "."),
+            res.skipped.length > 0);
+      await afterMutation();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("alike-cancel").onclick = () => { document.getElementById("alike-overlay").hidden = true; };
+
 document.getElementById("merge-cancel").onclick = () => { document.getElementById("merge-overlay").hidden = true; };
 
 // ---------------------------------------------------------------------

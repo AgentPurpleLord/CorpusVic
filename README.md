@@ -100,6 +100,12 @@ work, or every Act; or reject it, and it isn't proposed again. Approved
 rules live in `data/teaching/rules.json` and are tried before the
 parser's own judgement.
 
+In review, retyping, renumbering or merging away a piece looks for the
+other undecided pieces in the Act printed the same way -- the same
+opening, weight, size and indent, met under the same kind of provision,
+and for a merge the same kind of line above -- and offers them for the
+same fix. They become examples as their units are accepted.
+
 ## How a provision is named
 
 Review work is attached to provisions, and a provision is named by what

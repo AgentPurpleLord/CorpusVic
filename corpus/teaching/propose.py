@@ -52,7 +52,7 @@ def shape(text: str, number: "str | None") -> "str | None":
                          for part in re.split(r"(\d+)", token) if part) + _TAIL
 
 
-def _conditions(group: list[dict]) -> dict:
+def conditions(group: list[dict]) -> dict:
     """What every example in the group has in common."""
     fs = [rules.features(f["seen"]) for f in group]
     when = {}
@@ -98,7 +98,7 @@ def propose(failures: list[dict], decided: "set[str]" = frozenset()) -> list[dic
         if len(group) < MIN_EXAMPLES:
             continue
         rule = {
-            "when": {"pattern": pattern, **_conditions(group)},
+            "when": {"pattern": pattern, **conditions(group)},
             "then": {"continue": True} if want is None else {"open": want, "number": numbered},
         }
         rule["id"] = rules.signature(rule)

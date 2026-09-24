@@ -2258,6 +2258,86 @@ def edit_node_endpoint(node_index: int, req: EditRequest):
             "heading": updated.get("heading"), "path": updated.get("path")}
 
 
+class AlikeRequest(BaseModel):
+    merging: bool = False
+    targets: list[int]
+
+
+def _alike(node_index: int, merging: bool) -> tuple[dict, dict, list[dict]]:
+    """The rule a correction of this piece would teach, the correction
+    itself, and every other undecided piece the rule picks out. Compared
+    against what the parser made of each, since that is what it will do
+    again on the next Act."""
+    from corpus.teaching import alike, rules as teaching_rules
+
+    seen = _parse_node(node_index).get("seen")
+    if not seen:
+        raise HTTPException(400, "This piece has no record of how it was printed (inserted, or parsed "
+                                 "before pieces kept one), so there is nothing to compare others with.")
+    parse_type = _parse_node(node_index)["type"]
+    now = _current_node(node_index)
+    rule = alike.rule_for(seen, None if merging else now.get("number"), merging)
+    fix = {"merge": True} if merging else {"type": now["type"], "numbered": bool(now.get("number"))}
+    found = []
+    for i in _order:
+        if i == node_index or not _node_is_live(i) or _is_committed(i):
+            continue
+        node = _parse_node(i)
+        if node.get("type") != parse_type or not node.get("seen") or not teaching_rules.matches(rule, node["seen"]):
+            continue
+        current = _current_node(i)
+        new_number = alike.number_in(rule, node["seen"]["text"]) if fix.get("numbered") else None
+        if merging:
+            unit = [j for j in _units[_unit_of_index[i]] if _node_is_live(j)]
+            if unit[0] == i:
+                continue   # a section's own line has nothing above it in the section to join
+        elif current["type"] == now["type"] and (current.get("number") or None) == (new_number or current.get("number")):
+            continue   # already reads that way
+        found.append({"node_index": i, "unit_no": _unit_of_index.get(i), "page": node["seen"]["page"],
+                      "text": node["seen"]["text"], "type": current["type"], "number": current.get("number"),
+                      "new_number": new_number if fix.get("numbered") else current.get("number")})
+    return rule, fix, found
+
+
+@app.get("/api/nodes/{node_index}/alike")
+def alike_endpoint(node_index: int, merging: bool = False):
+    """Pieces printed like this one, to correct the same way ("Find
+    others like this"). For a merge, `node_index` is the piece merged
+    away."""
+    from corpus.teaching import alike
+
+    rule, fix, found = _alike(node_index, merging)
+    words = "joins the piece above it" if merging else (
+        f"is a {fix['type']}" + (", numbered as printed" if fix["numbered"] else ""))
+    return {"description": alike.describe(rule, words), "fix": fix, "matches": found}
+
+
+@app.post("/api/nodes/{node_index}/alike")
+def apply_alike_endpoint(node_index: int, req: AlikeRequest):
+    """Makes the same correction to each ticked look-alike, through the
+    same endpoints a reviewer's own edit or merge goes through. Each stays
+    undecided until its unit is accepted, and becomes an example then."""
+    _rule, fix, found = _alike(node_index, req.merging)
+    by_index = {f["node_index"]: f for f in found}
+    applied, skipped = [], []
+    for t in req.targets:
+        f = by_index.get(t)
+        try:
+            if f is None:
+                raise HTTPException(400, "no longer looks like it")
+            if req.merging:
+                unit = [j for j in _units[_unit_of_index[t]] if _node_is_live(j)]
+                merge_endpoint(MergeRequest(target_node_index=unit[unit.index(t) - 1], source_node_indices=[t]))
+            else:
+                current = _current_node(t)
+                edit_node_endpoint(t, EditRequest(type=fix["type"], number=f["new_number"],
+                                                  heading=current.get("heading"), text=current.get("text") or ""))
+            applied.append(t)
+        except HTTPException as e:
+            skipped.append({"node_index": t, "why": e.detail})
+    return {"applied": applied, "skipped": skipped}
+
+
 @app.post("/api/nodes/{node_index}/reset")
 def reset_node_endpoint(node_index: int):
     """Puts one piece back to exactly what the parser says now, and
