@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<title>Teaching</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../static/admin/teaching.css">
+<script>
+try { if (localStorage.getItem("stylePreviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
+</head>
+<body>
+<div id="style-preview-bar" style="position:fixed;right:10px;bottom:10px;z-index:2147483647;
+  font:12px/1.4 system-ui,sans-serif;background:#fff;color:#111;border:1px solid #999;border-radius:4px;
+  padding:5px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)">
+  <b>admin/teaching</b> &middot; <a href="../index.html" style="color:#0645ad">all pages</a> &middot;
+  <button type="button" style="font:inherit" onclick="
+    var d = document.documentElement.dataset; if (d.theme === 'dark') delete d.theme; else d.theme = 'dark';
+    try { localStorage.setItem('stylePreviewTheme', d.theme || 'light'); } catch (e) {}">Light / dark</button>
+</div>
+
+<header>
+  <h1>Teaching — <span id="slug">criminal-procedure-act-v114</span></h1>
+  <span style="flex:1"></span>
+  <button class="btn primary" id="check">Check the parser against my decisions</button>
+  <a class="btn" href="../../lessons/">Lessons</a>
+  <a class="btn" href="../../">Dashboard</a>
+</header>
+<main>
+  <p class="muted">Every piece you have accepted, corrected, merged away or deleted is kept as an example of what
+    that printed line is. A check re-reads this Act's PDF with the parser as it stands and asks, line by line,
+    whether it now says what you said. Nothing is changed by a check.</p>
+  <div class="tiles" id="tiles"><div class="tile "><b>0</b>examples</div><div class="tile "><b>0</b>kept as the parser read them</div><div class="tile "><b>0</b>corrected by you</div><div class="tile "><b>0</b>merged away or deleted</div><div class="tile good"><b>1838</b>pass</div><div class="tile bad"><b>3</b>fail</div><div class="tile bad"><b>1</b>newly broken</div></div>
+  <div id="result"><h2>Where the parser and you disagree</h2>
+    <table><tbody><tr><th>Page</th><th>Line</th><th>You said</th><th>The parser says</th></tr>
+    <tr class="new" title="Passed last time">
+      <td>62</td><td class="line">(2) and then continues</td><td>nothing opens here</td><td>subsection 2</td></tr><tr class="" title="">
+      <td>63</td><td class="line">(3) and then continues</td><td>nothing opens here</td><td>subsection 3</td></tr><tr class="" title="">
+      <td>64</td><td class="line">(4) and then continues</td><td>nothing opens here</td><td>subsection 4</td></tr>
+    </tbody></table></div>
+</main>
+</body></html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<title>Lessons</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../static/admin/lessons.css">
+<script>
+try { if (localStorage.getItem("stylePreviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+</script>
+</head>
+<body>
+<div id="style-preview-bar" style="position:fixed;right:10px;bottom:10px;z-index:2147483647;
+  font:12px/1.4 system-ui,sans-serif;background:#fff;color:#111;border:1px solid #999;border-radius:4px;
+  padding:5px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)">
+  <b>admin/lessons</b> &middot; <a href="../index.html" style="color:#0645ad">all pages</a> &middot;
+  <button type="button" style="font:inherit" onclick="
+    var d = document.documentElement.dataset; if (d.theme === 'dark') delete d.theme; else d.theme = 'dark';
+    try { localStorage.setItem('stylePreviewTheme', d.theme || 'light'); } catch (e) {}">Light / dark</button>
+</div>
+
+<header>
+  <h1>Lessons</h1>
+  <span style="flex:1"></span>
+  <a class="btn" href="../">Dashboard</a>
+</header>
+<main>
+  <p class="muted">Where the parser and your decisions disagree the same way on lines that look alike, the
+    agreement is proposed here as a rule. Proposals come from each Act's last Teaching check. A rule changes
+    nothing until you approve it; preview it first to see every line it would change across the Acts held here,
+    and which of your examples it fixes or breaks. Approving changes the parser, so held Acts will ask to be
+    re-parsed.</p>
+  <div id="out"><h2>Proposed (1)</h2><div class="card" data-id="0744e8a25835">
+    <p><b>A line matching ^\(\d+\)(?:\s|$), not bold, set at 0.97–1.03 of body size, indented -3 to 3pt from the provision open above it, while a subsection is open, after a line that stopped mid-sentence, which stopped short of the margin: carries on the text above it, not a new provision.</b></p>
+    <p class="muted">From 3 of your decisions. Pattern <code>^\(\d+\)(?:\s|$)</code></p>
+    <details><summary>The decisions it came from</summary>
+      <table><tbody><tr><th>Act</th><th>Page</th><th>Line</th><th>You said</th><th>The parser said</th></tr><tr><td>criminal-procedure-act-v114</td><td>62</td><td class="line">(2) and then continues</td>
+    <td>nothing opens here</td><td>subsection 2</td></tr><tr><td>criminal-procedure-act-v114</td><td>63</td><td class="line">(3) and then continues</td>
+    <td>nothing opens here</td><td>subsection 3</td></tr><tr><td>criminal-procedure-act-v114</td><td>64</td><td class="line">(4) and then continues</td>
+    <td>nothing opens here</td><td>subsection 4</td></tr></tbody></table>
+    </details>
+    <div class="preview"></div>
+    <div class="row">
+      <button class="btn" data-act="preview">Preview</button>
+      <label>Apply to <select data-scope="">
+        <option value="criminal-procedure-act">criminal-procedure-act</option>
+        <option value="all">every Act</option>
+        <option value="criminal-procedure-act-v114">criminal-procedure-act-v114 only</option>
+      </select></label>
+      <button class="btn primary" data-act="approve" disabled="" title="Preview it first">Approve</button>
+      <button class="btn" data-act="reject">Reject</button>
+    </div></div><h2>Approved rules (0)</h2><p class="muted">None yet.</p><h2>Second opinion</h2>
+    <p class="muted">A small decision tree trained on every example, which flags pieces in review it reads
+      differently from the parser ("Model disagrees" in review's unit list). It advises; it never changes a parse.
+      It is retrained after each Teaching check, and review picks it up the next time an Act is opened.</p>
+    <p>Trained on 1841 examples from 1 Act(s).</p>
+      <table><tbody><tr><th>Tested on</th><th>Lines</th><th>Model right</th><th>Parser right (when reviewed)</th></tr>
+      <tr><td>a fifth of criminal-procedure-act-v114's lines</td><td>383</td><td>98.7%</td>
+        <td>100.0%</td></tr></tbody></table>
+      <p class="muted">With one Act reviewed, it is tested on a fifth of that Act's lines it
+        didn't train on. Reviewing a second Act lets it be tested on an Act it has never seen, the test that counts.</p>
+    <button class="btn" data-act="train">Train now</button></div>
+</main>
+</body></html>

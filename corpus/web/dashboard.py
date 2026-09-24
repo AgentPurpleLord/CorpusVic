@@ -397,6 +397,10 @@ def serving_app():
 # resolves the path itself and refuses to escape the directory, which is
 # what the hand-rolled /fonts route this replaces had to check for.
 app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")
+# The admin pages' own stylesheets (static/admin/), kept out of the pages
+# so the style preview (corpus/publishing/style_preview.py) links the same
+# files the tools do -- an inline copy would never show an edit.
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # ---------------------------------------------------------------------------
 # Username/password login: sessions are random server-side tokens (the

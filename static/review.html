@@ -4,626 +4,14 @@
 <meta charset="utf-8">
 <title>Legislation review</title>
 <!-- Inter and Junicode are self-hosted. -->
-<style>
-  @font-face {
-    font-family: 'Inter';
-    src: url('/assets/fonts/Inter.woff2') format('woff2');
-    font-weight: 400 700; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: 'Inter';
-    src: url('/assets/fonts/Inter-Italic.woff2') format('woff2');
-    font-weight: 400 700; font-style: italic; font-display: swap;
-  }
-</style>
+<link rel="stylesheet" href="static/admin/fonts.css">
+<link rel="stylesheet" href="static/admin/review.css">
 <script>
   // Applied before first paint so a dark-mode reviewer never sees a
   // white flash on load; applyTheme() below re-runs it once the
   // toggle button exists, to sync the button's own icon/title.
   try { if (localStorage.getItem("reviewTheme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
 </script>
-<style>
-  :root {
-    color-scheme: light;
-    --font-reading: 'Junicode', Georgia, serif;
-    --bg: #f3f2f2;
-    --panel: #eae9e9;
-    --fg: #201e1d;
-    --muted: #605d5d;
-    --border: color-mix(in srgb, #201e1d 40%, transparent);
-    --accent: #ec3013;
-    --accent-hover: #dd2b0f;
-    --sidebar-bg: #eae9e9;
-    --sidebar-hover: #e0dedd;
-    --sidebar-active: #fff2ef;
-    --pending: #7d7979;
-    --done: #16a34a;
-    --flagged: #d97706;
-    --hover-bg: color-mix(in srgb, #201e1d 6%, transparent);
-    --danger: #b91c1c;
-    --danger-border: #f0c0c0;
-    --selected-bg: #fff2ef;
-    --toast-bg: #201e1d;
-    --toast-error-bg: #ae1800;
-    --piece-accepted-bg: #f0fdf4;
-    --piece-accepted-border: #bbf7d0;
-    --piece-accepted-hover: #dcfce7;
-    --piece-flagged-bg: #fffbeb;
-    --piece-flagged-border: #fde68a;
-    --piece-flagged-hover: #fef3c7;
-    --piece-merge-source-bg: #fff7ed;
-    --repealed-bg: #ececea;
-    --accepted-text: #166534;
-    --flagged-text: #92400e;
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --bg: #120e0e;
-    --panel: #1c1717;
-    --fg: #eeeaea;
-    --muted: #969191;
-    --border: #413b3b;
-    --accent: #ff7f67;
-    --accent-hover: #ec5a3f;
-    --sidebar-bg: #1c1717;
-    --sidebar-hover: #241e1e;
-    --sidebar-active: #3a1610;
-    --pending: #989090;
-    --done: #5fd37f;
-    --flagged: #f0b135;
-    --hover-bg: color-mix(in srgb, #eeeaea 8%, transparent);
-    --danger: #f87171;
-    --danger-border: #5c2626;
-    --selected-bg: #4c1108;
-    --toast-bg: #0a0808;
-    --toast-error-bg: #4c1108;
-    --piece-accepted-bg: #092c13;
-    --piece-accepted-border: #1f5c37;
-    --piece-accepted-hover: #123d1e;
-    --piece-flagged-bg: #3b2400;
-    --piece-flagged-border: #6b551c;
-    --piece-flagged-hover: #4a2f05;
-    --piece-merge-source-bg: #2e2013;
-    --repealed-bg: #171313;
-    --accepted-text: #5fd37f;
-    --flagged-text: #f0b135;
-  }
-  @font-face {
-    font-family: 'Junicode';
-    src: url('/assets/fonts/Junicode-Roman.woff2') format('woff2');
-    font-weight: 300 700; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: 'Junicode';
-    src: url('/assets/fonts/Junicode-Italic.woff2') format('woff2');
-    font-weight: 300 700; font-style: italic; font-display: swap;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-    font-kerning: normal;
-    font-variant-ligatures: common-ligatures contextual;
-    background: var(--bg);
-    color: var(--fg);
-    display: flex;
-    flex-direction: column;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 8px 16px;
-    border-bottom: 2px solid var(--border);
-    background: var(--panel);
-    z-index: 20;
-  }
-  header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
-  header .spacer { flex: 1; }
-  header .stat { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  header button, .btn {
-    border: 1px solid var(--border);
-    background: var(--panel);
-    border-radius: 0;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--fg);
-  }
-  header button:hover, .btn:hover { background: var(--hover-bg); }
-  .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
-  .btn.primary:hover { background: var(--accent-hover); }
-  .btn.danger { color: var(--danger); border-color: var(--danger-border); }
-  .btn.small { padding: 2px 8px; font-size: 12px; }
-  #layout { flex: 1; display: flex; min-height: 0; }
-
-  #sidebar {
-    width: 300px;
-    flex-shrink: 0;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  #sidebar-controls {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  #sidebar-filter { display: flex; gap: 4px; }
-  #sidebar-filter button {
-    flex: 1;
-    font-size: 11.5px;
-    padding: 4px 4px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    border-radius: 0;
-    cursor: pointer;
-  }
-  #sidebar-filter button.active { background: var(--accent); color: white; border-color: var(--accent); }
-  #jump-input { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 0; font-size: 12px; }
-  #unit-list { flex: 1; overflow-y: auto; }
-  .unit-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 7px 10px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    font-size: 12.5px;
-  }
-  .tree-toggle, .tree-spacer {
-    display: inline-block; width: 12px; flex-shrink: 0; text-align: center;
-    color: var(--muted); margin-top: 1px; font-size: 10px;
-  }
-  .tree-toggle { cursor: pointer; }
-  .tree-toggle:hover { color: var(--fg); }
-  /* A unit's review status colours the whole row, not just the 9px dot:
-     scanning a long sidebar for what is done and what is left should not
-     come down to picking out a circle. The dot stays as the precise
-     marker; this is the at-a-glance one. */
-  .unit-row.status-done { background: var(--piece-accepted-bg); }
-  .unit-row.status-flagged { background: var(--piece-flagged-bg); }
-  .unit-row:hover { background: var(--sidebar-hover); }
-  .unit-row.status-done:hover { background: var(--piece-accepted-hover); }
-  .unit-row.status-flagged:hover { background: var(--piece-flagged-hover); }
-  /* Which row is open is marked by the bar rather than by the background,
-     so selecting a reviewed unit doesn't hide the fact that it's
-     reviewed. */
-  .unit-row.active { background: var(--sidebar-active); box-shadow: inset 3px 0 0 var(--accent); }
-  .unit-row.status-done.active { background: var(--piece-accepted-hover); }
-  .unit-row.status-flagged.active { background: var(--piece-flagged-hover); }
-  .status-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
-  .status-dot.pending { background: var(--pending); }
-  .status-dot.done { background: var(--done); }
-  .status-dot.flagged { background: var(--flagged); }
-  /* Vouched for by another version of the work (see
-     corpus/review/inheritance.py): nothing to decide here. */
-  .status-dot.inherited, .status-dot.follows { background: transparent; border: 1px solid var(--pending); }
-  .unit-row.status-inherited, .unit-row.status-follows { opacity: 0.6; }
-  .status-badge.inherited, .status-badge.follows { background: var(--sidebar-bg); color: var(--muted); }
-  .box-group[data-status="inherited"] { --box-fill: #9ca3af; --box-stroke: #6b7280; }
-  #version-stat a { color: inherit; }
-  #version-stat .warn { color: var(--flagged); }
-  #lineage-panel { border: 1px solid var(--border); border-left: 3px solid var(--pending);
-    padding: 8px 12px; margin: 0 0 12px; font-size: 13px; }
-  #lineage-panel .carry { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .unit-row .unit-title { font-weight: 600; }
-  .unit-row .unit-sub { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  #main { flex: 1; overflow-y: auto; min-width: 0; }
-  #main-inner { max-width: 880px; margin: 0 auto; padding: 20px 20px 100px; }
-  #empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
-
-  /* Source-PDF panel -- three modes cycled by #pdf-toggle-btn: "text"
-     (panel hidden, #main full width -- the default, unchanged layout),
-     "split" (both visible, each getting an equal flex share), "pdf"
-     (#main hidden, panel full width). Toggled via body[data-view-mode]
-     rather than JS-set inline styles so both states are one CSS rule
-     each. */
-  #pdf-panel {
-    display: none;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    border-left: 1px solid var(--border);
-    background: #52565c;
-  }
-  body[data-view-mode="split"] #pdf-panel, body[data-view-mode="pdf"] #pdf-panel { display: flex; }
-
-  /* History-notes panel -- independent of the PDF panel's view-mode (a
-     reviewer may well want both open at once), toggled by its own button
-     and persisted separately (see the JS below). Fixed width rather than
-     a flex share like #pdf-panel: its content (a handful of short notes)
-     never needs the room a PDF page does. */
-  #history-panel {
-    display: none;
-    flex-direction: column;
-    width: 320px;
-    flex-shrink: 0;
-    border-left: 1px solid var(--border);
-    background: var(--panel);
-    overflow-y: auto;
-  }
-  body[data-history-panel="open"] #history-panel { display: flex; }
-  #history-panel-inner { padding: 14px; }
-  #history-panel h3 { font-size: 13px; margin: 0 0 8px; }
-  #history-panel .history-section + .history-section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
-  .history-piece-group { margin-bottom: 12px; }
-  .history-piece-group .history-piece-label { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
-  .history-note {
-    background: var(--sidebar-bg);
-    border: 1px solid var(--border);
-    border-radius: 0;
-    padding: 7px 9px;
-    margin-bottom: 6px;
-    font-size: 12.5px;
-  }
-  .history-note .history-note-text { line-height: 1.4; }
-  .history-note .history-note-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
-  .history-confidence { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 6px; border-radius: 0; font-weight: 700; }
-  .history-confidence.high { background: var(--piece-accepted-bg); color: var(--accepted-text); }
-  .history-confidence.low { background: var(--piece-flagged-bg); color: var(--flagged-text); }
-  .history-confidence.manual { background: var(--accent); color: white; }
-  .history-note .history-note-meta button { font-size: 10.5px; padding: 1px 6px; margin-left: auto; }
-  .history-candidate { border: 1px solid var(--border); border-radius: 0; padding: 7px 9px; margin-bottom: 6px; font-size: 12.5px; }
-  .history-candidate .history-note-text { line-height: 1.4; margin-bottom: 5px; }
-  #history-search {
-    width: 100%; box-sizing: border-box; margin-bottom: 8px;
-    padding: 4px 6px; border: 1px solid var(--border); border-radius: 0; font-size: 12px;
-  }
-  #history-empty { color: var(--muted); font-size: 12.5px; }
-  body[data-view-mode="pdf"] #main { display: none; }
-  #pdf-toolbar {
-    display: flex; align-items: center; gap: 10px;
-    padding: 6px 12px; background: #374151; color: #e5e7eb; font-size: 12.5px; flex-shrink: 0;
-  }
-  #pdf-toolbar button { background: #1f2937; color: #e5e7eb; border-color: #4b5563; }
-  #pdf-toolbar button:hover { background: #111827; }
-  #pdf-toolbar button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  #pdf-panes { flex: 1; display: flex; min-height: 0; }
-  #pdf-main-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; order: 1; }
-  #pdf-image-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 18px; }
-  /* At zoom 1 the page fits the panel's width, as it always has. Above
-     that it overflows and #pdf-image-wrap scrolls -- and the image is
-     re-fetched rendered at that zoom (see loadPdfPage), so the extra
-     width is extra detail rather than bigger pixels. align-self keeps a
-     zoomed page from being squashed back to fit by the flex row. */
-  #pdf-stage {
-    position: relative;
-    width: calc(var(--pdf-zoom, 1) * 100%); max-width: none;
-    align-self: flex-start; flex-shrink: 0;
-    box-shadow: 0 2px 14px rgba(0,0,0,0.45); background: white;
-  }
-  #pdf-image { display: block; width: 100%; max-width: none; height: auto; }
-  /* Sits exactly over the page, at the page's own coordinates. */
-  #pdf-overlay { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  #pdf-overlay[hidden] { display: none; }
-  /* A provision, as the parser read it. Faint until it is pointed at:
-     the page has to stay readable, or drawing on it is worse than not. */
-  .box-shape {
-    fill: var(--box-fill); fill-opacity: 0.10;
-    stroke: var(--box-stroke); stroke-width: 1; stroke-opacity: 0.55;
-    vector-effect: non-scaling-stroke; cursor: pointer;
-  }
-  .box-hot .box-shape { fill-opacity: 0.26; stroke-opacity: 1; stroke-width: 1.5; }
-  .box-selected .box-shape { fill-opacity: 0.30; stroke-opacity: 1; stroke-width: 2; }
-  .box-drawn .box-shape { stroke-dasharray: none; }
-  /* A box nobody has touched is the parser's guess; one a person drew is
-     a decision. Dashes say which is which without a legend. */
-  .box-parsed .box-shape { stroke-dasharray: 4 3; }
-  .box-group[data-status="accepted"] { --box-fill: #16a34a; --box-stroke: #15803d; }
-  .box-group[data-status="flagged"] { --box-fill: #f59e0b; --box-stroke: #b45309; }
-  .box-group[data-status="pending"] { --box-fill: #2563eb; --box-stroke: #1d4ed8; }
-  .box-label {
-    font-family: var(--font-ui); font-size: 8px; font-weight: 600;
-    fill: var(--box-stroke); paint-order: stroke; stroke: #fff; stroke-width: 2.5px;
-    pointer-events: none; user-select: none; opacity: 0;
-  }
-  .box-hot .box-label, .box-selected .box-label { opacity: 1; }
-  /* An amendment note, where the Act prints it, joined to the provision
-     it amends by the line the page itself implies by putting them side
-     by side. */
-  .note-shape { fill: #a855f7; fill-opacity: 0.10; stroke: #7e22ce; stroke-width: 1; vector-effect: non-scaling-stroke; cursor: pointer; }
-  .note-link { stroke: #7e22ce; stroke-width: 1; stroke-opacity: 0.5; stroke-dasharray: 3 2; fill: none; vector-effect: non-scaling-stroke; pointer-events: none; }
-  .note-link.low { stroke-dasharray: 1 3; }
-  .note-hot .note-shape { fill-opacity: 0.3; }
-  .note-hot .note-link { stroke-opacity: 1; stroke-width: 2; }
-  .note-unattached .note-shape { stroke-dasharray: 4 3; fill: #ef4444; stroke: #b91c1c; }
-  /* The box being dragged out right now. */
-  .box-draft { fill: #2563eb; fill-opacity: 0.16; stroke: #1d4ed8; stroke-width: 2; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; pointer-events: none; }
-  /* A page is a dense place; every box on it being draggable at once
-     would mean dragging the wrong one. Only the box in hand has grips. */
-  .box-handle { fill: #fff; stroke: var(--box-stroke); stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: nwse-resize; opacity: 0; pointer-events: none; }
-  .box-selected .box-handle { opacity: 1; pointer-events: auto; }
-  /* Accept and flag, on the box itself, on every box at once: a reviewer
-     working down a page should not have to find out which provisions can
-     be decided from here. Held back rather than hidden -- full strength
-     only on the box being pointed at -- because two buttons beside every
-     provision at full contrast is a margin louder than the Act. They sit
-     outside the box's right edge, so nothing here covers the words. */
-  .box-action { opacity: 0.45; pointer-events: auto; cursor: pointer; }
-  .box-hot .box-action, .box-selected .box-action, .box-action:hover { opacity: 1; }
-  .box-action-bg { fill: #fff; stroke: var(--box-stroke); stroke-width: 1; vector-effect: non-scaling-stroke; }
-  .box-action-mark {
-    font-family: var(--font-ui); font-size: 9px; font-weight: 700;
-    text-anchor: middle; dominant-baseline: central; pointer-events: none; user-select: none;
-  }
-  .box-action-accept .box-action-mark { fill: #15803d; }
-  .box-action-flag .box-action-mark { fill: #b45309; }
-  .box-action:hover .box-action-bg { fill: var(--box-fill); fill-opacity: 0.22; }
-  /* What a decided provision reads as at a glance, without hovering it. */
-  .box-verdict {
-    font-family: var(--font-ui); font-size: 9px; font-weight: 700;
-    text-anchor: middle; dominant-baseline: central;
-    pointer-events: none; user-select: none; fill: var(--box-stroke);
-  }
-  #pdf-stage.drawing { cursor: crosshair; }
-  #pdf-stage.drawing #pdf-overlay { pointer-events: none; }
-  #pdf-hint { font-size: 11.5px; color: #fcd34d; }
-  #pdf-zoom-label { min-width: 38px; text-align: center; }
-  .page-jump-btn { font-size: 10.5px !important; padding: 2px 6px !important; }
-
-  #unit-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
-  #unit-header h2 { font-size: 18px; margin: 0; }
-  #unit-header .status-badge {
-    font-size: 11px; padding: 2px 8px; border-radius: 0; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .status-badge.pending { background: var(--sidebar-bg); color: var(--pending); }
-  .status-badge.done { background: var(--piece-accepted-bg); color: var(--accepted-text); }
-  .status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
-  #unit-nav { display: flex; gap: 6px; margin-left: auto; }
-
-  .piece {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 0;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    position: relative;
-  }
-  /* The merge drag starts from this strip down the piece's left edge, not
-     from the piece's body -- a draggable body makes the text inside it
-     unselectable, which broke labelling a link span (the other thing a
-     reviewer does by dragging across a piece). The strip sits over the
-     type-accent border, is the full height of the piece, and shows a grab
-     cursor; see attachPieceDragAndDrop for the draggable toggling. */
-  .piece-grip {
-    position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
-    border-radius: 0;
-    cursor: grab;
-  }
-  .piece-grip:hover { background: var(--hover-bg); }
-  .piece-grip:active { cursor: grabbing; }
-  .piece.merge-target { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .piece.merge-source { background: var(--piece-merge-source-bg); }
-  .piece.nest-target { outline: 2px dashed var(--accent); outline-offset: -1px; background: var(--hover-bg); }
-  .piece.dragging { opacity: 0.45; }
-  .nest-handle {
-    cursor: grab;
-    font-size: 12px;
-    color: var(--muted);
-    padding: 1px 5px;
-    border: 1px solid var(--border);
-    border-radius: 0;
-    user-select: none;
-    white-space: nowrap;
-  }
-  .nest-handle:hover { color: var(--fg); border-color: var(--accent); }
-  .nest-handle:active { cursor: grabbing; }
-  .piece.piece-accepted { background: var(--piece-accepted-bg); border-color: var(--piece-accepted-border); }
-  .piece.piece-flagged { background: var(--piece-flagged-bg); border-color: var(--piece-flagged-border); }
-
-  /* Blind-review gate for elevated-risk pieces (those carrying a
-     diagnostics finding) -- see _is_elevated_risk in review.py. Reuses
-     the flagged palette (this *is* a "needs your attention" state, just
-     before rather than after a decision) rather than a whole new colour
-     family. */
-  .piece.blind-pending { border: 1px dashed var(--piece-flagged-border); }
-  .blind-form { background: var(--piece-flagged-bg); border-radius: 0; padding: 10px 12px; margin-bottom: 10px; }
-  .blind-form-label { font-size: 11.5px; font-weight: 700; color: var(--flagged-text); margin-bottom: 6px; }
-  .blind-form-row { display: flex; gap: 8px; margin-bottom: 6px; }
-  .blind-form-row input, .blind-form-row select {
-    flex: 1; padding: 4px 6px; border: 1px solid var(--border); border-radius: 0; font-size: 12.5px;
-  }
-  .blind-form > input {
-    display: block; width: 100%; box-sizing: border-box; margin-bottom: 6px;
-    padding: 4px 6px; border: 1px solid var(--border); border-radius: 0; font-size: 12.5px;
-  }
-  .blind-form textarea {
-    width: 100%; box-sizing: border-box; min-height: 44px; padding: 5px 6px; margin-bottom: 6px;
-    border: 1px solid var(--border); border-radius: 0; font-size: 12.5px; font-family: inherit; resize: vertical;
-  }
-  .blind-result { background: var(--sidebar-bg); border-radius: 0; padding: 9px 12px; margin-bottom: 10px; font-size: 12.5px; }
-  .blind-result-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-  .blind-result-row { display: flex; gap: 14px; margin-bottom: 3px; }
-  .blind-match { font-weight: 700; }
-  .blind-match.yes { color: var(--accepted-text); }
-  .blind-match.no { color: var(--flagged-text); }
-  .blind-reasoning { color: var(--muted); font-style: italic; margin-top: 4px; }
-  .ai-suggest { background: var(--sidebar-bg); border-radius: 0; padding: 9px 12px; margin-bottom: 10px; font-size: 12.5px; }
-  .ai-suggest-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
-  .ai-suggest-model { font-weight: 400; text-transform: none; }
-  .ai-suggest-answer { margin-bottom: 4px; }
-  .ai-suggest-reasoning { color: var(--muted); font-style: italic; }
-  .ai-suggest-hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; }
-  .ai-suggest-hint code { font-size: 11px; }
-  .piece-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .piece-label { font-weight: 700; font-size: 13px; }
-  .piece-type { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-  .piece-status-badge { font-size: 10.5px; padding: 1px 8px; border-radius: 0; font-weight: 600; white-space: nowrap; }
-  .piece-status-badge.accepted { background: var(--piece-accepted-bg); color: var(--accepted-text); }
-  .piece-status-badge.flagged { background: var(--piece-flagged-bg); color: var(--flagged-text); }
-  .piece-toolbar { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
-  .piece:hover .piece-toolbar { opacity: 1; }
-  .piece-toolbar button { font-size: 11px; padding: 2px 7px; }
-  .accept-piece-btn { color: var(--accepted-text) !important; border-color: var(--piece-accepted-border) !important; }
-  .flag-piece-btn { color: var(--flagged-text) !important; border-color: var(--piece-flagged-border) !important; }
-  /* Deleted pieces, offered back. Set apart from the unit's real
-     content and struck through, so there is no reading it as part of the
-     document -- it is a record of something taken out of it. */
-  #deleted-pieces { margin: 14px 0 0; padding: 10px 12px; border: 1px dashed var(--border); }
-  #deleted-pieces h4 { margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-  .deleted-piece { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; font-size: 13px; }
-  .deleted-piece .picker-label { text-decoration: line-through; color: var(--muted); }
-  .deleted-piece .picker-preview { flex: 1; color: var(--muted); text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* A table piece: the stored pipe-separated rows above, and the table
-     they mean below. Set apart and captioned, so there is no mistaking
-     which of the two a reviewer is editing. */
-  .piece-table { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; overflow-x: auto; }
-  .piece-table-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
-  .piece-table table { border-collapse: collapse; font-family: var(--font-reading); font-size: 15px; }
-  .piece-table th, .piece-table td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; text-align: left; }
-  .piece-table th { font-weight: 600; background: var(--hover-bg); }
-  /* The piece whose box is being pointed at on the page, and the other
-     way round. The pairing is the whole reason for drawing boxes. */
-  .piece.piece-hot { box-shadow: inset 3px 0 0 var(--accent); background: var(--hover-bg); }
-  .piece-heading { font-weight: 600; margin-bottom: 4px; }
-  /* A Part/Division/Chapter heading is the whole of its piece -- there is no
-     body text underneath for it to caption, so it reads as the content it is,
-     in the same reading face and size .piece-text uses. */
-  .piece-heading-only {
-    font-family: var(--font-reading);
-    font-size: 19px;
-    line-height: 1.42;
-    max-width: 34em;
-    margin-bottom: 0;
-    cursor: text;
-    user-select: text;
-  }
-  .piece-text {
-    /* The same 19px/1.42 over a 34em measure the published pages use
-       (corpus/html_view.py's .prov): a reviewer should be judging
-       the text as a reader will meet it, not in a denser tool font. */
-    font-family: var(--font-reading);
-    white-space: pre-wrap;
-    line-height: 1.42;
-    font-size: 19px;
-    max-width: 34em;
-    cursor: text;
-    user-select: text;
-  }
-  .piece-text mark { border-radius: 0; padding: 0 1px; cursor: pointer; border-bottom: 2px solid transparent; }
-  mark.label-act_citation { background: #bfdbfe; }
-  mark.label-defined_term { background: #bbf7d0; }
-  mark.label-bill_reference { background: #ddd6fe; }
-  mark.label-em_reference { background: #fed7aa; }
-  mark.label-other { background: #e5e7eb; }
-  mark.resolved { border-bottom-color: #16a34a; }
-  mark.unresolved { border-bottom: 2px dashed #9ca3af; }
-  .piece-drift {
-    font-size: 12px; color: var(--muted); margin-top: 8px;
-    padding: 7px 9px; background: var(--panel); border-left: 2px solid var(--border);
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  }
-  .piece-findings { margin-top: 6px; font-size: 12.5px; color: var(--flagged-text); }
-  .piece-findings div { margin-top: 2px; }
-  .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
-
-  /* Type accent colours -- a left border, subtle, distinguishes piece
-     type by colour without competing with the text itself. */
-  .piece[data-type="subsection"] { border-left: 3px solid #06b6d4; }
-  .piece[data-type="paragraph"] { border-left: 3px solid #22c55e; }
-  .piece[data-type="subparagraph"] { border-left: 3px solid #eab308; }
-  .piece[data-type="sub_subparagraph"] { border-left: 3px solid #f97316; }
-  .piece[data-type="note"] { border-left: 3px solid #d946ef; }
-  .piece[data-type="example"] { border-left: 3px solid #14b8a6; }
-  .piece[data-type="definition"] { border-left: 3px solid #3b82f6; }
-  .piece[data-type="heading_group"] { border-left: 3px solid #111827; }
-  /* Grey only while undecided: once accepted or flagged, a repealed row
-     shows it like any other piece, or what is left to review is lost in
-     the grey. */
-  .piece[data-type="repealed"] { border-left: 3px solid #6b7280; }
-  .piece[data-type="repealed"]:not(.piece-accepted):not(.piece-flagged) { background: var(--repealed-bg); }
-  .piece[data-type="repealed"] .piece-text { color: var(--muted); font-style: italic; }
-
-  #unit-actions {
-    position: sticky;
-    bottom: 0;
-    background: var(--panel);
-    border-top: 1px solid var(--border);
-    padding: 10px 0;
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin-top: 10px;
-  }
-
-  /* Selection / highlight popup menu */
-  #menu {
-    position: absolute;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 0;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-    padding: 6px;
-    z-index: 200;
-    display: none;
-    min-width: 190px;
-  }
-  #menu .preview {
-    font-size: 12px; color: var(--muted); padding: 4px 8px 8px;
-    border-bottom: 1px solid var(--border); margin-bottom: 4px; max-width: 280px; overflow-wrap: break-word;
-  }
-  #menu button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 6px 8px; border-radius: 0; cursor: pointer; font-size: 13px; }
-  #menu button:hover { background: var(--hover-bg); }
-  #menu button.remove { color: var(--danger); }
-  #menu .menu-rule { border-top: 1px solid var(--border); margin: 4px 0; }
-
-  /* Modal overlay (edit / target-picker / merge) */
-  .overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
-    display: flex; align-items: center; justify-content: center; z-index: 300;
-  }
-  .overlay[hidden] { display: none; }
-  .modal {
-    background: var(--panel); border-radius: 0; padding: 18px 20px;
-    width: min(560px, 92vw); max-height: 85vh; overflow-y: auto;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-  }
-  .modal h3 { margin: 0 0 12px; font-size: 15px; }
-  .modal label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 3px; }
-  .modal input[type=text], .modal select, .modal textarea {
-    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 0; font-size: 13.5px; font-family: inherit;
-  }
-  .modal textarea { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
-  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-
-  .type-list { border: 1px solid var(--border); border-radius: 0; margin-top: 8px; max-height: 320px; overflow-y: auto; }
-  .type-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 13px;
-  }
-  .type-row:last-child { border-bottom: none; }
-  .type-row .type-name { font-weight: 600; }
-  .type-row .type-meta { color: var(--muted); font-size: 12px; }
-  .type-row .spacer { flex: 1; }
-  .type-row.builtin .type-name { font-weight: 500; color: var(--muted); }
-  .modal .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
-  .modal .inline-row { display: flex; gap: 8px; margin-top: 8px; }
-  .modal .inline-row input[type=text] { flex: 1; }
-
-  .picker-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 0; margin-top: 8px; }
-  .picker-item { padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
-  .picker-item:last-child { border-bottom: none; }
-  .picker-item:hover { background: var(--sidebar-hover); }
-  .picker-item input[type=checkbox] { margin-top: 2px; }
-  .picker-item .picker-label { font-weight: 600; white-space: nowrap; }
-  .picker-item .picker-preview { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .picker-item.selected { background: var(--selected-bg); }
-
-  #toast {
-    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-    background: var(--toast-bg); color: white; padding: 8px 16px; border-radius: 0; font-size: 13px;
-    z-index: 400; display: none;
-  }
-  #toast.error { background: var(--toast-error-bg); }
-</style>
 </head>
 <body>
 <header>
@@ -803,6 +191,23 @@
     <div class="modal-actions">
       <button class="btn" id="newbox-cancel">Cancel</button>
       <button class="btn primary" id="newbox-save">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- A history note from a box drawn in the margin (review.py's /api/history/create). -->
+<div class="overlay" id="newnote-overlay" hidden>
+  <div class="modal">
+    <h3>History note from this box</h3>
+    <div class="hint" id="newnote-text"></div>
+    <label>Belongs to</label>
+    <div class="inline-row">
+      <span id="newnote-node-label"></span>
+      <button class="btn small" id="newnote-node-btn">Choose another&hellip;</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="newnote-cancel">Cancel</button>
+      <button class="btn primary" id="newnote-save">Add note</button>
     </div>
   </div>
 </div>
@@ -1324,10 +729,13 @@ function currentRectsFor(nodeIndex) {
   return box ? box.rects.map((r) => ({ ...r })) : [];
 }
 
-// Only this page's rects come back from /boxes, so a piece that also
-// prints on the page before or after would lose those on a save. Its
-// other pages are fetched and kept.
+// A save replaces all of a piece's boxes, so the ones on the page before
+// or after have to go back with it. They come from /boxes, not the open
+// unit: the box at the top of a page usually belongs to the section
+// before, which is not the one open.
 async function rectsAcrossPages(nodeIndex) {
+  const box = pageBoxes && pageBoxes.boxes.find((b) => b.node_index === nodeIndex);
+  if (box && box.elsewhere) return box.elsewhere.map((r) => ({ ...r }));
   const piece = currentUnit && currentUnit.pieces.find((p) => p.node_index === nodeIndex);
   if (!piece) return currentRectsFor(nodeIndex);
   return piece.rects.filter((r) => r.page !== currentPageNo);
@@ -1434,8 +842,9 @@ function showBoxMenu(x, y, box, rectIndex) {
   add("Add another box", () => beginDraw(box.node_index, "add"));
   // Offered only where there is more than one. Removing the only box
   // would leave the piece with nowhere on the page to be pointed at, and
-  // "Back to the parser's box" is the way to undo one you drew.
-  if (box.rects.length > 1) {
+  // "Back to the parser's box" is the way to undo one you drew. Counted
+  // across pages: a section over a page break has one box on each.
+  if (box.rects.length + (box.elsewhere || []).length > 1) {
     add("Delete this box (keep the piece)", () => deleteOneBox(box, rectIndex));
   }
   if (box.drawn) add("Back to the parser's box", () => saveRects(box.node_index, null));
@@ -2836,6 +2245,7 @@ async function openNewBoxModal(rect) {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rect }),
     });
   } catch (e) { toast(e.message, true); return; }
+  if (guess.kind === "note") { openNewNoteModal(rect, guess); return; }
   let after = guess.after_node_index;
   const afterLabel = document.getElementById("newbox-after-label");
   afterLabel.textContent = guess.after_label || "(the start of the document)";
@@ -2868,6 +2278,38 @@ async function openNewBoxModal(rect) {
   };
 }
 document.getElementById("newbox-cancel").onclick = () => { document.getElementById("newbox-overlay").hidden = true; };
+
+// A box with no body text in it is a margin note the parse missed. It
+// goes to the piece beside it unless the reviewer names another -- the
+// Act sets a note level with what it amends, but not always exactly.
+function openNewNoteModal(rect, guess) {
+  let target = guess.node_index;
+  const label = document.getElementById("newnote-node-label");
+  label.textContent = guess.node_label || "(choose a piece)";
+  document.getElementById("newnote-text").textContent = guess.text;
+  document.getElementById("newnote-node-btn").onclick = () => {
+    window._pickerExclude = null;
+    openPicker("Which piece does this note belong to?", null, (chosen) => {
+      target = chosen;
+      const piece = currentUnit && currentUnit.pieces.find((q) => q.node_index === chosen);
+      label.textContent = piece ? pieceLabelText(piece) : `node ${chosen + 1}`;
+    });
+  };
+  document.getElementById("newnote-overlay").hidden = false;
+  document.getElementById("newnote-save").onclick = async () => {
+    if (target == null) { toast("Choose the piece this note belongs to.", true); return; }
+    try {
+      await api("api/history/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rect, node_index: target }),
+      });
+      document.getElementById("newnote-overlay").hidden = true;
+      toast("Note added.");
+      await afterMutation(currentPageNo);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("newnote-cancel").onclick = () => { document.getElementById("newnote-overlay").hidden = true; };
 
 // ---------------------------------------------------------------------
 // Restructuring: add, move, remove (review.py's insert/move/delete/

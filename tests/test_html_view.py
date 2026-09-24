@@ -830,10 +830,32 @@ def test_a_run_on_sentence_does_not_get_swallowed_into_a_false_act_name(monkeypa
 def test_a_section_page_offers_a_copy_button():
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
 
-    assert 'id="copy-section-btn"' in body
+    assert 'class="copy-section"' in body
     # Before the provisions, so tabbing into the page reaches it without
     # first walking the whole section.
-    assert body.index("copy-section-btn") < body.index('<div class="provisions">')
+    assert body.index('class="copy-section"') < body.index('<div class="provisions">')
+
+
+def test_every_copy_button_on_a_read_on_page_works():
+    """Reading on brings further sections in, each with its own button.
+    A listener bound by id at load reached only the first, so the rest
+    did nothing; and the first read every section on the page."""
+    from corpus.publishing.html_view import template_text
+
+    body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
+    copy_js = template_text("copy.js")
+
+    assert "id=" not in body[body.index('class="copy-section"') - 40:body.index("Copy section</button>")]
+    assert "getElementById" not in copy_js
+    assert 'document.addEventListener("click"' in copy_js
+    assert 'btn.closest(".reader-section")' in copy_js
+
+
+def test_a_copied_button_says_so():
+    from corpus.publishing.html_view import template_text
+
+    assert 'classList.toggle("copied"' in template_text("copy.js")
+    assert ".copy-section.copied" in template_text("page.css")
 
 
 def test_the_copy_script_ships_with_the_page():
@@ -841,7 +863,7 @@ def test_the_copy_script_ships_with_the_page():
 
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
-    assert "copy-section-btn" in page
+    assert 'class="copy-section"' in page
     assert '<script src="/assets/copy.js"></script>' in page
 
 
