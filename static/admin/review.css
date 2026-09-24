@@ -184,6 +184,8 @@ header button:hover, .btn:hover { background: var(--hover-bg); }
 .box-group[data-status="inherited"] { --box-fill: #9ca3af; --box-stroke: #6b7280; }
 #version-stat a { color: inherit; }
 #version-stat .warn { color: var(--flagged); }
+#reparse-notice { border: 1px solid var(--border); border-left: 3px solid var(--pending);
+  padding: 8px 12px; margin: 0 0 12px; font-size: 13px; }
 #lineage-panel { border: 1px solid var(--border); border-left: 3px solid var(--pending);
   padding: 8px 12px; margin: 0 0 12px; font-size: 13px; }
 #lineage-panel .carry { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }

@@ -3413,6 +3413,11 @@ def clear_unit_endpoint(unit_no: int):
         raise HTTPException(404, "No such unit")
     cleared = 0
     for i in _units[unit_no]:
+        # A merge is a decision too. A finished unit's pieces missing from
+        # its decisions are taken to have been merged away -- so after a
+        # re-parse of a section you had flagged, every piece the parser
+        # now reads differently vanished, box and all, even once cleared.
+        _merged_away.discard(i)
         _pending_edits.pop(i, None)
         row = _verified_by_source_index.pop(i, None)
         if row is not None:
@@ -3469,6 +3474,7 @@ def reparse_unit_endpoint(unit_no: int):
         raise HTTPException(400, "This document has no source PDF recorded, so it can't be parsed again.")
     root = _parse_node(_units[unit_no][0])
     identity = (root["type"], root.get("number"), root.get("heading"))
+    before = _unit_snapshot(unit_no)
 
     cmd = reparse_command(_document_type, _source_pdf_path)
     result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=900)
@@ -3486,12 +3492,46 @@ def reparse_unit_endpoint(unit_no: int):
         # The parse no longer has this section at all. Everything else is
         # already re-anchored, so this is a real finding rather than a
         # failure -- say so instead of clearing a different section.
-        return {"unit_no": None, "cleared": 0, "reparsed": True,
+        return {"unit_no": None, "cleared": 0, "reparsed": True, "changes": None,
                 "detail": f"{_act} was parsed again, but no section matching "
                           f"{identity[1] or identity[0]} is in the new parse."}
     cleared = clear_unit_endpoint(found)
     return {"unit_no": found, "cleared": cleared["cleared"], "reparsed": True,
+            "changes": _unit_changes(before, _unit_snapshot(found)),
             "detail": f"{_act} was parsed again; this section's {cleared['cleared']} decision(s) were cleared."}
+
+
+def _unit_snapshot(unit_no: int) -> list[dict]:
+    """A unit's pieces as the parse has them and as they are drawn on the
+    page -- what a re-parse is asked to reconsider."""
+    return [{"said": (_parse_node(i).get("type"), _parse_node(i).get("number")),
+             "rects": tuple(tuple(sorted(r.items())) for r in _parse_node(i).get("rects") or []),
+             "drawn": i in _node_rects,
+             "flagged": bool((_verified_by_source_index.get(i) or {}).get("needs_followup"))}
+            for i in _units[unit_no] if i not in _merged_away]
+
+
+def _unit_changes(before: list[dict], after: list[dict]) -> dict:
+    """What a re-parse did to one unit, so the page can say it: without
+    this the boxes were redrawn (or weren't) and nothing told you which.
+    Compared by what the pieces say and where they print, not by name: a
+    piece read at a new level gets a new name, and is exactly the change
+    worth counting."""
+    from collections import Counter
+
+    def boxes(snapshot):
+        return Counter(p["rects"] for p in snapshot if not p["drawn"] and p["rects"])
+
+    return {
+        "pieces_before": len(before), "pieces_after": len(after),
+        "changed": sum((Counter(p["said"] for p in after) - Counter(p["said"] for p in before)).values())
+                   + max(0, len(before) - len(after)),
+        "boxes_redrawn": sum((boxes(after) - boxes(before)).values()),
+        "drawn_kept": sum(p["drawn"] for p in after),
+        # A flag is a decision like any other, and a re-parse clears this
+        # unit's decisions -- worth saying, since it was put there on purpose.
+        "flag_cleared": any(p["flagged"] for p in before),
+    }
 
 
 class CarriedFromRequest(BaseModel):
