@@ -117,3 +117,54 @@ def test_a_slim_version_reads_whole_wherever_it_is_read(tmp_path, monkeypatch):
     import os
     os.utime(tmp_path / "data" / "parsed" / "act-v2.json", ns=(1, 10**18))
     assert parsed.stamp(tmp_path / "data" / "parsed" / "act-v0.json") != before, "the base's re-parse reaches it"
+
+
+def test_a_work_is_slimmed_to_its_base_and_stays_readable(tmp_path, monkeypatch):
+    """v3 is the version reviewed; v1 and v2 keep only what their notes
+    say changed, and read as before wherever they didn't."""
+    import json
+    import pymupdf
+    from corpus.history import slim
+    from corpus.review import review
+    from corpus.storage import db
+
+    monkeypatch.chdir(tmp_path)
+    v1 = _act({"1": [("1", "a"), ("2", "b, first")], "2": [("1", "c")]},
+              {("1", "2"): ["S. 1(2) amended by No. 5/2018 s. 3."]})
+    v2 = _act({"1": [("1", "a"), ("2", "b")], "2": [("1", "c, misread")]},
+              {("1", "2"): ["S. 1(2) amended by Nos 5/2018 s. 3, 6/2020 s. 1."]})
+    v3 = _act({"1": [("1", "a"), ("2", "b")], "2": [("1", "c")]},
+              {("1", "2"): ["S. 1(2) amended by Nos 5/2018 s. 3, 6/2020 s. 1."]})
+    for v, p in ((1, v1), (2, v2), (3, v3)):
+        _write(tmp_path, f"act-v{v}", {**p, "hierarchy": HIERARCHY})
+    db.save_verified("act-v3", [{**n, "_node_id": n["id"], "verified_at": "2026-01-01"} for n in v3["nodes"]])
+    db.save_verified("act-v2", [{**n, "_node_id": n["id"], "verified_at": "2026-01-01"} for n in v2["nodes"][:2]])
+    pdf = tmp_path / "v1.pdf"
+    doc = pymupdf.open()
+    for n in range(3):
+        doc.new_page().insert_text((72, 72), f"page {n + 1}")
+    doc.save(pdf)
+
+    report = slim.apply("act", tmp_path, pdf_for=lambda slug: pdf if slug == "act-v1" else None)
+
+    assert report["base"] == 3 and slim.base_version("act", tmp_path) == 3, "the one reviewed, and remembered"
+    assert set(report["versions"]) == {1, 2}
+    for slug, want in (("act-v1", ["a", "b, first", "c"]), ("act-v2", ["a", "b", "c"])):
+        data = json.loads((tmp_path / "data" / "parsed" / f"{slug}.json").read_text())
+        assert "nodes" not in data and "slim" in data
+        assert [n["text"] for n in review.load_parsed(slug)[0] if n["type"] == "subsection"] == want, \
+            f"{slug}: its own words where its notes say so, v3's (reviewed) elsewhere -- 'c, misread' is gone"
+    assert db.load_verified("act-v2") == [], "its rows were for words that are v3's now"
+    assert sum(1 for p in pymupdf.open(pdf) if p.get_text().strip()) < 3, "its other pages blank"
+    assert slim.apply("act", tmp_path)["versions"][1]["missing"] == [], "slimming again only filters what it kept"
+
+
+def test_a_slim_version_is_not_parsed_again_from_its_blanked_pdf(tmp_path, monkeypatch):
+    import corpus.web.dashboard as dashboard
+    import pytest
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_list_cache", None)
+    _write(tmp_path, "act-v1", {"slim": {"toward": "act-v2", "pieces": [], "notes": {}}, "version": {}})
+    with pytest.raises(dashboard.HTTPException, match="kept slim"):
+        dashboard.reparse_act("act-v1", kind="act", profile="", start_page="", end_page="", confirm="", discard="", mode="")

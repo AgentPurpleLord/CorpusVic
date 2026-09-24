@@ -152,10 +152,10 @@ def slim(parse: dict, toward: str, text: "list[str]", pages_only: "list[str]" = 
         span = _subtree(nodes, name)
         if not span:
             continue   # not in this version: see "removed"
-        before = [_name(nodes[i]) for i in range(span[0] - 1, -1, -1)]
-        # Where it goes if the neighbour hasn't got it: after whatever
-        # precedes it here that isn't under it.
-        after = next((b for b in before if not b.startswith(name + "/")), None)
+        # Where it goes if the neighbour hasn't got it: after the nearest
+        # thing before it here that the neighbour has. Several, nearest
+        # first, since the neighbour may lack the nearest too.
+        after = [_name(nodes[i]) for i in range(span[0] - 1, max(-1, span[0] - 40), -1)]
         pieces.append({"name": name, "words": name in text or any(name.startswith(t + "/") for t in text),
                        "after": after, "nodes": [nodes[i] for i in span]})
     kept_pages = sorted({r["page"] for p in pieces for n in p["nodes"] for r in n.get("rects") or []}
@@ -174,7 +174,12 @@ def assemble(neighbour: list[dict], slim_part: dict) -> list[dict]:
     """A slim version's whole text: its neighbour's, with each of its own
     pieces put in by name. What comes from the neighbour loses its boxes
     and pages -- they are where another reprint printed it."""
-    nodes = [{**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True} for n in neighbour]
+    # Its own margin notes, not the neighbour's: an older reprint must not
+    # show the notes of amendments made after it, and which notes are new
+    # in a version is how every change is found.
+    notes = (slim_part.get("notes") or {}).get("by_name") or {}
+    nodes = [{**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
+              "history": [{"raw": r, "kind": "amendment"} for r in notes.get(_name(n), [])]} for n in neighbour]
     for name in slim_part.get("removed") or []:
         span = set(_subtree(nodes, name))
         nodes = [n for i, n in enumerate(nodes) if i not in span]
@@ -194,10 +199,27 @@ def assemble(neighbour: list[dict], slim_part: dict) -> list[dict]:
         if span:
             nodes[span[0]:span[-1] + 1] = [dict(n) for n in piece["nodes"]]
             continue
-        after = _subtree(nodes, piece["after"]) if piece.get("after") else []
-        at = (after[-1] + 1) if after else len(nodes)
+        at = _place(nodes, piece)
         nodes[at:at] = [dict(n) for n in piece["nodes"]]
     return nodes
+
+
+def _place(nodes: list[dict], piece: dict) -> int:
+    """Where a piece the neighbour hasn't got goes: after the nearest thing
+    before it that the neighbour has, else at the end of its parent, else
+    at the end."""
+    after = piece.get("after") or []
+    for name in [after] if isinstance(after, str) else after:
+        span = _subtree(nodes, name)
+        if span:
+            return span[-1] + 1
+    parent = piece["name"].rsplit("/", 1)[0] if "/" in piece["name"] else None
+    while parent:
+        span = _subtree(nodes, parent)
+        if span:
+            return span[-1] + 1
+        parent = parent.rsplit("/", 1)[0] if "/" in parent else None
+    return len(nodes)
 
 
 def blank_pages(pdf_path: Path, keep_pages: "list[int]", out_path: Path) -> None:

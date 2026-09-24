@@ -93,7 +93,7 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 
 from corpus.amending import fetch as amending_fetch, load as amending_load, match as amending_match
-from corpus.history import changes as history_changes, versions as history_versions
+from corpus.history import changes as history_changes, delta, versions as history_versions
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
 from corpus.storage import parsed as parsed_files
@@ -1892,6 +1892,10 @@ def _history_items(work: str) -> list[dict]:
 def _history_step(older: tuple, newer: tuple, acts: dict) -> list[dict]:
     """The changes from one version to the next, with their evidence."""
     items = history_changes.work_changes([older, newer])
+    # The pieces the later version's margin notes say this step changed --
+    # the rule a slim version is kept by (corpus/history/delta.py), so a
+    # change under a section's own note counts, as its parts do.
+    marked = delta.changed_pieces(delta.notes_index(older[1]), delta.notes_index(newer[1]))
     by_step: dict = {}
     for item in items:
         by_step.setdefault((item["key"], item["from"], item["to"]), []).append(item)
@@ -1904,7 +1908,7 @@ def _history_step(older: tuple, newer: tuple, acts: dict) -> list[dict]:
             # The Act's own record of an official change of wording. A
             # change without one is taken to be the parser reading the two
             # versions differently, and is not put up for review.
-            item["noted"] = bool(item["notes"])
+            item["noted"] = bool(item["notes"]) or _within(_change_name(item), marked)
         for r in results:
             evidence = {"act": r["act"], "provision": r["provision"], "raw": r["raw"], "status": r["status"]}
             landed = next((u for u in reversed(r["pair"]) if u is not None), None)
@@ -1926,6 +1930,19 @@ def _history_step(older: tuple, newer: tuple, acts: dict) -> list[dict]:
             for item in target:
                 item["instructions"].append({**evidence, "here": item["piece"] == at})
     return [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
+
+
+def _change_name(item: dict) -> str:
+    """The name of the piece a change is about, from either side."""
+    for unit in (*(item.get("_pair") or ()), *(item.get("_newer") or [])[:1], *(item.get("_older") or [])[:1]):
+        if unit is not None:
+            node = unit["tree_node"]["node"]
+            return node.get("_node_id") or node.get("id") or ""
+    return ""
+
+
+def _within(name: str, marked: dict) -> bool:
+    return bool(name) and any(name == m or name.startswith(m + "/") or m.startswith(name + "/") for m in marked)
 
 
 def _with_rects(slug: str, nodes: list[dict]) -> list[dict]:
@@ -2414,7 +2431,7 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
     _kill_work_review_processes(work)
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "slimmed": _slim_work(work) if ok else None}
 
 
 def _not_writable(folder: Path) -> HTTPException:
@@ -2458,7 +2475,73 @@ def _replace_version(work: str, version: int, content: bytes) -> dict:
     _act_title_cache.pop(slug, None)
     profile = _parse_field(slug, "profile") or ""
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", "", keep_accepted=True))
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "replaced": True}
+    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "replaced": True,
+            "slimmed": _slim_work(work) if ok else None}
+
+
+_slim_jobs: dict[str, dict] = {}
+
+
+@app.post("/api/works/{work}/slim")
+def slim_work_versions(work: str):
+    """Converts a work's versions held whole to slim ones, in the
+    background: each is parsed again with the current parser first (an
+    older parse places notes and names pieces differently from the base),
+    then cut down, its other PDF pages blanked and its copied review rows
+    dropped. Minutes a version."""
+    _held(work)
+    job = _slim_jobs.get(work)
+    if job and job["state"] == "running":
+        raise HTTPException(409, "Already slimming this work's versions.")
+    job = _slim_jobs[work] = {"state": "running", "at": None, "report": None, "error": None}
+    threading.Thread(target=_slim_job, args=(work, job), daemon=True).start()
+    return job
+
+
+@app.get("/api/works/{work}/slim")
+def slim_work_status(work: str):
+    _validate_slug(work)
+    if work not in _slim_jobs:
+        raise HTTPException(404, "Nothing is being slimmed for this work.")
+    return _slim_jobs[work]
+
+
+def _slim_job(work: str, job: dict) -> None:
+    from corpus.history import slim
+    try:
+        base = slim.base_version(work, BASE_DIR)
+        for version, slug in slim.versions(work, BASE_DIR).items():
+            pdf = _find_source_pdf(slug)
+            if version == base or pdf is None or _is_slim(slug):
+                continue
+            job["at"] = f"parsing v{version} again"
+            _kill_work_review_processes(work)
+            profile = _parse_field(slug, "profile") or ""
+            _run_parse_subprocess(_build_parse_command(pdf, "act", profile, "", "", keep_accepted=True))
+        job["at"] = "cutting down"
+        job["report"] = _slim_work(work)
+        job["state"] = "done"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
+def _is_slim(slug: str) -> bool:
+    """From the file itself: whether it is slim, without putting it back
+    together."""
+    try:
+        return "slim" in json.loads((BASE_DIR / "data" / "parsed" / f"{slug}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+
+
+def _slim_work(work: str) -> dict:
+    """Every version of the work but its base cut down to what its margin
+    notes say changed (corpus/history/slim.py): a version just parsed in
+    full, and what its neighbours keep, which it can only shrink."""
+    from corpus.history import slim
+    return slim.apply(work, BASE_DIR, pdf_for=_find_source_pdf)
 
 
 def _site_versions(work: str) -> list[dict]:
@@ -2598,6 +2681,9 @@ def reparse_act(
     missing, or just regenerated after a parser code change, without
     starting over from "Add Act/Bill/EM".
 
+    A slim version (corpus/history/slim.py) is refused: its PDF keeps only
+    the pages its changes print on, so it is re-read by fetching it again.
+
     data/parsed/<slug>.json is plain regenerable output on its own,
     but review.py's own verified rows in data/legislation.db are keyed by
     a *positional* index into that exact file (see .gitignore's own
@@ -2631,6 +2717,9 @@ def reparse_act(
     pipeline runs, so there is nothing left for the re-anchoring step to
     carry and the new parse starts clean."""
     _validate_slug(slug)
+    if _is_slim(slug):
+        raise HTTPException(409, f"{slug} is kept slim -- only the pages its margin notes say changed. "
+                                 "Fetch it again (History review, Fetch versions, tick it) to re-read it whole.")
     _validate_parse_params(kind, profile, start_page, end_page)
 
     pdf_path = _find_source_pdf(slug)
@@ -2865,8 +2954,52 @@ def _current_nodes(slug: str) -> tuple[list[dict], list[dict], list[str]]:
         state = (inheritance.overlay(nodes, lineage_state["states"][version],
                                      lineage_state["status"][version], lineage_state["states"]),
                  unattached, hierarchy)
+    state = _borrow_reviewed(slug, state)
     _current_nodes_cache[slug] = (signature, state)
     return state
+
+
+def _borrow_reviewed(slug: str, state: tuple) -> tuple:
+    """A slim version's provisions that hold none of its own pieces, as its
+    neighbour reads them now: reviewed, corrections and restructuring
+    included. Those are the neighbour's words by definition
+    (corpus/history/delta.py), and review lent by name stops short of a
+    section a reviewer restructured -- which left the parser's reading of
+    it in every older version."""
+    path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
+    try:
+        slim = json.loads(path.read_text(encoding="utf-8")).get("slim")
+    except (OSError, ValueError):
+        return state
+    if not slim:
+        return state
+    nodes, unattached, hierarchy = state
+    theirs = _current_nodes(slim["toward"])[0]
+    their_units = {key: (p["node_index"], diffing.unit_end(theirs, p["node_index"]))
+                   for key, p in diffing.provisions(theirs).items()}
+    own = [p["name"] for p in slim["pieces"] if p["words"]] + list(slim.get("removed") or [])
+
+    def name(n):
+        return n.get("_node_id") or n.get("id") or ""
+
+    out, i = [], 0
+    starts = {p["node_index"]: (key, diffing.unit_end(nodes, p["node_index"]))
+              for key, p in diffing.provisions(nodes).items()}
+    while i < len(nodes):
+        if i in starts:
+            key, end = starts[i]
+            mine = any(name(n) == o or name(n).startswith(o + "/") or o.startswith(name(n) + "/")
+                       for n in nodes[i:end] for o in own)
+            if not mine and key in their_units:
+                a, b = their_units[key]
+                out.extend({**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
+                            "history": nodes[i + k]["history"] if k < end - i and "history" in nodes[i + k] else n.get("history")}
+                           for k, n in enumerate(theirs[a:b]))
+                i = end
+                continue
+        out.append(nodes[i])
+        i += 1
+    return out, unattached, hierarchy
 
 
 _commentary_cache: dict[str, tuple[tuple, dict]] = {}

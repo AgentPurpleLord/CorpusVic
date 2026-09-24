@@ -56,4 +56,6 @@ def load(path: Path) -> dict:
     annotate_ids(nodes, neighbour.get("hierarchy") or None)
     fingerprint = hashlib.sha1(f"{data.get('fingerprint')}|{neighbour.get('fingerprint')}".encode()).hexdigest()[:16]
     return {**data, "nodes": delta.assemble(nodes, slim), "fingerprint": fingerprint,
-            "hierarchy": data.get("hierarchy") or neighbour.get("hierarchy")}
+            # The neighbour's: its words are, and a slim version's own
+            # hierarchy may be an older parse's.
+            "hierarchy": neighbour.get("hierarchy") or data.get("hierarchy")}
