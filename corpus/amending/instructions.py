@@ -227,6 +227,10 @@ def read_provision(text: str, provision: str, principal: "str | None" = None) ->
 
 
 _PRINCIPAL = re.compile(r"Principal Act means the (?P<act>[A-Z][\w ,()'-]*? Act \d{4})")
+# "The Acts specified in Schedule 1 are amended as set out in that
+# Schedule"; "An Act specified in the heading to an item in Schedule 1 is
+# amended as set out in that item".
+_SCHEDULE_AMENDS = re.compile(r"\bSchedule (\d+[A-Z]*)\b[^.]*?\b(?:are|is) amended as set out")
 _AMENDMENT_OF = re.compile(r"Amendment of (?:the )?(?P<act>[A-Z][\w ,()'-]*? Act \d{4})")
 
 
@@ -243,6 +247,11 @@ def read_act(nodes: list[dict]) -> list[dict]:
     out: list[dict] = []
     cite, parts = None, []
     section = schedule = None
+    # Which section said "the Acts specified in Schedule 1 are amended as
+    # set out in that Schedule", for a Schedule that doesn't print its
+    # enacting section beside its heading (No. 9/2020 doesn't). The margin
+    # notes cite its items through that section: "S. 390(Sch. 1 item 20.1)".
+    enacts: dict = {}
 
     def flush():
         if cite and parts:
@@ -258,13 +267,16 @@ def read_act(nodes: list[dict]) -> list[dict]:
             if found:
                 principal = found.group("act")
             if t == "schedule":
-                schedule = (node.get("number"), node.get("section"))
+                schedule = (node.get("number"), node.get("section") or enacts.get(node.get("number")))
             elif t == "schedule_act":
                 principal = heading
             continue
         found = _PRINCIPAL.search(text)
         if found:
             principal = found.group("act")
+        if section is not None or t == "section":
+            for number in _SCHEDULE_AMENDS.findall(text):
+                enacts[number] = node.get("number") if t == "section" else section
         if t == "section":
             flush()
             section, schedule = node.get("number"), None
