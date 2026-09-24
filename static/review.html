@@ -195,6 +195,23 @@
   </div>
 </div>
 
+<!-- A history note from a box drawn in the margin (review.py's /api/history/create). -->
+<div class="overlay" id="newnote-overlay" hidden>
+  <div class="modal">
+    <h3>History note from this box</h3>
+    <div class="hint" id="newnote-text"></div>
+    <label>Belongs to</label>
+    <div class="inline-row">
+      <span id="newnote-node-label"></span>
+      <button class="btn small" id="newnote-node-btn">Choose another&hellip;</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="newnote-cancel">Cancel</button>
+      <button class="btn primary" id="newnote-save">Add note</button>
+    </div>
+  </div>
+</div>
+
 <!-- Node-type manager -->
 <div class="overlay" id="types-overlay" hidden>
   <div class="modal">
@@ -2228,6 +2245,7 @@ async function openNewBoxModal(rect) {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rect }),
     });
   } catch (e) { toast(e.message, true); return; }
+  if (guess.kind === "note") { openNewNoteModal(rect, guess); return; }
   let after = guess.after_node_index;
   const afterLabel = document.getElementById("newbox-after-label");
   afterLabel.textContent = guess.after_label || "(the start of the document)";
@@ -2260,6 +2278,38 @@ async function openNewBoxModal(rect) {
   };
 }
 document.getElementById("newbox-cancel").onclick = () => { document.getElementById("newbox-overlay").hidden = true; };
+
+// A box with no body text in it is a margin note the parse missed. It
+// goes to the piece beside it unless the reviewer names another -- the
+// Act sets a note level with what it amends, but not always exactly.
+function openNewNoteModal(rect, guess) {
+  let target = guess.node_index;
+  const label = document.getElementById("newnote-node-label");
+  label.textContent = guess.node_label || "(choose a piece)";
+  document.getElementById("newnote-text").textContent = guess.text;
+  document.getElementById("newnote-node-btn").onclick = () => {
+    window._pickerExclude = null;
+    openPicker("Which piece does this note belong to?", null, (chosen) => {
+      target = chosen;
+      const piece = currentUnit && currentUnit.pieces.find((q) => q.node_index === chosen);
+      label.textContent = piece ? pieceLabelText(piece) : `node ${chosen + 1}`;
+    });
+  };
+  document.getElementById("newnote-overlay").hidden = false;
+  document.getElementById("newnote-save").onclick = async () => {
+    if (target == null) { toast("Choose the piece this note belongs to.", true); return; }
+    try {
+      await api("api/history/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rect, node_index: target }),
+      });
+      document.getElementById("newnote-overlay").hidden = true;
+      toast("Note added.");
+      await afterMutation(currentPageNo);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+document.getElementById("newnote-cancel").onclick = () => { document.getElementById("newnote-overlay").hidden = true; };
 
 // ---------------------------------------------------------------------
 // Restructuring: add, move, remove (review.py's insert/move/delete/

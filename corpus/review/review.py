@@ -157,6 +157,7 @@ from corpus.ai.backend import OllamaUnavailable
 from corpus.parsing import identity
 from corpus.parsing.identity import annotate_ids, name_index
 from corpus.parsing.extract import BodyLine, join_printed_line, lines_in_rects
+from corpus.parsing.history_notes import parse_note
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from corpus.domain.profiles import load_profile, profile_for
 from corpus.parsing.rule_parser import read_box
@@ -1682,6 +1683,11 @@ class HistoryDetachRequest(BaseModel):
     history_index: int
 
 
+class HistoryCreateRequest(BaseModel):
+    rect: dict
+    node_index: int
+
+
 class BlindGuessRequest(BaseModel):
     type: str
     number: str | None = None
@@ -2270,6 +2276,27 @@ def detach_history_endpoint(req: HistoryDetachRequest):
     if _history_key(note) not in {_history_key(n) for n in _unattached_notes}:
         _unattached_notes.append(note)
     return {"node_index": req.node_index, "history": history}
+
+
+@app.post("/api/history/create")
+def create_history_endpoint(req: HistoryCreateRequest):
+    """A margin note the parse missed, read from a box drawn over it and
+    attached to the piece a reviewer names.
+
+    Read by parse_note, as every parsed note is, so it names its section
+    and sub-path the same way and the site links it the same way."""
+    rect = _clean_rect(req.rect)
+    _require_live(req.node_index)
+    raw = _page_text_in(rect)
+    if not raw:
+        raise HTTPException(400, "There is nothing printed inside that box.")
+    note = {**parse_note(raw), "page": rect["page"], "rect": rect,
+            "confidence": "manual", "linked_at": _now_iso()}
+    if _history_key(note) in _attached_history_keys():
+        raise HTTPException(400, "That note is already attached to a provision")
+    history = [*(_current_node(req.node_index).get("history") or []), note]
+    _mutate_node(req.node_index, history=history)
+    return {"node_index": req.node_index, "history": _current_node(req.node_index)["history"]}
 
 
 @app.post("/api/nodes/{node_index}/edit")
@@ -2910,7 +2937,7 @@ def _clean_rect(raw: dict) -> dict:
     return rect
 
 
-def _printed_in(rect: dict) -> str:
+def _body_printed_in(rect: dict) -> str:
     lines = _printed_lines()
     if not lines:
         raise HTTPException(503, "The source PDF this was parsed from isn't where the parse says it is.")
@@ -2918,9 +2945,47 @@ def _printed_in(rect: dict) -> str:
     for line in lines_in_rects(lines, [rect]):
         if line.text.strip():
             printed = join_printed_line(printed, line.text.strip())
+    return printed
+
+
+def _printed_in(rect: dict) -> str:
+    printed = _body_printed_in(rect)
     if not printed:
         raise HTTPException(400, "There is nothing printed inside that box.")
     return printed
+
+
+def _page_text_in(rect: dict) -> str:
+    """Whatever the PDF prints inside a box, read from the page itself.
+
+    Not from the extracted lines, which hold the body only: a history note
+    the parser missed is missing because extraction never classed it as a
+    margin note -- it fell in the header band, or merged into the note
+    above -- so the lines the parse was built from are the one place it
+    cannot be found. Joined with spaces, as extract_pages joins a margin
+    block's lines."""
+    doc = _get_pdf_doc()
+    if not (1 <= rect["page"] <= doc.page_count):
+        raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {rect['page']}")
+    clip = fitz.Rect(rect["x0"], rect["y0"], rect["x1"], rect["y1"])
+    return " ".join(doc[rect["page"] - 1].get_text("text", clip=clip).split())
+
+
+def _printed_beside(rect: dict) -> "int | None":
+    """The live piece a margin note is most likely about: the one whose
+    box on the same page starts nearest the note's own top. The Act sets
+    a note level with the provision it amends."""
+    best, best_gap = None, None
+    for i in _order:
+        if i in _merged_away:
+            continue
+        for r in _rects_for(i):
+            if r.get("page") != rect["page"] or r.get("y0") is None:
+                continue
+            gap = abs(r["y0"] - rect["y0"])
+            if best_gap is None or gap < best_gap:
+                best, best_gap = i, gap
+    return best if best is not None else _printed_before(rect)
 
 
 def _printed_before(rect: dict) -> "int | None":
@@ -2948,7 +3013,18 @@ def read_new_box_endpoint(req: BoxRequest):
     "(i)" is a subparagraph or the ninth paragraph depending on what came
     before it (see rule_parser.read_box on why a box can't decide that)."""
     rect = _clean_rect(req.rect)
-    printed = _printed_in(rect)
+    printed = _body_printed_in(rect)
+    if not printed:
+        # Nothing of the body in it, so a box drawn in the margin: offered
+        # as a history note for the provision beside it.
+        note = _page_text_in(rect)
+        if not note:
+            raise HTTPException(400, "There is nothing printed inside that box.")
+        beside = _printed_beside(rect)
+        return {
+            "kind": "note", "text": note, "node_index": beside,
+            "node_label": _piece_reference(beside) if beside is not None else None,
+        }
     node_type, number = None, None
     for pattern, kind in _MARKERS:
         m = pattern.match(printed)
@@ -2959,6 +3035,7 @@ def read_new_box_endpoint(req: BoxRequest):
         node_type = printed.split()[0].rstrip("s:").lower()
     after = _printed_before(rect)
     return {
+        "kind": "piece",
         "text": printed, "type": node_type if node_type in _relabel_types else None, "number": number,
         "after_node_index": after,
         "after_label": _piece_reference(after) if after is not None else None,

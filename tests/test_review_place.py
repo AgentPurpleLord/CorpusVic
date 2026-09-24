@@ -165,3 +165,59 @@ def test_the_edit_window_and_the_page_offer_both():
     assert 'id="edit-reference"' in page and "api/nodes/${nodeIndex}/place" in page
     assert 'id="pdf-newbox-btn"' in page and 'beginDraw(null, "new")' in page
     assert '"api/boxes/read"' in page and '"api/boxes/create"' in page
+
+
+# --- a history note from a box drawn in the margin ------------------------
+
+@pytest.fixture
+def margin_note(s110, monkeypatch, tmp_path):
+    """A note the parse missed, printed in the margin level with (viii).
+    A real page, because the note is read from the PDF itself: the lines
+    the parse was built from are the body only."""
+    import fitz
+
+    _printed(monkeypatch)
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((470, 288), "S. 110(1)(d)(viii)", fontsize=6)
+    page.insert_text((470, 296), "amended by No. 7/2020 s. 4.", fontsize=6)
+    monkeypatch.setattr(review, "_get_pdf_doc", lambda: doc)
+    return s110
+
+
+MARGIN_BOX = {"page": 1, "x0": 465.0, "y0": 280.0, "x1": 590.0, "y1": 300.0}
+
+
+def test_a_box_over_a_margin_note_is_offered_as_a_history_note(margin_note):
+    """It used to be refused as "nothing printed inside that box"."""
+    guess = read_new_box_endpoint(BoxRequest(rect=MARGIN_BOX))
+
+    assert guess["kind"] == "note"
+    assert guess["text"] == "S. 110(1)(d)(viii) amended by No. 7/2020 s. 4."
+    assert guess["node_index"] == 9, "the piece printed level with it"
+
+
+def test_confirming_it_attaches_the_note_read_as_the_parser_reads_one(margin_note):
+    from corpus.review.review import HistoryCreateRequest, create_history_endpoint
+
+    create_history_endpoint(HistoryCreateRequest(rect=MARGIN_BOX, node_index=9))
+
+    [note] = review._current_node(9)["history"]
+    assert note["section"] == "110" and note["confidence"] == "manual"
+    assert note["rect"] == MARGIN_BOX and note["page"] == 1
+    with pytest.raises(review.HTTPException):
+        create_history_endpoint(HistoryCreateRequest(rect=MARGIN_BOX, node_index=10))
+
+
+def test_a_box_over_body_text_is_still_a_piece(s110, monkeypatch):
+    _printed(monkeypatch)
+
+    assert read_new_box_endpoint(BoxRequest(rect=BOX))["kind"] == "piece"
+
+
+def test_the_page_offers_a_margin_box_as_a_note():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+
+    assert 'guess.kind === "note"' in page and '"api/history/create"' in page
