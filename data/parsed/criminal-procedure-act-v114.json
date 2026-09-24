@@ -24,8 +24,8 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "3310018bb6301992",
-  "parser_version": "e8ca3c125e0534ca",
+  "fingerprint": "61f890adfec3c8b8",
+  "parser_version": "0fddb3a06cfd9d8b",
   "nodes": [
     {
       "type": "chapter",
@@ -607,7 +607,7 @@
     },
     {
       "type": "repealed",
-      "number": null,
+      "number": "2",
       "heading": null,
       "text": "* * * * *",
       "page_start": 24,
@@ -637,7 +637,33 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch1/s2/1/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 2(2) amended by No. 68/2009 s. 51(a), repealed by No. 30/2010 s. 56.",
+          "kind": "amendment",
+          "section": "2",
+          "sub_path": [
+            "(2)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 24,
+          "rect": {
+            "page": 24,
+            "x0": 79.3,
+            "y0": 509.2,
+            "x1": 123.3,
+            "y1": 575.9
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch1/s2/1/repealed-2"
     },
     {
       "type": "subsection",
@@ -739,30 +765,6 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "history": [
-        {
-          "raw": "S. 3 def. of infringements registrar repealed by No. 47/2014 s. 256(b).",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "infringements registrar",
-          "page": 32,
-          "rect": {
-            "page": 32,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 128.0,
-            "y1": 221.1
-          },
-          "confidence": "low"
-        }
-      ],
       "id": "ch1/s3"
     },
     {
@@ -991,30 +993,6 @@
         "sub_subparagraph": null,
         "definition": "appear"
       },
-      "history": [
-        {
-          "raw": "S. 3 def. of notice to appear inserted by No. 68/2009 s. 3(d).",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "notice to appear",
-          "page": 33,
-          "rect": {
-            "page": 33,
-            "x0": 467.8,
-            "y0": 250.6,
-            "x1": 508.5,
-            "y1": 308.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch1/s3/definition-appear"
     },
     {
@@ -2218,7 +2196,7 @@
             "x1": 128.8,
             "y1": 267.1
           },
-          "confidence": "high"
+          "confidence": "low"
         }
       ],
       "id": "ch1/s3/definition-child"
@@ -2445,50 +2423,6 @@
             "y0": 432.4,
             "x1": 123.3,
             "y1": 480.6
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 3 def. of infringement conviction inserted by No. 81/2011 s. 3(3), amended by Nos 47/2014 s. 256(a), 41/2019 s. 117(Sch. 1 item 2.1).",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "infringement conviction",
-          "page": 31,
-          "rect": {
-            "page": 31,
-            "x0": 467.8,
-            "y0": 463.6,
-            "x1": 512.5,
-            "y1": 576.3
-          },
-          "confidence": "high"
-        },
-        {
-          "raw": "S. 3 def. of previous conviction amended by No. 3/2016 s. 60.",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "previous conviction",
-          "page": 34,
-          "rect": {
-            "page": 34,
-            "x0": 79.3,
-            "y0": 491.8,
-            "x1": 123.3,
-            "y1": 549.3
           },
           "confidence": "high"
         }
@@ -3654,6 +3588,30 @@
         "sub_subparagraph": null,
         "definition": "infringement conviction"
       },
+      "history": [
+        {
+          "raw": "S. 3 def. of infringement conviction inserted by No. 81/2011 s. 3(3), amended by Nos 47/2014 s. 256(a), 41/2019 s. 117(Sch. 1 item 2.1).",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "infringement conviction",
+          "page": 31,
+          "rect": {
+            "page": 31,
+            "x0": 467.8,
+            "y0": 463.6,
+            "x1": 512.5,
+            "y1": 576.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch1/s3/definition-infringement-conviction"
     },
     {
@@ -3693,7 +3651,7 @@
     {
       "type": "repealed",
       "number": null,
-      "heading": null,
+      "heading": "infringements registrar",
       "text": "* * * * *",
       "page_start": 31,
       "page_end": 31,
@@ -3722,7 +3680,31 @@
         "sub_subparagraph": null,
         "definition": "infringement conviction"
       },
-      "id": "ch1/s3/definition-infringement-conviction/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 3 def. of infringements registrar repealed by No. 47/2014 s. 256(b).",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "infringements registrar",
+          "page": 32,
+          "rect": {
+            "page": 32,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 128.0,
+            "y1": 221.1
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch1/s3/definition-infringement-conviction/repealed-infringements-registrar"
     },
     {
       "type": "repealed",
@@ -3756,7 +3738,7 @@
         "sub_subparagraph": null,
         "definition": "infringement conviction"
       },
-      "id": "ch1/s3/definition-infringement-conviction/repealed~ff6469-2"
+      "id": "ch1/s3/definition-infringement-conviction/repealed~ff6469"
     },
     {
       "type": "definition",
@@ -4318,6 +4300,30 @@
         "sub_subparagraph": null,
         "definition": "notice to appear"
       },
+      "history": [
+        {
+          "raw": "S. 3 def. of notice to appear inserted by No. 68/2009 s. 3(d).",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "notice to appear",
+          "page": 33,
+          "rect": {
+            "page": 33,
+            "x0": 467.8,
+            "y0": 250.6,
+            "x1": 508.5,
+            "y1": 308.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch1/s3/definition-notice-to-appear"
     },
     {
@@ -4982,6 +4988,30 @@
         "sub_subparagraph": null,
         "definition": "previous conviction"
       },
+      "history": [
+        {
+          "raw": "S. 3 def. of previous conviction amended by No. 3/2016 s. 60.",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "previous conviction",
+          "page": 34,
+          "rect": {
+            "page": 34,
+            "x0": 79.3,
+            "y0": 491.8,
+            "x1": 123.3,
+            "y1": 549.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch1/s3/definition-previous-conviction"
     },
     {
@@ -5152,36 +5182,12 @@
         "sub_subparagraph": null,
         "definition": "prison"
       },
-      "history": [
-        {
-          "raw": "S. 3 def. of prison officer repealed by No. 68/2009 s. 3(b).",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "prison officer",
-          "page": 35,
-          "rect": {
-            "page": 35,
-            "x0": 467.8,
-            "y0": 266.2,
-            "x1": 514.2,
-            "y1": 314.4
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "ch1/s3/definition-prison"
     },
     {
       "type": "repealed",
       "number": null,
-      "heading": null,
+      "heading": "prison officer",
       "text": "* * * * *",
       "page_start": 35,
       "page_end": 35,
@@ -5210,7 +5216,31 @@
         "sub_subparagraph": null,
         "definition": "prison"
       },
-      "id": "ch1/s3/definition-prison/repealed~ff6469"
+      "history": [
+        {
+          "raw": "S. 3 def. of prison officer repealed by No. 68/2009 s. 3(b).",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "prison officer",
+          "page": 35,
+          "rect": {
+            "page": 35,
+            "x0": 467.8,
+            "y0": 266.2,
+            "x1": 514.2,
+            "y1": 314.4
+          },
+          "confidence": "high"
+        }
+      ],
+      "id": "ch1/s3/definition-prison/repealed-prison-officer"
     },
     {
       "type": "definition",
@@ -6315,28 +6345,6 @@
             "y1": 686.3
           },
           "confidence": "high"
-        },
-        {
-          "raw": "S. 3 def. of total effective sentence inserted by No. 48/2012 s. 4.",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "total effective sentence",
-          "page": 39,
-          "rect": {
-            "page": 39,
-            "x0": 467.8,
-            "y0": 163.6,
-            "x1": 514.2,
-            "y1": 221.1
-          },
-          "confidence": "high"
         }
       ],
       "id": "ch1/s3/definition-sentence"
@@ -6761,6 +6769,30 @@
         "sub_subparagraph": null,
         "definition": "total effective sentence"
       },
+      "history": [
+        {
+          "raw": "S. 3 def. of total effective sentence inserted by No. 48/2012 s. 4.",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": null,
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "total effective sentence",
+          "page": 39,
+          "rect": {
+            "page": 39,
+            "x0": 467.8,
+            "y0": 163.6,
+            "x1": 514.2,
+            "y1": 221.1
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "ch1/s3/definition-total-effective-sentence"
     },
     {
@@ -8676,7 +8708,7 @@
             "x1": 508.5,
             "y1": 448.5
           },
-          "confidence": "low"
+          "confidence": "high"
         }
       ],
       "id": "ch2/pt2.1/s5/c/note~ed5930"
@@ -178749,10 +178781,10 @@
       "id": "sch1"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "1",
-      "heading": "Statement of offence",
-      "text": "A charge must\u2014",
+      "heading": null,
+      "text": "Statement of offence A charge must\u2014",
       "page_start": 475,
       "page_end": 475,
       "char_start": 529133,
@@ -178773,14 +178805,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch1/s1"
+      "id": "sch1/cl1"
     },
     {
       "type": "paragraph",
@@ -178807,14 +178840,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch1/s1/a"
+      "id": "sch1/cl1/a"
     },
     {
       "type": "paragraph",
@@ -178841,24 +178875,25 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch1/s1/b"
+      "id": "sch1/cl1/b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "2",
-      "heading": "Statement of particulars",
-      "text": "",
+      "heading": null,
+      "text": "Statement of particulars",
       "page_start": 475,
       "page_end": 475,
       "char_start": 529384,
-      "char_end": 529384,
+      "char_end": 529410,
       "source": "rules",
       "rects": [
         {
@@ -178875,14 +178910,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch1/s2"
+      "id": "sch1/cl2"
     },
     {
       "type": "subsection",
@@ -178909,14 +178945,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch1/s2/1"
+      "id": "sch1/cl2/1"
     },
     {
       "type": "subsection",
@@ -178943,50 +178980,25 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "history": [
-        {
-          "raw": "S. 2(2) amended by No. 68/2009 s. 51(a), repealed by No. 30/2010 s. 56.",
-          "kind": "amendment",
-          "section": "2",
-          "sub_path": [
-            "(2)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": null,
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 24,
-          "rect": {
-            "page": 24,
-            "x0": 79.3,
-            "y0": 509.2,
-            "x1": 123.3,
-            "y1": 575.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch1/s2/2"
+      "id": "sch1/cl2/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3",
-      "heading": "Statutory offence",
-      "text": "",
+      "heading": null,
+      "text": "Statutory offence",
       "page_start": 475,
       "page_end": 475,
       "char_start": 529736,
-      "char_end": 529736,
+      "char_end": 529755,
       "source": "rules",
       "rects": [
         {
@@ -179003,14 +179015,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3"
+      "id": "sch1/cl3"
     },
     {
       "type": "subsection",
@@ -179037,14 +179050,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/1"
+      "id": "sch1/cl3/1"
     },
     {
       "type": "subsection",
@@ -179071,14 +179085,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/2"
+      "id": "sch1/cl3/2"
     },
     {
       "type": "paragraph",
@@ -179105,14 +179120,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "2",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/2/a"
+      "id": "sch1/cl3/2/a"
     },
     {
       "type": "paragraph",
@@ -179139,14 +179155,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "2",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/2/b"
+      "id": "sch1/cl3/2/b"
     },
     {
       "type": "subsection",
@@ -179173,14 +179190,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/3"
+      "id": "sch1/cl3/3"
     },
     {
       "type": "paragraph",
@@ -179207,14 +179225,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "3",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/3/a"
+      "id": "sch1/cl3/3/a"
     },
     {
       "type": "paragraph",
@@ -179241,14 +179260,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "3",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/3/b"
+      "id": "sch1/cl3/3/b"
     },
     {
       "type": "continuation",
@@ -179276,20 +179296,21 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch1/s3/3/continuation~1e9f5a"
+      "id": "sch1/cl3/3/continuation~1e9f5a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "4",
-      "heading": "Exceptions, exemptions etc.",
-      "text": "Any exception, exemption, proviso, excuse or qualification need not be specified or negatived in a charge.",
+      "heading": null,
+      "text": "Exceptions, exemptions etc. Any exception, exemption, proviso, excuse or qualification need not be specified or negatived in a charge.",
       "page_start": 476,
       "page_end": 476,
       "char_start": 530406,
@@ -179310,17 +179331,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch1/s4"
+      "id": "sch1/cl4"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "4A",
       "heading": "Course of conduct charge",
       "text": "",
@@ -179344,12 +179366,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
       "history": [
         {
@@ -179423,7 +179446,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch1/s4a"
+      "id": "sch1/cl4a"
     },
     {
       "type": "subsection",
@@ -179450,14 +179473,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1"
+      "id": "sch1/cl4a/1"
     },
     {
       "type": "paragraph",
@@ -179484,14 +179508,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/a"
+      "id": "sch1/cl4a/1/a"
     },
     {
       "type": "repealed",
@@ -179518,14 +179543,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/a/repealed~ff6469"
+      "id": "sch1/cl4a/1/a/repealed~ff6469"
     },
     {
       "type": "paragraph",
@@ -179552,14 +179578,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b"
+      "id": "sch1/cl4a/1/b"
     },
     {
       "type": "subparagraph",
@@ -179586,14 +179613,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": "i",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b/i"
+      "id": "sch1/cl4a/1/b/i"
     },
     {
       "type": "subparagraph",
@@ -179620,14 +179648,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": "ii",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b/ii"
+      "id": "sch1/cl4a/1/b/ii"
     },
     {
       "type": "subparagraph",
@@ -179654,14 +179683,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": "iii",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b/iii"
+      "id": "sch1/cl4a/1/b/iii"
     },
     {
       "type": "subparagraph",
@@ -179688,14 +179718,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": "iv",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b/iv"
+      "id": "sch1/cl4a/1/b/iv"
     },
     {
       "type": "subparagraph",
@@ -179722,14 +179753,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": "v",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b/v"
+      "id": "sch1/cl4a/1/b/v"
     },
     {
       "type": "note",
@@ -179756,14 +179788,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": "v",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/1/b/v/note~0b59d7"
+      "id": "sch1/cl4a/1/b/v/note~0b59d7"
     },
     {
       "type": "subsection",
@@ -179790,14 +179823,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/2"
+      "id": "sch1/cl4a/2"
     },
     {
       "type": "paragraph",
@@ -179824,14 +179858,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "2",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/2/a"
+      "id": "sch1/cl4a/2/a"
     },
     {
       "type": "paragraph",
@@ -179858,14 +179893,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "2",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/2/b"
+      "id": "sch1/cl4a/2/b"
     },
     {
       "type": "paragraph",
@@ -179892,14 +179928,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "2",
         "paragraph": "c",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/2/c"
+      "id": "sch1/cl4a/2/c"
     },
     {
       "type": "paragraph",
@@ -179926,14 +179963,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "2",
         "paragraph": "d",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/2/d"
+      "id": "sch1/cl4a/2/d"
     },
     {
       "type": "subsection",
@@ -179960,14 +179998,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/3"
+      "id": "sch1/cl4a/3"
     },
     {
       "type": "example",
@@ -179994,14 +180033,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/3/example~448cca"
+      "id": "sch1/cl4a/3/example~448cca"
     },
     {
       "type": "repealed",
@@ -180028,14 +180068,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/3/repealed~ff6469"
+      "id": "sch1/cl4a/3/repealed~ff6469"
     },
     {
       "type": "subsection",
@@ -180062,14 +180103,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "5",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/5"
+      "id": "sch1/cl4a/5"
     },
     {
       "type": "subsection",
@@ -180096,14 +180138,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "6",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/6"
+      "id": "sch1/cl4a/6"
     },
     {
       "type": "note",
@@ -180130,14 +180173,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "6",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/6/note~df567b"
+      "id": "sch1/cl4a/6/note~df567b"
     },
     {
       "type": "subsection",
@@ -180164,14 +180208,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "7",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/7"
+      "id": "sch1/cl4a/7"
     },
     {
       "type": "subsection",
@@ -180198,14 +180243,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "8",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/8"
+      "id": "sch1/cl4a/8"
     },
     {
       "type": "subsection",
@@ -180232,14 +180278,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "9",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/9"
+      "id": "sch1/cl4a/9"
     },
     {
       "type": "subsection",
@@ -180266,14 +180313,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "10",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/10"
+      "id": "sch1/cl4a/10"
     },
     {
       "type": "paragraph",
@@ -180300,14 +180348,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "10",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/10/a"
+      "id": "sch1/cl4a/10/a"
     },
     {
       "type": "paragraph",
@@ -180334,14 +180383,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "10",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/10/b"
+      "id": "sch1/cl4a/10/b"
     },
     {
       "type": "paragraph",
@@ -180368,14 +180418,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "10",
         "paragraph": "c",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/10/c"
+      "id": "sch1/cl4a/10/c"
     },
     {
       "type": "subsection",
@@ -180402,14 +180453,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11"
+      "id": "sch1/cl4a/11"
     },
     {
       "type": "paragraph",
@@ -180436,14 +180488,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11/a"
+      "id": "sch1/cl4a/11/a"
     },
     {
       "type": "subparagraph",
@@ -180470,14 +180523,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": "a",
         "subparagraph": "i",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11/a/i"
+      "id": "sch1/cl4a/11/a/i"
     },
     {
       "type": "subparagraph",
@@ -180504,14 +180558,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": "a",
         "subparagraph": "ii",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11/a/ii"
+      "id": "sch1/cl4a/11/a/ii"
     },
     {
       "type": "subparagraph",
@@ -180538,14 +180593,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": "a",
         "subparagraph": "iii",
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11/a/iii"
+      "id": "sch1/cl4a/11/a/iii"
     },
     {
       "type": "paragraph",
@@ -180572,14 +180628,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11/b"
+      "id": "sch1/cl4a/11/b"
     },
     {
       "type": "paragraph",
@@ -180606,14 +180663,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "11",
         "paragraph": "c",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/11/c"
+      "id": "sch1/cl4a/11/c"
     },
     {
       "type": "subsection",
@@ -180640,14 +180698,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "12",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/12"
+      "id": "sch1/cl4a/12"
     },
     {
       "type": "subsection",
@@ -180674,17 +180733,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4A",
+        "section": null,
         "subsection": "13",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4A"
       },
-      "id": "sch1/s4a/13"
+      "id": "sch1/cl4a/13"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "5",
       "heading": "Joinder of charges",
       "text": "",
@@ -180708,12 +180768,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
       "history": [
         {
@@ -180813,7 +180874,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch1/s5"
+      "id": "sch1/cl5"
     },
     {
       "type": "subsection",
@@ -180840,14 +180901,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch1/s5/1"
+      "id": "sch1/cl5/1"
     },
     {
       "type": "subsection",
@@ -180874,14 +180936,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch1/s5/2"
+      "id": "sch1/cl5/2"
     },
     {
       "type": "subsection",
@@ -180915,14 +180978,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch1/s5/3"
+      "id": "sch1/cl5/3"
     },
     {
       "type": "subsection",
@@ -180949,14 +181013,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "4",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch1/s5/4"
+      "id": "sch1/cl5/4"
     },
     {
       "type": "subsection",
@@ -180983,14 +181048,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "5",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch1/s5/5"
+      "id": "sch1/cl5/5"
     },
     {
       "type": "subsection",
@@ -181017,17 +181083,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "6",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch1/s5/6"
+      "id": "sch1/cl5/6"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "6",
       "heading": "Charge against multiple accused",
       "text": "If an offence is alleged against more than one accused, regardless of their degree of participation in the offence, an indictment or charge-sheet may name each of those accused in the charge for the offence.",
@@ -181051,17 +181118,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch1/s6"
+      "id": "sch1/cl6"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "7",
       "heading": "Descriptions generally",
       "text": "Subject to any other provision of this Schedule, if it is necessary to describe anything in a charge, it is sufficient to describe the thing in ordinary language in a manner that indicates with reasonable clarity the thing referred to.",
@@ -181085,17 +181153,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
-      "id": "sch1/s7"
+      "id": "sch1/cl7"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "8",
       "heading": "Description of persons",
       "text": "",
@@ -181119,14 +181188,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch1/s8"
+      "id": "sch1/cl8"
     },
     {
       "type": "subsection",
@@ -181153,14 +181223,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch1/s8/1"
+      "id": "sch1/cl8/1"
     },
     {
       "type": "subsection",
@@ -181187,14 +181258,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch1/s8/2"
+      "id": "sch1/cl8/2"
     },
     {
       "type": "paragraph",
@@ -181221,14 +181293,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "2",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch1/s8/2/a"
+      "id": "sch1/cl8/2/a"
     },
     {
       "type": "paragraph",
@@ -181255,17 +181328,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "2",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch1/s8/2/b"
+      "id": "sch1/cl8/2/b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "9",
       "heading": "Description of document",
       "text": "If it is necessary to refer to a document or instrument in a charge, it is sufficient to describe it by any name by which it is usually known or by its substance, without setting out a copy of it.",
@@ -181289,17 +181363,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "9",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "9"
       },
-      "id": "sch1/s9"
+      "id": "sch1/cl9"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "10",
       "heading": "Description of property",
       "text": "",
@@ -181323,14 +181398,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10"
+      "id": "sch1/cl10"
     },
     {
       "type": "subsection",
@@ -181357,14 +181433,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/1"
+      "id": "sch1/cl10/1"
     },
     {
       "type": "paragraph",
@@ -181391,14 +181468,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "1",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/1/a"
+      "id": "sch1/cl10/1/a"
     },
     {
       "type": "paragraph",
@@ -181425,14 +181503,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/1/b"
+      "id": "sch1/cl10/1/b"
     },
     {
       "type": "subsection",
@@ -181459,14 +181538,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/2"
+      "id": "sch1/cl10/2"
     },
     {
       "type": "subsection",
@@ -181493,14 +181573,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/3"
+      "id": "sch1/cl10/3"
     },
     {
       "type": "paragraph",
@@ -181527,14 +181608,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "3",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/3/a"
+      "id": "sch1/cl10/3/a"
     },
     {
       "type": "paragraph",
@@ -181561,17 +181643,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "3",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch1/s10/3/b"
+      "id": "sch1/cl10/3/b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "11",
       "heading": "Statement of intent to deceive, injure or defraud",
       "text": "In stating an intent to deceive, injure or defraud, it is not necessary to state an intent to deceive, injure or defraud any particular person if the statute creating the offence does not make an intent to deceive, injure or defraud a particular person an element of the offence.",
@@ -181595,17 +181678,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "11",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "11"
       },
-      "id": "sch1/s11"
+      "id": "sch1/cl11"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "12",
       "heading": "Perjury, subornation of perjury, etc.",
       "text": "",
@@ -181629,14 +181713,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12"
+      "id": "sch1/cl12"
     },
     {
       "type": "subsection",
@@ -181663,14 +181748,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12/1"
+      "id": "sch1/cl12/1"
     },
     {
       "type": "paragraph",
@@ -181697,14 +181783,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "1",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12/1/a"
+      "id": "sch1/cl12/1/a"
     },
     {
       "type": "paragraph",
@@ -181731,14 +181818,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12/1/b"
+      "id": "sch1/cl12/1/b"
     },
     {
       "type": "continuation",
@@ -181766,14 +181854,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12/1/continuation~5d8e75"
+      "id": "sch1/cl12/1/continuation~5d8e75"
     },
     {
       "type": "subsection",
@@ -181800,14 +181889,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12/2"
+      "id": "sch1/cl12/2"
     },
     {
       "type": "subsection",
@@ -181834,17 +181924,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch1/s12/3"
+      "id": "sch1/cl12/3"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "13",
       "heading": "Names of witnesses to be included on indictment",
       "text": "The following information must be included on an indictment\u2014",
@@ -181868,14 +181959,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
-      "id": "sch1/s13"
+      "id": "sch1/cl13"
     },
     {
       "type": "paragraph",
@@ -181902,14 +181994,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
-      "id": "sch1/s13/a"
+      "id": "sch1/cl13/a"
     },
     {
       "type": "paragraph",
@@ -181936,17 +182029,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
-      "id": "sch1/s13/b"
+      "id": "sch1/cl13/b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "14",
       "heading": "Additional information to be included on indictment charging offence to which Chapter 7A applies",
       "text": "The following information must be included on a direct indictment charging an offence the prosecution of which may only proceed if the Court of Appeal gives authorisation under section 327O\u2014",
@@ -181970,12 +182064,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "14",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "14"
       },
       "history": [
         {
@@ -182001,7 +182096,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch1/s14"
+      "id": "sch1/cl14"
     },
     {
       "type": "paragraph",
@@ -182028,14 +182123,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "14",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "14"
       },
-      "id": "sch1/s14/a"
+      "id": "sch1/cl14/a"
     },
     {
       "type": "paragraph",
@@ -182062,14 +182158,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "14",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "14"
       },
-      "id": "sch1/s14/b"
+      "id": "sch1/cl14/b"
     },
     {
       "type": "schedule",
@@ -182101,7 +182198,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "history": [
         {
@@ -182218,7 +182316,7 @@
       "id": "sch2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "1",
       "heading": "Common law",
       "text": "1.1 Offences at common law of conspiracy to cheat and defraud, if the amount or value of the property or the financial advantage alleged to be involved does not in the judgment of the court exceed $100 000. 1.2 Offences at common law of conspiracy to defraud, if the amount or value of the property or the financial advantage alleged to be involved does not in the judgment of the court exceed $100 000.",
@@ -182242,17 +182340,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch2/s1"
+      "id": "sch2/cl1"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "2",
       "heading": "Aboriginal Heritage Act 2006",
       "text": "2.1 Indictable offences under the Aboriginal Heritage Act 2006.",
@@ -182276,17 +182375,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch2/s2"
+      "id": "sch2/cl2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3",
       "heading": "Assisted Reproductive Treatment Act 2008",
       "text": "3.1 Indictable offences under the Assisted Reproductive Treatment Act 2008.",
@@ -182310,17 +182410,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch2/s3"
+      "id": "sch2/cl3"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3AA",
       "heading": "Building Act 1993",
       "text": "3AA.1 Indictable offences under the Building Act 1993.",
@@ -182344,12 +182445,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3AA",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3AA"
       },
       "history": [
         {
@@ -182375,10 +182477,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s3aa"
+      "id": "sch2/cl3aa"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3A",
       "heading": "Bus Safety Act 2009",
       "text": "Indictable offences under the Bus Safety Act 2009.",
@@ -182402,12 +182504,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3A"
       },
       "history": [
         {
@@ -182433,10 +182536,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s3a"
+      "id": "sch2/cl3a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3AB",
       "heading": "Commercial Passenger Vehicle Industry Act 2017",
       "text": "3AB.1 Indictable offences under the Commercial Passenger Vehicle Industry Act 2017.",
@@ -182460,12 +182563,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3AB",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3AB"
       },
       "history": [
         {
@@ -182491,10 +182595,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s3ab"
+      "id": "sch2/cl3ab"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3B",
       "heading": "Crime Statistics Act 2014",
       "text": "Offences under section 9 of the Crime Statistics Act 2014.",
@@ -182518,12 +182622,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3B",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3B"
       },
       "history": [
         {
@@ -182549,10 +182654,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s3b"
+      "id": "sch2/cl3b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "4",
       "heading": "Crimes Act 1958",
       "text": "4.1 Offences under section 17 of the Crimes Act 1958 (causing serious injury recklessly), except an offence alleged to have been committed against an emergency worker on duty, a custodial officer on duty or a youth justice custodial worker on duty within the meaning of section 10AA of the Sentencing Act 1991. 4.1A Offences under section 18 of the Crimes Act 1958 (causing injury intentionally or recklessly), except an offence alleged to have been committed against an emergency worker on duty, a custodial officer on duty or a youth justice custodial worker on duty within the meaning of section 10AA of the Sentencing Act 1991. 4.2 Offences under section 27 of the Crimes Act 1958 (extortion with threat to kill). 4.2A Offences under section 42 of the Crimes Act 1958 (assault with intent to commit a sexual offence). 4.2B Offences under section 53I(1) of the Crimes Act 1958 (obtaining a commercial benefit, payment or reward for commercial sexual services provided by a child). 4.2C Offences under section 53J(1) of the Crimes Act 1958 (agreement for provision of commercial sexual services by a child). 4.3 Offences under section 54 of the Crimes Act 1958 (occupier etc. permitting unlawful sexual penetration) inserted in the Crimes Act 1958 on 5 August 1991 by section 3 of the Crimes (Sexual Offences) Act 1991 and repealed by section 16 of the Crimes Amendment (Sexual Offences) Act 2016. 4.4 Offences under section 74 of the Crimes Act 1958 (theft), if\u2014",
@@ -182583,12 +182688,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
       "history": [
         {
@@ -182790,7 +182896,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s4"
+      "id": "sch2/cl4"
     },
     {
       "type": "paragraph",
@@ -182817,14 +182923,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/a"
+      "id": "sch2/cl4/a"
     },
     {
       "type": "paragraph",
@@ -182851,14 +182958,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/b"
+      "id": "sch2/cl4/b"
     },
     {
       "type": "continuation",
@@ -182885,14 +182993,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/continuation~041835"
+      "id": "sch2/cl4/continuation~041835"
     },
     {
       "type": "continuation",
@@ -182947,14 +183056,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/continuation~cdbdd4"
+      "id": "sch2/cl4/continuation~cdbdd4"
     },
     {
       "type": "paragraph",
@@ -182981,14 +183091,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/a~9fa7ce"
+      "id": "sch2/cl4/a~9fa7ce"
     },
     {
       "type": "paragraph",
@@ -183015,14 +183126,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/b~13c655"
+      "id": "sch2/cl4/b~13c655"
     },
     {
       "type": "paragraph",
@@ -183049,14 +183161,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/a~4ece5b"
+      "id": "sch2/cl4/a~4ece5b"
     },
     {
       "type": "paragraph",
@@ -183083,14 +183196,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/b~6db2aa"
+      "id": "sch2/cl4/b~6db2aa"
     },
     {
       "type": "continuation",
@@ -183124,17 +183238,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch2/s4/continuation~1b3808"
+      "id": "sch2/cl4/continuation~1b3808"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "5",
       "heading": "Dangerous Goods Act 1985",
       "text": "5.1 Indictable offences under the Dangerous Goods Act 1985.",
@@ -183158,17 +183273,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch2/s5"
+      "id": "sch2/cl5"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "6",
       "heading": "Drugs, Poisons and Controlled Substances Act 1981",
       "text": "6.1 Indictable offences under the Drugs, Poisons and Controlled Substances Act 1981, except for offences against sections 71, 71AA, 72 and 72A and offences against the following provisions as in force before the commencement of the Drugs, Poisons and Controlled Substances (Amendment) Act 2001\u2014",
@@ -183192,14 +183308,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch2/s6"
+      "id": "sch2/cl6"
     },
     {
       "type": "paragraph",
@@ -183226,14 +183343,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": null,
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch2/s6/a"
+      "id": "sch2/cl6/a"
     },
     {
       "type": "paragraph",
@@ -183260,17 +183378,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": null,
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch2/s6/b"
+      "id": "sch2/cl6/b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "7",
       "heading": "Electricity Industry Act 2000",
       "text": "7.1 Offences under section 93A(1) or (2) of the Electricity Industry Act 2000. 7.2 Offences by a body corporate under section 97(7) of the Electricity Industry Act 2000. 7.3 Offences under section 97(11) of the Electricity Industry Act 2000. 7.4 Offences under section 40SD(1) of the Electricity Industry Act 2000. 7.5 Offences under section 40SF(1), (2) or (3) of the Electricity Industry Act 2000. 7.6 Offences under section 40ST(3) of the Electricity Industry Act 2000. 7.7 Offences under section 40SU(3) of the Electricity Industry Act 2000. 7.8 Offences under section 116AA(1) or (2) of the Electricity Industry Act 2000.",
@@ -183294,12 +183413,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
       "history": [
         {
@@ -183413,10 +183533,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s7"
+      "id": "sch2/cl7"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "8",
       "heading": "Electricity Safety Act 1998",
       "text": "8.1 Offences under section 141A of the Electricity Safety Act 1998, but the maximum penalty that the court may impose on a body corporate is 10 000 penalty units.",
@@ -183440,17 +183560,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch2/s8"
+      "id": "sch2/cl8"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "9",
       "heading": "Environment Protection Act 2017",
       "text": "9.1 Indictable offences under the Environment Protection Act 2017.",
@@ -183474,12 +183595,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "9",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "9"
       },
       "history": [
         {
@@ -183505,10 +183627,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s9"
+      "id": "sch2/cl9"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "10",
       "heading": "Equipment (Public Safety) Act 1994",
       "text": "10.1 Indictable offences under the Equipment (Public Safety) Act 1994.",
@@ -183532,17 +183654,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch2/s10"
+      "id": "sch2/cl10"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "11",
       "heading": "Firearms Act 1996",
       "text": "11.1 Offences under section 5(1A) of the Firearms Act 1996 (offence for prohibited person to possess, carry or use unregistered firearm) inserted in the Firearms Act 1996 by section 4(2) of the Firearms (Trafficking and Handgun Control) Act 2003 and repealed by section 8(2) of the Control of Weapons and Firearms Acts Amendment Act 2012. 11.2 Offences under section 7B(2) of the Firearms Act 1996 (offence to possess, carry or use an unregistered category E handgun). 11.3 Offences under section 59B of the Firearms Act 1996 (offence to possess instructions for manufacture of a firearm). 11.4 Offences under section 59C of the Firearms Act 1996 (offence to distribute instructions for manufacture of a firearm).",
@@ -183566,12 +183689,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "11",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "11"
       },
       "history": [
         {
@@ -183641,10 +183765,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s11"
+      "id": "sch2/cl11"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "12",
       "heading": "Food Act 1984",
       "text": "12.1 Indictable offences under the Food Act 1984.",
@@ -183668,17 +183792,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch2/s12"
+      "id": "sch2/cl12"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "13",
       "heading": "Gas Industry Act 2001",
       "text": "13.1 Offences under section 149A(1) or (2) of the Gas Industry Act 2001. 13.2 Offences by a body corporate under section 208(5) of the Gas Industry Act 2001. 13.3 Offences under section 210(1) of the Gas Industry Act 2001. 13.4 Offences under section 48DF(1) of the Gas Industry Act 2001. 13.5 Offences under section 48DH(1), (2) or (3) of the Gas Industry Act 2001. 13.6 Offences under section 48DV(3) of the Gas Industry Act 2001. 13.7 Offences under section 48DW(3) of the Gas Industry Act 2001. 13.8 Offences under section 229A(1) or (2) of the Gas Industry Act 2001.",
@@ -183716,12 +183841,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
       "history": [
         {
@@ -183835,10 +183961,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s13"
+      "id": "sch2/cl13"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "14",
       "heading": "Gas Safety Act 1997",
       "text": "14.1 Offences under section 107 of the Gas Safety Act 1997, but the maximum penalty that the court may impose on a body corporate is 10 000 penalty units.",
@@ -183862,17 +183988,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "14",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "14"
       },
-      "id": "sch2/s14"
+      "id": "sch2/cl14"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "15",
       "heading": "Health Records Act 2001",
       "text": "15.1 Indictable offences under the Health Records Act 2001.",
@@ -183896,17 +184023,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "15",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "15"
       },
-      "id": "sch2/s15"
+      "id": "sch2/cl15"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "16",
       "heading": "Heritage Act 2017",
       "text": "16.1 Indictable offences under the Heritage Act 2017.",
@@ -183930,12 +184058,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "16",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "16"
       },
       "history": [
         {
@@ -183961,7 +184090,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s16"
+      "id": "sch2/cl16"
     },
     {
       "type": "repealed",
@@ -183988,17 +184117,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "16",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "16"
       },
-      "id": "sch2/s16/repealed~ff6469"
+      "id": "sch2/cl16/repealed~ff6469"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "18",
       "heading": "Juries Act 2000",
       "text": "18.1 Indictable offences under the Juries Act 2000.",
@@ -184022,17 +184152,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "18",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "18"
       },
-      "id": "sch2/s18"
+      "id": "sch2/cl18"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "18A",
       "heading": "Legal Profession Uniform Law (Victoria)",
       "text": "18A.1 Indictable offences under the Legal Profession Uniform Law (Victoria).",
@@ -184056,12 +184187,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "18A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "18A"
       },
       "history": [
         {
@@ -184087,10 +184219,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s18a"
+      "id": "sch2/cl18a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "19",
       "heading": "Major Events Act 2009",
       "text": "19.1 Indictable offences under the Major Events Act 2009.",
@@ -184121,12 +184253,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "19",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "19"
       },
       "history": [
         {
@@ -184174,10 +184307,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s19"
+      "id": "sch2/cl19"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "19A",
       "heading": "Marine Safety Act 2010",
       "text": "19A.1 Indictable offences under the Marine Safety Act 2010.",
@@ -184201,12 +184334,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "19A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "19A"
       },
       "history": [
         {
@@ -184232,10 +184366,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s19a"
+      "id": "sch2/cl19a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "19B",
       "heading": "Mineral Resources (Sustainable Development) Act 1990",
       "text": "19B.1 Indictable offences under the Mineral Resources (Sustainable Development) Act 1990.",
@@ -184259,12 +184393,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "19B",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "19B"
       },
       "history": [
         {
@@ -184290,10 +184425,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s19b"
+      "id": "sch2/cl19b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "20",
       "heading": "Occupational Health and Safety Act 2004",
       "text": "20.1 Indictable offences under the Occupational Health and Safety Act 2004.",
@@ -184317,14 +184452,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "20",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "20"
       },
-      "id": "sch2/s20"
+      "id": "sch2/cl20"
     },
     {
       "type": "repealed",
@@ -184351,17 +184487,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "20",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "20"
       },
-      "id": "sch2/s20/repealed~ff6469"
+      "id": "sch2/cl20/repealed~ff6469"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "21A",
       "heading": "Powers of Attorney Act 2014",
       "text": "21A.1 Offences under section 135(1), (2) or (3) of the Powers of Attorney Act 2014.",
@@ -184385,12 +184522,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "21A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "21A"
       },
       "history": [
         {
@@ -184416,10 +184554,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s21a"
+      "id": "sch2/cl21a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "22",
       "heading": "Pollution of Waters by Oil and Noxious Substances Act 1986",
       "text": "22.1 Indictable offences under the Pollution of Waters by Oil and Noxious Substances Act 1986, but subject to section 24C of that Act.",
@@ -184443,17 +184581,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "22",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "22"
       },
-      "id": "sch2/s22"
+      "id": "sch2/cl22"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "22A",
       "heading": "Privacy and Data Protection Act 2014",
       "text": "22A.1 Indictable offences under the Privacy and Data Protection Act 2014.",
@@ -184477,12 +184616,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "22A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "22A"
       },
       "history": [
         {
@@ -184508,10 +184648,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s22a"
+      "id": "sch2/cl22a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "23",
       "heading": "Prohibition of Human Cloning for Reproduction Act 2008",
       "text": "23.1 Indictable offences under the Prohibition of Human Cloning for Reproduction Act 2008.",
@@ -184535,17 +184675,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "23",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "23"
       },
-      "id": "sch2/s23"
+      "id": "sch2/cl23"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "24",
       "heading": "Sex Work Act 1994",
       "text": "24.1 Offences under section 6(1) of the Sex Work Act 1994 (obtaining payment for sexual services provided by a child) despite its repeal by the Sex Work Decriminalisation Act 2022. 24.2 Offences under section 7(1) of the Sex Work Act 1994 (agreement for provision of sexual services by a child) despite its repeal by the Sex Work Decriminalisation Act 2022.",
@@ -184576,12 +184717,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "24",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "24"
       },
       "history": [
         {
@@ -184651,7 +184793,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s24"
+      "id": "sch2/cl24"
     },
     {
       "type": "repealed",
@@ -184678,17 +184820,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "24",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "24"
       },
-      "id": "sch2/s24/repealed~ff6469"
+      "id": "sch2/cl24/repealed~ff6469"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "25A",
       "heading": "Rail Safety National Law (Victoria)",
       "text": "25A.1 Indictable offences under the Rail Safety National Law (Victoria).",
@@ -184712,12 +184855,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "25A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "25A"
       },
       "history": [
         {
@@ -184743,10 +184887,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s25a"
+      "id": "sch2/cl25a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "26",
       "heading": "Research Involving Human Embryos Act 2008",
       "text": "26.1 Indictable offences under the Research Involving Human Embryos Act 2008.",
@@ -184770,17 +184914,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "26",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "26"
       },
-      "id": "sch2/s26"
+      "id": "sch2/cl26"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "26A",
       "heading": "Retirement Villages Act 1986",
       "text": "26A.1 Indictable offences under the Retirement Villages Act 1986.",
@@ -184804,12 +184949,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "26A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "26A"
       },
       "history": [
         {
@@ -184835,10 +184981,10 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s26a"
+      "id": "sch2/cl26a"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "27",
       "heading": "Road Management Act 2004",
       "text": "27.1 Indictable offences under the Road Management Act 2004.",
@@ -184862,17 +185008,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "27",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "27"
       },
-      "id": "sch2/s27"
+      "id": "sch2/cl27"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "28",
       "heading": "Tobacco Act 1987",
       "text": "28.1 Indictable offences under the Tobacco Act 1987.",
@@ -184896,17 +185043,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "28",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "28"
       },
-      "id": "sch2/s28"
+      "id": "sch2/cl28"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "29",
       "heading": "Transport Act 1983",
       "text": "29.1 Indictable offences under the Transport Act 1983.",
@@ -184930,17 +185078,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "29",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "29"
       },
-      "id": "sch2/s29"
+      "id": "sch2/cl29"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "29A",
       "heading": "Victoria Police Act 2013",
       "text": "29A.1 Offences under section 228 of the Victoria Police Act 2013.",
@@ -184964,12 +185113,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "29A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "29A"
       },
       "history": [
         {
@@ -184995,7 +185145,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch2/s29a"
+      "id": "sch2/cl29a"
     },
     {
       "type": "repealed",
@@ -185022,17 +185172,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "29A",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "29A"
       },
-      "id": "sch2/s29a/repealed~ff6469"
+      "id": "sch2/cl29a/repealed~ff6469"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "30",
       "heading": "Water Act 1989",
       "text": "30.1 Indictable offences under the Water Act 1989.",
@@ -185056,17 +185207,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "30",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "30"
       },
-      "id": "sch2/s30"
+      "id": "sch2/cl30"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "31",
       "heading": "Water Industry Act 1994",
       "text": "31.1 Indictable offences under the Water Industry Act 1994.",
@@ -185090,14 +185242,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "31",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "31"
       },
-      "id": "sch2/s31"
+      "id": "sch2/cl31"
     },
     {
       "type": "schedule",
@@ -185227,7 +185380,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "history": [
         {
@@ -186033,7 +186187,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "id": "sch3/repealed~ff6469"
     },
@@ -186067,7 +186222,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "id": "sch3/repealed~ff6469-2"
     },
@@ -186101,7 +186257,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "id": "sch3/repealed~ff6469-3"
     },
@@ -186135,7 +186292,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "history": [
         {
@@ -186164,7 +186322,7 @@
       "id": "sch4"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "1",
       "heading": "Definitions",
       "text": "In this Schedule\u2014",
@@ -186188,14 +186346,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch4/s1"
+      "id": "sch4/cl1"
     },
     {
       "type": "definition",
@@ -186222,14 +186381,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": "commencement day"
+        "definition": "commencement day",
+        "clause": "1"
       },
-      "id": "sch4/s1/definition-commencement-day"
+      "id": "sch4/cl1/definition-commencement-day"
     },
     {
       "type": "definition",
@@ -186256,17 +186416,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": "superseded provision"
+        "definition": "superseded provision",
+        "clause": "1"
       },
-      "id": "sch4/s1/definition-superseded-provision"
+      "id": "sch4/cl1/definition-superseded-provision"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "2",
       "heading": "General transitional provision",
       "text": "",
@@ -186290,14 +186451,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch4/s2"
+      "id": "sch4/cl2"
     },
     {
       "type": "subsection",
@@ -186324,14 +186486,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch4/s2/1"
+      "id": "sch4/cl2/1"
     },
     {
       "type": "subsection",
@@ -186358,14 +186521,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch4/s2/2"
+      "id": "sch4/cl2/2"
     },
     {
       "type": "paragraph",
@@ -186392,14 +186556,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "2",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch4/s2/2/a"
+      "id": "sch4/cl2/2/a"
     },
     {
       "type": "paragraph",
@@ -186426,14 +186591,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "2",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch4/s2/2/b"
+      "id": "sch4/cl2/2/b"
     },
     {
       "type": "subsection",
@@ -186460,17 +186626,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "2",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "2"
       },
-      "id": "sch4/s2/3"
+      "id": "sch4/cl2/3"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "3",
       "heading": "Renumbering",
       "text": "On and from the commencement day, unless the context otherwise requires, in an Act or in an instrument made under an Act or in any other document of any kind, a reference to a provision of this Act that has been renumbered or relocated must be construed as a reference to the provision as renumbered or relocated and in force for the time being.",
@@ -186494,17 +186661,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "3",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "3"
       },
-      "id": "sch4/s3"
+      "id": "sch4/cl3"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "4",
       "heading": "References to superseded provisions",
       "text": "A reference to a superseded provision in any Act (other than this Act or the Criminal Procedure Amendment (Consequential and Transitional Provisions) Act 2009) or in any rule, regulation, order, agreement, instrument, deed or other document of any kind must, so far as it relates to any period on or after the commencement day and if not inconsistent with the context or subject matter, be construed as a reference to the relevant provision of this Act.",
@@ -186528,17 +186696,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "4",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "4"
       },
-      "id": "sch4/s4"
+      "id": "sch4/cl4"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "5",
       "heading": "Commencing a criminal proceeding",
       "text": "",
@@ -186562,14 +186731,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch4/s5"
+      "id": "sch4/cl5"
     },
     {
       "type": "subsection",
@@ -186596,14 +186766,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch4/s5/1"
+      "id": "sch4/cl5/1"
     },
     {
       "type": "note",
@@ -186630,14 +186801,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch4/s5/1/note~60e96f"
+      "id": "sch4/cl5/1/note~60e96f"
     },
     {
       "type": "subsection",
@@ -186664,17 +186836,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "5",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "5"
       },
-      "id": "sch4/s5/2"
+      "id": "sch4/cl5/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "6",
       "heading": "Summary procedure",
       "text": "",
@@ -186698,14 +186871,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch4/s6"
+      "id": "sch4/cl6"
     },
     {
       "type": "subsection",
@@ -186732,14 +186906,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch4/s6/1"
+      "id": "sch4/cl6/1"
     },
     {
       "type": "note",
@@ -186766,14 +186941,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch4/s6/1/note~60e96f"
+      "id": "sch4/cl6/1/note~60e96f"
     },
     {
       "type": "subsection",
@@ -186800,17 +186976,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "6",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "6"
       },
-      "id": "sch4/s6/2"
+      "id": "sch4/cl6/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "7",
       "heading": "Committal proceeding",
       "text": "",
@@ -186834,14 +187011,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
-      "id": "sch4/s7"
+      "id": "sch4/cl7"
     },
     {
       "type": "subsection",
@@ -186868,14 +187046,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
-      "id": "sch4/s7/1"
+      "id": "sch4/cl7/1"
     },
     {
       "type": "note",
@@ -186902,14 +187081,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
-      "id": "sch4/s7/1/note~60e96f"
+      "id": "sch4/cl7/1/note~60e96f"
     },
     {
       "type": "subsection",
@@ -186936,14 +187116,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
-      "id": "sch4/s7/2"
+      "id": "sch4/cl7/2"
     },
     {
       "type": "subsection",
@@ -186970,17 +187151,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "7",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "7"
       },
-      "id": "sch4/s7/3"
+      "id": "sch4/cl7/3"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "8",
       "heading": "Trial",
       "text": "",
@@ -187004,12 +187186,13 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
       "history": [
         {
@@ -187085,7 +187268,7 @@
           "confidence": "high"
         }
       ],
-      "id": "sch4/s8"
+      "id": "sch4/cl8"
     },
     {
       "type": "subsection",
@@ -187112,14 +187295,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/1"
+      "id": "sch4/cl8/1"
     },
     {
       "type": "paragraph",
@@ -187146,14 +187330,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "1",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/1/a"
+      "id": "sch4/cl8/1/a"
     },
     {
       "type": "paragraph",
@@ -187180,14 +187365,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "1",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/1/b"
+      "id": "sch4/cl8/1/b"
     },
     {
       "type": "continuation",
@@ -187215,14 +187401,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/1/continuation~142b98"
+      "id": "sch4/cl8/1/continuation~142b98"
     },
     {
       "type": "subsection",
@@ -187249,14 +187436,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/2"
+      "id": "sch4/cl8/2"
     },
     {
       "type": "subsection",
@@ -187283,14 +187471,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3"
+      "id": "sch4/cl8/3"
     },
     {
       "type": "paragraph",
@@ -187317,14 +187506,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3/a"
+      "id": "sch4/cl8/3/a"
     },
     {
       "type": "paragraph",
@@ -187351,14 +187541,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3/b"
+      "id": "sch4/cl8/3/b"
     },
     {
       "type": "subsection",
@@ -187385,14 +187576,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3A",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3a"
+      "id": "sch4/cl8/3a"
     },
     {
       "type": "paragraph",
@@ -187419,14 +187611,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3A",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3a/a"
+      "id": "sch4/cl8/3a/a"
     },
     {
       "type": "paragraph",
@@ -187453,14 +187646,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3A",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3a/b"
+      "id": "sch4/cl8/3a/b"
     },
     {
       "type": "continuation",
@@ -187488,14 +187682,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3A",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3a/continuation~15d13b"
+      "id": "sch4/cl8/3a/continuation~15d13b"
     },
     {
       "type": "subsection",
@@ -187522,14 +187717,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3B",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3b"
+      "id": "sch4/cl8/3b"
     },
     {
       "type": "paragraph",
@@ -187556,14 +187752,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3B",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3b/a"
+      "id": "sch4/cl8/3b/a"
     },
     {
       "type": "paragraph",
@@ -187590,14 +187787,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3B",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3b/b"
+      "id": "sch4/cl8/3b/b"
     },
     {
       "type": "continuation",
@@ -187625,14 +187823,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3B",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3b/continuation~1afb60"
+      "id": "sch4/cl8/3b/continuation~1afb60"
     },
     {
       "type": "subsection",
@@ -187659,14 +187858,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3C",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3c"
+      "id": "sch4/cl8/3c"
     },
     {
       "type": "paragraph",
@@ -187693,14 +187893,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3C",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3c/a"
+      "id": "sch4/cl8/3c/a"
     },
     {
       "type": "paragraph",
@@ -187727,14 +187928,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3C",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3c/b"
+      "id": "sch4/cl8/3c/b"
     },
     {
       "type": "paragraph",
@@ -187761,14 +187963,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "3C",
         "paragraph": "c",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/3c/c"
+      "id": "sch4/cl8/3c/c"
     },
     {
       "type": "subsection",
@@ -187795,14 +187998,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4"
+      "id": "sch4/cl8/4"
     },
     {
       "type": "paragraph",
@@ -187829,14 +188033,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4/a"
+      "id": "sch4/cl8/4/a"
     },
     {
       "type": "paragraph",
@@ -187863,14 +188068,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4/b"
+      "id": "sch4/cl8/4/b"
     },
     {
       "type": "paragraph",
@@ -187897,14 +188103,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": "c",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4/c"
+      "id": "sch4/cl8/4/c"
     },
     {
       "type": "continuation",
@@ -187932,14 +188139,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4/continuation~7cecc9"
+      "id": "sch4/cl8/4/continuation~7cecc9"
     },
     {
       "type": "paragraph",
@@ -187966,14 +188174,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": "d",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4/d"
+      "id": "sch4/cl8/4/d"
     },
     {
       "type": "paragraph",
@@ -188000,17 +188209,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "8",
+        "section": null,
         "subsection": "4",
         "paragraph": "e",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "8"
       },
-      "id": "sch4/s8/4/e"
+      "id": "sch4/cl8/4/e"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "9",
       "heading": "New trial or further hearing",
       "text": "",
@@ -188034,14 +188244,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "9",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "9"
       },
-      "id": "sch4/s9"
+      "id": "sch4/cl9"
     },
     {
       "type": "subsection",
@@ -188068,14 +188279,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "9",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "9"
       },
-      "id": "sch4/s9/1"
+      "id": "sch4/cl9/1"
     },
     {
       "type": "subsection",
@@ -188102,17 +188314,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "9",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "9"
       },
-      "id": "sch4/s9/2"
+      "id": "sch4/cl9/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "10",
       "heading": "Appeals",
       "text": "",
@@ -188136,14 +188349,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10"
+      "id": "sch4/cl10"
     },
     {
       "type": "subsection",
@@ -188170,14 +188384,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/1"
+      "id": "sch4/cl10/1"
     },
     {
       "type": "subsection",
@@ -188204,14 +188419,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/2"
+      "id": "sch4/cl10/2"
     },
     {
       "type": "subsection",
@@ -188238,14 +188454,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/3"
+      "id": "sch4/cl10/3"
     },
     {
       "type": "subsection",
@@ -188272,14 +188489,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "4",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/4"
+      "id": "sch4/cl10/4"
     },
     {
       "type": "subsection",
@@ -188306,14 +188524,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "5",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/5"
+      "id": "sch4/cl10/5"
     },
     {
       "type": "subsection",
@@ -188340,14 +188559,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "6",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/6"
+      "id": "sch4/cl10/6"
     },
     {
       "type": "subsection",
@@ -188374,14 +188594,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "7",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/7"
+      "id": "sch4/cl10/7"
     },
     {
       "type": "subsection",
@@ -188408,17 +188629,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "10",
+        "section": null,
         "subsection": "8",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "10"
       },
-      "id": "sch4/s10/8"
+      "id": "sch4/cl10/8"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "11",
       "heading": "Petitions for mercy",
       "text": "",
@@ -188442,14 +188664,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "11",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "11"
       },
-      "id": "sch4/s11"
+      "id": "sch4/cl11"
     },
     {
       "type": "subsection",
@@ -188476,14 +188699,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "11",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "11"
       },
-      "id": "sch4/s11/1"
+      "id": "sch4/cl11/1"
     },
     {
       "type": "subsection",
@@ -188510,17 +188734,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "11",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "11"
       },
-      "id": "sch4/s11/2"
+      "id": "sch4/cl11/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "12",
       "heading": "Witnesses",
       "text": "",
@@ -188544,14 +188769,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12"
+      "id": "sch4/cl12"
     },
     {
       "type": "subsection",
@@ -188578,14 +188804,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/1"
+      "id": "sch4/cl12/1"
     },
     {
       "type": "subsection",
@@ -188612,14 +188839,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/2"
+      "id": "sch4/cl12/2"
     },
     {
       "type": "paragraph",
@@ -188646,14 +188874,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "2",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/2/a"
+      "id": "sch4/cl12/2/a"
     },
     {
       "type": "paragraph",
@@ -188680,14 +188909,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "2",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/2/b"
+      "id": "sch4/cl12/2/b"
     },
     {
       "type": "subsection",
@@ -188714,14 +188944,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "3",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/3"
+      "id": "sch4/cl12/3"
     },
     {
       "type": "subsection",
@@ -188748,14 +188979,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "4",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/4"
+      "id": "sch4/cl12/4"
     },
     {
       "type": "subsection",
@@ -188782,14 +189014,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "5",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/5"
+      "id": "sch4/cl12/5"
     },
     {
       "type": "subsection",
@@ -188816,14 +189049,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "6",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/6"
+      "id": "sch4/cl12/6"
     },
     {
       "type": "paragraph",
@@ -188850,14 +189084,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "6",
         "paragraph": "a",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/6/a"
+      "id": "sch4/cl12/6/a"
     },
     {
       "type": "paragraph",
@@ -188884,14 +189119,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "6",
         "paragraph": "b",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/6/b"
+      "id": "sch4/cl12/6/b"
     },
     {
       "type": "continuation",
@@ -188919,17 +189155,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "12",
+        "section": null,
         "subsection": "6",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "12"
       },
-      "id": "sch4/s12/6/continuation~4d431b"
+      "id": "sch4/cl12/6/continuation~4d431b"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "13",
       "heading": "Costs",
       "text": "",
@@ -188953,14 +189190,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
-      "id": "sch4/s13"
+      "id": "sch4/cl13"
     },
     {
       "type": "subsection",
@@ -188987,14 +189225,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
-      "id": "sch4/s13/1"
+      "id": "sch4/cl13/1"
     },
     {
       "type": "subsection",
@@ -189021,17 +189260,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "13",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "13"
       },
-      "id": "sch4/s13/2"
+      "id": "sch4/cl13/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "14",
       "heading": "Power to amend when there is a defect or error",
       "text": "On and from the commencement day, section 412 applies to any summons, warrant, plea, judgment or order, irrespective of when the summons, warrant, plea, judgment or order was issued or made.",
@@ -189055,17 +189295,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "14",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "14"
       },
-      "id": "sch4/s14"
+      "id": "sch4/cl14"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "15",
       "heading": "Transfer of charge to court with jurisdiction",
       "text": "On and from the commencement day, section 413 applies to a charge before a court, irrespective of when the charge was filed.",
@@ -189089,17 +189330,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "15",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "15"
       },
-      "id": "sch4/s15"
+      "id": "sch4/cl15"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "16",
       "heading": "Perjury",
       "text": "",
@@ -189123,14 +189365,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "16",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "16"
       },
-      "id": "sch4/s16"
+      "id": "sch4/cl16"
     },
     {
       "type": "subsection",
@@ -189157,14 +189400,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "16",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "16"
       },
-      "id": "sch4/s16/1"
+      "id": "sch4/cl16/1"
     },
     {
       "type": "subsection",
@@ -189191,17 +189435,18 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "16",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "16"
       },
-      "id": "sch4/s16/2"
+      "id": "sch4/cl16/2"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "17",
       "heading": "Transitional regulations",
       "text": "The Governor in Council may make regulations containing provisions of a savings or transitional nature consequent on the enactment of this Act.",
@@ -189225,14 +189470,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "17",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "17"
       },
-      "id": "sch4/s17"
+      "id": "sch4/cl17"
     },
     {
       "type": "schedule",
@@ -189264,7 +189510,8 @@
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": null
       },
       "history": [
         {
@@ -189293,7 +189540,7 @@
       "id": "sch5"
     },
     {
-      "type": "section",
+      "type": "clause",
       "number": "1",
       "heading": "Transitional provision\u2014Children and Justice Legislation Amendment (Youth Justice Reform) Act 2017",
       "text": "",
@@ -189317,14 +189564,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": null,
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch5/s1"
+      "id": "sch5/cl1"
     },
     {
       "type": "subsection",
@@ -189351,24 +189599,25 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": "1",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch5/s1/1"
+      "id": "sch5/cl1/1"
     },
     {
       "type": "subsection",
       "number": "2",
       "heading": null,
-      "text": "For the purposes of subsection (1), if an offence is alleged to have been committed between 2 dates, one before and one after the commencement of Division 3 of Part 4 of Children and Justice Legislation Amendment (Youth Justice Reform) Act 2017, the offence is alleged to have been committed before that commencement. \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "text": "For the purposes of subsection (1), if an offence is alleged to have been committed between 2 dates, one before and one after the commencement of Division 3 of Part 4 of Children and Justice Legislation Amendment (Youth Justice Reform) Act 2017, the offence is alleged to have been committed before that commencement.",
       "page_start": 513,
       "page_end": 513,
       "char_start": 572298,
-      "char_end": 572635,
+      "char_end": 572619,
       "source": "rules",
       "rects": [
         {
@@ -189376,7 +189625,7 @@
           "x0": 190.1,
           "y0": 373.0,
           "x1": 454.0,
-          "y1": 495.0
+          "y1": 472.2
         }
       ],
       "path": {
@@ -189385,14 +189634,15 @@
         "part": null,
         "division": null,
         "subdivision": null,
-        "section": "1",
+        "section": null,
         "subsection": "2",
         "paragraph": null,
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": null
+        "definition": null,
+        "clause": "1"
       },
-      "id": "sch5/s1/2"
+      "id": "sch5/cl1/2"
     }
   ],
   "unattached_notes": [
