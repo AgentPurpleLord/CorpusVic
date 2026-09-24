@@ -355,9 +355,9 @@ def test_act_status_names_the_profile_the_act_should_be_parsed_with(tmp_path, mo
 def _versioned_pdf(path, version):
     """A minimal PDF whose first page carries an Authorised Version block,
     since that is what the slug is actually derived from."""
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     page.insert_text((72, 72), f"Authorised Version No. {version}")
     page.insert_text((72, 92), "Criminal Procedure Act 2009")

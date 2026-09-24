@@ -14,7 +14,7 @@ import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 
-import fitz
+import pymupdf
 
 TOP_MASTHEAD_FRACTION = 0.17
 BOTTOM_FOOTER_FRACTION = 0.83
@@ -294,7 +294,7 @@ def _rows_left_to_right(body: list[tuple]) -> list[tuple]:
 
 
 def extract_pages(pdf_path: str) -> list[PageText]:
-    doc = fitz.open(pdf_path)
+    doc = pymupdf.open(pdf_path)
     raw_pages = []
     for page in doc:
         w, h = page.rect.width, page.rect.height

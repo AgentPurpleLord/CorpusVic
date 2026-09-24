@@ -329,9 +329,19 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 
 /* Historical mode, once history.js has taken the list over. */
 .history.hist-js > .history-summary { display: none; }
-/* A provision with definitions has a timeline per definition, each named. */
+/* A piece's margin notes open its own history, beneath it and across both
+   columns; they say so on hover, as a link would. */
 .hist-subject { font-weight: 600; margin: 4px 0 6px; }
 .history:not(.hist-js) .hist-subject { display: none; }
+.prov-notes[data-hist], .prov-notes[data-hist-section] { cursor: pointer; }
+.prov-notes[data-hist]:hover .hist-note, .prov-notes[data-hist-section]:hover .hist-note,
+.prov-notes[aria-expanded="true"] .hist-note { color: var(--accent); }
+.prov-notes[data-hist]::after, .prov-notes[data-hist-section]::after {
+  content: "History \203A"; display: block; margin-top: 2px; color: var(--accent); font-size: 11px;
+}
+.prov-notes[aria-expanded="true"]::after { content: "Hide history"; }
+.prov-history { grid-column: 1 / -1; margin: 4px 0 18px; }
+.reader-section .prov-history > .history.hist-js { display: block; }
 .history.hist-js .hist-track { border: none; }
 .reader-section:not(.historical) .history.hist-js { display: none; }
 .reader-section.historical > .provisions,

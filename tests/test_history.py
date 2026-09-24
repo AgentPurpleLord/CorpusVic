@@ -210,11 +210,11 @@ def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_pat
 
 def test_a_piece_with_no_boxes_is_found_on_its_page_by_its_words(tmp_path, monkeypatch):
     """The CPA's older parses predate boxes: its words mark where it is."""
-    import fitz
+    import pymupdf
     import corpus.web.dashboard as dashboard
 
     pdf = tmp_path / "v1.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=300, height=400)
     page.insert_text((40, 100), "Something else entirely.", fontsize=10)
     page.insert_text((40, 200), "A person may appeal within 28 days.", fontsize=10)
@@ -226,7 +226,7 @@ def test_a_piece_with_no_boxes_is_found_on_its_page_by_its_words(tmp_path, monke
     assert rect["page"] == 1 and 185 < rect["y1"] < 205
     assert dashboard.pdf_page_find("act-v1", 1, "nothing printed here at all")["rects"] == []
     small, large = (dashboard.pdf_page_image("act-v1", 1, zoom=z).body for z in (1, 2))
-    assert fitz.open("png", large)[0].rect.width == 2 * fitz.open("png", small)[0].rect.width
+    assert pymupdf.open("png", large)[0].rect.width == 2 * pymupdf.open("png", small)[0].rect.width
 
 
 def test_an_accepted_piece_keeps_the_boxes_its_parse_drew(monkeypatch):
@@ -252,12 +252,12 @@ def test_each_version_shows_its_pages_scrolled_to_the_piece():
 def test_the_page_images_are_reached_through_the_router(tmp_path, monkeypatch):
     """The size route once took every ".png" request and refused it, so the
     panes drew blank pages; calling the functions directly never showed it."""
-    import fitz
+    import pymupdf
     from fastapi.testclient import TestClient
     import corpus.web.dashboard as dashboard
 
     pdf = tmp_path / "v1.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=300, height=400).insert_text((40, 200), "A person may appeal.", fontsize=10)
     doc.save(pdf)
     monkeypatch.setattr(dashboard, "_find_source_pdf", lambda slug: pdf)

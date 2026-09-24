@@ -170,7 +170,37 @@
       : "Show how each provision has read across the versions held here";
   }
 
+  // A piece's margin notes open its own history beneath it; the notes
+  // printed against the provision itself open the whole provision's.
+  function openFromNotes(notes) {
+    var article = notes.closest(".reader-section");
+    if (notes.dataset.histSection) {
+      if (article) {
+        setOpen(article, true);
+        article.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+    var box = document.getElementById(notes.dataset.hist);
+    if (!box) return;
+    var opening = box.hidden;
+    box.hidden = !opening;
+    notes.setAttribute("aria-expanded", opening ? "true" : "false");
+    if (!opening) return;
+    var history = box.querySelector(".history");
+    setup(history);
+    show(history, parseInt(history.dataset.focus, 10), false);
+  }
+
+  function notesTarget(event) {
+    // A citation inside a note is a link of its own, and stays one.
+    if (event.target.closest("a")) return null;
+    return event.target.closest(".prov-notes[data-hist], .prov-notes[data-hist-section]");
+  }
+
   document.addEventListener("click", function (event) {
+    var notes = notesTarget(event);
+    if (notes) { openFromNotes(notes); return; }
     var target = event.target.closest(".history-chip, .hist-step, .hist-dot, .hist-cmp");
     if (!target) return;
     var history = target.closest(".history");
@@ -183,6 +213,11 @@
   });
 
   document.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" || event.key === " ") {
+      var notes = notesTarget(event);
+      if (notes) { event.preventDefault(); openFromNotes(notes); }
+      return;
+    }
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     var history = event.target.closest && event.target.closest(".history.hist-js");
     if (!history) return;

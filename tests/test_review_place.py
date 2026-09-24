@@ -174,10 +174,10 @@ def margin_note(s110, monkeypatch, tmp_path):
     """A note the parse missed, printed in the margin level with (viii).
     A real page, because the note is read from the PDF itself: the lines
     the parse was built from are the body only."""
-    import fitz
+    import pymupdf
 
     _printed(monkeypatch)
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
     page.insert_text((470, 288), "S. 110(1)(d)(viii)", fontsize=6)
     page.insert_text((470, 296), "amended by No. 7/2020 s. 4.", fontsize=6)

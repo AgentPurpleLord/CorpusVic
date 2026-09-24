@@ -18,7 +18,7 @@ CPA = "Criminal Procedure Act 2009"
 def set_lines(monkeypatch):
     """lines: (x, size, bold, text), set down the page from the body's top."""
     def make(lines):
-        monkeypatch.setattr(amending_pdf.fitz, "open", lambda path: None)
+        monkeypatch.setattr(amending_pdf.pymupdf, "open", lambda path: None)
         monkeypatch.setattr(amending_pdf, "_lines", lambda doc: [
             {"text": text, "x": x, "y": 160 + 18 * n, "size": size, "bold": bold, "starts_bold": bold}
             for n, (x, size, bold, text) in enumerate(lines)])

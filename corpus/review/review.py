@@ -141,7 +141,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import fitz
+import pymupdf
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -950,7 +950,7 @@ _startup_resume_unit = 0
 _source_pdf_path: str | None = None
 _document_type: str | None = None
 _act_title: str | None = None
-_pdf_doc: "fitz.Document | None" = None
+_pdf_doc: "pymupdf.Document | None" = None
 _page_image_cache: "dict[tuple[int, float], bytes]" = {}
 # This document as one version of a work (inheritance.work_review), and
 # what that says about each of its units -- None and empty for a
@@ -1768,12 +1768,12 @@ def get_unit(unit_no: int):
     return _unit_payload(unit_no)
 
 
-def _get_pdf_doc() -> fitz.Document:
+def _get_pdf_doc() -> pymupdf.Document:
     global _pdf_doc
     if _pdf_doc is None:
         if not _source_pdf_path or not Path(_source_pdf_path).exists():
             raise HTTPException(404, "No source PDF available for this Act")
-        _pdf_doc = fitz.open(_source_pdf_path)
+        _pdf_doc = pymupdf.open(_source_pdf_path)
     return _pdf_doc
 
 
@@ -1791,7 +1791,7 @@ def _cache_page_image(key: "tuple[int, float]", png_bytes: bytes) -> None:
 _version_docs: dict = {}
 
 
-def _version_doc(version: int) -> fitz.Document:
+def _version_doc(version: int) -> pymupdf.Document:
     """Another version's source PDF, for setting its page beside this
     one's -- verifying a change means seeing both printed pages, not one
     page and a diff."""
@@ -1803,7 +1803,7 @@ def _version_doc(version: int) -> fitz.Document:
         path = load_source_pdf_path(_work_review["slugs"][version])
         if not path or not Path(path).exists():
             raise HTTPException(404, f"Version {version}'s source PDF isn't where its parse says it is")
-        _version_docs[version] = fitz.open(path)
+        _version_docs[version] = pymupdf.open(path)
     return _version_docs[version]
 
 
@@ -1829,7 +1829,7 @@ def get_version_page_image(version: int, page_no: int, zoom: float = 1.0):
     if not (1 <= page_no <= doc.page_count):
         raise HTTPException(404, f"Version {version}'s PDF has pages 1-{doc.page_count}; no page {page_no}")
     scale = _PAGE_RENDER_ZOOM * zoom
-    png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
+    png_bytes = doc[page_no - 1].get_pixmap(matrix=pymupdf.Matrix(scale, scale)).tobytes("png")
     _cache_page_image(key, png_bytes)
     return Response(content=png_bytes, media_type="image/png")
 
@@ -1861,7 +1861,7 @@ def get_page_image(page_no: int, zoom: float = 1.0):
     if not (1 <= page_no <= doc.page_count):
         raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {page_no}")
     scale = _PAGE_RENDER_ZOOM * zoom
-    png_bytes = doc[page_no - 1].get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png")
+    png_bytes = doc[page_no - 1].get_pixmap(matrix=pymupdf.Matrix(scale, scale)).tobytes("png")
     _cache_page_image(key, png_bytes)
     return Response(content=png_bytes, media_type="image/png")
 
@@ -2997,7 +2997,7 @@ def _page_text_in(rect: dict) -> str:
     doc = _get_pdf_doc()
     if not (1 <= rect["page"] <= doc.page_count):
         raise HTTPException(404, f"This Act's source PDF has pages 1-{doc.page_count}; no page {rect['page']}")
-    clip = fitz.Rect(rect["x0"], rect["y0"], rect["x1"], rect["y1"])
+    clip = pymupdf.Rect(rect["x0"], rect["y0"], rect["x1"], rect["y1"])
     return " ".join(doc[rect["page"] - 1].get_text("text", clip=clip).split())
 
 
