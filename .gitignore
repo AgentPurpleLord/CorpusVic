@@ -139,3 +139,5 @@ acts/*
 data/teaching/.last/
 # The second opinion (corpus/teaching/model.py), rebuilt from the examples.
 data/teaching/.model.json
+# The dashboard's document-list cache (dashboard._cache), rebuilt from the files.
+data/.cache/

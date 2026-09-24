@@ -154,24 +154,90 @@ def discover_slugs() -> list[str]:
     return sorted(slugs)
 
 
-_pdf_version_cache: dict[tuple, "int | None"] = {}
+# What the document list needs from files that are slow to read -- each
+# version PDF's front matter, and a few facts out of each multi-megabyte
+# parse -- kept against the file's size and mtime, and on disk, so the
+# first load after a restart doesn't read them all again. Gitignored:
+# rebuilt from the files whenever they change.
+_list_cache: "dict | None" = None
+_SUMMARY_KEYS = ("source", "profile", "document_type", "version")
+
+
+def _list_cache_path() -> Path:
+    return BASE_DIR / "data" / ".cache" / "dashboard-list.json"
+
+
+def _cache() -> dict:
+    global _list_cache
+    if _list_cache is None or _list_cache.get("base") != str(BASE_DIR):
+        try:
+            _list_cache = json.loads(_list_cache_path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _list_cache = {}
+        _list_cache = {"summaries": _list_cache.get("summaries") or {},
+                       "pdf_versions": _list_cache.get("pdf_versions") or {}, "base": str(BASE_DIR)}
+    return _list_cache
+
+
+def _save_cache() -> None:
+    cache = _cache()
+    if not cache.pop("dirty", False):
+        return
+    path = _list_cache_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(cache), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        pass   # a cache that can't be written is a slower load, not an error
+
+
+def _stamp(path: Path) -> "str | None":
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return f"{st.st_mtime_ns}:{st.st_size}"
 
 
 def _pdf_version(pdf: Path) -> "int | None":
     """This PDF's version number (as it states it -- see
-    corpus/versions.py), cached against the file's own
-    mtime and size -- discover_slugs runs on every dashboard load, and
-    reading the front matter of every version of every Act on each one
-    would be paying repeatedly for something that only changes when a file
-    does."""
-    try:
-        st = pdf.stat()
-    except OSError:
+    corpus/versions.py). discover_slugs asks on every dashboard load, and
+    reading the front matter of every version of every Act each time --
+    or after every restart -- pays repeatedly for what only changes when a
+    file does."""
+    stamp = _stamp(pdf)
+    if stamp is None:
         return None
-    key = (str(pdf), st.st_mtime_ns, st.st_size)
-    if key not in _pdf_version_cache:
-        _pdf_version_cache[key] = read_front_matter(pdf).get("version")
-    return _pdf_version_cache[key]
+    cache = _cache()["pdf_versions"]
+    entry = cache.get(str(pdf))
+    if not entry or entry["stamp"] != stamp:
+        entry = cache[str(pdf)] = {"stamp": stamp, "version": read_front_matter(pdf).get("version")}
+        _cache()["dirty"] = True
+    return entry["version"]
+
+
+def _parse_summary(slug: str) -> "dict | None":
+    """The few facts the list and the page chrome want from a parse, read
+    once per change to the file rather than on every request."""
+    path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
+    stamp = _stamp(path)
+    if stamp is None:
+        return None
+    cache = _cache()["summaries"]
+    entry = cache.get(slug)
+    if entry and entry["stamp"] == stamp:
+        return entry
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    nodes = data.get("nodes", [])
+    entry = cache[slug] = {"stamp": stamp, **{k: data.get(k) for k in _SUMMARY_KEYS},
+                           "node_count": len(nodes), "units": group_into_units(nodes)}
+    _cache()["dirty"] = True
+    return entry
 
 
 def act_status(slug: str, publication: "dict | None" = None) -> dict:
@@ -208,7 +274,7 @@ def act_status(slug: str, publication: "dict | None" = None) -> dict:
         # was handed "criminal-procedure-act-v114", which is not a
         # profile that exists: its Parts stopped matching and Chapter 2
         # swallowed Part 2.1's heading, with nothing to say why.
-        "profile": profile_for(slug, BASE_DIR),
+        "profile": profile_for(slug, BASE_DIR, recorded=(_parse_summary(slug) or {}).get("profile")),
         "parsed": parsed_path.exists(),
         # "act" / "bill" / "em" -- what the pipeline recorded when it
         # parsed this one (filled in below, from the parse this function
@@ -222,14 +288,13 @@ def act_status(slug: str, publication: "dict | None" = None) -> dict:
         "akn_exported": (BASE_DIR / "data" / "akn" / f"{slug}.xml").exists(),
         "markdown_exported": (BASE_DIR / "data" / "markdown" / slug / "index.md").exists(),
     }
-    if not parsed_path.exists():
+    summary = _parse_summary(slug)
+    if summary is None:
         return status
-    data = json.loads(parsed_path.read_text(encoding="utf-8"))
-    status["kind"] = data.get("document_type") or "act"
-    status["version_as_at"] = (data.get("version") or {}).get("as_at_printed")
-    nodes = data.get("nodes", [])
-    units = group_into_units(nodes)
-    status["node_count"] = len(nodes)
+    status["kind"] = summary.get("document_type") or "act"
+    status["version_as_at"] = (summary.get("version") or {}).get("as_at_printed")
+    units = summary["units"]
+    status["node_count"] = summary["node_count"]
     status["unit_count"] = len(units)
 
     verified = db.load_verified(slug, base_dir=BASE_DIR)
@@ -873,9 +938,10 @@ def sync_status():
         "needs_import": needs_import,
         "running_head": _RUNNING_HEAD,
         "checkout_head": on_disk,
-        # Both known and different: the checkout has moved since this
+        # Both known and different: the code on disk has moved since this
         # process started, so what is being served is not what is there.
-        "code_stale": bool(_RUNNING_HEAD and on_disk and _RUNNING_HEAD != on_disk),
+        # The code, not the commit -- see sync.CODE_PATHS.
+        "code_stale": bool(_RUNNING_CODE and (code := sync.code_version(BASE_DIR)) and _RUNNING_CODE != code),
         "can_restart": can_restart,
         "restart_blocked": why_not,
     }
@@ -915,6 +981,7 @@ def _default_commit_message() -> str:
 # is exactly the shape of failure the pull was meant to fix.
 
 _RUNNING_HEAD = sync.head(BASE_DIR)
+_RUNNING_CODE = sync.code_version(BASE_DIR)
 
 # systemd sets this for every service it starts, and nothing else does.
 # Its absence means a restart here would stop the dashboard and leave it
@@ -1482,7 +1549,9 @@ def index():
 @app.get("/api/acts")
 def list_acts():
     publication = db.load_publication(BASE_DIR)
-    return [act_status(slug, publication) for slug in discover_slugs()]
+    statuses = [act_status(slug, publication) for slug in discover_slugs()]
+    _save_cache()
+    return statuses
 
 
 class DefinitionOverrideRequest(BaseModel):
@@ -3238,6 +3307,10 @@ def _parse_field(slug: str, key: str, default=None):
     browse pages want two small things out of it (the title and the
     version block) on every request -- so both go through here and through
     _act_title's cache rather than each re-reading the file."""
+    if key in _SUMMARY_KEYS:
+        summary = _parse_summary(slug)
+        value = summary.get(key) if summary else None
+        return default if value is None else value
     parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
     if not parsed_path.exists():
         return default

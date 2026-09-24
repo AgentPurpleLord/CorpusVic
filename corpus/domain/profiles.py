@@ -202,7 +202,10 @@ def _profile_path(name: str) -> Path | None:
     return None
 
 
-def profile_for(act_slug: str, base_dir: "str | Path | None" = None) -> "str | None":
+_READ = object()
+
+
+def profile_for(act_slug: str, base_dir: "str | Path | None" = None, recorded=_READ) -> "str | None":
     """The profile a document should be parsed with, worked out rather
     than remembered by whoever is running the parse.
 
@@ -217,15 +220,20 @@ def profile_for(act_slug: str, base_dir: "str | Path | None" = None) -> "str | N
     of an Act -- how it numbers its Parts is a fact about the Act), then
     one named after the slug itself.
     """
-    base = Path(base_dir) if base_dir else Path(".")
-    parsed = base / "data" / "parsed" / f"{act_slug}.json"
-    if parsed.exists():
-        try:
-            recorded = json.loads(parsed.read_text(encoding="utf-8")).get("profile")
-        except (OSError, ValueError):
-            recorded = None
-        if recorded and profile_exists(recorded):
-            return recorded
+    # `recorded` is the parse's own "profile" field, for a caller that has
+    # it already: the parse is megabytes, and the dashboard asks for every
+    # document on every load.
+    if recorded is _READ:
+        base = Path(base_dir) if base_dir else Path(".")
+        parsed = base / "data" / "parsed" / f"{act_slug}.json"
+        recorded = None
+        if parsed.exists():
+            try:
+                recorded = json.loads(parsed.read_text(encoding="utf-8")).get("profile")
+            except (OSError, ValueError):
+                recorded = None
+    if recorded and profile_exists(recorded):
+        return recorded
     work = _DOCUMENT_SLUG_RE.match(act_slug)
     for name in ([work.group("work")] if work else []) + [act_slug]:
         if profile_exists(name):

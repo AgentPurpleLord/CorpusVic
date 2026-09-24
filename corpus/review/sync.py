@@ -49,6 +49,7 @@ disagree the next export picks a side without saying so.
 import os
 import re
 import shutil
+import hashlib
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -414,6 +415,20 @@ def head(repo: Path) -> "str | None":
     what it loaded at startup, and nothing anywhere says so."""
     result = _git(Path(repo), "rev-parse", "HEAD")
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+# What the running process is made of. data/ is left out: the dashboard's
+# own Push commits review data, and pulling brings other people's -- and
+# comparing whole commits made each of those ask for a restart that would
+# change nothing.
+CODE_PATHS = ("corpus", "static", "deploy", "requirements.txt", "requirements-gui.txt", "requirements-site.txt")
+
+
+def code_version(repo: Path) -> "str | None":
+    """A fingerprint of the code at this checkout's HEAD: the git objects
+    of its code paths, so it moves when code does and only then."""
+    result = _git(Path(repo), "ls-tree", "HEAD", "--", *CODE_PATHS)
+    return hashlib.sha1(result.stdout.encode()).hexdigest()[:12] if result.returncode == 0 and result.stdout else None
 
 
 def commit(repo: Path, message: str) -> dict:

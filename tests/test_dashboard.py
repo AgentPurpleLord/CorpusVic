@@ -781,7 +781,9 @@ def test_the_status_says_when_the_running_code_is_stale(monkeypatch):
     dashboard._DASHBOARD_USERNAME = None
     monkeypatch.setattr(corpus.review.sync, "status", lambda repo: {"branch": "main", "error": None})
     monkeypatch.setattr(corpus.review.sync, "head", lambda repo: "b" * 40)
+    monkeypatch.setattr(corpus.review.sync, "code_version", lambda repo: "code-b")
     monkeypatch.setattr(dashboard, "_RUNNING_HEAD", "a" * 40)
+    monkeypatch.setattr(dashboard, "_RUNNING_CODE", "code-a")
     client = TestClient(dashboard.app)
 
     body = client.get("/api/sync/status").json()
@@ -799,10 +801,34 @@ def test_an_unreadable_head_is_not_reported_as_stale(monkeypatch):
     dashboard._DASHBOARD_USERNAME = None
     monkeypatch.setattr(corpus.review.sync, "status", lambda repo: {"branch": "main", "error": None})
     monkeypatch.setattr(corpus.review.sync, "head", lambda repo: None)
+    monkeypatch.setattr(corpus.review.sync, "code_version", lambda repo: None)
     monkeypatch.setattr(dashboard, "_RUNNING_HEAD", "a" * 40)
+    monkeypatch.setattr(dashboard, "_RUNNING_CODE", "code-a")
     client = TestClient(dashboard.app)
 
     assert client.get("/api/sync/status").json()["code_stale"] is False
+
+
+def test_a_commit_of_review_data_alone_asks_for_no_restart(tmp_path):
+    """Push commits data/, and pulling brings other people's: neither
+    changes the code, and a restart prompt after each was noise."""
+    import subprocess
+    from corpus.review import sync
+
+    git = lambda *a: subprocess.run(["git", *a], cwd=tmp_path, check=True, capture_output=True)
+    git("init", "-q"); git("config", "user.email", "t@t"); git("config", "user.name", "t")
+    (tmp_path / "corpus").mkdir(); (tmp_path / "corpus" / "x.py").write_text("a = 1\n")
+    (tmp_path / "data").mkdir(); (tmp_path / "data" / "review.jsonl").write_text("{}\n")
+    git("add", "-A"); git("commit", "-qm", "one")
+    before = sync.code_version(tmp_path)
+
+    (tmp_path / "data" / "review.jsonl").write_text('{"more": 1}\n')
+    git("commit", "-qam", "review progress")
+    assert sync.code_version(tmp_path) == before
+
+    (tmp_path / "corpus" / "x.py").write_text("a = 2\n")
+    git("commit", "-qam", "a fix")
+    assert sync.code_version(tmp_path) != before
 
 
 def test_restarting_is_refused_where_nothing_would_start_it_again(monkeypatch):
@@ -1658,3 +1684,27 @@ def test_every_admin_page_finds_its_stylesheets(monkeypatch):
         for href in hrefs:
             css = client.get(urljoin(f"http://testserver{url}", href))
             assert css.status_code == 200 and "text/css" in css.headers["content-type"], (url, href)
+
+
+def test_the_document_list_is_cached_until_a_parse_changes(tmp_path, monkeypatch):
+    """The list read every parse (megabytes each) on every load; it keeps
+    what it needs against each file's size and mtime instead, on disk so
+    a restart doesn't start cold -- and must still see a re-parse."""
+    import json
+    import os
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_list_cache", None)
+    parsed = tmp_path / "data" / "parsed" / "act.json"
+    parsed.parent.mkdir(parents=True)
+    parsed.write_text(json.dumps({"nodes": [make_node("section", "1", "One", "x")], "document_type": "act"}))
+
+    assert [d["node_count"] for d in dashboard.list_acts()] == [1]
+    assert (tmp_path / "data" / ".cache" / "dashboard-list.json").exists()
+
+    parsed.write_text(json.dumps({"nodes": [make_node("section", "1", "One", "x"),
+                                            make_node("section", "2", "Two", "y")], "document_type": "bill"}))
+    os.utime(parsed, ns=(1, 10**18))   # a re-parse: a new mtime
+    monkeypatch.setattr(dashboard, "_list_cache", None)   # and a restart in between
+    [doc] = dashboard.list_acts()
+    assert (doc["node_count"], doc["unit_count"], doc["kind"]) == (2, 2, "bill")
