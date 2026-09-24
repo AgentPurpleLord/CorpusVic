@@ -1620,7 +1620,44 @@ def verify_amending_acts(work: str):
 # of a work, confirmed as Parliament's or denied as the parser's.
 # ---------------------------------------------------------------------------
 
-_history_cache: dict[str, tuple[str, list]] = {}
+# Each step between two consecutive versions, kept against what it was
+# worked out from -- both versions' parses and review state, the amending
+# Acts, the code -- in memory and on disk (gitignored). A work with many
+# versions recomputed every step on every load, and all of them after a
+# restart; now only a step whose versions changed is worked out again.
+_history_steps: dict[str, dict] = {}
+
+
+def _history_cache_path(work: str) -> Path:
+    return BASE_DIR / "data" / ".cache" / f"history-{work}.json"
+
+
+def _history_steps_for(work: str) -> dict:
+    where = f"{BASE_DIR}|{work}"
+    if where not in _history_steps:
+        try:
+            _history_steps[where] = json.loads(_history_cache_path(work).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _history_steps[where] = {}
+    return _history_steps[where]
+
+
+def _save_history_steps(work: str) -> None:
+    path = _history_cache_path(work)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(_history_steps_for(work)), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        pass
+
+
+def _amending_stamp() -> str:
+    root = BASE_DIR / "data" / "amending"
+    files = sorted(p for p in root.rglob("*") if p.is_file()) if root.exists() else []
+    return hashlib.sha1(repr([(str(p.relative_to(root)), p.stat().st_mtime_ns, p.stat().st_size)
+                              for p in files]).encode()).hexdigest()
 
 
 class HistoryDecision(BaseModel):
@@ -1812,25 +1849,46 @@ def lesson_withdraw(rid: str):
 def _history_items(work: str) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later
-    version -- cached against the text itself rather than the review
-    database, which each decision writes to."""
+    version -- one step between consecutive versions at a time, each
+    cached against what it was worked out from (_history_steps)."""
     held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
-    if not held:
-        return []   # held under its plain name: no versions yet to compare
-    versions = []
-    for slug in held:
-        nodes, _unattached, hierarchy = _current_nodes(slug)
-        versions.append((split_document_slug(slug)[1], _with_rects(slug, nodes), hierarchy))
-    stamp = hashlib.sha256(json.dumps(
-        [[_parse_signature(s) for s in held]]
-        + [(v, sorted((str(k), p["heading"], p["text"]) for k, p in diffing.provisions(n).items()))
-           for v, n, _h in versions]).encode()).hexdigest()
-    cached = _history_cache.get(work)
-    if cached and cached[0] == stamp:
-        return cached[1]
-    items = history_changes.work_changes(versions)
-    acts = amending_load.work_instructions(held[-1], BASE_DIR,
-                                           amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+    if len(held) < 2:
+        return []   # held under its plain name, or in one version: nothing to compare
+    cache = _history_steps_for(work)
+    stamps = {slug: [_parse_signature(slug), db.act_signature(slug, BASE_DIR)] for slug in held}
+    common = [_RUNNING_CODE, _amending_stamp()]
+    loaded: dict = {}
+    acts = None
+
+    def version(slug):
+        if slug not in loaded:
+            nodes, _unattached, hierarchy = _current_nodes(slug)
+            loaded[slug] = (split_document_slug(slug)[1], _with_rects(slug, nodes), hierarchy)
+        return loaded[slug]
+
+    items, steps, changed = [], set(), False
+    for older, newer in zip(held, held[1:]):
+        key, stamp = f"{older}|{newer}", json.dumps([common, stamps[older], stamps[newer]])
+        steps.add(key)
+        entry = cache.get(key)
+        if not entry or entry["stamp"] != stamp:
+            if acts is None:
+                acts = amending_load.work_instructions(
+                    held[-1], BASE_DIR, amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+            entry = cache[key] = {"stamp": stamp, "items": _history_step(version(older), version(newer), acts)}
+            changed = True
+        items.extend(entry["items"])
+    for gone in set(cache) - steps:
+        del cache[gone]
+        changed = True
+    if changed:
+        _save_history_steps(work)
+    return items
+
+
+def _history_step(older: tuple, newer: tuple, acts: dict) -> list[dict]:
+    """The changes from one version to the next, with their evidence."""
+    items = history_changes.work_changes([older, newer])
     by_step: dict = {}
     for item in items:
         by_step.setdefault((item["key"], item["from"], item["to"]), []).append(item)
@@ -1840,6 +1898,10 @@ def _history_items(work: str) -> list[dict]:
         results = amending_match.match(mine, group[0]["_older"], group[0]["_newer"])["instructions"] if mine else []
         for item in group:
             item["instructions"], item["notes"] = [], _new_notes(item)
+            # The Act's own record of an official change of wording. A
+            # change without one is taken to be the parser reading the two
+            # versions differently, and is not put up for review.
+            item["noted"] = bool(item["notes"])
         for r in results:
             evidence = {"act": r["act"], "provision": r["provision"], "raw": r["raw"], "status": r["status"]}
             landed = next((u for u in reversed(r["pair"]) if u is not None), None)
@@ -1860,9 +1922,7 @@ def _history_items(work: str) -> list[dict]:
                     evidence.update(place_as="".join(f"({p})" for p in path), node_id=node_id)
             for item in target:
                 item["instructions"].append({**evidence, "here": item["piece"] == at})
-    public = [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
-    _history_cache[work] = (stamp, public)
-    return public
+    return [{k: v for k, v in item.items() if not k.startswith("_") and k != "key"} for item in items]
 
 
 def _with_rects(slug: str, nodes: list[dict]) -> list[dict]:
@@ -1894,7 +1954,10 @@ def _new_notes(item: dict) -> list[str]:
 
     if item["piece"] == history_changes.WHOLE:
         units = item["_newer"] or []
-        return [n for u in units for n in notes(u) if n][:6]
+        # A repeal leaves only its row of stars, which carries the note.
+        row = item.get("_row")
+        row_notes = [h.get("raw") if isinstance(h, dict) else h for h in (row or {}).get("history") or []]
+        return [n for n in [*row_notes, *(n for u in units for n in notes(u))] if n][:6]
     was = set(notes(old))
     return [n for n in notes(new) if n and n not in was]
 
@@ -1902,7 +1965,7 @@ def _new_notes(item: dict) -> list[str]:
 @app.get("/api/works/{work}/history")
 def history_items(work: str):
     held = _held(work)
-    items = _history_items(work)
+    items = [dict(item) for item in _history_items(work)]
     decisions = db.load_history_decisions(work, BASE_DIR)
     for item in items:
         item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
@@ -2438,6 +2501,42 @@ def fetch_work_version(work: str, version: int, replace: bool = False):
         _version_fetches[work] = job
     threading.Thread(target=_fetch_version_job, args=(work, version, job, replace), daemon=True).start()
     return job
+
+
+@app.post("/api/works/{work}/versions/fetch-all")
+def fetch_all_work_versions(work: str):
+    """Starts fetching every version the site has a PDF of and this work
+    does not hold yet, oldest first, as one background job: forty reprints
+    at a few minutes' parse apiece outlasts any page kept open for it."""
+    held = {split_document_slug(s)[1] for s in _held(work)}
+    wanted = sorted(v["version"] for v in _site_versions(work) if v.get("pdf_url") and v["version"] not in held)
+    if not wanted:
+        raise HTTPException(400, "Every version the site has a PDF of is held here already.")
+    with _version_fetch_lock:
+        job = _version_fetches.get(work)
+        if job and job["state"] == "running":
+            raise HTTPException(409, f"Version {job['version']} is still being fetched.")
+        job = {"version": wanted[0], "all": wanted, "done": [], "failed": [], "state": "running",
+               "result": None, "error": None}
+        _version_fetches[work] = job
+    threading.Thread(target=_fetch_all_job, args=(work, job), daemon=True).start()
+    return job
+
+
+def _fetch_all_job(work: str, job: dict) -> None:
+    for version in job["all"]:
+        job["version"] = version
+        try:
+            result = _fetch_version(work, version)
+            (job["done"] if result.get("ok") else job["failed"]).append(
+                {"version": version, "slug": result.get("slug"), "error": None if result.get("ok") else "the parse failed"})
+        except HTTPException as e:
+            job["failed"].append({"version": version, "error": str(e.detail)})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            job["failed"].append({"version": version, "error": f"{type(e).__name__}: {e}"})
+    job["state"] = "done"
 
 
 @app.get("/api/works/{work}/versions/fetch")

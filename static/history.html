@@ -18,6 +18,7 @@
     <button class="btn" data-filter="confirmed">Confirmed</button>
     <button class="btn" data-filter="denied">Denied</button>
     <button class="btn" data-filter="all">All</button>
+    <button class="btn" data-filter="unnoted" title="Changes with no margin note in the later version: taken to be the parser reading the two versions differently, and not up for review">No margin note</button>
   </span>
   <button class="btn" id="fetch-versions" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse">Fetch versions&hellip;</button>
   <button class="btn" id="fetch-acts" title="Download the Acts that amended this one between the versions held, and read their instructions">Fetch amending Acts</button>
@@ -75,8 +76,13 @@ async function load() {
 // (corpus/history/changes.py): the Act's own word for it, not "removed".
 const OP_WORDS = { insert: "inserted", delete: "removed", repeal: "repealed" };
 
+// Only a change the Act itself records -- a margin note new in the later
+// version -- is up for review. Anything else is taken to be the parser
+// reading the two versions differently, kept aside under its own filter.
 function matches(i) {
   if (step && `${i.from}→${i.to}` !== step) return false;
+  if (filter === "unnoted") return !i.noted;
+  if (!i.noted) return false;
   if (filter === "all") return true;
   if (filter === "undecided") return !i.decision;
   if (filter === "evidence") return i.instructions.length > 0;
@@ -87,9 +93,11 @@ function render(reset) {
   const was = shown[current];
   shown = DATA.items.filter(matches);
   current = reset ? 0 : Math.max(0, Math.min(shown.indexOf(was) >= 0 ? shown.indexOf(was) : current, shown.length - 1));
-  const n = (d) => DATA.items.filter((i) => i.decision === d).length;
+  const noted = DATA.items.filter((i) => i.noted);
+  const n = (d) => noted.filter((i) => i.decision === d).length;
   document.getElementById("counts").textContent =
-    `${DATA.items.length} changes: ${n(null) + n(undefined)} undecided, ${n("confirmed")} confirmed, ${n("denied")} denied`;
+    `${noted.length} changes with a margin note: ${n(null) + n(undefined)} undecided, ${n("confirmed")} confirmed, `
+    + `${n("denied")} denied; ${DATA.items.length - noted.length} without one, taken as the parser's`;
   document.getElementById("list").innerHTML = shown.map((i, k) => `
     <div class="row${k === current ? " active" : ""}" data-k="${k}">
       <span class="dot ${i.decision || ""}"></span>
@@ -303,8 +311,10 @@ document.getElementById("fetch-versions").onclick = async () => {
         ${v.pdf_missing ? `<small class="missing">&middot; PDF missing</small>` : ""}
       </label>`).join("")}</div>
       <div class="decide"><button class="btn primary" id="fetch-ticked">Fetch and parse the ticked versions</button>
+        <button class="btn" id="fetch-all" ${data.versions.some((v) => v.pdf_url && !v.held) ? "" : "disabled"}>Fetch every version not held</button>
         <small class="none">A held version ticked is fetched again: its PDF replaced and re-parsed, keeping what you have approved.</small></div>`;
     document.getElementById("fetch-ticked").onclick = fetchTicked;
+    document.getElementById("fetch-all").onclick = fetchAll;
   } catch (e) { panel.textContent = e.message; }
 };
 
@@ -334,8 +344,42 @@ async function fetchTicked(e) {
   await load();
 }
 
+// Every version the site has and this work lacks, fetched by the server
+// in one job that carries on if this page is closed; reopening the page
+// picks its progress up again (followFetchAll below).
+async function fetchAll(e) {
+  e.target.disabled = true;
+  try {
+    await jsonOf(await fetch(`${API}/versions/fetch-all`, { method: "POST" }));
+    document.getElementById("versions-panel").hidden = true;
+    await followFetchAll();
+  } catch (err) { toast(err.message, true); e.target.disabled = false; }
+}
+
+async function followFetchAll() {
+  const log = document.getElementById("log");
+  let job;
+  try { job = await jsonOf(await fetch(`${API}/versions/fetch`)); } catch { return; }
+  if (!job.all) return;
+  log.style.display = "block";
+  while (true) {
+    const done = job.done.length + job.failed.length;
+    log.textContent = (job.state === "running"
+        ? `Fetching every version: v${job.version} (${done + 1} of ${job.all.length})\u2026 This carries on if you close the page.\n`
+        : `Fetched ${job.done.length} of ${job.all.length} versions.\n`)
+      + job.failed.map((f) => `v${f.version}: ${f.error}\n`).join("");
+    if (job.state !== "running") break;
+    await new Promise((r) => setTimeout(r, 5000));
+    try { job = await jsonOf(await fetch(`${API}/versions/fetch`)); } catch { return; }
+  }
+  await load();
+}
+
 // The dashboard's "Fetch versions..." opens this page on the list.
-load().then(() => { if (location.hash === "#fetch") document.getElementById("fetch-versions").click(); });
+load().then(() => {
+  if (location.hash === "#fetch") document.getElementById("fetch-versions").click();
+  followFetchAll();
+});
 </script>
 </body>
 </html>
