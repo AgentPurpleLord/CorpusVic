@@ -712,10 +712,13 @@ function currentRectsFor(nodeIndex) {
   return box ? box.rects.map((r) => ({ ...r })) : [];
 }
 
-// Only this page's rects come back from /boxes, so a piece that also
-// prints on the page before or after would lose those on a save. Its
-// other pages are fetched and kept.
+// A save replaces all of a piece's boxes, so the ones on the page before
+// or after have to go back with it. They come from /boxes, not the open
+// unit: the box at the top of a page usually belongs to the section
+// before, which is not the one open.
 async function rectsAcrossPages(nodeIndex) {
+  const box = pageBoxes && pageBoxes.boxes.find((b) => b.node_index === nodeIndex);
+  if (box && box.elsewhere) return box.elsewhere.map((r) => ({ ...r }));
   const piece = currentUnit && currentUnit.pieces.find((p) => p.node_index === nodeIndex);
   if (!piece) return currentRectsFor(nodeIndex);
   return piece.rects.filter((r) => r.page !== currentPageNo);
@@ -822,8 +825,9 @@ function showBoxMenu(x, y, box, rectIndex) {
   add("Add another box", () => beginDraw(box.node_index, "add"));
   // Offered only where there is more than one. Removing the only box
   // would leave the piece with nowhere on the page to be pointed at, and
-  // "Back to the parser's box" is the way to undo one you drew.
-  if (box.rects.length > 1) {
+  // "Back to the parser's box" is the way to undo one you drew. Counted
+  // across pages: a section over a page break has one box on each.
+  if (box.rects.length + (box.elsewhere || []).length > 1) {
     add("Delete this box (keep the piece)", () => deleteOneBox(box, rectIndex));
   }
   if (box.drawn) add("Back to the parser's box", () => saveRects(box.node_index, null));

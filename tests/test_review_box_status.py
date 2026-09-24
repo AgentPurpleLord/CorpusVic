@@ -316,3 +316,34 @@ def test_selecting_text_in_a_piece_is_not_a_click_on_it():
 
     assert "getSelection" in handler and "isCollapsed" in handler
     assert "button" in handler, "a piece's own controls have their own jobs"
+
+
+# --- a piece printed over a page break ----------------------------------
+
+@pytest.fixture
+def over_a_page_break(one_section, monkeypatch):
+    """Subsection (1) runs from the foot of page 1 onto the top of page 2."""
+    rects = {1: [{"page": 1, "x0": 0, "y0": 700, "x1": 100, "y1": 780},
+                 {"page": 2, "x0": 0, "y0": 40, "x1": 100, "y1": 90}]}
+    monkeypatch.setattr(review, "_rects_for", lambda i: rects.get(i, []))
+    page = type("Page", (), {"rect": type("Rect", (), {"width": 595, "height": 842})()})()
+    doc = type("Doc", (), {"page_count": 2, "__getitem__": lambda self, n: page})()
+    monkeypatch.setattr(review, "_get_pdf_doc", lambda: doc)
+    monkeypatch.setattr(review, "_page_note_boxes", lambda page_no: [])
+    return one_section
+
+
+def test_a_box_knows_its_piece_has_boxes_on_other_pages(over_a_page_break):
+    """Without them the page took the one box it could see for the
+    piece's only box, and would not offer to delete it."""
+    [box] = review.get_page_boxes(2)["boxes"]
+    assert [r["page"] for r in box["rects"]] == [2]
+    assert [r["page"] for r in box["elsewhere"]] == [1]
+
+
+def test_deleting_a_box_counts_the_ones_on_other_pages():
+    page = _review_page()
+    menu = re.search(r"function showBoxMenu\(.*?\n\}", page, re.S).group(0)
+    assert "box.elsewhere" in menu
+    keep = re.search(r"async function rectsAcrossPages\(.*?\n\}", page, re.S).group(0)
+    assert "box.elsewhere" in keep, "the open unit is often not the box's"

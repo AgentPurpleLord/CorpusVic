@@ -1928,7 +1928,8 @@ def get_page_boxes(page_no: int):
         for position, i in enumerate(indices):
             if i in _merged_away:
                 continue
-            rects = [r for r in _rects_for(i) if r.get("page") == page_no]
+            all_rects = _rects_for(i)
+            rects = [r for r in all_rects if r.get("page") == page_no]
             if not rects:
                 continue
             if labels is None:
@@ -1949,6 +1950,11 @@ def get_page_boxes(page_no: int):
                 "status": _piece_status(i),
                 "preview": reflow_with_map(node.get("text") or node.get("heading") or "")[0][:140],
                 "rects": rects,
+                # Its boxes on other pages. A section running over a page
+                # break has one box on each, and without these the page
+                # thought that box was the piece's only one: it would not
+                # offer to delete it, and a save kept only this page's.
+                "elsewhere": [r for r in all_rects if r.get("page") != page_no],
                 "drawn": i in _node_rects,
             })
 
