@@ -124,8 +124,9 @@
   }
 
   function setOpen(article, on) {
-    var history = article.querySelector(".history");
-    if (!history) return;
+    // More than one where a provision has definitions: each has its own.
+    var histories = article.querySelectorAll(".history");
+    if (!histories.length) return;
     if (!on && isGhost(article)) return;
     article.classList.toggle("historical", on);
     var chip = article.querySelector(".history-chip");
@@ -134,8 +135,10 @@
     // After the class, not before: until the article is historical the
     // strip is display:none, has no width, and cannot be scrolled to the
     // right wording.
-    setup(history);
-    show(history, parseInt(history.dataset.focus, 10), false);
+    histories.forEach(function (history) {
+      setup(history);
+      show(history, parseInt(history.dataset.focus, 10), false);
+    });
   }
 
   // What a provision should look like when it first appears, on load or

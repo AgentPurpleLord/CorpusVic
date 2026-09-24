@@ -1462,3 +1462,42 @@ def test_a_removed_provisions_page_is_its_history_opened():
     assert 'class="reader-section historical"' in html
     assert "<details class=\"history\"" in html and " open>" in html
     assert "an offence" in html and "S. 366 repealed by" in html
+
+
+# -- A definitions section's history is per definition ----------------------
+
+def _definitions(version, appeal, *, old=True, to=None, ended=None):
+    """s 3 in one version: "accused" as ever, "appeal" as given, and
+    "old term" until it is repealed."""
+    nodes = [make_node("section", "3", "Definitions", ""), make_node("subsection", "1", None, "In this Act—"),
+             make_node("definition", None, "accused", "means a person charged"),
+             make_node("definition", None, "appeal", appeal),
+             make_node("paragraph", "a", None, "an appeal proper; or")]
+    if old:
+        nodes.append(make_node("definition", None, "old term", "means something since dropped"))
+    for n, node in enumerate(nodes):
+        node["id"] = f"s3/{n}"
+    wording = _wording(version, "", to=to, ended=ended)
+    wording["provision"] = {"heading": "Definitions", "nodes": nodes}
+    return wording
+
+
+def test_each_definition_that_changed_has_its_own_history():
+    from corpus.publishing.html_view import render_provision_history
+
+    history = _history(
+        _definitions(110, "means a hearing", ended={"change": "changed", "notes": [
+            'S. 3 def. of "appeal" amended by No. 1/2020 s. 4.']}),
+        _definitions(111, "includes—", ended={"change": "changed", "notes": [
+            'S. 3 def. of "old term" repealed by No. 2/2021 s. 5.']}),
+        _definitions(112, "includes—", old=False))
+
+    chip, body = render_provision_history(history, "/browse/cpa", anchor="s3")
+
+    assert "“appeal”" in body and "“old term”" in body
+    assert "“accused”" not in body, "never changed, so it has no history"
+    assert "The rest of this provision" not in body, "the words outside the definitions never changed"
+    appeal = body[body.index("“appeal”"):body.index("“old term”")]
+    assert "No. 1/2020" in appeal and "No. 2/2021" not in appeal, "only the notes about it"
+    assert appeal.count('class="hist-panel') == 2, "versions 111 and 112 read the same, so are one"
+    assert 'class="history-count">2<' in chip
