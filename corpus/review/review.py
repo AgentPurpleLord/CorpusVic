@@ -1714,12 +1714,21 @@ class NodeTypeDeleteRequest(BaseModel):
 def index():
     return FileResponse(STATIC_DIR / "review.html")
 
+def _box_label(label: "str | None", node: dict) -> str:
+    """What a box is called on the page. compute_unit_labels calls a unit's
+    own piece "SECTION" whatever it is, which on the page read as a
+    section still after it was retyped a clause or a Part."""
+    return pieces_label(node) if label in (None, "", "SECTION") else label
+
+
 @app.get("/api/meta")
 def get_meta():
-    tree_info = compute_unit_tree_info([_parse_node(indices[0])["type"] for indices in _units], _hierarchy)
+    # As the unit reads now, edits included: from the parse alone, a
+    # section you retyped went on showing its old type in the list.
+    tree_info = compute_unit_tree_info([_current_node(indices[0])["type"] for indices in _units], _hierarchy)
     units_summary = []
     for u, indices in enumerate(_units):
-        root = _parse_node(indices[0])
+        root = _current_node(indices[0])
         units_summary.append({
             "unit_no": u,
             "type": root["type"],
@@ -1952,7 +1961,7 @@ def get_page_boxes(page_no: int):
             boxes.append({
                 "node_index": i,
                 "unit_no": unit_no,
-                "label": labels.get(i) or pieces_label(node),
+                "label": _box_label(labels.get(i), node),
                 "type": node["type"],
                 "status": _piece_status(i),
                 "preview": reflow_with_map(node.get("text") or node.get("heading") or "")[0][:140],

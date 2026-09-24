@@ -292,3 +292,26 @@ def test_a_schedule_item_is_placed_by_its_sub_item_reference(item4):
 def test_a_section_has_no_sub_items_to_name(s110):
     with pytest.raises(review.HTTPException, match="names a sub-item"):
         place_node_endpoint(8, PlaceRequest(reference="4.4(a)"))
+
+
+def test_a_retyped_section_shows_its_new_type_in_the_unit_list(s110):
+    """The list was built from the parse, so a retype never reached it."""
+    review.edit_node_endpoint(0, review.EditRequest(type="clause", number="110", heading="Hand-up brief", text=""))
+
+    assert review.get_meta()["units"][0]["type"] == "clause"
+
+
+def test_a_box_is_labelled_with_what_its_piece_is_now(s110):
+    """compute_unit_labels calls a unit's own piece SECTION whatever it
+    is; on the page that outlived a retype."""
+    assert review._box_label("SECTION", {"type": "clause", "number": "110"}) == "CLAUSE 110"
+    assert review._box_label("(1)(d)", {"type": "paragraph", "number": "d"}) == "(1)(d)"
+
+
+def test_the_page_redraws_the_boxes_after_an_edit():
+    import re
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    body = re.search(r"async function afterMutation\(pdfPage\) \{(.*?)\n\}", page, re.S).group(1)
+    assert "loadPageBoxes()" in body

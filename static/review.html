@@ -2147,6 +2147,10 @@ function updateUnitRowStatus(unitNo, status) {
 async function afterMutation(pdfPage) {
   await loadMeta();
   await loadUnit(currentUnitNo, pdfPage);
+  // loadUnit reloads the page only on arriving at another unit, so after
+  // an edit the boxes kept their old labels -- a retyped piece still read
+  // as what it had been.
+  if (!pdfPage) await loadPageBoxes();
 }
 
 async function submitBlindGuess(pieceDiv, nodeIndex) {
