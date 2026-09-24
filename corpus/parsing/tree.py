@@ -424,7 +424,7 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     # same lookup, just narrowed to that Schedule's own
                     # nodes.
                     within = in_schedule.get(note["schedule"], [])
-                    found = _find_by_number(within, note["section"], {"section", "clause", "item"})
+                    found = _find_by_number(within, note["section"], {"section", "clause", "item", "subclause", "subitem"})
                     if found is not None:
                         target = found
                         found_specific = True

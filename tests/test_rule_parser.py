@@ -1825,3 +1825,72 @@ def test_an_acts_dictionary_holds_parts_of_definitions_and_clauses():
     parsed = {"nodes": nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
     assert '<a href="/section/dict-pt1">Part 1 - Definitions</a>' in html_view.render_index(parsed, "An Act 2008", "")
     assert "previous representation" in html_view.render_section(parsed, "An Act 2008", "", "dict-pt1")
+
+
+def _schedule_2(notes):
+    from corpus.parsing.extract import PageText
+
+    lines = [
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Purpose", bold=True, x0=170, x1=250),
+        line("The purpose of this Act is to maximise safety.", x0=WRAP_X0, x1=420),
+        line("Schedule 2—Indictable offences that may be heard summarily", bold=True, size=16.0, x0=156, x1=450),
+        line("Section 28(1)", size=10.0, x0=400, x1=456),
+        line("1 Common law", bold=True, x0=170, x1=260),
+        line("1.1 Offences at common law of conspiracy to cheat", x0=189, x1=450),
+        line("and defraud.", x0=WRAP_X0, x1=300),
+        line("1.2 Offences at common law of conspiracy to defraud.", x0=189, x1=450),
+        line("3AA Building Act 1993", bold=True, x0=142, x1=300),
+        line("3AA.1 Indictable offences under the Building Act 1993.", x0=172, x1=450),
+        line("3A Bus Safety Act 2009", bold=True, x0=161, x1=300),
+        line("Indictable offences under the Bus Safety Act 2009.", x0=WRAP_X0, x1=440),
+        line("4 Crimes Act 1958", bold=True, x0=170, x1=280),
+        line("4.1 Offences under section 17 of the Crimes Act 1958.", x0=189, x1=450),
+        line("4.1A Offences under section 18 of the Crimes Act 1958.", x0=181, x1=450),
+    ]
+    result = parse_act([PageText(page_no=1, body="", body_lines=lines, margin_notes=notes)])
+    return result
+
+
+def test_a_schedules_numbered_sub_entries_are_sub_items_as_the_act_calls_them():
+    """Criminal Procedure Act Sch 2: "4.1" under item 4 ran into item 4's
+    text. Its margin notes call the entries items."""
+    result = _schedule_2(["Sch. 2 item 4.1 substituted by No. 48/2018 s. 34."])
+    entries = [(n["type"], n["number"], n.get("heading"), n["text"]) for n in result.nodes
+               if n["type"] in ("item", "subitem")]
+
+    assert entries == [
+        ("item", "1", "Common law", ""),
+        ("subitem", "1.1", None, "Offences at common law of conspiracy to cheat and defraud."),
+        ("subitem", "1.2", None, "Offences at common law of conspiracy to defraud."),
+        ("item", "3AA", "Building Act 1993", ""),
+        ("subitem", "3AA.1", None, "Indictable offences under the Building Act 1993."),
+        ("item", "3A", "Bus Safety Act 2009", "Indictable offences under the Bus Safety Act 2009."),
+        ("item", "4", "Crimes Act 1958", ""),
+        ("subitem", "4.1", None, "Offences under section 17 of the Crimes Act 1958."),
+        ("subitem", "4.1A", None, "Offences under section 18 of the Crimes Act 1958."),
+    ]
+
+
+def test_without_the_acts_word_the_same_schedule_numbers_clauses():
+    types = {n["type"] for n in _schedule_2([]).nodes}
+
+    assert {"clause", "subclause"} <= types and not {"item", "subitem"} & types
+
+
+def test_a_margin_note_for_a_sub_item_reaches_it_and_it_reads_bare():
+    from corpus.parsing.extract import PageText
+    from corpus.parsing.identity import annotate_ids
+    from corpus.parsing.tree import attach_history
+    from corpus.publishing import html_view
+
+    note = "Sch. 2 item 4.1 substituted by No. 48/2018 s. 34."
+    result = _schedule_2([note])
+    attach_history(result.nodes, [PageText(page_no=1, body="", margin_notes=[note])], result.hierarchy)
+    sub = find(result.nodes, "subitem", "4.1")
+    assert sub["history"][0]["confidence"] == "high"
+
+    annotate_ids(result.nodes, result.hierarchy)
+    parsed = {"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
+    page = html_view.render_section(parsed, "An Act 2008", "", "i4")
+    assert '<span class="prov-num">4.1</span>' in page

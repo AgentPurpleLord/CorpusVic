@@ -40,7 +40,7 @@ _PREFIX = {
     "clause": "cl",
     "item": "item",
 }
-_BARE = {"subsection", "paragraph", "subparagraph", "sub_subparagraph"}
+_BARE = {"subsection", "subclause", "subitem", "paragraph", "subparagraph", "sub_subparagraph"}
 
 # Enough of the wording to tell two provisions apart without being
 # disturbed by an edit to the rest of it.
