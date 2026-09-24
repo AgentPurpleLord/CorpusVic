@@ -118,6 +118,22 @@ function ruleHtml(r) {
     <button class="btn" data-act="withdraw">Withdraw</button></div>`;
 }
 
+function modelHtml(m) {
+  const pct = (x) => `${(x * 100).toFixed(1)}%`;
+  return `<h2>Second opinion</h2>
+    <p class="muted">A small decision tree trained on every example, which flags pieces in review it reads
+      differently from the parser ("Model disagrees" in review's unit list). It advises; it never changes a parse.
+      It is retrained after each Teaching check, and review picks it up the next time an Act is opened.</p>
+    ${m ? `<p>Trained on ${m.examples} examples from ${m.acts.length} Act(s).</p>
+      <table><tr><th>Tested on</th><th>Lines</th><th>Model right</th><th>Parser right (when reviewed)</th></tr>
+      ${m.held_out.map((h) => `<tr><td>${esc(h.held_out)}</td><td>${h.lines}</td><td>${pct(h.model)}</td>
+        <td>${pct(h.parser)}</td></tr>`).join("")}</table>
+      ${m.acts.length < 2 ? `<p class="muted">With one Act reviewed, it is tested on a fifth of that Act's lines it
+        didn't train on. Reviewing a second Act lets it be tested on an Act it has never seen, the test that counts.</p>` : ""}`
+      : `<p class="muted">Not trained yet.</p>`}
+    <button class="btn" data-act="train">Train now</button>`;
+}
+
 let polling = false;
 async function refresh() {
   const data = await jsonOf(await fetch(API));
@@ -128,7 +144,8 @@ async function refresh() {
             disagreements make a proposal.</p>`)
     + `<h2>Approved rules (${data.rules.length})</h2>`
     + (data.rules.map(ruleHtml).join("") || `<p class="muted">None yet.</p>`)
-    + (data.rejected ? `<p class="muted">${data.rejected} rejected or withdrawn, not proposed again.</p>` : "");
+    + (data.rejected ? `<p class="muted">${data.rejected} rejected or withdrawn, not proposed again.</p>` : "")
+    + modelHtml(data.model);
   const running = data.candidates.some((c) => c.preview && c.preview.state === "running");
   if (running && !polling) {
     polling = true;
@@ -141,6 +158,11 @@ document.getElementById("out").onclick = async (e) => {
   const btn = e.target.closest("button[data-act]");
   if (!btn) return;
   const card = btn.closest(".card");
+  if (btn.dataset.act === "train") {
+    btn.disabled = true;
+    try { await post(`${API}/model`); await refresh(); } catch (err) { fail(err); } finally { btn.disabled = false; }
+    return;
+  }
   btn.disabled = true;
   try {
     if (btn.dataset.act === "withdraw") {

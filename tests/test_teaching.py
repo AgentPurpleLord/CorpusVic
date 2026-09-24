@@ -292,3 +292,63 @@ def test_a_false_split_merged_away_finds_its_twin(reviewing):
     client.post(f"/api/nodes/{split}/alike", json={"merging": True, "targets": [twin]})
     assert twin in review._merged_away
     assert review._current_node(twin - 1)["text"].endswith("and then stops.")
+
+
+# -- Stage 4: a second opinion learned from the examples --------------------
+
+from corpus.teaching import model
+
+
+def _example(act, text, open_type, expected, i):
+    seen = {"page": 1, "y0": 100.0 + i, "x0": 215.7, "x1": 300, "size": 12.0, "bold": False, "lbi": None,
+            "text": text, "above": {"text": "earlier—", "x1": 380, "bold": False, "size": 12.0},
+            "open": {"type": open_type, "x0": 190.2},   # alike but for what is open
+            "parent": None, "margin": 400, "body": 12.0}
+    return {"id": f"{act}-{i}", "act": act, "kind": "confirmed", "seen": seen,
+            "parser": {"type": expected, "number": None}, "expected": {"type": expected, "number": None}}
+
+
+def _examples(act="act", n=12):
+    out = []
+    for i in range(n):
+        out.append(_example(act, f"({'abcdefghijkl'[i]}) a thing; and", "subsection", "paragraph", 2 * i))
+        out.append(_example(act, f"({'abcdefghijkl'[i]}) a thing; and", "paragraph", "subparagraph", 2 * i + 1))
+    return out
+
+
+def test_the_model_learns_what_you_decided_and_says_why():
+    tree = model.train(_examples())
+    unseen = _example("other", "(m) something else", "paragraph", "subparagraph", 99)["seen"]
+
+    said = model.predict(tree, unseen)
+    assert said["label"] == "subparagraph" and said["purity"] == 1.0
+    assert said["why"] == ["with a paragraph open"], "what is open is all that tells them apart"
+
+
+def test_the_model_is_measured_on_an_act_it_never_saw():
+    rows = model.held_out(_examples("a-act") + _examples("b-act"))
+    assert [(r["held_out"], r["model"]) for r in rows] == [("a-act", 1.0), ("b-act", 1.0)]
+
+
+def test_review_flags_where_the_model_and_the_parser_disagree(tmp_path, monkeypatch):
+    from corpus.review import review
+
+    tree = {"feature": "opening", "value": "(a)",
+            "yes": {"label": "subparagraph", "support": 20, "purity": 1.0},
+            "no": {"label": "section", "support": 20, "purity": 0.5}}   # unsure: says nothing
+    path = model.model_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"tree": tree, "labels": {"subparagraph": 20, "paragraph": 20, "section": 20}}))
+    monkeypatch.chdir(tmp_path)
+    result = _parse(_two_sections())
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "act.json").write_text(json.dumps(
+        {"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}))
+    db.save_parse_fingerprint("act", "fp")
+    review._load_state("act")
+
+    flagged = {i for i, fs in review._findings_by_node.items() if any(f["category"] == "model" for f in fs)}
+    assert {result.nodes[i]["type"] for i in flagged} == {"paragraph"}
+    [finding] = review._findings_by_node[min(flagged)]
+    assert finding["severity"] == "info" and "subparagraph" in finding["message"]
+    assert sum(u["model_flags"] for u in review.get_meta()["units"]) == len(flagged)

@@ -106,6 +106,14 @@ opening, weight, size and indent, met under the same kind of provision,
 and for a merge the same kind of line above -- and offers them for the
 same fix. They become examples as their units are accepted.
 
+A second opinion learns from the same examples: a shallow decision tree
+(`corpus/teaching/model.py`, retrained after each Teaching check). Review's
+"Model disagrees" filter lists the units where it is sure a piece is
+something other than what the parser made it, and each flag says which
+features decided. It advises and never changes a parse. The Lessons page
+shows how often it is right on an Act it wasn't trained on, next to how
+often the parser was.
+
 ## How a provision is named
 
 Review work is attached to provisions, and a provision is named by what

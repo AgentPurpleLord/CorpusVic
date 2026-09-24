@@ -652,6 +652,7 @@
         <button data-filter="all" class="active">All</button>
         <button data-filter="pending">Pending</button>
         <button data-filter="flagged">Flagged</button>
+        <button data-filter="model" title="Units with a piece your past decisions read differently from the parser">Model disagrees</button>
       </div>
       <input id="jump-input" type="text" placeholder="Jump to unit # or search heading...">
     </div>
@@ -1715,7 +1716,7 @@ function renderSidebar() {
   const hasChildren = new Set(META.units.filter((u) => u.parent_unit_no != null).map((u) => u.parent_unit_no));
   list.innerHTML = "";
   for (const u of META.units) {
-    if (sidebarFilter !== "all" && u.status !== sidebarFilter) continue;
+    if (sidebarFilter === "model" ? !u.model_flags : (sidebarFilter !== "all" && u.status !== sidebarFilter)) continue;
     if (q) {
       const hay = `${u.unit_no + 1} ${u.type} ${u.number || ""} ${u.heading || ""}`.toLowerCase();
       if (!hay.includes(q)) continue;
@@ -2003,7 +2004,7 @@ function buildPiece(piece, idx) {
         // deterministic checks -- tagged so a reviewer can tell a model's
         // opinion apart from a rules-engine fact, same distinction the
         // "Ask local AI" second opinion already draws.
-        const tag = f.category === "ai-scan" ? "&#129302; " : "";
+        const tag = f.category === "ai-scan" ? "&#129302; " : f.category === "model" ? "Model: " : "";
         return `<div>&#9888; ${tag}(${escapeHtml(f.severity)}) ${escapeHtml(f.message)}</div>`;
       }).join("");
     const verifiedHtml = piece.verified_at

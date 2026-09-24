@@ -1426,6 +1426,29 @@ def _is_elevated_risk(node_index: int) -> bool:
     return any(f.get("severity") in ("error", "warning") for f in _findings_by_node.get(node_index, ()))
 
 
+def _flag_model_disagreements(decided: dict) -> None:
+    """The second opinion learned from your decisions (corpus/teaching/
+    model.py): an info finding on each undecided piece it reads, surely,
+    as something other than the parser did. Advice -- it gates nothing."""
+    from corpus.teaching import model as teaching_model
+
+    trained = teaching_model.load(".")
+    if not trained or not trained.get("tree"):
+        return
+    for i in _order:
+        if i in decided or i in _merged_away:
+            continue
+        p = teaching_model.disagrees(trained, _parse_node(i))
+        if p:
+            reads = "carrying on the line above, not a new piece" if p["label"] == teaching_model.CONTINUES \
+                else f"a {p['label']}"
+            _findings_by_node.setdefault(i, []).append({
+                "severity": "info", "category": "model", "node_index": i, "reads_as": p["label"],
+                "message": f"Your past decisions read this as {reads}: {', '.join(p['why'])} "
+                           f"({p['support']} lines like it).",
+            })
+
+
 def _build_piece(node_index: int, label: str, node: dict, links_by_node: dict[int, list[dict]]) -> dict:
     raw_text = node.get("text") or ""
     reflowed, offset_map = reflow_with_map(raw_text)
@@ -1684,6 +1707,8 @@ def get_meta():
             "heading": root.get("heading"),
             "status": _unit_status(u),
             "flagged_pieces": sum(1 for i in indices if i in _findings_by_node),
+            "model_flags": sum(1 for i in indices if i not in _merged_away and i not in _verified_by_source_index
+                               and any(f.get("category") == "model" for f in _findings_by_node.get(i, ()))),
             "depth": tree_info[u]["depth"],
             "parent_unit_no": tree_info[u]["parent_unit_no"],
         })
@@ -3512,6 +3537,7 @@ def _load_state(act: str, restart: bool = False) -> None:
 
     _verified = [] if restart else load_verified(act)
     placed, _unplaced_verified[:] = verified_by_index(_verified, _node_ids)
+    _flag_model_disagreements(placed)
     # _verified is what the session works with, so it holds only what this
     # parse can place; the rest travels in _unplaced_verified. Compared by
     # identity rather than value, because two rows can be equal.

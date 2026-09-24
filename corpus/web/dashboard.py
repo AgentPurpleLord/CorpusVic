@@ -1610,6 +1610,10 @@ def _teaching_check_job(slug: str, job: dict) -> None:
     try:
         job["harvest"] = teaching_examples.update(slug, BASE_DIR)
         job["score"] = teaching_score.score(slug, BASE_DIR)
+        # The second opinion kept in step with the examples it learns from.
+        from corpus.teaching import model as teaching_model
+        if teaching_model.all_examples(BASE_DIR):
+            teaching_model.build(BASE_DIR)
         job["state"] = "done"
     except Exception as e:
         import traceback
@@ -1655,7 +1659,26 @@ def lessons():
         "candidates": [c | {"preview": _lesson_previews.get(c["id"])} for c in teaching_propose.candidates(BASE_DIR)],
         "rules": [r | {"description": teaching_rules.describe(r)} for r in data["rules"]],
         "rejected": len(data["rejected"]),
+        "model": _model_summary(),
     }
+
+
+def _model_summary() -> "dict | None":
+    from corpus.teaching import model as teaching_model
+
+    trained = teaching_model.load(BASE_DIR)
+    return None if trained is None else {k: v for k, v in trained.items() if k != "tree"}
+
+
+@app.post("/api/lessons/model")
+def lesson_train_model():
+    """Trains the second opinion on every example held and measures it on
+    what it wasn't trained on. Seconds, not minutes: a shallow tree."""
+    from corpus.teaching import model as teaching_model
+    try:
+        return teaching_model.build(BASE_DIR)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.post("/api/lessons/{cid}/preview")
