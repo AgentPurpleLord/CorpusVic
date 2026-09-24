@@ -96,6 +96,7 @@ from corpus.amending import fetch as amending_fetch, load as amending_load, matc
 from corpus.history import changes as history_changes, versions as history_versions
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
+from corpus.storage import parsed as parsed_files
 from corpus.publishing import html_view, reader
 from corpus.storage import db
 from corpus.domain import commentary, diffing, lineage
@@ -195,6 +196,8 @@ def _save_cache() -> None:
 
 def _stamp(path: Path) -> "str | None":
     try:
+        if path.suffix == ".json" and path.parent.name == "parsed":
+            return repr(parsed_files.stamp(path))   # a slim version's neighbours count too
         st = path.stat()
     except OSError:
         return None
@@ -230,7 +233,7 @@ def _parse_summary(slug: str) -> "dict | None":
     if entry and entry["stamp"] == stamp:
         return entry
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = parsed_files.load(path)
     except (OSError, ValueError):
         return None
     nodes = data.get("nodes", [])
@@ -3111,12 +3114,12 @@ def _work_versions(work: str) -> list[str]:
 
 
 def _parse_signature(slug: str) -> tuple:
-    """A stamp of one document's parse file, and nothing else."""
+    """A stamp of one document's parse file -- and, for a slim version,
+    of the ones it is built from."""
     try:
-        st = (BASE_DIR / "data" / "parsed" / f"{slug}.json").stat()
-    except OSError:
+        return parsed_files.stamp(BASE_DIR / "data" / "parsed" / f"{slug}.json")
+    except (OSError, ValueError):
         return ()
-    return (st.st_mtime_ns, st.st_size)
 
 
 def _work_signature(work: str) -> tuple:
@@ -3414,7 +3417,7 @@ def _parse_field(slug: str, key: str, default=None):
     if not parsed_path.exists():
         return default
     try:
-        return json.loads(parsed_path.read_text(encoding="utf-8")).get(key, default)
+        return parsed_files.load(parsed_path).get(key, default)
     except (OSError, ValueError):
         return default
 

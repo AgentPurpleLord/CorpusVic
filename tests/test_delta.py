@@ -76,3 +76,44 @@ def test_discarded_pages_are_blank_and_keep_their_numbers(tmp_path):
 
     slim = pymupdf.open(tmp_path / "slim.pdf")
     assert [p.get_text().strip() for p in slim] == ["", "page 2", ""]
+
+
+def _write(tmp_path, slug, parse):
+    import json
+
+    path = tmp_path / "data" / "parsed" / f"{slug}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(parse))
+    return path
+
+
+def test_a_slim_version_reads_whole_wherever_it_is_read(tmp_path, monkeypatch):
+    """Built backward from the base: v2 is held whole, v1 keeps only what
+    changed between them (its own older words), v0 only what changed
+    between it and v1."""
+    from corpus.review import review
+    from corpus.storage import parsed
+
+    monkeypatch.chdir(tmp_path)
+    v0 = _act({"1": [("1", "a"), ("2", "b, first")]}, {("1", "2"): ["S. 1(2) amended by No. 5/2018 s. 3."]})
+    v1 = _act({"1": [("1", "a"), ("2", "b")]}, {("1", "2"): ["S. 1(2) amended by Nos 5/2018 s. 3, 6/2020 s. 1."]})
+    v2 = _act({"1": [("1", "a"), ("2", "b as amended"), ("3", "a new one")]},
+              {("1", "2"): ["S. 1(2) amended by Nos 5/2018 s. 3, 6/2020 s. 1, 7/2026 s. 4."],
+               ("1", "3"): ["S. 1(3) inserted by No. 7/2026 s. 5."]})
+    _write(tmp_path, "act-v2", {**v2, "hierarchy": HIERARCHY})
+    idx = {v: delta.notes_index(p["nodes"]) for v, p in ((0, v0), (1, v1), (2, v2))}
+    _write(tmp_path, "act-v1", delta.slim({**v1, "hierarchy": HIERARCHY}, "act-v2",
+                                          text=list(delta.changed_pieces(idx[1], idx[2]))))
+    _write(tmp_path, "act-v0", delta.slim({**v0, "hierarchy": HIERARCHY}, "act-v1",
+                                          text=list(delta.changed_pieces(idx[0], idx[1]))))
+
+    for slug, want in (("act-v1", ["a", "b"]), ("act-v0", ["a", "b, first"])):
+        nodes = review.load_parsed(slug)[0]
+        assert [n["text"] for n in nodes if n["type"] == "subsection"] == want, slug
+    assert len(parsed.chain(tmp_path / "data" / "parsed" / "act-v0.json")) == 3
+
+    before = parsed.stamp(tmp_path / "data" / "parsed" / "act-v0.json")
+    _write(tmp_path, "act-v2", {**v2, "hierarchy": HIERARCHY, "fingerprint": "re-parsed"})
+    import os
+    os.utime(tmp_path / "data" / "parsed" / "act-v2.json", ns=(1, 10**18))
+    assert parsed.stamp(tmp_path / "data" / "parsed" / "act-v0.json") != before, "the base's re-parse reaches it"

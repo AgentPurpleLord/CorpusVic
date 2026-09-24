@@ -113,12 +113,13 @@ _parse_cache: dict = {}
 
 
 def _load_parse(path: Path) -> tuple[dict, dict]:
-    st = path.stat()
-    stamp = (st.st_mtime_ns, st.st_size)
+    from corpus.storage import parsed
+
+    stamp = parsed.stamp(path)
     cached = _parse_cache.get(str(path))
     if cached and cached[0] == stamp:
         return cached[1], cached[2]
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = parsed.load(path)
     annotate_ids(data["nodes"], data.get("hierarchy") or None)
     raw = raw_index(data["nodes"])
     _parse_cache[str(path)] = (stamp, data, raw)

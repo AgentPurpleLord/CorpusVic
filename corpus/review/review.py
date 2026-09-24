@@ -188,7 +188,8 @@ def load_parsed(act: str):
     path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    from corpus.storage import parsed
+    data = parsed.load(path)   # a slim version, put back together
     # Named here as well as in run_pipeline, so a parse written before
     # names existed carries the same ones a re-parse would give it. The
     # names are derived, so both routes agree.
