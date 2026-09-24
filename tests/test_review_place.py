@@ -315,3 +315,16 @@ def test_the_page_redraws_the_boxes_after_an_edit():
     page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
     body = re.search(r"async function afterMutation\(pdfPage\) \{(.*?)\n\}", page, re.S).group(1)
     assert "loadPageBoxes()" in body
+
+
+def test_stepping_to_a_piece_brings_it_to_the_top_of_the_text():
+    """j/k scrolled only as far as "nearest", and the PDF's reveal then
+    scrolled every ancestor too, cutting the text's scroll short."""
+    import re
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
+    choose = re.search(r"function choosePiece\(piece\) \{(.*?)\n\}", page, re.S).group(1)
+    reveal = re.search(r"function revealSelected\(\) \{(.*?)\n\}", page, re.S).group(1)
+    assert 'scrollWithin(document.getElementById("main")' in choose and '"start"' in choose
+    assert "scrollIntoView" not in reveal and "pdf-image-wrap" in reveal
