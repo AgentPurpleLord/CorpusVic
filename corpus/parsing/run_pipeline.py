@@ -146,6 +146,13 @@ def main():
     (extracted_dir / f"{act_slug}.json").write_text(
         json.dumps(pages_to_dicts(pages), indent=2), encoding="utf-8"
     )
+    # Every printed line with what the parser reads off it, so a rule
+    # learned from review can be previewed across Acts without re-reading
+    # their PDFs (corpus/teaching).
+    (extracted_dir / f"{act_slug}.lines.json").write_text(json.dumps([
+        {"page": l.page_no, "y0": round(l.y0, 1), "x0": round(l.x0, 1), "x1": round(l.x1, 1),
+         "size": round(l.size, 1), "bold": l.bold, "lbi": l.leading_bold_italic, "text": l.text.strip()}
+        for p in pages for l in p.body_lines]), encoding="utf-8")
 
     # A profile named after the Act applies to it without being asked for.
     # It only ever took effect with an explicit --profile before, so a

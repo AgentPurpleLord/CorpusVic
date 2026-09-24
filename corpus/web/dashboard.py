@@ -1565,6 +1565,58 @@ def history_page(work: str):
     return FileResponse(STATIC_DIR / "history.html")
 
 
+# -- Teaching: your decisions as examples the parser is checked against ----
+# (corpus/teaching). A check re-reads the Act's PDF, which takes a minute or
+# two, so it runs in the background and the page asks after it.
+
+_teaching_checks: dict[str, dict] = {}
+
+
+@app.get("/teaching/{slug}/")
+def teaching_page(slug: str):
+    _validate_slug(slug)
+    return FileResponse(STATIC_DIR / "teaching.html")
+
+
+@app.get("/api/teaching/{slug}")
+def teaching_status(slug: str):
+    from corpus.teaching import examples as teaching_examples
+
+    _validate_slug(slug)
+    stored = teaching_examples.load(slug, BASE_DIR)
+    kinds: dict = {}
+    for e in stored:
+        kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
+    return {"slug": slug, "examples": len(stored), "kinds": kinds, "check": _teaching_checks.get(slug)}
+
+
+@app.post("/api/teaching/{slug}/check")
+def teaching_check(slug: str):
+    """Collects this Act's decisions as examples, then checks the parser as
+    it stands against all of them."""
+    _validate_slug(slug)
+    if _find_source_pdf(slug) is None:
+        raise HTTPException(404, f"No source PDF for {slug}, so the parser has nothing to re-read.")
+    job = _teaching_checks.get(slug)
+    if job and job["state"] == "running":
+        raise HTTPException(409, "A check is already running for this Act.")
+    job = _teaching_checks[slug] = {"state": "running", "harvest": None, "score": None, "error": None}
+    threading.Thread(target=_teaching_check_job, args=(slug, job), daemon=True).start()
+    return job
+
+
+def _teaching_check_job(slug: str, job: dict) -> None:
+    from corpus.teaching import examples as teaching_examples, score as teaching_score
+    try:
+        job["harvest"] = teaching_examples.update(slug, BASE_DIR)
+        job["score"] = teaching_score.score(slug, BASE_DIR)
+        job["state"] = "done"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
 def _history_items(work: str) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later

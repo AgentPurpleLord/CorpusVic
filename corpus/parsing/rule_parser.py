@@ -442,6 +442,25 @@ def _next_item_number(prev: "str | None", number: str) -> bool:
 _CLEAN_END_RE = re.compile(r"(?:[.;:\u2014\u2013*]|;\s*(?:or|and|and/or))\s*$")
 
 
+def seen_record(line: BodyLine, above: "BodyLine | None", parent: "dict | None", margin: "float | None") -> dict:
+    """What the parser had in front of it when it opened a node: the line,
+    the line above, the provision it sat in. Kept on the node so a
+    reviewer's correction of it can be learned from and checked against
+    later parses (corpus/teaching) -- a parse otherwise forgets why it
+    decided what it did."""
+    return {
+        "page": line.page_no, "y0": round(line.y0, 1), "x0": round(line.x0, 1), "x1": round(line.x1, 1),
+        "size": round(line.size, 1), "bold": line.bold, "lbi": line.leading_bold_italic,
+        "text": line.text.strip()[:100],
+        "above": None if above is None else {
+            "text": above.text.strip()[-40:], "x1": round(above.x1, 1), "bold": above.bold,
+            "size": round(above.size, 1)},
+        "parent": None if parent is None else {"type": parent["type"], "x0": round(parent["rects"][0]["x0"], 1)
+                                               if parent.get("rects") else None},
+        "margin": None if margin is None else round(margin, 1),
+    }
+
+
 def _right_margins(lines: list[BodyLine]) -> dict[int, float]:
     """The right edge of the text block, by page parity -- odd and even
     pages are printed with their margins mirrored. Read off the lines
@@ -642,6 +661,8 @@ class _LineParser:
         # -- prev_text is left stale by the marker and table paths -- and
         # the right margin it is measured against (see _wraps).
         self.line_above: "BodyLine | None" = None
+        self._seen_count = 0
+        self._lines: list[BodyLine] = []
         # Where clause and section headings start, and the last number a
         # Schedule's list reached (see _try_schedule_item).
         self.heading_x0: "float | None" = None
@@ -798,10 +819,29 @@ class _LineParser:
             }
             for l in row:
                 add_rect(marker, l)
+            # Made when the next line arrives, so its own line is recorded
+            # here rather than that one.
+            above = self._line_before(row[0])
+            marker["seen"] = seen_record(row[0], above, self.stack[-1] if self.stack else None,
+                                         self.margins.get(row[0].page_no % 2))
             self.nodes.append(marker)
             if self.stack and self.stack[-1]["type"] in ("paragraph", "subparagraph"):
                 self.repealed_since_item = True
         run.clear()
+
+    def _line_before(self, line: BodyLine) -> "BodyLine | None":
+        i = self._position.get(id(line), 0)
+        return next((self._lines[j] for j in range(i - 1, -1, -1) if self._lines[j].text.strip()), None)
+
+    def _record_seen(self) -> None:
+        """Give each node the last line opened its `seen` record."""
+        line = getattr(self, "_seen_line", None)
+        if line is not None:
+            for node in self.nodes[self._seen_count:]:
+                if "seen" not in node:
+                    parent = next((n for n in reversed(self.stack) if n is not node), None)
+                    node["seen"] = seen_record(line, self.line_above, parent, self.margins.get(line.page_no % 2))
+        self._seen_count = len(self.nodes)
 
     def _wrapped(self, line: BodyLine, text: str) -> bool:
         above = self.line_above
@@ -843,6 +883,8 @@ class _LineParser:
     def feed(self, lines: list[BodyLine]) -> None:
         self.lines_total = len(lines)
         self.margins = _right_margins(lines)
+        self._lines = lines
+        self._position = {id(l): i for i, l in enumerate(lines)}
         # A table is claimed whole, by the run of lines it occupies, so
         # everything after its first line is already spoken for. The
         # per-line bookkeeping above still runs for each of them -- they
@@ -858,7 +900,9 @@ class _LineParser:
                 continue
             if not text:
                 continue
+            self._record_seen()
             self.line_above = next((lines[j] for j in range(idx - 1, -1, -1) if lines[j].text.strip()), None)
+            self._seen_line = line
 
             table = find_table(lines, idx)
             if table is not None:
@@ -919,6 +963,7 @@ class _LineParser:
 
         if self.asterisk_run:
             self._flush_asterisk_run(self.cursor)
+        self._record_seen()
         self._close_marked_block()
         while self.stack:
             self._close_top()

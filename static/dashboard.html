@@ -854,6 +854,8 @@ function actCardHtml(s) {
         ${s.kind === "act" && s.parsed
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
+        ${s.parsed ? `<a class="btn small" href="teaching/${encodeURIComponent(s.slug)}/" target="_blank"
+               title="Your review decisions, kept as examples the parser is checked against">Teaching</a>` : ""}
         ${dlAkn}
         ${dlMd}
       </div>
