@@ -27,6 +27,9 @@ NODE_TYPES = [
     # provisions are clauses.
     "item",
     "subsection",
+    # "4.1" under a Schedule's item or clause 4, numbered as printed.
+    "subclause",
+    "subitem",
     "paragraph",
     "subparagraph",
     "sub_subparagraph",
@@ -77,11 +80,11 @@ _SUBLEVELS = ["subsection", "paragraph", "subparagraph", "sub_subparagraph"]
 TYPES_BY_DOCUMENT = {
     # A consolidated Act: sections, and the "* * * *" markers standing in
     # for provisions since repealed.
-    "act": [*_STRUCTURE, "preamble", "section", "clause", "item", *_SUBLEVELS, "definition", "continuation", "note", "example",
+    "act": [*_STRUCTURE, "preamble", "section", "clause", "item", "subclause", "subitem", *_SUBLEVELS, "definition", "continuation", "note", "example",
             "penalty", "table", "repealed"],
     # A Bill numbers its top-level provisions clauses until it is enacted.
     # Nothing in it is repealed yet.
-    "bill": [*_STRUCTURE, "preamble", "clause", "item", *_SUBLEVELS, "definition", "continuation", "note", "example",
+    "bill": [*_STRUCTURE, "preamble", "clause", "item", "subclause", "subitem", *_SUBLEVELS, "definition", "continuation", "note", "example",
              "penalty", "table"],
     # An Explanatory Memorandum is a flat sequence of notes on the Bill's
     # own clauses, under organisational headings, with bulleted lists

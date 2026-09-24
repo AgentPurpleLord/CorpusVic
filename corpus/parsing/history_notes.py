@@ -43,7 +43,7 @@ _CITATION_RE = re.compile(
     # clauses from 1 again, so the clause only means anything alongside
     # the Schedule it belongs to (see hierarchy.schedule_numbers).
     r"|^(?:Schs?\.?\s*(?P<schedule>\d+[A-Za-z]*)(?:\s*[–-]\s*\d+[A-Za-z]*)?"
-    r"(?:\s*(?:cl|item)s?\.?\s*(?P<schclause>\d+[A-Za-z]*)(?P<schsub>(?:\([^)]*\))*))?)"
+    r"(?:\s*(?:cl|item)s?\.?\s*(?P<schclause>\d+[A-Za-z]*(?:\.\d+[A-Za-z]*)?)(?P<schsub>(?:\([^)]*\))*))?)"
     # An Act that groups its Parts under Chapters cites both: "Ch. 8
     # Pt 8.2 Div. 5 (Heading) amended by ...". The Part/Division is what
     # identifies the provision; the Chapter is recorded but not needed to

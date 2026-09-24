@@ -641,6 +641,8 @@ NEST_CHILD_TYPE = {
     "clause": "subsection",
     "item": "subsection",
     "subsection": "paragraph",
+    "subclause": "paragraph",
+    "subitem": "paragraph",
     "definition": "paragraph",
     "paragraph": "subparagraph",
     "subparagraph": "sub_subparagraph",

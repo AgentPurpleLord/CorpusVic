@@ -58,7 +58,7 @@ class DiagnosticsReport:
 # its own opening line *is* its text ("Penalty: Level 3 imprisonment..."),
 # so an empty one cannot have come from a real penalty line at all.
 _LEAF_TYPES = {
-    "section", "clause", "item", "subsection", "paragraph", "subparagraph", "sub_subparagraph",
+    "section", "clause", "item", "subsection", "subclause", "subitem", "paragraph", "subparagraph", "sub_subparagraph",
     "note", "definition", "repealed", "example", "penalty", "table",
 }
 

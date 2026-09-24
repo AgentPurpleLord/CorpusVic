@@ -97,6 +97,7 @@ HIERARCHY_ELEMENT = {level: level for level in _NATIVE_HIERARCHY_TYPES}
 EID_PREFIX = {
     "schedule": "sched", "chapter": "chp", "part": "part", "division": "div", "subdivision": "subdiv",
     "section": "sec", "clause": "cl", "item": "item", "subsection": "subsec", "definition": "def",
+    "subclause": "subcl", "subitem": "subitem",
     # AKN's own name for the text that resumes a provision's sentence
     # after its list has finished -- the counterpart to the "intro" the
     # provision opened with.

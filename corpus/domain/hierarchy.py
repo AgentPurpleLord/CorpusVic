@@ -148,6 +148,8 @@ def make_ranks(order: list[str]) -> dict[str, int]:
         ranks["preamble"] = ranks["section"]
     if "subsection" in ranks:
         ranks["definition"] = ranks["subsection"]
+        # "4.1" under a Schedule's item 4 (Criminal Procedure Act Sch 2).
+        ranks["subitem"] = ranks["subclause"] = ranks["subsection"]
         # A continuation resumes the sentence its provision opened with,
         # after that provision's own list has finished, so it sits at the
         # same depth the list items do -- inside the provision, beside

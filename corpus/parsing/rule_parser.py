@@ -582,8 +582,12 @@ class _LineParser:
     `_handle_*` method returns True once it's consumed the current
     line."""
 
-    def __init__(self, patterns: dict, body_size: float, hierarchy_order: list[str], top_level_type: str = "section"):
+    def __init__(self, patterns: dict, body_size: float, hierarchy_order: list[str], top_level_type: str = "section",
+                 item_schedules: "frozenset[str]" = frozenset()):
         self.patterns = patterns
+        # The Schedules whose own margin notes call their entries items
+        # ("Sch. 2 item 4.1") -- the Act's word, whether or not they amend.
+        self.item_schedules = item_schedules
         self.body_size = body_size
         # The node type given to the top-level numbered provision this
         # drafting convention matches with a "section" pattern -- plain
@@ -900,7 +904,8 @@ class _LineParser:
             was_heading_group = self.prev_was_heading_group
             self.prev_was_heading_group = False
             if not (
-                self._try_schedule_item(line, text, char_start, char_end)
+                self._try_sub_item(line, text, char_start, char_end)
+                or self._try_schedule_item(line, text, char_start, char_end)
                 or self._try_bold_heading(line, text, char_start, was_heading_group)
                 or self._try_schedule_hangs_off(line, text, char_end)
                 or self._try_definition_start(line, text, char_start, char_end, next_text)
@@ -1212,7 +1217,27 @@ class _LineParser:
             return self.top_level_type
         if schedule["type"] == "dictionary":
             return "clause"
+        if schedule.get("number") in self.item_schedules:
+            return "item"
         return "item" if _AMENDING_SCHEDULE_RE.search(schedule.get("heading") or "") else "clause"
+
+    def _try_sub_item(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
+        """"4.1 Offences under section 17 of the Crimes Act 1958..." under a
+        Schedule's item 4 (Criminal Procedure Act Sch 2): a sub-item, or a
+        sub-clause under a clause. It carries its entry's own number, which
+        is what tells it from a wrapped line that opens with one."""
+        if not self._in_schedule():
+            return False
+        entry = next((n for n in reversed(self.stack) if n["type"] in ("clause", "item")), None)
+        if entry is None or not entry.get("number"):
+            return False
+        m = re.match(rf"^{re.escape(entry['number'])}\.(\d+[A-Z]*)\s+(\S.*)$", text)
+        if not m:
+            return False
+        self._open_node("subitem" if entry["type"] == "item" else "subclause",
+                        f"{entry['number']}.{m.group(1)}", None, line, char_start)
+        _append_text(self.stack[-1], m.group(2).strip(), line, char_end)
+        return True
 
     def _try_schedule_item(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
         """A Schedule's numbered list -- "1 Sections 36(5)... of the
@@ -1599,6 +1624,16 @@ def _without_own_marker(printed: str, node: dict) -> str:
     return printed
 
 
+_ITEM_NOTE_RE = re.compile(r"^Schs?\.?\s*(\d+[A-Za-z]*)\s+items?\b", re.IGNORECASE)
+
+
+def _item_schedules(pages: list[PageText]) -> "frozenset[str]":
+    """The Schedules the Act's margin notes cite by item ("Sch. 2 item
+    4.1 substituted by ...")."""
+    return frozenset(m.group(1) for page in pages for note in (getattr(page, "margin_notes", None) or [])
+                     if (m := _ITEM_NOTE_RE.match(note.strip())))
+
+
 def parse_act(
     pages: list[PageText],
     profile_name: str | None = None,
@@ -1628,7 +1663,8 @@ def parse_act(
     if skipped:
         warnings.append(f"skipped {skipped} front-matter line(s) before the enacting words")
     lines = remaining
-    parser = _LineParser(patterns, _body_font_size(lines), hierarchy_order, top_level_type=top_level_type)
+    parser = _LineParser(patterns, _body_font_size(lines), hierarchy_order, top_level_type=top_level_type,
+                         item_schedules=_item_schedules(pages))
     parser.feed(lines)
     result = parser.result()
     result.warnings = warnings + result.warnings
