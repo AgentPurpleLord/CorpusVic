@@ -352,3 +352,53 @@ def test_review_flags_where_the_model_and_the_parser_disagree(tmp_path, monkeypa
     [finding] = review._findings_by_node[min(flagged)]
     assert finding["severity"] == "info" and "subparagraph" in finding["message"]
     assert sum(u["model_flags"] for u in review.get_meta()["units"]) == len(flagged)
+
+
+# -- A false split: a piece opened inside one you kept whole ----------------
+
+def _kept_whole():
+    """Subsection (1), accepted as one piece over three printed lines."""
+    seen = {"page": 1, "y0": 100.0, "x0": 190.2, "x1": 400.0, "size": 12.0, "bold": False, "lbi": None,
+            "text": "(1) The court may make an order that is set out"}
+    return {"id": "keep1", "act": "act", "kind": "confirmed", "parser": {"type": "subsection", "number": "1"},
+            "expected": {"type": "subsection", "number": "1"}, "seen": seen,
+            "rects": [{"page": 1, "x0": 190.2, "y0": 100.0, "x1": 400.0, "y1": 146.0}]}
+
+
+def _opened(type_, number, y0, text):
+    return {"type": type_, "number": number, "heading": None,
+            "seen": {"page": 1, "y0": y0, "x0": 190.2, "x1": 300.0, "text": text}}
+
+
+def test_a_piece_opened_inside_one_you_kept_whole_fails_it():
+    whole = [_opened("subsection", "1", 100.0, "(1) The court may make an order that is set out")]
+    split = whole + [_opened("subsection", "2", 124.0, "(2) and then stops.")]
+
+    assert score.check([_kept_whole()], whole)[0]["passed"]
+    [result] = score.check([_kept_whole()], split)
+    assert not result["passed"] and result["got"] == {"type": "subsection", "number": "1"}, "its own line is right"
+    assert result["split"]["got"] == {"type": "subsection", "number": "2"}
+
+
+def test_the_line_after_a_piece_is_not_inside_it_under_tight_leading():
+    """s 131's two-line heading box reached 2.6pt below the top of its (1)."""
+    heading = {**_kept_whole(), "rects": [{"page": 1, "x0": 157.7, "y0": 100.0, "x1": 419.3, "y1": 130.4}]}
+    after = [_opened("subsection", "1", 100.0, "(1) The court may make an order that is set out"),
+             {**_opened("subsection", "1", 127.8, "(1) A witness whose address"), "seen": {
+                 "page": 1, "y0": 127.8, "x0": 190.1, "x1": 300.0, "size": 12.0, "text": "(1) A witness whose address"}}]
+    assert score.check([heading], after)[0]["split"] is None
+
+
+def test_a_split_is_learned_as_the_line_carrying_on():
+    failure = {**_kept_whole(), "got": {"type": "subsection", "number": "1"},
+               "split": {"seen": {**_kept_whole()["seen"], "y0": 124.0, "text": "(2) and then stops."},
+                         "got": {"type": "subsection", "number": "2"}}}
+    [lesson] = list(propose._lessons([failure]))
+    assert lesson["expected"] is None and lesson["seen"]["text"] == "(2) and then stops."
+
+
+def test_an_example_keeps_where_its_piece_prints(act, tmp_path):
+    _accept(act)
+    examples.update("act", tmp_path)
+    b = next(e for e in examples.load("act", tmp_path) if e["seen"]["text"].startswith("(b)"))
+    assert b["rects"] and b["rects"][0]["page"] == 1
