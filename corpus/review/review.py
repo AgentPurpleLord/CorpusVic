@@ -1133,7 +1133,8 @@ def _repair_cascaded_path(removed_index: int, removed_node: dict, target_path: d
         save_verified(_act, _verified)
 
 
-_NESTABLE_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph", "definition")
+_NESTABLE_LEVELS = ("subsection", "subitem", "subclause", "paragraph", "subparagraph", "sub_subparagraph",
+                    "definition")
 
 
 def _depth_rank(i: int) -> "int | None":
@@ -2771,17 +2772,30 @@ class PlaceRequest(BaseModel):
     after_node_index: "int | None" = None
 
 
+# The first level of an item or clause unit, where a section has its
+# subsections: "4.4" in "4.4(a)", as review labels it.
+_SUB_ITEM_LEVELS = ("subitem", "subclause")
+
+
 def _chain(node: dict) -> str:
     path = node.get("path") or {}
-    return "".join(f"({path[level]})" for level in _CHAIN_LEVELS if path.get(level))
+    head = path.get("subitem") or path.get("subclause") or ""
+    return head + "".join(f"({path[level]})" for level in _CHAIN_LEVELS if path.get(level))
 
 
-def _reference_segments(reference: str) -> list[str]:
+def _render_reference(segments: list[str], headed: bool) -> str:
+    return (segments[0] if headed else f"({segments[0]})") + "".join(f"({seg})" for seg in segments[1:])
+
+
+def _reference_segments(reference: str) -> tuple[list[str], bool]:
+    """The levels a reference names, and whether it opens with a sub-item
+    number ("4.4(a)") rather than a bracket ("(1)(d)(vii)")."""
     text = re.sub(r"\s+", "", reference or "")
-    segments = re.findall(r"\(([^()]+)\)", text)
-    if not segments or "".join(f"({seg})" for seg in segments) != text:
-        raise HTTPException(400, f"{reference!r} isn't a reference like (1)(d)(vii).")
-    return segments
+    m = re.fullmatch(r"(\d+(?:\.\d+)*[A-Z]*)?((?:\([^()]+\))*)", text)
+    if not text or not m:
+        raise HTTPException(400, f"{reference!r} isn't a reference like (1)(d)(vii) or 4.4(a).")
+    head = [m.group(1)] if m.group(1) else []
+    return head + re.findall(r"\(([^()]+)\)", m.group(2)), bool(head)
 
 
 def _block(unit_indices: list[int], i: int, as_type: "str | None" = None) -> list[int]:
@@ -2839,25 +2853,32 @@ def place_node_endpoint(node_index: int, req: PlaceRequest):
     right, it stays; otherwise it goes to the end of its new parent, or
     after `after_node_index` when that is given."""
     _require_live(node_index)
-    segments = _reference_segments(req.reference)
+    segments, headed = _reference_segments(req.reference)
     unit_no = _unit_of_index[node_index]
     unit = [i for i in _units[unit_no] if i not in _merged_away]
     if unit[0] == node_index:
         raise HTTPException(400, "The section itself has no reference within it to change.")
+    root_type = _current_node(unit[0])["type"]
+    if headed and root_type not in ("item", "clause"):
+        raise HTTPException(400, f"{req.reference!r} names a sub-item, and this {root_type} has none.")
     old_block = _block(unit, node_index)
     others = [i for i in unit[1:] if i not in old_block]
 
-    wanted_parent = "".join(f"({seg})" for seg in segments[:-1]).lower()
+    wanted_parent = _render_reference(segments[:-1], headed).lower() if segments[:-1] else ""
     parent = None
     if segments[:-1]:
-        parent = next((i for i in others if _current_node(i)["type"] in _CHAIN_LEVELS
+        parent = next((i for i in others if _current_node(i)["type"] in _CHAIN_LEVELS + _SUB_ITEM_LEVELS
                        and _chain(_current_node(i)).lower() == wanted_parent), None)
         if parent is None:
             raise HTTPException(400, f"This section has no {wanted_parent} to put it under.")
-        level = _CHAIN_LEVELS.index(_current_node(parent)["type"]) + 1
+        parent_type = _current_node(parent)["type"]
+        # A sub-item's own list is paragraphs, as a subsection's is.
+        level = 1 if parent_type in _SUB_ITEM_LEVELS else _CHAIN_LEVELS.index(parent_type) + 1
         if level >= len(_CHAIN_LEVELS):
             raise HTTPException(400, "Nothing nests deeper than a sub-subparagraph.")
         new_type = _CHAIN_LEVELS[level]
+    elif headed:
+        new_type = "subclause" if root_type == "clause" else "subitem"
     else:
         # A section's top level is whatever its other pieces start at:
         # subsections, or paragraphs straight under the section.
@@ -2877,7 +2898,7 @@ def place_node_endpoint(node_index: int, req: PlaceRequest):
     _mutate_node(node_index, type=new_type, number=segments[-1])
     _recompute_unit_paths(unit_no)
 
-    wanted = "".join(f"({seg})" for seg in segments)
+    wanted = _render_reference(segments, headed)
     if after is None and _chain(_current_node(node_index)).lower() != wanted.lower():
         # The end of the new parent's own list, or of the section.
         if parent is not None:

@@ -136,8 +136,8 @@
     <label>Number</label>
     <input type="text" id="edit-number">
     <div id="edit-place">
-      <label>Reference <span class="hint">where it sits in the section, e.g. (1)(d)(vii) &mdash; sets its type and number</span></label>
-      <input type="text" id="edit-reference" placeholder="(1)(d)(vii)">
+      <label>Reference <span class="hint">where it sits in the section, e.g. (1)(d)(vii), or 4.4(a) in a Schedule item &mdash; sets its type and number</span></label>
+      <input type="text" id="edit-reference" placeholder="(1)(d)(vii) or 4.4(a)">
       <label>Put it after</label>
       <select id="edit-after"></select>
     </div>
@@ -2314,7 +2314,8 @@ function openEditModal(nodeIndex) {
   // Where it sits, as the Act cites it. The section itself has nowhere
   // within itself to go.
   const isRoot = currentUnit.pieces[0] && currentUnit.pieces[0].node_index === nodeIndex;
-  const reference = /^\(/.test(piece.label || "") ? piece.label.replace(/\s.*$/, "") : "";
+  // "(1)(d)(vii)", or in a Schedule item "4.4(a)" -- the label as review shows it.
+  const reference = /^(\(|\d+(\.\d+)*[A-Z]*(\(|$))/.test(piece.label || "") ? piece.label.replace(/\s.*$/, "") : "";
   const refEl = document.getElementById("edit-reference");
   const afterEl = document.getElementById("edit-after");
   document.getElementById("edit-place").hidden = isRoot;

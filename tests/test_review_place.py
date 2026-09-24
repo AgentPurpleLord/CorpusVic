@@ -255,3 +255,40 @@ def test_the_page_redraws_the_boxes_after_a_reparse():
     page = (PROJECT_ROOT / "static" / "review.html").read_text(encoding="utf-8")
     handler = re.search(r'getElementById\("reparse-unit-btn"\)\.onclick = async \(\) => \{(.*?)\n\};', page, re.S).group(1)
     assert "loadPdfPage(" in handler and "showReparseNotice(result)" in handler
+
+
+@pytest.fixture
+def item4(tmp_path, monkeypatch):
+    """CPA Schedule 2 item 4: sub-items with paragraphs, one read wrongly."""
+    monkeypatch.chdir(tmp_path)
+    nodes = [
+        {**_n("item", "4", ""), "heading": "Indictable offences"},
+        _n("subitem", "4.4", "Offences under section 74, if—"),
+        _n("paragraph", "a", "the amount does not exceed $100 000; or"),
+        _n("subitem", "b", "the property is a motor vehicle."),       # (b), read as a sub-item
+        _n("paragraph", "4.13", "Offences under section 88, if—"),    # 4.13, read as a paragraph
+        _n("paragraph", "a", "the goods are a motor vehicle; or"),
+    ]
+    from corpus.parsing import tree
+    tree.annotate_paths(nodes, HIERARCHY)
+    annotate_ids(nodes, HIERARCHY)
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    (parsed / "act.json").write_text(json.dumps({"nodes": nodes, "hierarchy": HIERARCHY, "fingerprint": "fp"}))
+    db.save_parse_fingerprint("act", "fp")
+    review._load_state("act")
+    return nodes
+
+
+def test_a_schedule_item_is_placed_by_its_sub_item_reference(item4):
+    b = place_node_endpoint(3, PlaceRequest(reference="4.4(b)"))
+    assert (b["type"], b["reference"], b["matches"]) == ("paragraph", "4.4(b)", True)
+
+    sub = place_node_endpoint(4, PlaceRequest(reference="4.13"))
+    assert (sub["type"], sub["reference"], sub["matches"]) == ("subitem", "4.13", True)
+    assert _labels()[5] == "4.13(a)", "its own (a) now sits under it"
+
+
+def test_a_section_has_no_sub_items_to_name(s110):
+    with pytest.raises(review.HTTPException, match="names a sub-item"):
+        place_node_endpoint(8, PlaceRequest(reference="4.4(a)"))
