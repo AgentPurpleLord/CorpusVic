@@ -71,6 +71,10 @@ async function load() {
   render(true);
 }
 
+// "repeal" is a section gone with its row of stars printed in its place
+// (corpus/history/changes.py): the Act's own word for it, not "removed".
+const OP_WORDS = { insert: "inserted", delete: "removed", repeal: "repealed" };
+
 function matches(i) {
   if (step && `${i.from}→${i.to}` !== step) return false;
   if (filter === "all") return true;
@@ -90,7 +94,7 @@ function render(reset) {
     <div class="row${k === current ? " active" : ""}" data-k="${k}">
       <span class="dot ${i.decision || ""}"></span>
       <div><strong>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? "" : esc(i.label)}</strong>
-        <small>v${i.from} &rarr; v${i.to} &middot; ${esc(i.op === "insert" ? "inserted" : i.op === "delete" ? "removed" : "changed")}
+        <small>v${i.from} &rarr; v${i.to} &middot; ${esc(OP_WORDS[i.op] || "changed")}
         ${i.instructions.length ? '<span class="ev">&middot; Act</span>' : ""}</small></div>
     </div>`).join("") || `<p class="none" style="padding:10px">Nothing here.</p>`;
   showItem();
@@ -127,7 +131,7 @@ function showItem() {
   const decided = i.decision ? `<span class="decided">${i.decision === "confirmed" ? "Confirmed: shown publicly" : "Denied: a parsing issue, not shown"}</span>
       <button class="btn" onclick="decide(null)">Undo (u)</button>` : "";
   detail.innerHTML = `
-    <h2>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? (i.op === "insert" ? " inserted" : " removed") : esc(i.label)}</h2>
+    <h2>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? ` ${esc(OP_WORDS[i.op] || "removed")}` : esc(i.label)}</h2>
     <div class="step">Version ${i.from} &rarr; Version ${i.to}</div>
     <div class="decide">
       <button class="btn primary" onclick="decide('confirmed')">Confirm change (c)</button>

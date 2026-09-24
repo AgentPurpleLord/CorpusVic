@@ -39,6 +39,40 @@ def test_a_heading_and_a_whole_section_are_changes_too():
     assert {(c["key"][2], c["piece"], c["op"]) for c in changes} == {("2", HEADING, "changed"), ("3", WHOLE, "insert")}
 
 
+def _repealed_after_2() -> list[dict]:
+    """Section 3 repealed: its row of stars printed after section 2, where
+    attach_history numbers it and hangs its repeal note on it."""
+    nodes = _nodes({"2": [("1", "x")]})
+    nodes.append({"type": "repealed", "number": "3", "heading": None, "text": "* * * * *",
+                  "history": [{"raw": "S. 3 repealed by No. 31/2024 s. 11.", "section": "3", "sub_path": []}]})
+    annotate_ids(nodes, HIERARCHY)
+    return nodes
+
+
+def test_a_section_repealed_to_a_row_of_stars_is_one_repeal():
+    """It read as section 3 removed and a piece added to section 2."""
+    changes = work_changes([
+        (1, _nodes({"2": [("1", "x")], "3": [("1", "gone soon")]}), HIERARCHY),
+        (2, _repealed_after_2(), HIERARCHY),
+    ])
+
+    [change] = changes
+    assert (change["key"][2], change["piece"], change["op"]) == ("3", WHOLE, "repeal")
+    assert "gone soon" in change["old_html"] and "* * * * *" in change["new_html"]
+
+
+def test_a_subsection_s_row_is_still_a_piece_of_its_section():
+    """Only a row carrying its own section's note stands for a section."""
+    nodes = _nodes({"2": [("1", "x")]})
+    nodes.append({"type": "repealed", "number": "2", "heading": None, "text": "* * * * *",
+                  "history": [{"raw": "S. 2(2) repealed by No. 31/2024 s. 11.", "section": "2", "sub_path": ["(2)"]}]})
+    annotate_ids(nodes, HIERARCHY)
+
+    changes = work_changes([(1, _nodes({"2": [("1", "x"), ("2", "y")]}), HIERARCHY), (2, nodes, HIERARCHY)])
+
+    assert changes and all(c["key"][2] == "2" and c["op"] != "repeal" for c in changes)
+
+
 def test_only_confirmed_decisions_count():
     decisions = {(key_json(S2), 1, 2, "1"): "confirmed", (key_json(S2), 1, 2, "2"): "denied",
                  (key_json(("provision", None, "3")), 1, 2, WHOLE): "confirmed"}
@@ -259,3 +293,10 @@ def test_every_act_can_fetch_versions_and_accepted_repeals_are_not_grey(tmp_path
 
     review = (PROJECT_ROOT / "static" / "admin" / "review.css").read_text(encoding="utf-8")
     assert '.piece[data-type="repealed"]:not(.piece-accepted):not(.piece-flagged) { background: var(--repealed-bg); }' in review
+
+
+def test_the_page_says_repealed():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+    assert 'repeal: "repealed"' in page and "OP_WORDS[i.op]" in page

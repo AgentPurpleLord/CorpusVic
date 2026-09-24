@@ -1775,7 +1775,8 @@ def _history_items(work: str) -> list[dict]:
             evidence = {"act": r["act"], "provision": r["provision"], "raw": r["raw"], "status": r["status"]}
             landed = next((u for u in reversed(r["pair"]) if u is not None), None)
             at = "heading" if r["at"] == "heading" else (landed.get("path") if landed else None)
-            if r["action"] == "insert_section":
+            if r["action"] == "insert_section" or (
+                    r["action"] == "repeal" and not r.get("path") and not r.get("definition")):
                 at = history_changes.WHOLE
             target = [i for i in group if i["piece"] == at] or group
             if r["status"] == "elsewhere" and not r.get("schedule") and r.get("path") and r["pair"][1] is not None:

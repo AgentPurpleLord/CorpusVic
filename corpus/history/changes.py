@@ -34,9 +34,44 @@ def key_label(key: tuple) -> str:
     return f"Schedule {schedule} clause {number.upper()}" if schedule else f"s {number.upper()}"
 
 
+def stands_for_section(node: dict) -> "str | None":
+    """The section a row of stars stands for, where it is a whole section's.
+
+    A repealed section leaves only its row, printed after the section
+    before it and parsed as part of that one. attach_history gives the row
+    the section's number and its "S. 99 repealed by ..." note, and that
+    note, naming the section with no sub-path, is what tells it from a
+    subsection's row."""
+    number = node.get("number")
+    if node.get("type") != "repealed" or not number:
+        return None
+    for note in node.get("history") or []:
+        if (isinstance(note, dict) and (note.get("section") or "").lower() == number.lower()
+                and not note.get("sub_path") and not note.get("target_kind") and not note.get("schedule")):
+            return number
+    return None
+
+
+def _repealed_rows(nodes: list[dict]) -> dict:
+    """{provision key: the row of stars standing for it}."""
+    return {diffing.provision_identity("section", None, number): node
+            for node in nodes for number in [stands_for_section(node)] if number}
+
+
 def _units(nodes: list[dict], provision: dict, hierarchy) -> list[dict]:
     end = diffing.unit_end(nodes, provision["node_index"])
-    return html_view._wording_units(nodes[provision["node_index"]:end], hierarchy or html_view.HIERARCHY_ORDER)
+    units = html_view._wording_units(nodes[provision["node_index"]:end], hierarchy or html_view.HIERARCHY_ORDER)
+    # Another section's row is not a piece of this one: left in, the
+    # section before a repeal read as having gained a piece.
+    return [u for u in units if not stands_for_section(u["tree_node"]["node"])]
+
+
+def _row_html(row: dict) -> str:
+    return html_view._provision_html(row["type"], "", html_view._esc(row.get("text") or ""), 0)
+
+
+def _row_at(row: dict) -> "dict | None":
+    return _where({"tree_node": {"node": row}})
 
 
 def _where(unit: "dict | None") -> "dict | None":
@@ -78,11 +113,29 @@ def work_changes(versions: list[tuple]) -> list[dict]:
     out = []
     held = [(v, nodes, hierarchy, diffing.provisions(nodes)) for v, nodes, hierarchy in versions]
     for (a, a_nodes, a_order, a_prov), (b, b_nodes, b_order, b_prov) in zip(held, held[1:]):
+        a_rows, b_rows = _repealed_rows(a_nodes), _repealed_rows(b_nodes)
         for key in dict.fromkeys([*a_prov, *b_prov]):
             base = {"key": key, "provision": key_json(key), "section": key_label(key), "from": a, "to": b}
             if key not in a_prov or key not in b_prov:
                 present = b_prov.get(key) or a_prov.get(key)
                 units = _units(b_nodes if key in b_prov else a_nodes, present, b_order if key in b_prov else a_order)
+                # Gone, and its row of stars printed where it was: repealed,
+                # one change, the words on one side and the row on the
+                # other. Still the whole provision's going, so confirming it
+                # confirms the repeal the public history shows. The same
+                # the other way for a repealed section coming back.
+                row = b_rows.get(key) if key in a_prov else a_rows.get(key)
+                if row is not None:
+                    going = key in a_prov
+                    words = html_view._units_html(units)
+                    out.append({**base, "piece": WHOLE, "label": "whole provision",
+                                "op": "repeal" if going else "insert",
+                                "old_html": words if going else _row_html(row),
+                                "new_html": _row_html(row) if going else words,
+                                "old_at": _where(units[0] if units else None) if going else _row_at(row),
+                                "new_at": _row_at(row) if going else _where(units[0] if units else None),
+                                "_older": units if going else [], "_newer": [] if going else units})
+                    continue
                 out.append({**base, "piece": WHOLE, "label": "whole provision",
                             "op": "insert" if key in b_prov else "delete",
                             "old_html": None if key in b_prov else html_view._units_html(units),
