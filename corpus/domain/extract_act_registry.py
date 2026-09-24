@@ -25,7 +25,7 @@ import json
 import re
 from pathlib import Path
 
-import fitz
+import pymupdf
 
 from corpus import PROJECT_ROOT
 
@@ -65,7 +65,7 @@ def extract_rows(pdf_path: Path) -> list[dict]:
     document (chronological) order, one per real table row -- a wrapped
     continuation line is folded into whichever column it belongs to on
     the row already open, never treated as a row of its own."""
-    doc = fitz.open(str(pdf_path))
+    doc = pymupdf.open(str(pdf_path))
     rows: list[dict] = []
     current_row: dict | None = None
     current_year: str | None = None

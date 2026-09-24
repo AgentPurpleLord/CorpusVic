@@ -1,3 +1,4 @@
-pymupdf
+# 1.24.3 is the first to be imported as pymupdf; "fitz" now warns it is going away.
+pymupdf>=1.24.3
 rich
 pyyaml

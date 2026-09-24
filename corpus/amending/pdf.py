@@ -16,7 +16,7 @@ body's band of the page.
 """
 import re
 
-import fitz
+import pymupdf
 
 _BODY_TOP, _BODY_BOTTOM = 140.0, 715.0
 _SECTION = re.compile(r"^(?P<number>\d+[A-Z]*)\s+(?P<heading>\S.*)$")
@@ -71,7 +71,7 @@ def read_pdf(path) -> list[dict]:
     "schedule_act"|"item", "number", "heading", "text"}] in order, from the
     enacting words to the Endnotes. A schedule also carries "section",
     the one that enacts it."""
-    lines = _lines(fitz.open(path))
+    lines = _lines(pymupdf.open(path))
     start = next((i for i, l in enumerate(lines) if _START.match(l["text"])), 0)
     nodes: list[dict] = []
     heading_open = in_block = False

@@ -114,9 +114,9 @@ def read_front_matter(pdf_path: "str | Path") -> dict:
     if not path.exists():
         return parse_front_matter("")
     try:
-        import fitz
+        import pymupdf
 
-        with fitz.open(path) as doc:
+        with pymupdf.open(path) as doc:
             text = "\n".join(doc[i].get_text() for i in range(min(_FRONT_MATTER_PAGES, doc.page_count)))
     except Exception:
         return parse_front_matter("")

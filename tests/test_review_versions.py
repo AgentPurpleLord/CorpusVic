@@ -259,11 +259,11 @@ def test_the_other_versions_page_opens_on_what_changed_there(tmp_path, monkeypat
 
 
 def test_the_other_versions_pdf_is_served_by_this_review(tmp_path, monkeypatch):
-    import fitz
+    import pymupdf
 
     _changed_section(tmp_path, monkeypatch, None)
     pdf = tmp_path / "v2.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=200, height=300)
     doc.new_page(width=210, height=310)
     doc.save(pdf)

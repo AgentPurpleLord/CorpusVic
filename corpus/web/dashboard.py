@@ -1860,8 +1860,8 @@ def _pdf_page(slug: str, page_no: int):
     if path is None:
         raise HTTPException(404, f"No source PDF for {slug}")
     if slug not in _page_docs:
-        import fitz
-        _page_docs[slug] = fitz.open(path)
+        import pymupdf
+        _page_docs[slug] = pymupdf.open(path)
     doc = _page_docs[slug]
     if not (1 <= page_no <= doc.page_count):
         raise HTTPException(404, f"{slug} has pages 1-{doc.page_count}")
@@ -1897,10 +1897,10 @@ def pdf_page_image(slug: str, page_no: int, zoom: float = 1.0):
     """One printed page, for setting two versions' pages side by side in
     History review -- rendered at the zoom it is shown at, so zooming in
     is more detail rather than bigger pixels."""
-    import fitz
+    import pymupdf
     page, _count = _pdf_page(slug, page_no)
     scale = 1.8 * min(max(zoom, 0.5), 3.0)
-    return Response(content=page.get_pixmap(matrix=fitz.Matrix(scale, scale)).tobytes("png"), media_type="image/png")
+    return Response(content=page.get_pixmap(matrix=pymupdf.Matrix(scale, scale)).tobytes("png"), media_type="image/png")
 
 
 @app.get("/api/acts/{slug}/definitions")
