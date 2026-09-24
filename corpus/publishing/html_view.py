@@ -1541,7 +1541,7 @@ def render_section(
     # rather than a careful drag-select that picks up the margin notes
     # and loses the indentation (see static/site/copy.js).
     out.append(
-        '<button type="button" class="copy-section" id="copy-section-btn">Copy section</button>'
+        '<button type="button" class="copy-section">Copy section</button>'
     )
     out.append('<div class="provisions">')
     # Materialised rather than walked, because a note's own heading is

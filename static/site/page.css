@@ -424,6 +424,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   padding: 4px 10px; margin: 0 0 14px; cursor: pointer;
 }
 .copy-section:hover { border-color: var(--accent); color: var(--accent); }
+.copy-section.copied { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page

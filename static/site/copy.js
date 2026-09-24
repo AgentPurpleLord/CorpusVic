@@ -9,10 +9,13 @@
 // the default tab stop in either -- and stays editable as paragraphs
 // rather than as a run of spaces that reflows. text/plain carries tabs
 // for the same shape wherever rich text isn't wanted.
+//
+// One listener on the document rather than one on the button, and each
+// click reads only its own section: reading on (readon.js) brings further
+// sections into the page, each with its own button, and a listener bound
+// at load reached only the first -- the rest did nothing, and the first
+// copied every section loaded so far.
 (function () {
-  var btn = document.getElementById("copy-section-btn");
-  if (!btn) return;
-
   // Half an inch, which is what Word and Google Docs both treat as one
   // tab stop -- so "(a) is one tab in" comes out as a real paragraph
   // indent in either, not as a run of spaces that reflows on edit.
@@ -24,9 +27,9 @@
   // line wraps collapsed back into running prose. Margin notes are left
   // out -- they're the amendment history printed beside the provision,
   // not part of its words.
-  function provisions() {
+  function provisions(section) {
     var out = [];
-    document.querySelectorAll(".provisions > .prov").forEach(function (el) {
+    section.querySelectorAll(".provisions > .prov").forEach(function (el) {
       var clone = el.cloneNode(true);
       var labelEl = clone.querySelector(LABEL);
       var label = "";
@@ -93,9 +96,21 @@
     return parts.join("");
   }
 
-  function flash(message) {
+  // The class as well as the words, so the button visibly changes state
+  // rather than only its label. A second click restarts the clock instead
+  // of being put back early by the first one's.
+  function flash(btn, message, ok) {
     btn.textContent = message;
-    setTimeout(function () { btn.textContent = "Copy section"; }, 1800);
+    btn.classList.toggle("copied", ok);
+    clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(function () {
+      btn.textContent = "Copy section";
+      btn.classList.remove("copied");
+    }, 1800);
+  }
+
+  function done(btn, ok) {
+    flash(btn, ok ? "Copied" : "Copy failed", ok);
   }
 
   // The modern path needs a secure context; the fallback is what runs on
@@ -120,10 +135,13 @@
     return ok;
   }
 
-  btn.addEventListener("click", function () {
-    var rows = provisions();
-    if (!rows.length) { flash("Nothing to copy"); return; }
-    var h1 = document.querySelector(".page h1");
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest(".copy-section");
+    if (!btn) return;
+    var section = btn.closest(".reader-section") || document;
+    var rows = provisions(section);
+    if (!rows.length) { flash(btn, "Nothing to copy", false); return; }
+    var h1 = section.querySelector("h1");
     var heading = h1 ? h1.textContent.replace(/\s+/g, " ").trim() : "";
     var html = asHtml(heading, rows);
     var text = asText(heading, rows);
@@ -134,10 +152,10 @@
           "text/html": new Blob([html], { type: "text/html" }),
           "text/plain": new Blob([text], { type: "text/plain" }),
         })])
-        .then(function () { flash("Copied"); })
-        .catch(function () { flash(legacyCopy(html, text) ? "Copied" : "Copy failed"); });
+        .then(function () { done(btn, true); })
+        .catch(function () { done(btn, legacyCopy(html, text)); });
       return;
     }
-    flash(legacyCopy(html, text) ? "Copied" : "Copy failed");
+    done(btn, legacyCopy(html, text));
   });
 })();
