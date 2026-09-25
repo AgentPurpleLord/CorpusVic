@@ -1,3 +1,6 @@
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:16.785922+00:00", "decision": "confirmed", "from_version": 82, "piece": "9.1", "provision": "[\"provision\", \"2\", \"9\"]", "to_version": 83}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:21.288573+00:00", "decision": "confirmed", "from_version": 82, "piece": "9.1/note~e60d15", "provision": "[\"provision\", \"2\", \"9\"]", "to_version": 83}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:13.169750+00:00", "decision": "confirmed", "from_version": 82, "piece": "heading", "provision": "[\"provision\", \"2\", \"9\"]", "to_version": 83}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:45:02.008839+00:00", "decision": "confirmed", "from_version": 106, "piece": "1a", "provision": "[\"provision\", null, \"100\"]", "to_version": 107}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:45:13.212826+00:00", "decision": "confirmed", "from_version": 106, "piece": "1a/a", "provision": "[\"provision\", null, \"100\"]", "to_version": 107}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:45:14.999066+00:00", "decision": "confirmed", "from_version": 106, "piece": "1a/a/note~5609fd", "provision": "[\"provision\", null, \"100\"]", "to_version": 107}
@@ -122,6 +125,13 @@
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:18.077296+00:00", "decision": "confirmed", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"206e\"]", "to_version": 104}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:16.516098+00:00", "decision": "confirmed", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"206f\"]", "to_version": 104}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:14.883874+00:00", "decision": "confirmed", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"206g\"]", "to_version": 104}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:50.590219+00:00", "decision": "confirmed", "from_version": 84, "piece": "1", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:53.124434+00:00", "decision": "confirmed", "from_version": 84, "piece": "1/a", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:54.570633+00:00", "decision": "confirmed", "from_version": 84, "piece": "1/b", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:56.339944+00:00", "decision": "confirmed", "from_version": 84, "piece": "1/b/note~ce28d6", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:57.522462+00:00", "decision": "confirmed", "from_version": 84, "piece": "2", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:47.563388+00:00", "decision": "confirmed", "from_version": 84, "piece": "note~2f0946", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
+{"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:59:44.567739+00:00", "decision": "confirmed", "from_version": 84, "piece": "whole", "provision": "[\"provision\", null, \"207\"]", "to_version": 85}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:04:13.188250+00:00", "decision": "confirmed", "from_version": 93, "piece": "definition-ground-rules-hearing", "provision": "[\"provision\", null, \"3\"]", "to_version": 94}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-25T01:04:19.277209+00:00", "decision": "confirmed", "from_version": 93, "piece": "definition-intimate-image-offence", "provision": "[\"provision\", null, \"3\"]", "to_version": 94}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:57.577676+00:00", "decision": "confirmed", "from_version": 103, "piece": "definition-interlocutory-decision", "provision": "[\"provision\", null, \"3\"]", "to_version": 104}
