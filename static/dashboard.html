@@ -506,6 +506,7 @@ function statusLabel(s) {
 }
 function statusClass(s) {
   if (!s.parsed) return "not-parsed";
+  if (s.review_status === "reviewed") return "done";
   return s.review_status;
 }
 

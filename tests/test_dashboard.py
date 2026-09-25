@@ -379,6 +379,34 @@ def test_discover_slugs_reads_a_work_directory_as_that_works_versions(tmp_path, 
     ]
 
 
+def test_a_fetched_version_that_no_longer_states_its_version_is_named_by_its_file(tmp_path, monkeypatch):
+    """Keeping versions slim once blanked a PDF's front matter. Read by its
+    filename, each was a second, unparsed document of its version, and
+    History review stopped the server trying to load it."""
+    import pymupdf
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    folder = tmp_path / "acts" / "evidence-act"
+    folder.mkdir(parents=True)
+    doc = pymupdf.open()
+    doc.new_page()
+    doc.save(folder / "evidence-act-v001.pdf")
+    doc.save(folder / "notes.pdf")
+    (tmp_path / "data" / "parsed").mkdir(parents=True)
+    (tmp_path / "data" / "parsed" / "evidence-act-v1.json").write_text("{}")
+
+    assert dashboard.discover_slugs() == ["evidence-act-v1", "notes"]
+
+
+def test_a_missing_parse_is_an_error_not_an_exit(tmp_path, monkeypatch):
+    # In the dashboard's process a SystemExit stopped the server.
+    from corpus.review import review
+
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError):
+        review.load_parsed("nothing-v1")
+
+
 def test_act_status_splits_a_versioned_slug_into_its_work_and_version(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
     _versioned_pdf(tmp_path / "acts" / "criminal-procedure-act" / "cpa-114.pdf", 114)
