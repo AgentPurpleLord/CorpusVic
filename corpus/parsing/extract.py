@@ -203,6 +203,10 @@ _SYMBOL_FONT_PUA = {
     0xF02E: ".",
     **{0xF030 + i: str(i) for i in range(10)},
     0xF0D7: "·",  # MIDDLE DOT -- used here as a decimal point
+    # Symbol's capital tau, set for a capital T (Family Violence Protection
+    # Act s 125's examples, "Τhe protected person..."): kept as the
+    # private-use glyph, the word read "\uf054he".
+    0xF054: "T",
 }
 
 
