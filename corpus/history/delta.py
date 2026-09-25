@@ -24,8 +24,28 @@ _VERB_RE = re.compile(r"\b(inserted|substituted|amended|repealed|renumbered|re-n
 _KIND = {"inserted": "inserted", "repealed": "repealed", "expired": "repealed"}
 
 
+# A Schedule's entries were sections to the parser once ("sch2/s26") and
+# are clauses now ("sch2/cl26"). The base is often the older parse and a
+# version fetched since the newer, and matched by name as they were, a
+# Schedule's changes were kept, borrowed and located nowhere.
+_SCHEDULE_ENTRY = re.compile(r"^(sch[^/]*/)(?:s|cl)(?=\d)")
+
+
+def canonical(name: str) -> str:
+    """A provision's name as two parses of it are compared."""
+    return _SCHEDULE_ENTRY.sub(r"\1cl", name or "")
+
+
 def _name(node: dict) -> str:
-    return node.get("_node_id") or node.get("id") or ""
+    return canonical(node.get("_node_id") or node.get("id") or "")
+
+
+def normal_index(index: dict) -> dict:
+    """A notes index as stored -- perhaps before canonical names -- with
+    them."""
+    return {"by_name": {canonical(k): v for k, v in index["by_name"].items()},
+            "loose": index["loose"],
+            "sections": {k: canonical(v) for k, v in index["sections"].items()}}
 
 
 def _section_label(schedule, number) -> str:
@@ -94,6 +114,7 @@ def changed_pieces(older: dict, newer: dict) -> dict:
     section it amended before. The piece named is the one the note is on
     in the later version; a loose note (its provision gone) names the
     section in whichever version still has it."""
+    older, newer = normal_index(older), normal_index(newer)
     before = _cited_by_target(older)
     out = {}
 
@@ -125,6 +146,7 @@ def _strongest(kinds) -> str:
 
 def _subtree(nodes: list[dict], name: str) -> list[int]:
     """The indices of the piece `name` and everything under it."""
+    name = canonical(name)
     return [i for i, n in enumerate(nodes) if _name(n) == name or _name(n).startswith(name + "/")]
 
 
@@ -190,9 +212,9 @@ def assemble(neighbour: list[dict], slim_part: dict) -> list[dict]:
     # Its own margin notes, not the neighbour's: an older reprint must not
     # show the notes of amendments made after it, and which notes are new
     # in a version is how every change is found.
-    notes = (slim_part.get("notes") or {}).get("by_name") or {}
-    removed = set(slim_part.get("removed") or [])
-    words = {p["name"]: p for p in slim_part["pieces"] if p["words"]}
+    notes = {canonical(k): v for k, v in ((slim_part.get("notes") or {}).get("by_name") or {}).items()}
+    removed = {canonical(r) for r in slim_part.get("removed") or []}
+    words = {canonical(p["name"]): p for p in slim_part["pieces"] if p["words"]}
     # Kept for where it prints: the neighbour's words, this version's boxes.
     printed = {_name(n): n for p in slim_part["pieces"] if not p["words"] for n in p["nodes"] if _name(n)}
     nodes, present, skip = [], set(), None
@@ -219,7 +241,7 @@ def assemble(neighbour: list[dict], slim_part: dict) -> list[dict]:
         nodes.append({**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
                       "history": [{"raw": r, "kind": "amendment"} for r in notes.get(name, [])]})
     for piece in slim_part["pieces"]:
-        if piece["words"] and piece["name"] not in present:
+        if piece["words"] and canonical(piece["name"]) not in present:
             at = _place(nodes, piece)
             nodes[at:at] = [dict(n) for n in piece["nodes"]]
     return nodes
@@ -243,9 +265,10 @@ def _place(nodes: list[dict], piece: dict) -> int:
     ends = _ends(nodes)
     after = piece.get("after") or []
     for name in [after] if isinstance(after, str) else after:
-        if name in ends:
-            return ends[name] + 1
-    parent = piece["name"].rsplit("/", 1)[0] if "/" in piece["name"] else None
+        if canonical(name) in ends:
+            return ends[canonical(name)] + 1
+    name = canonical(piece["name"])
+    parent = name.rsplit("/", 1)[0] if "/" in name else None
     while parent:
         if parent in ends:
             return ends[parent] + 1

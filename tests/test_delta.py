@@ -205,3 +205,19 @@ def test_a_provision_kept_for_its_pages_keeps_the_words_changed_inside_it():
     whole = delta.assemble(OLD["nodes"], kept["slim"])
     assert [n["text"] for n in whole if n["type"] == "subsection"][:2] == ["a", "b as amended"]
     assert all(n["rects"] for n in whole[:3]), "all of s 1 printed where this version prints it"
+
+
+def test_a_schedule_named_by_an_older_parser_is_the_same_schedule():
+    """A Schedule's entries were sections to the parser once ("sch2/s5")
+    and are clauses now ("sch2/cl5"). The base is often the older parse:
+    matched by name as written, a newer version's changed clause went in
+    beside the base's instead of in place of it."""
+    neighbour = [{"type": "schedule", "number": "2", "_node_id": "sch2", "text": ""},
+                 {"type": "section", "number": "5", "_node_id": "sch2/s5", "text": "old words"},
+                 {"type": "section", "number": "6", "_node_id": "sch2/s6", "text": "same"}]
+    mine = {"type": "clause", "number": "5", "_node_id": "sch2/cl5", "text": "new words"}
+    part = {"pieces": [{"name": "sch2/cl5", "words": True, "after": ["sch2"], "nodes": [mine]}], "removed": []}
+
+    assert [n["text"] for n in delta.assemble(neighbour, part)] == ["", "new words", "same"]
+    assert delta.canonical("sch2/s5/1") == delta.canonical("sch2/cl5/1") == "sch2/cl5/1"
+    assert delta.canonical("s5") == "s5" and delta.canonical("sch2") == "sch2", "only a Schedule's own entries"

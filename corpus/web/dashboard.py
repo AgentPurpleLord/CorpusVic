@@ -2019,6 +2019,7 @@ def _change_name(item: dict) -> str:
 
 
 def _within(name: str, marked: dict) -> bool:
+    name = delta.canonical(name)
     return bool(name) and any(name == m or name.startswith(m + "/") or m.startswith(name + "/") for m in marked)
 
 
@@ -3096,10 +3097,11 @@ def _borrow_reviewed(slug: str, state: tuple) -> tuple:
     theirs = _current_nodes(slim["toward"])[0]
     their_units = {key: (p["node_index"], diffing.unit_end(theirs, p["node_index"]))
                    for key, p in diffing.provisions(theirs).items()}
-    own = [p["name"] for p in slim["pieces"] if p["words"]] + list(slim.get("removed") or [])
+    own = [delta.canonical(p["name"]) for p in slim["pieces"] if p["words"]] + \
+        [delta.canonical(r) for r in slim.get("removed") or []]
 
     def name(n):
-        return n.get("_node_id") or n.get("id") or ""
+        return delta.canonical(n.get("_node_id") or n.get("id") or "")
 
     def borrowed(theirs_node, here):
         # Its words are the neighbour's; where it is printed, and the notes

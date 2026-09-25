@@ -72,7 +72,8 @@ def _read(slug: str, base_dir=None) -> dict:
 
 
 def _index(parse: dict) -> dict:
-    return parse["slim"]["notes"] if "slim" in parse else delta.notes_index(parse["nodes"], parse.get("unattached_notes"))
+    return delta.normal_index(parse["slim"]["notes"] if "slim" in parse
+                              else delta.notes_index(parse["nodes"], parse.get("unattached_notes")))
 
 
 def _around(names, here: dict, other: dict) -> set:
@@ -133,7 +134,10 @@ def plan(work: str, base_dir=None, base: "int | None" = None) -> dict:
 def _reslim(parse: dict, toward: str, text: list, pages_only: list) -> tuple[dict, list]:
     """A slim version cut down further, from what it kept. Names it never
     kept come back as missing -- that version must be fetched again."""
-    slim = parse["slim"]
+    # Names as compared (delta.canonical): kept before it, they may be the
+    # older parse's.
+    slim = {**parse["slim"], "removed": [delta.canonical(r) for r in parse["slim"].get("removed") or []],
+            "pieces": [{**p, "name": delta.canonical(p["name"])} for p in parse["slim"]["pieces"]]}
     wanted = [*text, *pages_only]
     missing = [n for n in wanted
                if not any(n == p["name"] or n.startswith(p["name"] + "/") for p in slim["pieces"])
@@ -168,8 +172,8 @@ def _own_rows(slug: str, text: list, base_dir=None) -> int:
     """Drops this version's review rows for anything not its own words --
     those are the neighbour's now, and its review is lent by name."""
     rows = db.load_verified(slug, base_dir)
-    keep = [r for r in rows if any((r.get("_node_id") or "") == t or (r.get("_node_id") or "").startswith(t + "/")
-                                   for t in text)]
+    keep = [r for r in rows if any(delta.canonical(r.get("_node_id") or "") == t
+                                   or delta.canonical(r.get("_node_id") or "").startswith(t + "/") for t in text)]
     if len(keep) != len(rows):
         db.save_verified(slug, keep, base_dir)
     return len(rows) - len(keep)
