@@ -528,7 +528,8 @@ def apply_carry_forward(
         if not source_rows:
             continue
         try:
-            source_nodes = json.loads(source_path.read_text(encoding="utf-8"))["nodes"]
+            from corpus.storage import parsed as parsed_files
+            source_nodes = parsed_files.load(source_path)["nodes"]   # a slim one put back together
         except (OSError, ValueError, KeyError):
             continue
         remapped, report = carry_forward_review(source_nodes, source_rows, new_nodes, units)

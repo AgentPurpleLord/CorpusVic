@@ -8,11 +8,10 @@ what finds the Act on legislation.vic.gov.au. An amendment from before
 the oldest reprint held has nothing to be checked against, so its Act
 is not needed.
 """
-import json
-
 from corpus import PROJECT_ROOT
 from corpus.domain import diffing, lineage
 from corpus.review.inheritance import sibling_slugs
+from corpus.storage import parsed as parsed_files
 
 
 def _notes(parsed: dict) -> dict:
@@ -28,8 +27,7 @@ def acts_between(work_slug: str, base_dir=None) -> list[dict]:
     "record": its Table of Amendments entry}], oldest Act first."""
     base = base_dir or PROJECT_ROOT
     slugs = sibling_slugs(work_slug, base)
-    parsed = {v: json.loads((base / "data" / "parsed" / f"{slugs[v]}.json").read_text(encoding="utf-8"))
-              for v in sorted(slugs)}
+    parsed = {v: parsed_files.load(base / "data" / "parsed" / f"{slugs[v]}.json") for v in sorted(slugs)}
     versions = sorted(parsed)
     found: dict = {}
     for older, newer in zip(versions, versions[1:]):

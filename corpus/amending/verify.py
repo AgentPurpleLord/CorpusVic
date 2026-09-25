@@ -22,6 +22,7 @@ from corpus.amending.scope import acts_between
 from corpus.domain import diffing
 from corpus.parsing.identity import annotate_ids
 from corpus.review.inheritance import sibling_slugs
+from corpus.storage import parsed as parsed_files
 
 # Best first: across the reprints an Act shows in, an instruction is
 # reported by the best it did in any of them.
@@ -49,7 +50,7 @@ def status(work_slug: str, base_dir=None) -> list[dict]:
 
 def _parsed_nodes(base: Path):
     def nodes_of(slug: str):
-        parsed = json.loads((base / "data" / "parsed" / f"{slug}.json").read_text(encoding="utf-8"))
+        parsed = parsed_files.load(base / "data" / "parsed" / f"{slug}.json")   # a slim one put back together
         hierarchy = parsed.get("hierarchy")
         annotate_ids(parsed["nodes"], hierarchy)
         return parsed["nodes"], hierarchy
