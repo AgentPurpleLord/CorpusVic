@@ -1896,6 +1896,22 @@ def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
 
     stamps = {slug: signature(slug) for slug in held}
     common = [_RUNNING_CODE, _amending_stamp()]
+    pairs = list(zip(held, held[1:]))
+    keys = {pair: f"{pair[0]}|{pair[1]}" for pair in pairs}
+    stamp_of = {pair: json.dumps([common, stamps[pair[0]], stamps[pair[1]]]) for pair in pairs}
+    stale = [pair for pair in pairs
+             if not cache.get(keys[pair]) or cache[keys[pair]]["stamp"] != stamp_of[pair]]
+    # Nearest the base first, so each slim version's neighbour is still
+    # loaded (corpus/storage/parsed.py), and each version let go once no
+    # step left needs it: a work of a hundred versions, each a whole Act
+    # in memory, otherwise held them all.
+    depth = {slug: len(parsed_files.chain(BASE_DIR / "data" / "parsed" / f"{slug}.json"))
+             for pair in stale for slug in pair}
+    stale.sort(key=lambda pair: min(depth[pair[0]], depth[pair[1]]))
+    wanted = {}
+    for pair in stale:
+        for slug in pair:
+            wanted[slug] = wanted.get(slug, 0) + 1
     loaded: dict = {}
     acts = None
 
@@ -1905,32 +1921,49 @@ def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
             loaded[slug] = (split_document_slug(slug)[1], _with_rects(slug, nodes), hierarchy)
         return loaded[slug]
 
-    items, steps, changed = [], set(), False
-    for older, newer in zip(held, held[1:]):
-        key, stamp = f"{older}|{newer}", json.dumps([common, stamps[older], stamps[newer]])
-        steps.add(key)
-        entry = cache.get(key)
-        if not entry or entry["stamp"] != stamp:
-            try:
-                if acts is None:
-                    acts = amending_load.work_instructions(
-                        held[-1], BASE_DIR, amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
-                entry = cache[key] = {"stamp": stamp, "items": _history_step(version(older), version(newer), acts)}
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                if errors is not None:
-                    errors.append({"from": split_document_slug(older)[1], "to": split_document_slug(newer)[1],
-                                   "error": f"{type(e).__name__}: {e}"})
-                continue
+    changed = False
+    for older, newer in stale:
+        try:
+            if acts is None:
+                acts = _work_instructions(held[-1], held)
+            cache[keys[(older, newer)]] = {"stamp": stamp_of[(older, newer)],
+                                          "items": _history_step(version(older), version(newer), acts)}
             changed = True
-        items.extend(entry["items"])
-    for gone in set(cache) - steps:
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            if errors is not None:
+                errors.append({"from": split_document_slug(older)[1], "to": split_document_slug(newer)[1],
+                               "error": f"{type(e).__name__}: {e}"})
+        for slug in (older, newer):
+            wanted[slug] -= 1
+            if not wanted[slug]:
+                loaded.pop(slug, None)
+    items = [item for pair in pairs if keys[pair] in cache and cache[keys[pair]]["stamp"] == stamp_of[pair]
+             for item in cache[keys[pair]]["items"]]
+    for gone in set(cache) - set(keys.values()):
         del cache[gone]
         changed = True
     if changed:
         _save_history_steps(work)
     return items
+
+
+# {work: (stamp, instructions)}. Read from every version's margin notes
+# and endnotes (corpus/amending/scope.py), so keyed on the parses and the
+# amending Acts read, not the review database: a review edit in the base
+# otherwise read every version of the work again.
+_instructions_cache: dict = {}
+
+
+def _work_instructions(slug: str, held: list[str]) -> dict:
+    stamp = (_amending_stamp(), tuple(_parse_signature(s) for s in held))
+    where = f"{BASE_DIR}|{slug}"
+    cached = _instructions_cache.get(where)
+    if cached is None or cached[0] != stamp:
+        cached = _instructions_cache[where] = (stamp, amending_load.work_instructions(
+            slug, BASE_DIR, amending_load.work_title(slug, BASE_DIR, _act_title(slug))))
+    return cached[1]
 
 
 def _history_step(older: tuple, newer: tuple, acts: dict) -> list[dict]:
@@ -2588,7 +2621,7 @@ def _is_slim(slug: str) -> bool:
     """From the file itself: whether it is slim, without putting it back
     together."""
     try:
-        return "slim" in json.loads((BASE_DIR / "data" / "parsed" / f"{slug}.json").read_text(encoding="utf-8"))
+        return parsed_files._toward_of(BASE_DIR / "data" / "parsed" / f"{slug}.json") is not None
     except (OSError, ValueError):
         return False
 
@@ -3001,11 +3034,16 @@ def _current_nodes(slug: str) -> tuple[list[dict], list[dict], list[str]]:
     # corpus/review/inheritance.py), so their parses are part of what
     # this answer depends on; the database is already in the signature.
     signature = (_browse_state_signature(slug), tuple(_parse_signature(s) for s in siblings))
-    cached = _current_nodes_cache.get(slug)
+    cached = _current_nodes_cache.pop(slug, None)
     if cached is not None and cached[0] == signature:
+        _current_nodes_cache[slug] = cached   # most recent last
         return cached[1]
     state = build_current_nodes(slug)
-    lineage_state = _work_lineage(work) if len(siblings) > 1 else None
+    # A slim version's review is lent by _borrow_reviewed, from the
+    # version it is built from. Lineage over every version -- a hundred
+    # read whole -- is for the whole ones.
+    lineage_state = (_work_lineage(work, whole_only=True)
+                     if len(siblings) > 1 and not _is_slim(slug) else None)
     if lineage_state and version in lineage_state["states"]:
         nodes, unattached, hierarchy = state
         state = (inheritance.overlay(nodes, lineage_state["states"][version],
@@ -3013,6 +3051,10 @@ def _current_nodes(slug: str) -> tuple[list[dict], list[dict], list[str]]:
                  unattached, hierarchy)
     state = _borrow_reviewed(slug, state)
     _current_nodes_cache[slug] = (signature, state)
+    # A few, not every version: each is a whole Act in memory. Read in
+    # build order (corpus/storage/parsed.py), the neighbour is still here.
+    while len(_current_nodes_cache) > 8:
+        del _current_nodes_cache[next(iter(_current_nodes_cache))]
     return state
 
 
@@ -3320,28 +3362,34 @@ def _work_signature(work: str) -> tuple:
             _browse_state_signature(slugs[-1])[1:] if slugs else ())
 
 
-_lineage_cache: dict[str, tuple[tuple, dict]] = {}
+_lineage_cache: dict = {}
 
 
-def _work_lineage(work: str) -> "dict | None":
+def _work_lineage(work: str, whole_only: bool = False) -> "dict | None":
     """Which version vouches for which provision, across one work (see
     corpus/domain/lineage.py) -- None for a work held in one version.
+    `whole_only` leaves out the slim versions.
 
     {"versions": [...], "slugs": {version: slug}, "states": {version:
     inheritance.load_state}, "status": inheritance.resolve}."""
     slugs = _work_versions(work)
+    if whole_only:
+        slugs = [s for s in slugs if not _is_slim(s)]
     if len(slugs) < 2:
         return None
     signature = _work_signature(work)
-    cached = _lineage_cache.get(work)
+    cached = _lineage_cache.get((work, whole_only))
     if cached is not None and cached[0] == signature:
         return cached[1]
     by_version = {split_document_slug(slug)[1]: slug for slug in slugs}
     versions = sorted(by_version)
-    states = {v: inheritance.load_state(by_version[v], BASE_DIR) for v in versions}
+    # In build order, so each slim one's neighbour is still loaded.
+    order = parsed_files.build_order(BASE_DIR / "data" / "parsed" / f"{by_version[v]}.json" for v in versions)
+    states = {split_document_slug(path.stem)[1]: inheritance.load_state(path.stem, BASE_DIR) for path in order}
+    states = {v: states[v] for v in versions}
     result = {"versions": versions, "slugs": by_version, "states": states,
               "status": inheritance.resolve(versions, states)}
-    _lineage_cache[work] = (signature, result)
+    _lineage_cache[(work, whole_only)] = (signature, result)
     return result
 
 
@@ -3383,10 +3431,13 @@ def _timeline(work: str) -> dict:
         # Only what a person has confirmed in History review is a change
         # here (corpus/history): not a margin note, not an amending Act.
         confirmed = history_changes.confirmed(db.load_history_decisions(work, BASE_DIR))
+        # In build order, so each slim one's neighbour is still cached.
+        current = {path.stem: _current_nodes(path.stem) for path in parsed_files.build_order(
+            BASE_DIR / "data" / "parsed" / f"{s}.json" for s in lineage_state["slugs"].values())}
         for version in lineage_state["versions"]:
             slug = lineage_state["slugs"][version]
             state = lineage_state["states"][version]
-            nodes, _unattached, hierarchy = _current_nodes(slug)
+            nodes, _unattached, hierarchy = current[slug]
             effective = diffing.provisions(nodes)
             for provision in effective.values():
                 root = provision["node_index"]

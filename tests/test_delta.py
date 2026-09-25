@@ -169,3 +169,15 @@ def test_a_slim_version_is_not_parsed_again_from_its_blanked_pdf(tmp_path, monke
     _write(tmp_path, "act-v1", {"slim": {"toward": "act-v2", "pieces": [], "notes": {}}, "version": {}})
     with pytest.raises(dashboard.HTTPException, match="kept slim"):
         dashboard.reparse_act("act-v1", kind="act", profile="", start_page="", end_page="", confirm="", discard="", mode="")
+
+
+def test_a_piece_kept_for_its_pages_is_its_own_even_over_a_borrowed_neighbour():
+    """The neighbour may be slim too, its nodes borrowed in turn: a piece
+    this version prints is still this version's, not borrowed."""
+    neighbour = [{**n, "_borrowed": True, "rects": []} for n in OLD["nodes"]]
+    kept = delta.slim(NEW, toward="act-v1", text=[], pages_only=["s1/2"])
+
+    whole = delta.assemble(neighbour, kept["slim"])
+    piece = next(n for n in whole if n["id"] == "s1/2")
+    assert "_borrowed" not in piece and piece["rects"] == NEW["nodes"][2]["rects"]
+    assert all(n.get("_borrowed") for n in whole if n["id"] != "s1/2")
