@@ -23,6 +23,14 @@
   "sha256": "3e331cf42344976841c6896228b6eb7d635ee2a74c2f5f77d4d440903cfecc07",
   "title": "COVID-19 Omnibus (Emergency Measures) Act 2020"
  },
+ "11/2022": {
+  "citation": "11/2022",
+  "fetched_at": "2026-09-25T01:00:15+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-trial-judge-alone-and-other-matters-act-2022",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2022-03/22-011aa%20authorised.pdf",
+  "sha256": "1433a7358e0fae166c1854e26320e19d32611c203d1cad7b4598ba0534ae6f68",
+  "title": "Justice Legislation Amendment (Trial by Judge Alone and Other Matters) Act 2022"
+ },
  "11/2025": {
   "citation": "11/2025",
   "fetched_at": "2026-09-24T09:55:59+00:00",
@@ -70,6 +78,22 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-06/20-021aa%20authorised.pdf",
   "sha256": "9679ac0c5f3b88deee156492e91c999294401a5facc1d0705fd31883b388e382",
   "title": "Wage Theft Act 2020"
+ },
+ "22/2020": {
+  "citation": "22/2020",
+  "fetched_at": "2026-09-25T01:00:13+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-miscellaneous-amendments-act-2020",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-06/20-022aa%20authorised.pdf",
+  "sha256": "ca1b3f23c6f1d383992c4ad8375044eb14a7bc9cc6c027f1b892b63a61aadccc",
+  "title": "Justice Legislation Miscellaneous Amendments Act 2020"
+ },
+ "25/2023": {
+  "citation": "25/2023",
+  "fetched_at": "2026-09-25T01:00:18+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/statute-law-amendment-references-sovereign-act-2023",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2023-09/23-025aa-authorised.pdf",
+  "sha256": "5a1cb11c188ab0b85a562d2185c0bad56d68413963ff01e00f7cdecf09a8d323",
+  "title": "Statute Law Amendment (References to the Sovereign) Act 2023"
  },
  "25/2025": {
   "citation": "25/2025",
@@ -143,6 +167,14 @@
   "sha256": "ecae1feeacc2bec2a1292af6358ab5890aef355f893a1d1525275eeb3675a49c",
   "title": "Wage Theft Amendment Act 2025"
  },
+ "37/2014": {
+  "citation": "37/2014",
+  "fetched_at": "2026-09-25T01:00:09+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/victoria-police-amendment-consequential-and-other-matters-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/b48c4d80-9959-313f-b894-21a1c5e027d5_14-037aa%20authorised.pdf",
+  "sha256": "97b15e3840d286ecc44ed9fd5d1c4c931b6c165ae8c15ade1c302ac70b770c4f",
+  "title": "Victoria Police Amendment (Consequential and Other Matters) Act 2014"
+ },
  "38/2022": {
   "citation": "38/2022",
   "fetched_at": "2026-09-24T09:55:44+00:00",
@@ -174,6 +206,14 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2021-10/21-044aa%20authorised.pdf",
   "sha256": "fb52ce25141bff02eee9a443d404786a60e838b771dfa31f0c28dd7f86424984",
   "title": "Firearms and Other Acts Amendment Act 2021"
+ },
+ "48/2018": {
+  "citation": "48/2018",
+  "fetched_at": "2026-09-25T01:00:11+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-miscellaneous-amendment-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/c467ce51-2e5a-37a2-923b-7132d6cdb125_18-048aa%20authorised.pdf",
+  "sha256": "64973565d0920f0cb6ef8348d644ba16fd12dc016984fa01212e44a94697d0ae",
+  "title": "Justice Legislation Miscellaneous Amendment Act 2018"
  },
  "5/2018": {
   "citation": "5/2018",
