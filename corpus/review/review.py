@@ -188,7 +188,8 @@ def load_parsed(act: str):
     path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
         raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    from corpus.storage import parsed
+    data = parsed.load(path)   # a slim version, put back together
     # Named here as well as in run_pipeline, so a parse written before
     # names existed carries the same ones a re-parse would give it. The
     # names are derived, so both routes agree.
@@ -3502,6 +3503,9 @@ def reparse_unit_endpoint(unit_no: int):
         raise HTTPException(404, "No such unit")
     if not _source_pdf_path:
         raise HTTPException(400, "This document has no source PDF recorded, so it can't be parsed again.")
+    if json.loads((Path("data/parsed") / f"{_act}.json").read_text(encoding="utf-8")).get("slim"):
+        raise HTTPException(409, "This version is kept slim -- its PDF has only the pages its margin notes say "
+                                 "changed. Fetch it again from History review to re-read it.")
     root = _parse_node(_units[unit_no][0])
     identity = (root["type"], root.get("number"), root.get("heading"))
     before = _unit_snapshot(unit_no)

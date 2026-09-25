@@ -155,6 +155,24 @@ attached to whatever now sits at its old position, and never dropped
 either: the review server keeps it as it is, says how many there are at
 startup, and gives it back if the provision returns.
 
+## Versions kept as what changed
+
+The Act prints a margin note beside every official change of wording,
+citing the amending Act. So one version of a work -- the base, the one
+reviewed in full -- is held whole, and every other keeps only the pieces
+whose notes cite an Act they didn't cite in the neighbouring version,
+its notes, and those pages of its PDF (the rest blank, so page numbers
+hold). Its text anywhere else is the neighbour's toward the base, as
+reviewed there (`corpus/history/delta.py`, `corpus/storage/parsed.py`).
+A difference the parser reads anywhere else is the parser's.
+
+A fetched version is slimmed as it arrives. History review's "Keep
+versions slim" converts the versions already held: each is parsed again
+with the current parser, then cut down (`python -m corpus.history.slim
+<work> --reparse` does the same). The base is the version with the most
+review done unless set (`--base`), and is remembered. A slim version is
+re-read by fetching it again whole.
+
 ## A provision's history
 
 A Principal Act is reviewed at its current version, against its own

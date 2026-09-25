@@ -312,9 +312,11 @@ document.getElementById("fetch-versions").onclick = async () => {
       </label>`).join("")}</div>
       <div class="decide"><button class="btn primary" id="fetch-ticked">Fetch and parse the ticked versions</button>
         <button class="btn" id="fetch-all" ${data.versions.some((v) => v.pdf_url && !v.held) ? "" : "disabled"}>Fetch every version not held</button>
+        <button class="btn" id="slim-all" title="Parse each version held whole again, then keep only what its margin notes say changed, and those pages of its PDF">Keep versions slim</button>
         <small class="none">A held version ticked is fetched again: its PDF replaced and re-parsed, keeping what you have approved.</small></div>`;
     document.getElementById("fetch-ticked").onclick = fetchTicked;
     document.getElementById("fetch-all").onclick = fetchAll;
+    document.getElementById("slim-all").onclick = slimAll;
   } catch (e) { panel.textContent = e.message; }
 };
 
@@ -354,6 +356,32 @@ async function fetchAll(e) {
     document.getElementById("versions-panel").hidden = true;
     await followFetchAll();
   } catch (err) { toast(err.message, true); e.target.disabled = false; }
+}
+
+// Every version but the one reviewed in full cut down to what its margin
+// notes say changed (corpus/history/slim.py), by the server.
+async function slimAll(e) {
+  if (!confirm("Parse each version held whole again, then keep only the pieces its margin notes say changed, "
+             + "and only those pages of its PDF? The rest is read from the version you review in full. "
+             + "A version can be fetched again whole at any time.")) return;
+  e.target.disabled = true;
+  const log = document.getElementById("log");
+  log.style.display = "block";
+  try {
+    let job = await jsonOf(await fetch(`${API}/slim`, { method: "POST" }));
+    while (job.state === "running") {
+      log.textContent = `Keeping versions slim: ${job.at || "starting"}\u2026 This carries on if you close the page.`;
+      await new Promise((r) => setTimeout(r, 5000));
+      job = await jsonOf(await fetch(`${API}/slim`));
+    }
+    if (job.state === "failed") throw new Error(job.error);
+    const vs = Object.entries(job.report.versions);
+    log.textContent = `Base: v${job.report.base}.\n` + vs.map(([v, r]) =>
+      `v${v}: keeps ${r.text} changed piece(s), ${r.pages} page(s); parse ${Math.round(r.bytes_before / 1024)} KB \u2192 ${Math.round((r.bytes_after || 0) / 1024)} KB`
+      + (r.missing.length ? `; fetch it again for: ${r.missing.join(", ")}` : "")).join("\n");
+    await load();
+  } catch (err) { toast(err.message, true); }
+  finally { e.target.disabled = false; }
 }
 
 async function followFetchAll() {
