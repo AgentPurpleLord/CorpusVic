@@ -255,6 +255,16 @@ served by `public.py` -- a read-only application reading the same
 database the review tool writes. There is no build step between a review
 decision and the page a reader sees.
 
+**A page is served as last rendered.** A work's pages carry its history
+across every version held, a minute's work for the Criminal Procedure
+Act, and any review edit makes it stale. So each page is kept as last
+rendered (`data/.cache/public-pages.sqlite`, surviving a restart) and
+served at once; one gone stale is rendered again by a second, lower
+priority process, for the next reader -- a decision shows within seconds,
+a history within minutes. That process also renders every page ahead of
+its first reader. Assets carry their version in the URL, so a browser
+keeps them; pages are compressed and answer a returning reader with a 304.
+
 **What is on it is a decision, not a consequence.** Each work carries a
 published flag, set from the dashboard and stored alongside the review
 work, so it travels with a push. Nothing reaches the site by having been

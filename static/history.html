@@ -208,7 +208,10 @@ async function showPdf(key, v, at, page) {
   } catch (e) { scroll.innerHTML = `<div class="none">${esc(e.message)}</div>`; return; }
   if (panes[key] !== pane) return;   // moved on while this loaded
   pane.count = size.page_count;
-  label.textContent = `page ${page} of ${size.page_count}`;
+  // A piece this version hasn't got is shown where it would be: an
+  // insertion or a repeal is judged against both printed versions too.
+  label.textContent = (at && at.absent ? `Not in Version ${v}: where it would be, ` : "") + `page ${page} of ${size.page_count}`;
+  label.classList.toggle("absent", Boolean(at && at.absent));
   const pages = [page - 1, page, page + 1].filter((p) => p >= 1 && p <= size.page_count);
   scroll.innerHTML = pages.map((p) => `<div class="stage" data-page="${p}"
       style="width: ${pdfZoom * 100}%; aspect-ratio: ${size.width} / ${size.height}">

@@ -2019,6 +2019,7 @@ def _change_name(item: dict) -> str:
 
 
 def _within(name: str, marked: dict) -> bool:
+    name = delta.canonical(name)
     return bool(name) and any(name == m or name.startswith(m + "/") or m.startswith(name + "/") for m in marked)
 
 
@@ -2532,7 +2533,7 @@ def _not_writable(folder: Path) -> HTTPException:
                               f"sudo chown -R {user}:{user} {BASE_DIR / 'acts'}")
 
 
-def _replace_version(work: str, version: int, content: bytes) -> dict:
+def _replace_version(work: str, version: int, content: bytes, then_slim: bool = True) -> dict:
     """A held version fetched again -- its PDF missing, or a bad copy.
     Re-parsed keeping what is approved (the Parse Menu's "keep"): a fresh
     copy of the same reprint is no reason to withdraw anyone's work."""
@@ -2566,7 +2567,7 @@ def _replace_version(work: str, version: int, content: bytes) -> dict:
     profile = _parse_field(slug, "profile") or ""
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", "", keep_accepted=True))
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "replaced": True,
-            "slimmed": _slim_work(work) if ok else None}
+            "slimmed": _slim_work(work) if ok and then_slim else None}
 
 
 _slim_jobs: dict[str, dict] = {}
@@ -2608,8 +2609,7 @@ def _slim_job(work: str, job: dict) -> None:
             _kill_work_review_processes(work)
             profile = _parse_field(slug, "profile") or ""
             _run_parse_subprocess(_build_parse_command(pdf, "act", profile, "", "", keep_accepted=True))
-        job["at"] = "cutting down"
-        job["report"] = _slim_work(work)
+        job["report"] = _slim_work(work, job)
         job["state"] = "done"
     except Exception as e:
         import traceback
@@ -2626,12 +2626,33 @@ def _is_slim(slug: str) -> bool:
         return False
 
 
-def _slim_work(work: str) -> dict:
+def _slim_work(work: str, job: "dict | None" = None) -> dict:
     """Every version of the work but its base cut down to what its margin
     notes say changed (corpus/history/slim.py): a version just parsed in
-    full, and what its neighbours keep, which it can only shrink."""
+    full, and what its neighbours keep.
+
+    A slim version whose plan wants what it no longer holds -- the pages
+    around a change, blanked when it was cut down by a narrower rule -- is
+    fetched again and parsed in full first. What was let go can always be
+    fetched again, and History review cannot judge a change without both
+    versions' pages."""
     from corpus.history import slim
-    return slim.apply(work, BASE_DIR, pdf_for=_find_source_pdf)
+    wanting = [v for v, entry in slim.apply(work, BASE_DIR, dry_run=True)["versions"].items() if entry["missing"]]
+    again, failed = [], []
+    for n, version in enumerate(wanting, 1):
+        if job is not None:
+            job["at"] = f"fetching v{version} again ({n} of {len(wanting)}) for pages it let go"
+        try:
+            result = _fetch_version(work, version, replace=True, then_slim=False)
+            (again if result.get("ok") else failed).append(version)
+        except HTTPException as e:
+            failed.append(version)
+            print(f"v{version} could not be fetched again: {e.detail}", file=sys.stderr)
+    if job is not None:
+        job["at"] = "cutting down"
+    report = slim.apply(work, BASE_DIR, pdf_for=_find_source_pdf)
+    report.update(fetched_again=again, could_not_fetch=failed)
+    return report
 
 
 def _site_versions(work: str) -> list[dict]:
@@ -2738,7 +2759,7 @@ def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
 
 
-def _fetch_version(work: str, version: int, replace: bool = False) -> dict:
+def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bool = True) -> dict:
     """Downloads one version from the site and adds it as an uploaded one
     is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
@@ -2751,7 +2772,7 @@ def _fetch_version(work: str, version: int, replace: bool = False) -> dict:
     if not content.startswith(b"%PDF"):
         raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
     if replace:
-        return _replace_version(work, version, content)
+        return _replace_version(work, version, content, then_slim)
     return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
 
 
@@ -3076,10 +3097,25 @@ def _borrow_reviewed(slug: str, state: tuple) -> tuple:
     theirs = _current_nodes(slim["toward"])[0]
     their_units = {key: (p["node_index"], diffing.unit_end(theirs, p["node_index"]))
                    for key, p in diffing.provisions(theirs).items()}
-    own = [p["name"] for p in slim["pieces"] if p["words"]] + list(slim.get("removed") or [])
+    own = [delta.canonical(p["name"]) for p in slim["pieces"] if p["words"]] + \
+        [delta.canonical(r) for r in slim.get("removed") or []]
 
     def name(n):
-        return n.get("_node_id") or n.get("id") or ""
+        return delta.canonical(n.get("_node_id") or n.get("id") or "")
+
+    def borrowed(theirs_node, here):
+        # Its words are the neighbour's; where it is printed, and the notes
+        # printed beside it, are this version's -- a piece kept only for its
+        # pages (delta.slim's words: False) is kept for exactly this, and
+        # History review sets it beside its page. Not the neighbour's
+        # _source_node_index: it points into the neighbour's parse, and
+        # read against this one drew another node's boxes.
+        mine = here.get(name(theirs_node))
+        node = {k: v for k, v in theirs_node.items() if k != "_source_node_index"}
+        node.update(rects=(mine or {}).get("rects") or [], page_start=(mine or {}).get("page_start"),
+                    page_end=(mine or {}).get("page_end"), _borrowed=True,
+                    history=(mine or {}).get("history", theirs_node.get("history")))
+        return node
 
     out, i = [], 0
     starts = {p["node_index"]: (key, diffing.unit_end(nodes, p["node_index"]))
@@ -3091,9 +3127,8 @@ def _borrow_reviewed(slug: str, state: tuple) -> tuple:
                        for n in nodes[i:end] for o in own)
             if not mine and key in their_units:
                 a, b = their_units[key]
-                out.extend({**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
-                            "history": nodes[i + k]["history"] if k < end - i and "history" in nodes[i + k] else n.get("history")}
-                           for k, n in enumerate(theirs[a:b]))
+                here = {name(n): n for n in nodes[i:end] if name(n)}
+                out.extend(borrowed(n, here) for n in theirs[a:b])
                 i = end
                 continue
         out.append(nodes[i])
@@ -3393,7 +3428,11 @@ def _work_lineage(work: str, whole_only: bool = False) -> "dict | None":
     return result
 
 
-_timeline_cache: dict[str, tuple[tuple, dict]] = {}
+_timeline_cache: dict = {}
+# Seconds a work's timeline may be reused after what it was built from
+# changed. None here, where review happens; the public site sets it (see
+# corpus/web/public.py).
+TIMELINE_MAX_AGE = 0.0
 
 
 def _timeline(work: str) -> dict:
@@ -3422,32 +3461,41 @@ def _timeline(work: str) -> dict:
     slugs = _work_versions(work)
     signature = _work_signature(work)
     cached = _timeline_cache.get(work)
-    if cached is not None and cached[0] == signature:
+    if cached is not None and (cached[0] == signature or time.monotonic() - cached[2] < TIMELINE_MAX_AGE) \
+            and cached[1]["slugs"] == slugs:
         return cached[1]
-    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}}
-    lineage_state = _work_lineage(work)
-    if lineage_state:
-        docs = []
+    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}, "page_keys": {}}
+    if len(slugs) >= 2:
         # Only what a person has confirmed in History review is a change
         # here (corpus/history): not a margin note, not an amending Act.
         confirmed = history_changes.confirmed(db.load_history_decisions(work, BASE_DIR))
-        # In build order, so each slim one's neighbour is still cached.
-        current = {path.stem: _current_nodes(path.stem) for path in parsed_files.build_order(
-            BASE_DIR / "data" / "parsed" / f"{s}.json" for s in lineage_state["slugs"].values())}
-        for version in lineage_state["versions"]:
-            slug = lineage_state["slugs"][version]
-            state = lineage_state["states"][version]
-            nodes, _unattached, hierarchy = current[slug]
-            effective = diffing.provisions(nodes)
-            for provision in effective.values():
+        docs, links = [], {}
+        same: dict = {}
+        # One version at a time, in build order so each slim one's
+        # neighbour is still loaded, keeping of each only what a chain
+        # needs -- and each provision's words once, however many versions
+        # print them. Holding every version whole at once was a hundred
+        # copies of the Criminal Procedure Act.
+        for path in parsed_files.build_order(BASE_DIR / "data" / "parsed" / f"{s}.json" for s in slugs):
+            slug, version = path.stem, split_document_slug(path.stem)[1]
+            state = inheritance.load_state(slug, BASE_DIR)
+            nodes, _unattached, hierarchy = _current_nodes(slug)
+            effective = {}
+            for key, provision in diffing.provisions(nodes).items():
                 root = provision["node_index"]
                 provision["nodes"] = nodes[root:diffing.unit_end(nodes, root)]
+                effective[key] = _one_copy(same, provision)
+            raw = {key: _one_copy(same, sig) for key, sig in state["raw"].items()}
             meta = _act_version(slug)
             result["order"][version] = list(effective)
+            result["page_keys"][version] = html_view.build_page_index(
+                {"nodes": nodes, "hierarchy": hierarchy, "definition_overrides": _definition_overrides(slug)},
+                _act_title(slug))["by_key"]
+            links[version] = state["links"]
             docs.append({
                 "version": version, "slug": slug,
                 "as_at": meta.get("as_at"), "as_at_printed": meta.get("as_at_printed"),
-                "raw": state["raw"], "effective": effective,
+                "raw": raw, "effective": effective,
                 "checked": inheritance.checked_keys(nodes),
                 "loose_notes": lineage.loose_notes(state["unattached"]),
                 "amending_acts": {a["citation"] for a in
@@ -3455,13 +3503,33 @@ def _timeline(work: str) -> dict:
                                   if a.get("citation")},
                 "confirmed": confirmed.get(version, {}).get("text", set()),
             })
-        chains = lineage.provision_chains(docs, {v: lineage_state["states"][v]["links"]
-                                                 for v in lineage_state["versions"]})
+            del state, nodes
+        chains = lineage.provision_chains(docs, links)
         whole = {v: step["whole"] for v, step in confirmed.items()}
         chains["chains"] = [history_changes.gate(chain, whole) for chain in chains["chains"]]
         result.update(chains)
-    _timeline_cache[work] = (signature, result)
+    _timeline_cache[work] = (signature, result, time.monotonic())
     return result
+
+
+def _one_copy(seen: dict, value):
+    """`value`, or an equal one already kept. A provision the same in a
+    hundred versions is then held once, not a hundred times; its nodes
+    are compared as a reader is shown them (_provision_fingerprint)."""
+    fingerprint = _provision_fingerprint(value) if isinstance(value, dict) else value
+    return seen.setdefault(fingerprint, value)
+
+
+def _provision_fingerprint(provision: dict) -> tuple:
+    def raws(notes):
+        return tuple(h.get("raw") if isinstance(h, dict) else h for h in notes or [])
+
+    return ("provision", provision["key"], provision.get("heading"), provision["text"],
+            raws(provision.get("history")),
+            tuple((n.get("_node_id") or n.get("id"), n.get("type"), n.get("number"), n.get("heading"),
+                   n.get("text"), raws(n.get("history")), bool(n.get("verified_at")),
+                   bool(n.get("needs_followup")))
+                  for n in provision["nodes"]))
 
 
 def _superseded(slug: str) -> "dict | None":
@@ -3564,7 +3632,10 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
         probe = {"type": node_type if other_key[0] != "provision" else "section",
                  "schedule": other_key[1] if other_key[0] == "provision" else schedule,
                  "number": other_key[2] if other_key[0] == "provision" else number}
-        url = _provision_page_url(other, _page_index(other), probe)
+        # Each version's own addresses, gathered as the timeline was built:
+        # a page index of every version per page read was a hundred
+        # versions put back together to draw one.
+        url = _provision_page_url(other, {"by_key": timeline["page_keys"].get(other_version, {})}, probe)
         if url:
             urls[other_version] = url
     return history, urls
@@ -3587,7 +3658,6 @@ def _ghosts(slug: str) -> list[dict]:
         return []
     own_index = _page_index(slug)
     own_pages = set(own_index["by_node_index"].values())
-    slug_of = {split_document_slug(s)[1]: s for s in timeline["slugs"]}
     ghosts = []
     for chain in timeline["chains"]:
         at = lineage.wording_at(chain, version)
@@ -3602,7 +3672,7 @@ def _ghosts(slug: str) -> list[dict]:
             continue  # a Part or a Schedule gone has no page to come back to
         last_version = last["to"]["version"]
         old_key = last["keys"].get(last_version, key)
-        page = _page_index(slug_of[last_version])["by_key"].get(old_key)
+        page = timeline["page_keys"].get(last_version, {}).get(old_key)
         if not page:
             continue
         if page in own_pages:

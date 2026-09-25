@@ -490,3 +490,84 @@ def test_every_version_is_put_back_together_about_once(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "_history_step", lambda o, n, a: steps.append((o[0], n[0])) or real_step(o, n, a))
     dashboard.history_items("act")
     assert steps == [(5, 6)] and not scoped
+
+
+def _printed(nodes: list[dict], skip=()) -> list[dict]:
+    """Each node on a page of its own, bar the numbers in `skip`, which
+    the parse drew no box round."""
+    for k, node in enumerate(nodes):
+        if node.get("number") not in skip:
+            node["rects"] = [{"page": 10 + k, "x0": 0, "y0": 0, "x1": 1, "y1": 1}]
+    return nodes
+
+
+def test_every_change_is_set_beside_both_versions_pages():
+    """A change is judged with both printed versions beside it. A piece
+    one version hasn't got is shown where it would be, marked so; one the
+    parse drew no box round, on its neighbour's page, found by its words."""
+    older = _printed(_nodes({"2": [("1", "a person may appeal")]}))
+    newer = _printed(_nodes({"2": [("1", "a person may appeal"), ("2", "within 28 days")], "3": [("1", "new")]}))
+    changes = {(c["key"][2], c["piece"]): c for c in work_changes([(1, older, HIERARCHY), (2, newer, HIERARCHY)])}
+
+    inserted = changes[("2", "2")]
+    assert inserted["old_at"] == {**inserted["old_at"], "page": older[2]["rects"][0]["page"], "absent": True}
+    assert inserted["old_at"]["rects"] == [] and inserted["new_at"]["page"] == newer[3]["rects"][0]["page"]
+    section = changes[("3", WHOLE)]
+    assert section["old_at"]["page"] == older[2]["rects"][0]["page"] and section["old_at"]["absent"], \
+        "a section inserted: where it would follow, the end of the one before it"
+
+    unboxed = _printed(_nodes({"2": [("1", "a person may appeal"), ("2", "within 21 days")]}), skip={"2"})
+    boxed = _printed(_nodes({"2": [("1", "a person may appeal"), ("2", "within 28 days")]}))
+    [change] = work_changes([(1, unboxed, HIERARCHY), (2, boxed, HIERARCHY)])
+    assert change["old_at"]["page"] == unboxed[2]["rects"][0]["page"]
+    assert change["old_at"]["text"].startswith("within 21 days") and not change["old_at"].get("absent")
+
+
+def test_a_slim_version_keeps_its_own_pages_under_its_neighbours_reviewed_words(tmp_path, monkeypatch):
+    """A provision a slim version borrows from its neighbour, reviewed,
+    is still printed where this version prints it: a piece kept for its
+    pages was kept for exactly that. And not with the neighbour's source
+    index, which read against this version's parse drew another node."""
+    import corpus.web.dashboard as dashboard
+    from corpus.history import delta
+    from corpus.storage import db, parsed
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    for cache in ("_current_nodes_cache", "_lineage_cache"):
+        monkeypatch.setattr(dashboard, cache, {})
+    monkeypatch.setattr(parsed, "_loaded", {})
+    folder = tmp_path / "data" / "parsed"
+    folder.mkdir(parents=True)
+    v2 = _nodes({"2": [("1", "a person may appeal")], "3": [("1", "c")]})
+    (folder / "act-v2.json").write_text(json.dumps({"nodes": v2, "hierarchy": HIERARCHY, "fingerprint": "f2"}))
+    db.save_verified("act-v2", [{**n, "_node_id": n["id"], "verified_at": "2026-01-01"} for n in v2], tmp_path)
+    v1 = _printed(_nodes({"2": [("1", "a person may appeal")], "3": [("1", "c")]}))
+    (folder / "act-v1.json").write_text(json.dumps(delta.slim(
+        {"nodes": v1, "hierarchy": HIERARCHY, "fingerprint": "f1"}, "act-v2", text=[], pages_only=["pt1/s2"])))
+
+    assert "_source_node_index" in dashboard._current_nodes("act-v2")[0][2], "the neighbour's own index"
+    nodes = {n["id"]: n for n in dashboard._current_nodes("act-v1")[0]}
+    assert nodes["pt1/s2/1"]["rects"] == v1[2]["rects"] and "_source_node_index" not in nodes["pt1/s2/1"]
+    assert nodes["pt1/s3/1"]["rects"] == [], "not kept: this version's page for it is gone"
+
+
+def test_a_slim_version_missing_pages_it_now_needs_is_fetched_again(monkeypatch):
+    """Cut down by a narrower rule, a version let go of pages History
+    review now sets beside a change. It can always be fetched again."""
+    import corpus.web.dashboard as dashboard
+    from corpus.history import slim
+
+    calls = []
+
+    def apply(work, base_dir=None, pdf_for=None, dry_run=False, base=None):
+        calls.append("dry run" if dry_run else "slim")
+        return {"versions": {3: {"missing": ["s2"]}, 4: {"missing": []}}}
+
+    monkeypatch.setattr(slim, "apply", apply)
+    monkeypatch.setattr(dashboard, "_fetch_version",
+                        lambda work, v, replace=False, then_slim=True: calls.append((v, replace, then_slim)) or {"ok": True})
+    report = dashboard._slim_work("act")
+
+    assert calls == ["dry run", (3, True, False), "slim"]
+    assert report["fetched_again"] == [3] and report["could_not_fetch"] == []

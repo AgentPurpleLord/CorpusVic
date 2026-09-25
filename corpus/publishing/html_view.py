@@ -69,6 +69,7 @@ guarantee -- an unmatched or ambiguous mention is left as plain text
 rather than linked to the wrong place.
 """
 from corpus import PROJECT_ROOT
+import hashlib
 import html
 import json
 import re
@@ -2051,6 +2052,25 @@ def _search_form_html(search_url: "str | None", query: str) -> str:
     )
 
 
+_asset_version: dict = {}
+
+
+def asset_version() -> str:
+    """A short hash of the site's assets, put on every asset URL. A browser
+    can then keep them for a year without asking again (see
+    corpus/web/public.py), and still fetches a changed one at once --
+    its URL has changed with it."""
+    files = sorted(p for p in TEMPLATE_DIR.rglob("*") if p.is_file())
+    listing = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size) for p in files)
+    if _asset_version.get("listing") != listing:
+        digest = hashlib.sha1()
+        for p in files:
+            digest.update(p.name.encode())
+            digest.update(p.read_bytes())
+        _asset_version.update(listing=listing, version=digest.hexdigest()[:10])
+    return _asset_version["version"]
+
+
 def page_shell(title: str, body_html: str, previewbar_html: str = "",
                base_url: str | None = None, reader: bool = False,
                preview_source: str = "api", site_salt: str | None = None,
@@ -2106,6 +2126,7 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
         # same however the page was arrived at.
         "{{CANONICAL}}": (f'<link rel="canonical" href="{_esc(canonical)}">' if canonical else ""),
         "{{ASSETS}}": _esc(f"{prefix}/assets"),
+        "{{V}}": asset_version(),
         "{{HOME}}": _esc(f"{prefix}/"),
         "{{BODY_ATTRS}}": body_attrs,
         "{{MAIN_CLASS}}": "page page-reader" if reader else "page",

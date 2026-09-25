@@ -23,7 +23,8 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-# data/ has to be writable, and not because this process writes anything.
+# data/ has to be writable. This process keeps its rendered pages in
+# data/.cache/public-pages.sqlite (corpus/web/page_cache.py), and
 # data/legislation.db is in WAL mode, and sqlite cannot open a WAL
 # database at all -- not even read-only -- without being able to create
 # the -shm and -wal files beside it. With no ReadWritePaths the service
@@ -31,7 +32,8 @@ PrivateTmp=yes
 # and, with Restart=always, does so repeatedly.
 #
 # So the kernel's guarantee here is narrower than "writes nothing": it is
-# that nothing outside data/ can be touched. What keeps this app
+# that nothing outside data/ can be touched, and the corpus itself is
+# never written. What keeps this app
 # read-only in the sense that matters is its route table, where every
 # route is a GET and a test fails if that stops being true.
 #

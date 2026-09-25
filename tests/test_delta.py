@@ -181,3 +181,50 @@ def test_a_piece_kept_for_its_pages_is_its_own_even_over_a_borrowed_neighbour():
     piece = next(n for n in whole if n["id"] == "s1/2")
     assert "_borrowed" not in piece and piece["rects"] == NEW["nodes"][2]["rects"]
     assert all(n.get("_borrowed") for n in whole if n["id"] != "s1/2")
+
+
+def test_a_version_keeps_the_pages_review_sets_a_change_beside():
+    """The whole provision a changed piece is part of, and where a version
+    hasn't got a provision, the ones either side of where it would be --
+    kept for their pages, the words staying its neighbour's."""
+    from corpus.history.slim import _around
+
+    older = delta.notes_index(_act({"1": [("1", "a")], "2": [("1", "b")], "3": [("1", "c")]})["nodes"])
+    newer = delta.notes_index(_act({"1": [("1", "a")], "2": [("1", "b")], "2A": [("1", "new")],
+                                    "3": [("1", "c")]})["nodes"])
+
+    assert _around(["s1/1"], older, newer) == {"s1"}
+    assert _around(["s2a"], older, newer) == {"s2", "s3"}, "s 2A inserted: the sections it sits between"
+    assert _around(["s2a/1"], newer, older) == {"s2a"}
+    with_schedule = delta.notes_index([*_act({"1": [("1", "a")], "3": [("1", "c")]})["nodes"],
+                                      {"type": "schedule", "number": "2", "_node_id": "sch2"},
+                                      {"type": "clause", "number": "1", "_node_id": "sch2/cl1",
+                                       "path": {"schedule": "2"}}])
+    assert _around(["sch2"], older, with_schedule) == {"s3"}, "a Schedule inserted: what it follows"
+    assert _around(["sch2"], with_schedule, older) == {"sch2/cl1"}, "a Schedule amended: where it starts"
+
+
+def test_a_provision_kept_for_its_pages_keeps_the_words_changed_inside_it():
+    kept = delta.slim(NEW, toward="act-v1", text=["s1/2"], pages_only=["s1"])
+
+    assert [(p["name"], p["words"]) for p in kept["slim"]["pieces"]] == [("s1/2", True), ("s1", False)]
+    whole = delta.assemble(OLD["nodes"], kept["slim"])
+    assert [n["text"] for n in whole if n["type"] == "subsection"][:2] == ["a", "b as amended"]
+    assert all(n["rects"] for n in whole[:3]), "all of s 1 printed where this version prints it"
+
+
+def test_a_schedule_named_by_an_older_parser_is_the_same_schedule():
+    """A Schedule's entries were sections to the parser once ("sch2/s5")
+    and are clauses now ("sch2/cl5"). The base is often the older parse:
+    matched by name as written, a newer version's changed clause went in
+    beside the base's instead of in place of it."""
+    neighbour = [{"type": "schedule", "number": "2", "_node_id": "sch2", "text": ""},
+                 {"type": "section", "number": "5", "_node_id": "sch2/s5", "text": "old words"},
+                 {"type": "section", "number": "6", "_node_id": "sch2/s6", "text": "same"}]
+    mine = {"type": "clause", "number": "5", "_node_id": "sch2/cl5", "text": "new words"}
+    part = {"pieces": [{"name": "sch2/cl5", "words": True, "after": ["sch2"], "nodes": [mine]}], "removed": []}
+
+    assert [n["text"] for n in delta.assemble(neighbour, part)] == ["", "new words", "same"]
+    assert delta.canonical("sch2/s5/1") == delta.canonical("sch2/cl5/1") == delta.canonical("sch2/item5/1") == "sch2/cl5/1"
+    assert delta.canonical("sch2/pt1/s5") == "sch2/pt1/cl5", "a Schedule in Parts too"
+    assert delta.canonical("s5") == "s5" and delta.canonical("sch2") == "sch2", "only a Schedule's own entries"
