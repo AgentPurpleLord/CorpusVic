@@ -1693,6 +1693,8 @@ class HistoryDecision(BaseModel):
     piece: str
     # None takes a decision back.
     decision: "str | None" = None
+    # Why, in the reviewer's words -- for the report (corpus/review/report.py).
+    note: str = ""
 
 
 @app.get("/history/{work}/")
@@ -2066,8 +2068,11 @@ def history_items(work: str):
     errors: list = []
     items = [dict(item) for item in _history_items(work, errors)]
     decisions = db.load_history_decisions(work, BASE_DIR)
+    notes = db.load_history_notes(work, BASE_DIR)
     for item in items:
-        item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
+        key = (item["provision"], item["from"], item["to"], item["piece"])
+        item["decision"] = decisions.get(key)
+        item["note"] = notes.get(key)
     from corpus.history import slim
     try:
         base = slim.base_version(work, BASE_DIR)
@@ -2086,11 +2091,27 @@ def history_items(work: str):
             "slim": [split_document_slug(s)[1] for s in held if split_document_slug(s)[1] is not None and _is_slim(s)]}
 
 
+@app.get("/api/works/{work}/report.md")
+def work_report(work: str):
+    """Everything flagged in review, in any version of the work, and every
+    change denied in History review, as Markdown to hand back
+    (corpus/review/report.py)."""
+    from corpus.review import report
+
+    held = _held(work)
+    data = history_items(work)
+    md = report.build(work, held, BASE_DIR, data["items"], db.load_history_decisions(work, BASE_DIR),
+                      db.load_history_notes(work, BASE_DIR), code_version=_RUNNING_CODE, base=data.get("base"))
+    name = f"{work}-report-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
+    return Response(md, media_type="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 @app.post("/api/works/{work}/history/decide")
 def history_decide(work: str, req: HistoryDecision):
     _held(work)
     db.save_history_decision(work, req.provision, req.from_version, req.to_version, req.piece,
-                             req.decision, BASE_DIR)
+                             req.decision, BASE_DIR, note=req.note)
     return {"ok": True}
 
 

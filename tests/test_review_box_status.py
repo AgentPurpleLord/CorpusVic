@@ -347,3 +347,14 @@ def test_deleting_a_box_counts_the_ones_on_other_pages():
     assert "box.elsewhere" in menu
     keep = re.search(r"async function rectsAcrossPages\(.*?\n\}", page, re.S).group(0)
     assert "box.elsewhere" in keep, "the open unit is often not the box's"
+
+
+def test_a_flag_keeps_what_was_wrong_until_the_piece_is_accepted(one_section):
+    """What the reviewer said goes in the Act's report (corpus/review/
+    report.py); once accepted there is nothing wrong left to say."""
+    from corpus.storage import db
+
+    accept_node(1, AcceptRequest(flagged=True, note="the lead-in ran into (a)"))
+    assert db.load_review_notes("test-act") == {one_section[1]["id"]: "the lead-in ran into (a)"}
+    accept_node(1, AcceptRequest(flagged=False))
+    assert db.load_review_notes("test-act") == {}

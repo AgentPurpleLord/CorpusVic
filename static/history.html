@@ -24,6 +24,7 @@
   <button class="btn" id="fetch-acts" title="Download the Acts that amended this one between the versions held, and read their instructions">Fetch amending Acts</button>
   <button class="btn" id="slim-all">Keep versions slim</button>
   <small id="slim-state" class="none"></small>
+  <a class="btn" id="report" title="Everything flagged in review and every change denied here, with your notes, as a file to hand back">Report</a>
   <a class="btn" href="../../">Dashboard</a>
   <div id="versions-panel" hidden></div>
   <pre id="log"></pre>
@@ -41,6 +42,7 @@
 // and previous.
 const WORK = decodeURIComponent(location.pathname.split("/").filter(Boolean).slice(-1)[0]);
 const API = `../../api/works/${encodeURIComponent(WORK)}`;
+document.getElementById("report").href = `${API}/report.md`;
 let DATA = null, shown = [], current = 0, filter = "undecided", step = "";
 try { if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
 
@@ -145,7 +147,7 @@ function showItem() {
       <div class="none">${esc(status[a.status] || a.status)}${a.here ? "" : " (for another piece of this section)"}</div>
       ${a.place_as ? `<button class="btn place" data-node="${esc(a.node_id)}" data-reference="${esc(a.place_as)}">Make this ${esc(a.place_as)} in v${i.to}</button>` : ""}</div>`).join("");
   const notes = i.notes.map((n) => `<div class="note">${esc(n)}</div>`).join("");
-  const decided = i.decision ? `<span class="decided">${i.decision === "confirmed" ? "Confirmed: shown publicly" : "Denied: a parsing issue, not shown"}</span>
+  const decided = i.decision ? `<span class="decided">${i.decision === "confirmed" ? "Confirmed: shown publicly" : "Denied: a parsing issue, not shown"}${i.note ? ` &mdash; &ldquo;${esc(i.note)}&rdquo;` : ""}</span>
       <button class="btn" onclick="decide(null)">Undo (u)</button>` : "";
   detail.innerHTML = `
     <h2>${esc(i.section)}${i.piece === "heading" ? " heading" : i.piece === "whole" ? ` ${esc(OP_WORDS[i.op] || "removed")}` : esc(i.label)}</h2>
@@ -243,12 +245,17 @@ function zoom(by) {
 async function decide(decision) {
   const i = shown[current];
   if (!i) return;
+  // Why it was denied, for the report handed back (Report, above).
+  // Optional; cancelling leaves the change undecided.
+  const note = decision === "denied" ? prompt("What's wrong? (optional: it goes in the Act's report)", "") : "";
+  if (note === null) return;
   const res = await fetch(API + "/history/decide", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provision: i.provision, from_version: i.from, to_version: i.to, piece: i.piece, decision }),
+    body: JSON.stringify({ provision: i.provision, from_version: i.from, to_version: i.to, piece: i.piece, decision, note }),
   });
   if (!res.ok) { toast("Couldn't save that.", true); return; }
   i.decision = decision;
+  i.note = note || null;
   toast(decision === "confirmed" ? "Confirmed." : decision === "denied" ? "Denied." : "Undone.");
   // Move on only from a view the decision takes this change out of.
   if (decision && !matches(i)) { shown.splice(current, 1); current = Math.min(current, shown.length - 1); render(false); }

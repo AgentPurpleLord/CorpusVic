@@ -25,6 +25,7 @@
   <button class="btn" id="history-toggle-btn">History notes</button>
   <button class="btn" id="types-btn" title="Add, rename or remove the piece types you can label with">Types</button>
   <button class="btn" id="keys-btn" title="Keyboard shortcuts (?)">Keys</button>
+  <a class="btn" id="report-btn" title="Everything flagged in any version of this Act, and every change denied in History review, as a file to hand back">Report</a>
   <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <div class="spacer"></div>
   <span class="stat">Legend:</span>
@@ -1980,10 +1981,25 @@ document.getElementById("next-btn").onclick = () => currentUnitNo < META.unit_co
 // Deciding a whole unit does change every piece in it, so the unit itself
 // is reloaded -- but nothing outside it moved, so the sidebar keeps its
 // rows and its scroll, and only this unit's own status dot is repainted.
+// The work's report is the dashboard's, which this server is proxied
+// under at .../review/<slug>/.
+(function () {
+  const slug = location.pathname.split("/").filter(Boolean).pop() || "";
+  document.getElementById("report-btn").href = `../../api/works/${encodeURIComponent(slug.replace(/-v\d+$/, ""))}/report.md`;
+})();
+
+// What was wrong, for the report handed back (the dashboard's Report).
+// Optional; cancelling abandons the flag.
+function flagNote() {
+  return prompt("What's wrong? (optional: it goes in the Act's report)", "");
+}
+
 async function decideUnit(flagged) {
+  const note = flagged ? flagNote() : "";
+  if (note === null) return;
   try {
     const result = await api(`api/units/${currentUnitNo}/accept`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged, note }),
     });
     toast(flagged ? "Flagged for follow-up." : "Accepted.");
     await loadUnit(currentUnitNo);
@@ -2080,9 +2096,11 @@ function showReparseNotice(result) {
 // position, the PDF page, the sidebar's scroll) simply stays put, because
 // nothing else is touched.
 async function acceptPiece(nodeIndex, flagged) {
+  const note = flagged ? flagNote() : "";
+  if (note === null) return;
   try {
     const result = await api(`api/nodes/${nodeIndex}/accept`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flagged, note }),
     });
     toast(flagged ? "Piece flagged." : "Piece accepted.");
     // Always, and first: the box is on the page whether or not the
