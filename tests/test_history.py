@@ -398,3 +398,37 @@ def test_history_says_which_version_is_the_base_and_which_are_slim(tmp_path, mon
 
     body = dashboard.history_items("act")
     assert body["slim"] == [1] and body["base"] in (1, 2)
+
+
+def test_a_step_that_fails_is_named_and_the_rest_still_load(tmp_path, monkeypatch):
+    """One unreadable version must not take the work's whole review down,
+    and what went wrong is said on the page, not as a bare 500."""
+    from corpus import PROJECT_ROOT
+
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    (tmp_path / "data" / "parsed" / "act-v3.json").write_text(json.dumps({
+        "nodes": _nodes({"2": [("1", "a person may appeal within 28 days")]}), "hierarchy": HIERARCHY,
+        "fingerprint": "fp3", "version": {"version": 3}}))
+    real = dashboard._history_step
+
+    def step(older, newer, acts):
+        if newer[0] == 3:
+            raise KeyError("nodes")
+        return real(older, newer, acts)
+
+    monkeypatch.setattr(dashboard, "_history_step", step)
+    data = dashboard.history_items("act")
+    assert {(i["from"], i["to"]) for i in data["items"]} == {(1, 2)}
+    assert data["errors"] == [{"from": 2, "to": 3, "error": "KeyError: 'nodes'"}]
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+    assert "DATA.errors" in page
+
+
+def test_an_unexpected_error_says_what_it_was(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_history_items", lambda work, errors=None: 1 / 0)
+    res = TestClient(dashboard.app, raise_server_exceptions=False).get("/api/works/act/history")
+    assert res.status_code == 500
+    assert res.json() == {"detail": "ZeroDivisionError: division by zero"}
