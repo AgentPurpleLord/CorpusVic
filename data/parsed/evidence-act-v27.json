@@ -1,6 +1,6 @@
 {
-  "act": "evidence-act",
-  "source": "acts/evidence-act.pdf",
+  "act": "evidence-act-v27",
+  "source": "acts/evidence-act/evidence-act.pdf",
   "engine": "rules",
   "profile": "evidence-act",
   "document_type": "act",
