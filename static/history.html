@@ -69,6 +69,12 @@ async function load() {
   catch (e) { document.getElementById("detail").textContent = e.message; return; }
   document.getElementById("work").textContent = DATA.title || WORK;
   paintSlim();
+  // Steps that could not be worked out: the rest still load, and these
+  // say why, to be passed on.
+  if ((DATA.errors || []).length) {
+    document.getElementById("log").textContent = DATA.errors.map((e) =>
+      (e.from != null ? `v${e.from} → v${e.to} could not be compared: ` : "") + e.error).join("\n");
+  }
   const steps = [...new Set(DATA.items.map((i) => `${i.from}→${i.to}`))];
   document.getElementById("step-filter").innerHTML = `<option value="">All steps</option>`
     + steps.map((s) => `<option value="${s}">v${s.replace("→", " → v")}</option>`).join("");

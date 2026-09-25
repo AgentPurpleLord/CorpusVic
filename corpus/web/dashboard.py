@@ -409,6 +409,14 @@ def _shutdown_ai_scan_processes() -> None:
 
 app = FastAPI(title="Legislation pipeline dashboard")
 
+
+@app.exception_handler(Exception)
+async def _unexpected(request: Request, exc: Exception):
+    # Every page reads an API error's "detail" and shows it: a bare
+    # "Internal Server Error" tells the person at the screen nothing they
+    # can pass on. Starlette still logs the traceback.
+    return JSONResponse({"detail": f"{type(exc).__name__}: {exc}"}, status_code=500)
+
 # Where this app is mounted, when it is not at the domain root --
 # "/admin" for corpusvic.au/admin, "" for a bare host or a subdomain of
 # its own. Set once at startup by _configure_base_path.
@@ -1652,15 +1660,22 @@ def _save_history_steps(work: str) -> None:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(_history_steps_for(work)), encoding="utf-8")
         tmp.replace(path)
-    except OSError:
+    except (OSError, TypeError, ValueError):
+        # A cache: failing to keep it must never fail the page.
         pass
 
 
 def _amending_stamp() -> str:
     root = BASE_DIR / "data" / "amending"
-    files = sorted(p for p in root.rglob("*") if p.is_file()) if root.exists() else []
-    return hashlib.sha1(repr([(str(p.relative_to(root)), p.stat().st_mtime_ns, p.stat().st_size)
-                              for p in files]).encode()).hexdigest()
+    seen = []
+    for p in sorted(root.rglob("*")) if root.exists() else []:
+        try:
+            st = p.stat()
+        except OSError:
+            continue   # written or removed by a fetch running meanwhile
+        if p.is_file():
+            seen.append((str(p.relative_to(root)), st.st_mtime_ns, st.st_size))
+    return hashlib.sha1(repr(seen).encode()).hexdigest()
 
 
 class HistoryDecision(BaseModel):
@@ -1849,16 +1864,27 @@ def lesson_withdraw(rid: str):
     return {"withdrawn": rid}
 
 
-def _history_items(work: str) -> list[dict]:
+def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later
     version -- one step between consecutive versions at a time, each
-    cached against what it was worked out from (_history_steps)."""
+    cached against what it was worked out from (_history_steps).
+
+    A step that fails is left out and put in `errors`, the rest still
+    shown: one unreadable version must not take the whole work's review
+    down with it."""
     held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
     if len(held) < 2:
         return []   # held under its plain name, or in one version: nothing to compare
     cache = _history_steps_for(work)
-    stamps = {slug: [_parse_signature(slug), db.act_signature(slug, BASE_DIR)] for slug in held}
+
+    def signature(slug):
+        try:
+            return [_parse_signature(slug), db.act_signature(slug, BASE_DIR)]
+        except Exception as e:   # recomputed, and its step reports why
+            return ["unreadable", repr(e)]
+
+    stamps = {slug: signature(slug) for slug in held}
     common = [_RUNNING_CODE, _amending_stamp()]
     loaded: dict = {}
     acts = None
@@ -1875,10 +1901,18 @@ def _history_items(work: str) -> list[dict]:
         steps.add(key)
         entry = cache.get(key)
         if not entry or entry["stamp"] != stamp:
-            if acts is None:
-                acts = amending_load.work_instructions(
-                    held[-1], BASE_DIR, amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
-            entry = cache[key] = {"stamp": stamp, "items": _history_step(version(older), version(newer), acts)}
+            try:
+                if acts is None:
+                    acts = amending_load.work_instructions(
+                        held[-1], BASE_DIR, amending_load.work_title(held[-1], BASE_DIR, _act_title(held[-1])))
+                entry = cache[key] = {"stamp": stamp, "items": _history_step(version(older), version(newer), acts)}
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                if errors is not None:
+                    errors.append({"from": split_document_slug(older)[1], "to": split_document_slug(newer)[1],
+                                   "error": f"{type(e).__name__}: {e}"})
+                continue
             changed = True
         items.extend(entry["items"])
     for gone in set(cache) - steps:
@@ -1985,18 +2019,26 @@ def _new_notes(item: dict) -> list[str]:
 @app.get("/api/works/{work}/history")
 def history_items(work: str):
     held = _held(work)
-    items = [dict(item) for item in _history_items(work)]
+    errors: list = []
+    items = [dict(item) for item in _history_items(work, errors)]
     decisions = db.load_history_decisions(work, BASE_DIR)
     for item in items:
         item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
     from corpus.history import slim
+    try:
+        base = slim.base_version(work, BASE_DIR)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        errors.append({"error": f"The base version: {type(e).__name__}: {e}"})
+        base = None
     return {"work": work, "title": _act_title(held[-1]),
             "versions": [{"version": split_document_slug(s)[1], "slug": s} for s in held
                          if split_document_slug(s)[1] is not None],
-            "items": items,
+            "items": items, "errors": errors,
             # Which version is held whole, and which are kept as only their
             # changes -- what "Keep versions slim" would act on.
-            "base": slim.base_version(work, BASE_DIR),
+            "base": base,
             "slim": [split_document_slug(s)[1] for s in held if split_document_slug(s)[1] is not None and _is_slim(s)]}
 
 
