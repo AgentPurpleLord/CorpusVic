@@ -14,14 +14,31 @@ def _read(path: Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+# {path: ((mtime, size), the parse it is built from or None)}. Every cache
+# of a version is keyed on its chain, and a work's versions are each
+# stamped for every one of them: reading a whole parse file each time
+# just for this one field made a work of twenty versions read thousands.
+_toward: dict = {}
+
+
+def _toward_of(path: Path) -> "str | None":
+    st = path.stat()
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _toward.get(str(path))
+    if hit is None or hit[0] != key:
+        slim = _read(path).get("slim")
+        hit = _toward[str(path)] = (key, slim["toward"] if slim else None)
+    return hit[1]
+
+
 def chain(path: Path) -> list[Path]:
     """This parse file and every one it is built from, nearest first."""
     out, seen = [Path(path)], {str(Path(path))}
     while True:
-        slim = _read(out[-1]).get("slim")
-        if not slim:
+        toward = _toward_of(out[-1])
+        if not toward:
             return out
-        nxt = out[-1].parent / f"{slim['toward']}.json"
+        nxt = out[-1].parent / f"{toward}.json"
         if str(nxt) in seen or not nxt.exists():
             return out
         seen.add(str(nxt))
