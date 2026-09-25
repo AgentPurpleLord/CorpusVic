@@ -40,7 +40,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from corpus.domain.definitions import looks_like_definitions_section
-from corpus.parsing.extract import BodyLine, PageText, join_printed_line
+from corpus.parsing.extract import BULLETS, BodyLine, PageText, join_printed_line
 from corpus.domain.hierarchy import HIERARCHY_ORDER, heading_levels, make_ranks
 from corpus.domain.profiles import load_hierarchy, load_profile
 from corpus.parsing.tables import find_table
@@ -591,6 +591,11 @@ _SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+[\d()\s,]+\.?$")
 _BARE_SCHEDULE_RE = re.compile(r"^Schedule\s+(\d+[A-Za-z]*)$", re.IGNORECASE)
 
 
+# An example's own number, as printed: "1 The following...", "1. Intentional
+# misuse...", or "1" alone with its words set beside it.
+_EXAMPLE_NUMBER_RE = re.compile(r"^(\d{1,2})\.?(?:\s+(.*))?$")
+
+
 # The levels _try_bracket_item recognises by shape alone, with no font
 # information -- the boundaries that open without needing to be bold.
 _BRACKETED_LEVELS = ("subsection", "paragraph", "subparagraph", "sub_subparagraph")
@@ -662,6 +667,9 @@ class _LineParser:
         # just under a different marker word and resulting node type.
         self.current_marked_block: dict | None = None
         self.marked_block_type: str | None = None
+        # How the Examples block open now counts its examples: "numbered"
+        # as printed, "bullets" one to a dot point, None until its first.
+        self.example_style: "str | None" = None
         self.asterisk_run: list[BodyLine] = []
         self.asterisk_start = 0
 
@@ -998,6 +1006,7 @@ class _LineParser:
             if self.patterns["example_marker"].match(text):
                 self._close_marked_block()
                 self.marked_block_type = "example"
+                self.example_style = None
                 continue
 
             if self.patterns["penalty_marker"].match(text):
@@ -1146,6 +1155,34 @@ class _LineParser:
         add_rect(self.current_marked_block, line)
         self.nodes.append(self.current_marked_block)
 
+    def _example_item(self, line: BodyLine, text: str) -> "tuple[str, str] | None":
+        """(number, text) where this line opens an example of its own.
+
+        An Examples block is a list of examples, each one its own: printed
+        numbered ("1 The following...", "1. Intentional misuse..."), or as
+        dot points, numbered here in order (Family Violence Protection Act
+        ss 5-7). Read as one block, a reviewer could accept or correct none
+        of them apart.
+
+        Numbered ones open only in turn, so a figure in an example's own
+        words is not taken for the next. Dot points open examples only in
+        a block that began with one: an example that opens with its own
+        sentence and then lists is one example, and under a numbered
+        example they are that example's own points."""
+        if line.bold or self._wrapped(line, text):
+            return None
+        block = self.current_marked_block
+        last = int(block["number"]) if block is not None and str(block.get("number") or "").isdigit() else 0
+        m = _EXAMPLE_NUMBER_RE.match(text)
+        if m and self.example_style in (None, "numbered") and (block is None or self.example_style == "numbered") \
+                and int(m.group(1)) == last + 1:
+            self.example_style = "numbered"
+            return m.group(1), (m.group(2) or "").strip()
+        if text.startswith(BULLETS) and (block is None or self.example_style == "bullets"):
+            self.example_style = "bullets"
+            return str(last + 1), text.lstrip("".join(BULLETS)).strip()
+        return None
+
     def _handle_marked_block(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
         """Inside a "Notes" (or singular "Note"), "Example" or "Penalty"
         block -- self.marked_block_type says which; all three share this
@@ -1163,6 +1200,17 @@ class _LineParser:
         # this way (no evidence of "Example 1"/"Example 2" in this
         # drafting convention, only ever a single unnumbered block per
         # callout).
+        item = self._example_item(line, text) if kind == "example" else None
+        if item is not None:
+            self._close_marked_block()
+            self.current_marked_block = {
+                "type": "example", "number": item[0], "heading": None, "text": item[1],
+                "page_start": line.page_no, "page_end": line.page_no,
+                "char_start": char_start, "char_end": char_end, "source": "rules",
+            }
+            add_rect(self.current_marked_block, line)
+            self.nodes.append(self.current_marked_block)
+            return True
         m = self.patterns["note_item"].match(text) if kind == "note" else None
         if m and self._wrapped(line, text):
             # An Act's year carried onto the next line ("...Provisions) Act"

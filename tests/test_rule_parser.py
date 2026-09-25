@@ -1695,10 +1695,11 @@ def test_a_preamble_reads_as_its_own_page():
     assert "non-violence" in html_view.render_section(parsed, "An Act 2008", "", "preamble")
 
 
-def test_dot_point_examples_are_one_example_shown_as_a_list():
-    """Family Violence Protection Act s 6: "Examples—", then dot points.
-    The dash kept the heading from being recognised, so the dot points
-    ran on as part of paragraph (b)."""
+def test_each_dot_point_under_examples_is_an_example_of_its_own():
+    """Family Violence Protection Act s 6: "Examples--", then dot points,
+    each an example. Read as one block, a reviewer could accept or correct
+    none of them apart; they are numbered in order, as the Act numbers
+    examples elsewhere."""
     from corpus.parsing.identity import annotate_ids
     from corpus.publishing import html_view
 
@@ -1713,15 +1714,48 @@ def test_dot_point_examples_are_one_example_shown_as_a_list():
         line("income;", size=10.0, x0=210, x1=250),
         line("• removing a family member's property without permission.", size=10.0, x0=197, x1=450),
     ])
-    [example] = [n for n in result.nodes if n["type"] == "example"]
+    examples = [n for n in result.nodes if n["type"] == "example"]
+    assert [(e["number"], e["text"]) for e in examples] == [
+        ("1", "coercing a person to relinquish control over assets and income;"),
+        ("2", "removing a family member's property without permission.")]
     assert find(result.nodes, "paragraph", "b")["text"] == "by withholding financial support."
 
     annotate_ids(result.nodes, result.hierarchy)
     page = html_view.render_section({"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"},
                                     "An Act 2008", "", "s6")
-    assert '<span class="prov-text">Examples</span>' in page
-    assert ('<ul class="prov-bullets"><li>coercing a person to relinquish control over assets and income;</li>'
-            "<li>removing a family member&#x27;s property without permission.</li></ul>") in page
+    assert page.count('<span class="prov-text">Examples</span>') == 1, "one caption over the run"
+
+
+def test_numbered_examples_are_each_their_own_with_their_own_dot_points():
+    """Family Violence Protection Act s 5: "Examples", "1 The following
+    behaviour...", its dot points, then "2 ...". The dot points are the
+    example's, not examples of their own."""
+    result = _parse([
+        line("5 Meaning of family violence", bold=True, x1=330),
+        line("For the purposes of this Act, family violence is behaviour.", x0=WRAP_X0, x1=MARGIN),
+        line("Examples", bold=True, size=10.0, x0=235, x1=280),
+        line("1 The following behaviour may constitute family violence—", size=10.0, x0=235, x1=440),
+        line("• using coercion to cause a marriage;", size=10.0, x0=265, x1=440),
+        line("• demanding dowry.", size=10.0, x0=265, x1=400),
+        line("2 Overhearing threats of physical abuse.", size=10.0, x0=235, x1=440),
+    ])
+    examples = [n for n in result.nodes if n["type"] == "example"]
+    assert [e["number"] for e in examples] == ["1", "2"]
+    assert "using coercion" in examples[0]["text"] and "demanding dowry" in examples[0]["text"]
+    assert examples[1]["text"] == "Overhearing threats of physical abuse."
+
+
+def test_an_example_that_opens_with_its_own_words_keeps_its_list():
+    result = _parse([
+        line("5 Meaning of family violence", bold=True, x1=330),
+        line("For the purposes of this Act, family violence is behaviour.", x0=WRAP_X0, x1=MARGIN),
+        line("Example", bold=True, size=10.0, x0=235, x1=280),
+        line("A person may, for instance—", size=10.0, x0=235, x1=440),
+        line("• demand dowry; or", size=10.0, x0=265, x1=400),
+        line("• threaten 2 people.", size=10.0, x0=265, x1=400),
+    ])
+    [example] = [n for n in result.nodes if n["type"] == "example"]
+    assert example["number"] is None and "demand dowry" in example["text"] and "threaten 2 people" in example["text"]
 
 
 def test_a_schedules_numbered_list_is_one_clause_per_item():
