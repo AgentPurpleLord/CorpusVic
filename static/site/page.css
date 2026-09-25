@@ -342,8 +342,35 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   content: "History \203A"; display: block; margin-top: 2px; color: var(--accent); font-size: 11px;
 }
 .prov-notes[aria-expanded="true"]::after { content: "Hide history"; }
-.prov-history { grid-column: 1 / -1; margin: 4px 0 18px; }
-.reader-section .prov-history > .history.hist-js { display: block; }
+/* A piece's history, in the piece's own place (html_view.
+   render_piece_history): its rows give way to this, and the rest of the
+   provision reads on around it. */
+.ph-hidden { display: none !important; }
+.piece-hist {
+  grid-column: 1 / -1; margin: 6px 0 16px; padding: 10px 12px;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel);
+}
+.ph-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+.ph-subject { font-weight: 600; }
+.ph-nav { display: flex; gap: 6px; }
+.ph-nav button, .ph-point {
+  font: inherit; font-size: 12px; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border); padding: 2px 8px; cursor: pointer;
+}
+.ph-nav button:disabled { opacity: 0.4; cursor: default; }
+/* The versions it has read in, joined by a rule; the two on screen lit. */
+.ph-timeline { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin: 10px 0; padding: 0; }
+.ph-timeline li { display: flex; align-items: center; }
+.ph-timeline li + li::before { content: ""; width: 18px; border-top: 1px solid var(--border); }
+.ph-point.ph-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ph-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ph-side { min-width: 0; }
+.ph-when { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.ph-text .prov { grid-template-columns: auto 1fr; }
+.piece-hist .hist-ended { margin-top: 8px; }
+@media (max-width: 720px) {
+  .ph-pair { grid-template-columns: 1fr; }
+}
 .history.hist-js .hist-track { border: none; }
 .reader-section:not(.historical) .history.hist-js { display: none; }
 .reader-section.historical > .provisions,

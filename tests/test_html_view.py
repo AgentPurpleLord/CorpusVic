@@ -1520,9 +1520,12 @@ def test_a_piece_has_a_history_of_its_own():
     assert piece_history(_s3_history(), "1/accused") is None, "it never changed"
 
 
-def test_a_margin_note_opens_its_pieces_history():
+def test_a_margin_note_opens_its_pieces_history_in_its_place():
     """A long section is hard to compare whole; the note the Act prints
-    beside the piece that changed is the way into that piece's history."""
+    beside the piece that changed opens that piece's history, set where
+    the piece is -- the rest of the section left as it reads -- with each
+    step between neighbouring wordings side by side, what went struck
+    through on the left and what arrived marked on the right."""
     history = _s3_history()
     nodes = [make_node("part", "1", "Preliminary"), *[dict(n) for n in history["wordings"][-1]["provision"]["nodes"]]]
     nodes[0]["id"] = "pt1"
@@ -1532,6 +1535,30 @@ def test_a_margin_note_opens_its_pieces_history():
 
     notes = re.search(r'<div class="prov-notes" data-hist="(piece-[^"]+)"[^>]*>.*?amended', html, re.S)
     assert notes, "the note is the button"
-    piece = re.search(rf'<div class="prov-history" id="{notes.group(1)}" hidden>(.*?)</div>\s*<div class="prov', html, re.S)
-    assert piece and "The definition of \u201cappeal\u201d" in piece.group(1)
+    anchor = notes.group(1)[len("piece-"):]
+    start = html.find(f'<div class="piece-hist" id="piece-{anchor}"')
+    row = html.find(f'<div class="prov prov-definition" id="appeal" data-in="{anchor}"')
+    assert 0 <= start < row, "set just before the piece's own row, in its place; its rows are what opening it hides"
+    body = html[start:row]
+    assert "The definition of \u201cappeal\u201d" in body
+    assert re.findall(r'class="ph-point[^"]*"[^>]*>([^<]+)<', body) == ["Version 110", "Current"]
+    assert body.count('class="ph-step"') == 1, "one step for two wordings"
+    old_side, new_side = re.search(r'class="ph-side ph-old">(.*?)class="ph-side ph-new">(.*)', body, re.S).groups()
+    assert '<del class="d-del">means a hearing</del>' in old_side and "d-ins" not in old_side
+    assert '<ins class="d-ins">includes' in new_side and "d-del" not in new_side
     assert "history-chip" in html, "and the whole section's history is still there"
+
+
+def test_a_piece_inserted_later_reads_not_in_the_act_before_it():
+    from corpus.publishing.html_view import render_piece_history
+
+    absent = {"absent": True, "from": {"version": 1}, "to": {"version": 1}, "versions": [1]}
+    present = {"absent": False, "from": {"version": 2}, "to": {"version": 2}, "versions": [2], "version": 2,
+               "checked": True, "provision": {"heading": None, "nodes": [
+                   {"type": "section", "number": "3", "_node_id": "s3", "text": ""},
+                   {"type": "subsection", "number": "2", "_node_id": "s3/2", "text": "new words"}]}}
+    html = render_piece_history({"wordings": [absent, present], "at": 1}, "(2)", "s3-2", "/browse/t")
+
+    assert "Not in the Act at Version 1." in html
+    assert '<ins class="d-ins">new words</ins>' in html, "arrived whole: all of it marked"
+    assert '<div class="prov prov-section"' not in html, "the provision's own number is not the piece's"

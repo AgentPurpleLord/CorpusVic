@@ -170,7 +170,41 @@
       : "Show how each provision has read across the versions held here";
   }
 
-  // A piece's margin notes open its own history beneath it; the notes
+  // A piece's history takes the piece's own place: its rows, and those of
+  // everything under it, give way to the block, and the rest of the
+  // provision reads on as it was (html_view.render_piece_history).
+  function pieceRows(box) {
+    var anchor = box.id.replace(/^piece-/, "");
+    var article = box.closest(".reader-section") || document;
+    return article.querySelectorAll('[data-in~="' + anchor + '"]');
+  }
+  function setPiece(box, on) {
+    box.hidden = !on;
+    pieceRows(box).forEach(function (row) { row.classList.toggle("ph-hidden", on); });
+    var trigger = document.querySelector('[data-hist="' + box.id + '"]');
+    if (trigger) trigger.setAttribute("aria-expanded", on ? "true" : "false");
+    if (on) {
+      if (box.dataset.step === undefined) showStep(box, parseInt(box.dataset.opening, 10) || 0);
+      box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else if (trigger) {
+      trigger.focus({ preventScroll: true });
+    }
+  }
+  // One step between neighbouring wordings on screen, its two points lit.
+  function showStep(box, k) {
+    var steps = box.querySelectorAll(".ph-step");
+    k = Math.max(0, Math.min(k, steps.length - 1));
+    box.dataset.step = String(k);
+    steps.forEach(function (step, n) { step.hidden = n !== k; });
+    box.querySelectorAll(".ph-point").forEach(function (point, n) {
+      point.classList.toggle("ph-on", n === k || n === k + 1);
+    });
+    var moves = box.querySelectorAll(".ph-move");
+    moves[0].disabled = k <= 0;
+    moves[1].disabled = k >= steps.length - 1;
+  }
+
+  // A piece's margin notes open its own history in its place; the notes
   // printed against the provision itself open the whole provision's.
   function openFromNotes(notes) {
     var article = notes.closest(".reader-section");
@@ -182,14 +216,7 @@
       return;
     }
     var box = document.getElementById(notes.dataset.hist);
-    if (!box) return;
-    var opening = box.hidden;
-    box.hidden = !opening;
-    notes.setAttribute("aria-expanded", opening ? "true" : "false");
-    if (!opening) return;
-    var history = box.querySelector(".history");
-    setup(history);
-    show(history, parseInt(history.dataset.focus, 10), false);
+    if (box) setPiece(box, box.hidden);
   }
 
   function notesTarget(event) {
@@ -201,6 +228,16 @@
   document.addEventListener("click", function (event) {
     var notes = notesTarget(event);
     if (notes) { openFromNotes(notes); return; }
+    var piece = event.target.closest(".ph-point, .ph-move, .ph-close");
+    if (piece) {
+      var box = piece.closest(".piece-hist");
+      if (piece.classList.contains("ph-close")) setPiece(box, false);
+      // A point puts its wording on the left and the next on the right;
+      // the last, the step that arrived at it.
+      else if (piece.classList.contains("ph-point")) showStep(box, parseInt(piece.dataset.point, 10));
+      else showStep(box, parseInt(box.dataset.step, 10) + parseInt(piece.dataset.by, 10));
+      return;
+    }
     var target = event.target.closest(".history-chip, .hist-step, .hist-dot, .hist-cmp");
     if (!target) return;
     var history = target.closest(".history");
@@ -218,7 +255,18 @@
       if (notes) { event.preventDefault(); openFromNotes(notes); }
       return;
     }
+    if (event.key === "Escape") {
+      var open = event.target.closest && event.target.closest(".piece-hist");
+      if (open) setPiece(open, false);
+      return;
+    }
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    var box = event.target.closest && event.target.closest(".piece-hist");
+    if (box) {
+      event.preventDefault();
+      showStep(box, parseInt(box.dataset.step, 10) + (event.key === "ArrowLeft" ? -1 : 1));
+      return;
+    }
     var history = event.target.closest && event.target.closest(".history.hist-js");
     if (!history) return;
     event.preventDefault();

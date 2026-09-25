@@ -1211,6 +1211,111 @@ def piece_history(history: "dict | None", rel: str) -> "dict | None":
             "at": None if at is None else next(r for r, run in enumerate(runs) if at in run)}
 
 
+def _side_units(units: list[dict], texts: list, classes: list) -> str:
+    return _units_html(units, texts, classes) if units else ""
+
+
+def _piece_sides(older: "list[dict] | None", newer: "list[dict] | None") -> tuple[str, str]:
+    """A piece's two wordings, each as its version printed it: the earlier
+    with what went struck through, the later with what arrived marked."""
+    if older is None or newer is None:
+        # Arrived or went whole: all of it marked so.
+        present, tag, cls = (newer, "ins", "prov-new") if older is None else (older, "del", "prov-gone")
+        side = _units_html(present, [None if u["text"] is None else f'<{tag} class="d-{tag}">{_esc(u["text"])}</{tag}>'
+                                     for u in present], [cls] * len(present))
+        return ("", side) if older is None else (side, "")
+    ops = node_diff([(u["align"], u["text"] or "") for u in older], [(u["align"], u["text"] or "") for u in newer])
+    sides = {"old": ([], [], []), "new": ([], [], [])}
+    for op in ops:
+        for side, index, alone in (("old", op["old"], "delete"), ("new", op["new"], "insert")):
+            if index is None:
+                continue
+            unit = (older if side == "old" else newer)[index]
+            units, texts, classes = sides[side]
+            units.append(unit)
+            texts.append(None if unit["text"] is None and not op["diff"] else _side_html(op["diff"], side))
+            classes.append({"delete": "prov-gone", "insert": "prov-new"}.get(op["op"], "") if op["op"] == alone else "")
+    return tuple(_side_units(*sides[side]) for side in ("old", "new"))
+
+
+def render_piece_history(history: "dict | None", subject: str, anchor: str, base_url: str,
+                         amendment_index: "dict | None" = None, version_urls: "dict | None" = None,
+                         hierarchy_order: "list[str] | None" = None, within: str = "") -> str:
+    """One piece's history, set in place of the piece: a timeline of the
+    wordings it has read in, and each step between neighbouring ones side
+    by side -- the earlier on the left with what went struck through, the
+    later on the right with what arrived marked -- and what the Act says
+    made it. `history` is piece_history's.
+
+    Only the piece changes on the page. Opened beneath it as the whole
+    section's timeline, a subsection's history read as the section's, set
+    under the section's own number, with the piece itself unchanged above
+    it. static/site/history.js does the swapping; every step is here
+    already, so the page needs no server to ask."""
+    wordings = (history or {}).get("wordings") or []
+    if len(wordings) < 2:
+        return ""
+    order = hierarchy_order or HIERARCHY_ORDER
+
+    def units_of(wording):
+        if wording["absent"]:
+            return None
+        nodes = wording["provision"].get("nodes") or []
+        root = (nodes[0].get("_node_id") or nodes[0].get("id")) if nodes else None
+        # The provision's own emptied node only holds the piece in place.
+        units = [u for u in _wording_units(nodes, order) if u.get("name") != root]
+        low = min((u["depth"] for u in units), default=0)
+        return [{**u, "depth": u["depth"] - low} for u in units]
+
+    units = [units_of(w) for w in wordings]
+    last = len(wordings) - 1
+    at = history.get("at")
+    at = last if at is None else at
+    opening = max(at - 1, 0)   # the step into the wording this page carries
+
+    def version_of(wording):
+        return wording["from"]["version"]
+
+    points = []
+    for n, wording in enumerate(wordings):
+        label = "Current" if n == last and not wording["absent"] else f"Version {version_of(wording)}"
+        title = _span_label(wording) + (": not in the Act" if wording["absent"] else "")
+        on = " ph-on" if n in (opening, opening + 1) else ""
+        points.append(f'<li><button type="button" class="ph-point{on}" data-point="{n}" title="{title}">'
+                      f'{_esc(label)}</button></li>')
+
+    def when(n):
+        wording = wordings[n]
+        first, final = wording["from"]["version"], wording["to"]["version"]
+        label = (f"Version {first}" if first == final else f"Versions {first}\u2013{final}") + \
+            (" (current)" if n == last else "")
+        href = None if wording["absent"] else (version_urls or {}).get(wording.get("version"))
+        return f'<a class="tl-version" href="{_esc(href)}">{label}</a>' if href else f'<span class="tl-version">{label}</span>'
+
+    steps = []
+    for k in range(last):
+        old_html, new_html = _piece_sides(units[k], units[k + 1])
+        gone = f'<p class="hist-gone">Not in the Act at Version {version_of(wordings[k])}.</p>'
+        gone_after = f'<p class="hist-gone">Not in the Act at Version {version_of(wordings[k + 1])}: repealed.</p>'
+        steps.append(
+            f'<section class="ph-step" data-step="{k}"{"" if k == opening else " hidden"}>'
+            f'<div class="ph-pair">'
+            f'<div class="ph-side ph-old"><div class="ph-when">{when(k)}</div>'
+            f'<div class="ph-text hist-provisions">{old_html or gone}</div></div>'
+            f'<div class="ph-side ph-new"><div class="ph-when">{when(k + 1)}</div>'
+            f'<div class="ph-text hist-provisions">{new_html or gone_after}</div></div>'
+            f'</div>{_ended_html(wordings[k], base_url, amendment_index)}</section>')
+
+    in_attr = f' data-in="{_esc(within)}"' if within else ""
+    return (f'<div class="piece-hist" id="piece-{_esc(anchor)}" data-opening="{opening}"{in_attr} hidden>'
+            f'<div class="ph-head"><span class="ph-subject">{_esc(subject)}</span>'
+            '<span class="ph-nav"><button type="button" class="ph-move" data-by="-1">&#9664; Earlier</button>'
+            '<button type="button" class="ph-move" data-by="1">Later &#9654;</button>'
+            f'<button type="button" class="ph-close" data-close="piece-{_esc(anchor)}">Close</button></span></div>'
+            f'<ol class="ph-timeline">{"".join(points)}</ol>'
+            f'{"".join(steps)}</div>')
+
+
 def _piece_subject(node: dict) -> str:
     """How a piece's own history is headed: "(2)(b)", or a definition by
     its term."""
@@ -1633,12 +1738,41 @@ def render_section(
     # before any one line is linked: a lead-in hands every provision
     # nested under it to the Act it names (issue #57).
     scopes = scope_by_unit(units)
+    name = lambda n: n.get("_node_id") or n.get("id") or ""
+    # The pieces with a history of their own that the current unit sits
+    # in, as (name, anchor): opening one's history hides its rows, and all
+    # of theirs under it (static/site/history.js).
+    open_pieces: list = []
     for i, unit in enumerate(units):
         unit_tree_node = unit["tree_node"]
         unit_node = unit_tree_node["node"]
         key = (unit_tree_node["eid"], unit["clause_index"])
         slug = slugs.get(key)
-        id_attr = f' id="{_esc(slug)}"' if slug else ""
+        here = name(unit_node)
+        while open_pieces and not (here == open_pieces[-1][0] or here.startswith(open_pieces[-1][0] + "/")):
+            open_pieces.pop()
+        # A margin note is the Act's own record that this piece was
+        # changed, so it is what opens the piece's history: the piece
+        # alone, in its place, rather than the whole section.
+        notes = _margin_notes_html(unit_node, base_url, amendment_index) if unit["clause_index"] == 0 else ""
+        piece_html, trigger = "", ""
+        if notes and history_chip:
+            if unit_node is tree_node["node"]:
+                trigger = ' data-hist-section="1" role="button" tabindex="0" title="How this provision has read over time"'
+            else:
+                rel = relative_id(here, name(tree_node["node"])) if here else ""
+                chain = piece_history(timeline, rel) if rel else None
+                if chain:
+                    anchor = f"{section_slug}-{re.sub(r'[^a-z0-9]+', '-', rel.lower()).strip('-')}"
+                    piece_html = render_piece_history(
+                        chain, _piece_subject(unit_node), anchor, base_url, amendment_index, version_urls,
+                        parsed.get("hierarchy") or None, within=" ".join(a for _n, a in open_pieces))
+                    trigger = (f' data-hist="piece-{_esc(anchor)}" role="button" tabindex="0" aria-expanded="false"'
+                               ' title="How this has read over time"')
+                    open_pieces.append((here, anchor))
+        within = " ".join(a for _n, a in open_pieces)
+        in_attr = f' data-in="{_esc(within)}"' if within else ""
+        id_attr = (f' id="{_esc(slug)}"' if slug else "") + in_attr
 
         caption = _caption_html(units, i)
         if caption:
@@ -1647,6 +1781,7 @@ def render_section(
             # one grid.
             out.append(caption)
             out.append('<div class="prov-notes"></div>')
+        out.append(piece_html)
 
         if unit_node["type"] == "table":
             out.append(_table_html(
@@ -1663,27 +1798,7 @@ def render_section(
         # are auto-placed rows of the same grid, so a note only stays
         # level with the provision it belongs to if every provision
         # contributes a cell.
-        notes = _margin_notes_html(unit_node, base_url, amendment_index) if unit["clause_index"] == 0 else ""
-        # A margin note is the Act's own record that this piece was
-        # changed, so it is what opens the piece's history: the piece
-        # alone, across the versions held, rather than the whole section.
-        piece_html, trigger = "", ""
-        if notes and history_chip:
-            if unit_node is tree_node["node"]:
-                trigger = ' data-hist-section="1" role="button" tabindex="0" title="How this provision has read over time"'
-            else:
-                name = lambda n: n.get("_node_id") or n.get("id") or ""
-                rel = relative_id(name(unit_node), name(tree_node["node"])) if name(unit_node) else ""
-                chain = piece_history(timeline, rel) if rel else None
-                if chain:
-                    anchor = f"{section_slug}-{re.sub(r'[^a-z0-9]+', '-', rel.lower()).strip('-')}"
-                    _chip, body = render_history(chain, base_url, amendment_index, version_urls,
-                                                 parsed.get("hierarchy") or None, anchor=anchor,
-                                                 subject=_piece_subject(unit_node))
-                    piece_html = f'<div class="prov-history" id="piece-{_esc(anchor)}" hidden>{body}</div>'
-                    trigger = (f' data-hist="piece-{_esc(anchor)}" role="button" tabindex="0" aria-expanded="false"'
-                               ' title="How this has read over time"')
-        out.append(f'<div class="prov-notes"{trigger}>{notes}</div>{piece_html}')
+        out.append(f'<div class="prov-notes"{trigger}{in_attr}>{notes}</div>')
     out.append("</div>")   # .provisions
     out.append("</article>")
 
