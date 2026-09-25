@@ -218,6 +218,14 @@ def _pdf_version(pdf: Path) -> "int | None":
     if not entry or entry["stamp"] != stamp:
         entry = cache[str(pdf)] = {"stamp": stamp, "version": read_front_matter(pdf).get("version")}
         _cache()["dirty"] = True
+    if entry["version"] is None:
+        # A fetched version is filed as <work>-v<N>.pdf. Its front matter
+        # was blanked by keeping it slim before that was kept back, and
+        # read by its filename it was a second, unparsed document of the
+        # same version -- which took History review down.
+        work, version = split_document_slug(slugify(pdf.stem))
+        if work == pdf.parent.name:
+            return version
     return entry["version"]
 
 
@@ -1873,7 +1881,9 @@ def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
     A step that fails is left out and put in `errors`, the rest still
     shown: one unreadable version must not take the whole work's review
     down with it."""
-    held = [s for s in _held(work) if split_document_slug(s)[1] is not None]
+    # Parsed ones only: a version whose parse failed has nothing to compare.
+    held = [s for s in _held(work) if split_document_slug(s)[1] is not None
+            and (BASE_DIR / "data" / "parsed" / f"{s}.json").exists()]
     if len(held) < 2:
         return []   # held under its plain name, or in one version: nothing to compare
     cache = _history_steps_for(work)

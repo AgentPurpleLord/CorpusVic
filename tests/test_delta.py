@@ -68,14 +68,15 @@ def test_discarded_pages_are_blank_and_keep_their_numbers(tmp_path):
     import pymupdf
 
     doc = pymupdf.open()
-    for n in range(3):
+    for n in range(5):
         doc.new_page().insert_text((72, 72), f"page {n + 1}")
     doc.save(tmp_path / "act.pdf")
 
-    delta.blank_pages(tmp_path / "act.pdf", [2], tmp_path / "slim.pdf")
+    delta.blank_pages(tmp_path / "act.pdf", [4], tmp_path / "slim.pdf")
 
+    # The front matter stays: it is where the PDF says which version it is.
     slim = pymupdf.open(tmp_path / "slim.pdf")
-    assert [p.get_text().strip() for p in slim] == ["", "page 2", ""]
+    assert [p.get_text().strip() for p in slim] == ["page 1", "page 2", "", "page 4", ""]
 
 
 def _write(tmp_path, slug, parse):

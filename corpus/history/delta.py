@@ -227,10 +227,13 @@ def blank_pages(pdf_path: Path, keep_pages: "list[int]", out_path: Path) -> None
     own size: the page numbers everything was recorded against stay true,
     and a discarded page costs a few bytes."""
     import pymupdf
+    from corpus.parsing.versions import _FRONT_MATTER_PAGES
 
     src = pymupdf.open(str(pdf_path))
     out = pymupdf.open()
-    keep = set(keep_pages)
+    # The front matter too: it is where the PDF says which version it is,
+    # which is how the dashboard knows it.
+    keep = set(keep_pages) | set(range(1, _FRONT_MATTER_PAGES + 1))
     for i, page in enumerate(src):
         if i + 1 in keep:
             out.insert_pdf(src, from_page=i, to_page=i)

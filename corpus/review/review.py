@@ -187,7 +187,9 @@ def load_parsed(act: str):
     for output written before run_pipeline.py recorded one."""
     path = Path("data/parsed") / f"{act}.json"
     if not path.exists():
-        raise SystemExit(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
+        # Not SystemExit: the dashboard calls this in-process, and there it
+        # stopped the whole server.
+        raise FileNotFoundError(f"No AI-parsed output found at {path} -- run run_pipeline.py first.")
     from corpus.storage import parsed
     data = parsed.load(path)   # a slim version, put back together
     # Named here as well as in run_pipeline, so a parse written before
