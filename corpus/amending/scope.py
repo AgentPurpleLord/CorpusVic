@@ -33,23 +33,28 @@ def acts_between(work_slug: str, base_dir=None) -> list[dict]:
     "record": its Table of Amendments entry}], oldest Act first."""
     base = base_dir or PROJECT_ROOT
     slugs = sibling_slugs(work_slug, base)
-    parsed = {v: parsed_files.load(base / "data" / "parsed" / f"{slugs[v]}.json") for v in sorted(slugs)}
-    versions = sorted(parsed)
+    # Only each version's notes and table are kept, read in build order
+    # (corpus/storage/parsed.py): a hundred whole Acts at once is too many.
+    notes_of, tables = {}, {}
+    for path in parsed_files.build_order(base / "data" / "parsed" / f"{slug}.json" for slug in slugs.values()):
+        data = parsed_files.load(path)
+        v = next(v for v, slug in slugs.items() if slug == path.stem)
+        notes_of[v], tables[v] = _notes(data), _table(data)
+    versions = sorted(notes_of)
     if len(versions) < 2:
         return []
-    tables = {v: _table(parsed[v]) for v in versions}
     listed: dict = {}
     for v in reversed(versions):          # the newest reprint's entry wins
         for citation, record in tables[v].items():
             listed.setdefault(citation, record)
     noted: dict = {}
     for older, newer in zip(versions, versions[1:]):
-        was, now = _notes(parsed[older]), _notes(parsed[newer])
+        was, now = notes_of[older], notes_of[newer]
         for key, notes in now.items():
             for citation in lineage._cited(notes) - lineage._cited(was.get(key, [])):
                 noted.setdefault(citation, set()).add(newer)
     oldest = versions[0]
-    in_force = set(tables[oldest]) | lineage._cited([n for notes in _notes(parsed[oldest]).values() for n in notes])
+    in_force = set(tables[oldest]) | lineage._cited([n for notes in notes_of[oldest].values() for n in notes])
     out = []
     for citation, record in listed.items():
         if citation in in_force and citation not in noted:

@@ -170,54 +170,81 @@ def slim(parse: dict, toward: str, text: "list[str]", pages_only: "list[str]" = 
             "fingerprint": parse.get("fingerprint")}
 
 
+def _within(name: str, names) -> bool:
+    """Whether `name` is one of `names` or inside one."""
+    parts = name.split("/")
+    return any("/".join(parts[:k]) in names for k in range(1, len(parts) + 1))
+
+
 def assemble(neighbour: list[dict], slim_part: dict) -> list[dict]:
     """A slim version's whole text: its neighbour's, with each of its own
     pieces put in by name. What comes from the neighbour loses its boxes
-    and pages -- they are where another reprint printed it."""
+    and pages -- they are where another reprint printed it.
+
+    One walk over the neighbour, not a search of it per piece: a version
+    is put back together each time any of the hundred-odd after it is."""
     # Its own margin notes, not the neighbour's: an older reprint must not
     # show the notes of amendments made after it, and which notes are new
     # in a version is how every change is found.
     notes = (slim_part.get("notes") or {}).get("by_name") or {}
-    nodes = [{**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
-              "history": [{"raw": r, "kind": "amendment"} for r in notes.get(_name(n), [])]} for n in neighbour]
-    for name in slim_part.get("removed") or []:
-        span = set(_subtree(nodes, name))
-        nodes = [n for i, n in enumerate(nodes) if i not in span]
+    removed = set(slim_part.get("removed") or [])
+    words = {p["name"]: p for p in slim_part["pieces"] if p["words"]}
+    # Kept for where it prints: the neighbour's words, this version's boxes.
+    printed = {_name(n): n for p in slim_part["pieces"] if not p["words"] for n in p["nodes"] if _name(n)}
+    nodes, present, skip = [], set(), None
+    for n in neighbour:
+        name = _name(n)
+        if skip is not None and (name == skip or name.startswith(skip + "/")):
+            continue
+        skip = None
+        if removed and _within(name, removed):
+            skip = name
+            continue
+        if name in words:
+            nodes.extend(dict(m) for m in words[name]["nodes"])
+            present.add(name)
+            skip = name
+            continue
+        mine = printed.get(name)
+        if mine is not None:
+            patched = {**n, "rects": mine.get("rects") or [], "page_start": mine.get("page_start"),
+                       "page_end": mine.get("page_end"), "history": mine.get("history") or []}
+            patched.pop("_borrowed", None)   # the neighbour may have borrowed it in turn
+            nodes.append(patched)
+            continue
+        nodes.append({**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
+                      "history": [{"raw": r, "kind": "amendment"} for r in notes.get(name, [])]})
     for piece in slim_part["pieces"]:
-        span = _subtree(nodes, piece["name"])
-        if not piece["words"]:
-            # Kept for where it prints: the neighbour's words, this
-            # version's boxes.
-            own = {_name(n): n for n in piece["nodes"]}
-            for i in span:
-                mine = own.get(_name(nodes[i]))
-                if mine is not None:
-                    nodes[i] = {**nodes[i], "rects": mine.get("rects") or [], "page_start": mine.get("page_start"),
-                                "page_end": mine.get("page_end"), "history": mine.get("history") or []}
-                    nodes[i].pop("_borrowed", None)
-            continue
-        if span:
-            nodes[span[0]:span[-1] + 1] = [dict(n) for n in piece["nodes"]]
-            continue
-        at = _place(nodes, piece)
-        nodes[at:at] = [dict(n) for n in piece["nodes"]]
+        if piece["words"] and piece["name"] not in present:
+            at = _place(nodes, piece)
+            nodes[at:at] = [dict(n) for n in piece["nodes"]]
     return nodes
+
+
+def _ends(nodes: list[dict]) -> dict:
+    """{name: the index its subtree ends at}, for every name and every
+    name above one."""
+    out = {}
+    for i, n in enumerate(nodes):
+        parts = _name(n).split("/")
+        for k in range(1, len(parts) + 1):
+            out["/".join(parts[:k])] = i
+    return out
 
 
 def _place(nodes: list[dict], piece: dict) -> int:
     """Where a piece the neighbour hasn't got goes: after the nearest thing
     before it that the neighbour has, else at the end of its parent, else
     at the end."""
+    ends = _ends(nodes)
     after = piece.get("after") or []
     for name in [after] if isinstance(after, str) else after:
-        span = _subtree(nodes, name)
-        if span:
-            return span[-1] + 1
+        if name in ends:
+            return ends[name] + 1
     parent = piece["name"].rsplit("/", 1)[0] if "/" in piece["name"] else None
     while parent:
-        span = _subtree(nodes, parent)
-        if span:
-            return span[-1] + 1
+        if parent in ends:
+            return ends[parent] + 1
         parent = parent.rsplit("/", 1)[0] if "/" in parent else None
     return len(nodes)
 

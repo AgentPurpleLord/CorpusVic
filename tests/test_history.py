@@ -432,3 +432,61 @@ def test_an_unexpected_error_says_what_it_was(tmp_path, monkeypatch):
     res = TestClient(dashboard.app, raise_server_exceptions=False).get("/api/works/act/history")
     assert res.status_code == 500
     assert res.json() == {"detail": "ZeroDivisionError: division by zero"}
+
+
+def _six_versions(tmp_path, monkeypatch):
+    """v6 held whole, v1-v5 slim: each amends s 1(2) again."""
+    import corpus.web.dashboard as dashboard
+    from corpus.history import slim
+    from corpus.storage import db, parsed
+    from test_delta import HIERARCHY as H, _act
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Appeals Act 2020")
+    for cache in ("_current_nodes_cache", "_lineage_cache", "_instructions_cache", "_history_steps"):
+        monkeypatch.setattr(dashboard, cache, {})
+    monkeypatch.setattr(parsed, "_loaded", {})
+    for v in range(1, 7):
+        acts = ", ".join(f"{k}/2020 s. 1" for k in range(1, v + 1))
+        parse = _act({"1": [("1", "a"), ("2", f"b as amended {v} times")], "2": [("1", "c")]},
+                     {("1", "2"): [f"S. 1(2) amended by Nos {acts}."]})
+        parse["version"] = {"version": v}
+        (tmp_path / "data" / "parsed").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "data" / "parsed" / f"act-v{v}.json").write_text(json.dumps({**parse, "hierarchy": H}))
+    db.save_verified("act-v6", [{**n, "_node_id": n["id"], "verified_at": "2026-01-01"}
+                                for n in json.loads((tmp_path / "data" / "parsed" / "act-v6.json").read_text())["nodes"]],
+                     tmp_path)
+    slim.apply("act", tmp_path, base=6)
+    return dashboard
+
+
+def test_every_version_is_put_back_together_about_once(tmp_path, monkeypatch):
+    """A slim version is built from its neighbour toward the base. Loaded
+    without keeping any, a work of a hundred versions rebuilt each whole
+    chain again for every version, and History review took minutes."""
+    from corpus.amending import load as amending_load
+    from corpus.history import delta
+
+    dashboard = _six_versions(tmp_path, monkeypatch)
+    built = []
+    real = delta.assemble
+    monkeypatch.setattr(delta, "assemble", lambda *a: built.append(1) or real(*a))
+
+    items = dashboard.history_items("act")["items"]
+    assert {(i["from"], i["to"]) for i in items} == {(v, v + 1) for v in range(1, 6)}
+    assert len(built) <= 10, f"{len(built)} rebuilds of 5 slim versions"
+
+    # A review edit in the base: only the step touching it again, and not
+    # every version read again for the amending Acts.
+    scoped = []
+    monkeypatch.setattr(amending_load, "acts_between", lambda *a: scoped.append(1) or [])
+    from corpus.storage import db
+    rows = db.load_verified("act-v6", tmp_path)
+    db.save_verified("act-v6", [{**rows[0], "text": "edited"}, *rows[1:]], tmp_path)
+    built.clear()
+    steps = []
+    real_step = dashboard._history_step
+    monkeypatch.setattr(dashboard, "_history_step", lambda o, n, a: steps.append((o[0], n[0])) or real_step(o, n, a))
+    dashboard.history_items("act")
+    assert steps == [(5, 6)] and not scoped
