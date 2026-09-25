@@ -410,3 +410,21 @@ def test_the_fetched_amending_acts_are_not_documents_on_the_dashboard(tmp_path, 
     (tmp_path / "acts" / "amending" / "2026-1.pdf").write_bytes(b"%PDF-1.4")
 
     assert dashboard.discover_slugs() == []
+
+
+def test_every_act_in_the_newest_table_of_amendments_is_needed(tmp_path):
+    """The table is the Act's own record: an Act whose margin notes the
+    parser missed is still fetched, placed at the first reprint listing
+    it. One already listed by the oldest reprint, with no note new since,
+    has nothing to be checked against."""
+    from corpus.amending.scope import acts_between
+
+    _two_subsections(tmp_path, "act-v1", 1, "a person may appeal")
+    _two_subsections(tmp_path, "act-v2", 2, "a person may appeal within 28 days")
+    path = tmp_path / "data" / "parsed" / "act-v2.json"
+    parse = json.loads(path.read_text())
+    parse["endnotes"]["amending_acts"].append({"title": "Appeals (Fees) Act 2027", "citation": "3/2027",
+                                               "act_no": "3", "year": "2027", "fields": {}})
+    path.write_text(json.dumps(parse))
+
+    assert [(a["citation"], a["versions"]) for a in acts_between("act-v2", tmp_path)] == [("3/2027", [2])]

@@ -188,7 +188,8 @@ offers to put the piece where the Act says.
 
 History review's **Fetch versions** lists every version
 legislation.vic.gov.au holds and fetches and parses the ones ticked;
-**Fetch amending Acts** gets the Acts that made the changes
+**Fetch amending Acts** gets every Act the newest reprint's Table of
+Amendments lists, bar those already in force by the oldest reprint held
 (`corpus/amending/`).
 
 Or add one from the dashboard's **Versions** on an Act's card: the
