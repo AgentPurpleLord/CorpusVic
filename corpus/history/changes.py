@@ -152,7 +152,10 @@ def _provision_would_follow(key: tuple, nodes: list[dict], order, prov: dict, ot
     this version has too, else the start of the one after it."""
     keys = list(other)
     at = keys.index(key)
-    for near, last in ([(k, True) for k in reversed(keys[:at])] + [(k, False) for k in keys[at + 1:]]):
+    around = [(k, True) for k in reversed(keys[:at])] + [(k, False) for k in keys[at + 1:]]
+    # A provision before a Schedule or Part: that is what a slim version
+    # keeps the pages of (corpus/history/slim.py).
+    for near, last in sorted(around, key=lambda pair: pair[0][0] != "provision"):
         if near in prov:
             units = _units(nodes, prov[near], order)
             if units:

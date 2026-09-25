@@ -89,16 +89,30 @@ def _around(names, here: dict, other: dict) -> set:
     have = set(mine)
     theirs = list(other["sections"].values())
     out = set()
+
+    def either_side(first: int, last: int):
+        out.update(t for t in (next((t for t in reversed(theirs[:first]) if t in have), None),
+                               next((t for t in theirs[last + 1:] if t in have), None)) if t)
+
     for name in names:
-        for section in {*mine, *theirs}:
-            if not (name == section or name.startswith(section + "/")):
-                continue
+        enclosing = [s for s in {*mine, *theirs} if name == s or name.startswith(s + "/")]
+        for section in enclosing:
             if section in have:
                 out.add(section)
             elif section in theirs:
-                k = theirs.index(section)
-                out.update(t for t in (next((t for t in reversed(theirs[:k]) if t in have), None),
-                                       next((t for t in theirs[k + 1:] if t in have), None)) if t)
+                either_side(theirs.index(section), theirs.index(section))
+        if enclosing:
+            continue
+        # A Schedule, Part or Division itself ("Sch. 2 inserted"): where it
+        # starts here, or -- one this version hasn't got -- either side of
+        # where it would be.
+        inside = [s for s in mine if s.startswith(name + "/")]
+        if inside:
+            out.add(inside[0])
+            continue
+        span = [k for k, s in enumerate(theirs) if s.startswith(name + "/")]
+        if span:
+            either_side(span[0], span[-1])
     return out
 
 

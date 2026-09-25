@@ -25,10 +25,11 @@ _KIND = {"inserted": "inserted", "repealed": "repealed", "expired": "repealed"}
 
 
 # A Schedule's entries were sections to the parser once ("sch2/s26") and
-# are clauses now ("sch2/cl26"). The base is often the older parse and a
-# version fetched since the newer, and matched by name as they were, a
-# Schedule's changes were kept, borrowed and located nowhere.
-_SCHEDULE_ENTRY = re.compile(r"^(sch[^/]*/)(?:s|cl)(?=\d)")
+# are clauses or items now ("sch2/cl26", "sch2/item26"). The base is often
+# the older parse and a version fetched since the newer, and matched by
+# name as they were, a Schedule's changes were kept, borrowed and located
+# nowhere.
+_SCHEDULE_ENTRY = re.compile(r"^(sch[^/]*/(?:(?:ch|pt|div|subdiv)[^/]*/)*)(?:s|cl|item)(?=\d)")
 
 
 def canonical(name: str) -> str:
