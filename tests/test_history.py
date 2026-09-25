@@ -376,3 +376,25 @@ def test_every_version_not_held_is_fetched_in_one_job(tmp_path, monkeypatch):
     assert fetched == [109, 111, 113], "oldest first, skipping the held one and the one with no single PDF"
     assert job["state"] == "done" and [d["version"] for d in job["done"]] == [109, 111]
     assert [f["version"] for f in job["failed"]] == [113]
+
+
+def test_keep_versions_slim_is_in_the_header_not_the_fetch_panel():
+    """It was drawn inside the Fetch versions panel, which is only built
+    once legislation.vic.gov.au answers -- so it read as missing."""
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+    header = page[page.index("<header"):page.index("</header>")]
+    assert 'id="slim-all"' in header
+    assert page.count('id="slim-all"') == 1, "and only there"
+    assert "#slim" in (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+
+
+def test_history_says_which_version_is_the_base_and_which_are_slim(tmp_path, monkeypatch):
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    import json
+    path = tmp_path / "data" / "parsed" / "act-v1.json"
+    path.write_text(json.dumps({**json.loads(path.read_text()), "slim": {"toward": "act-v2", "pieces": [], "notes": {}}}))
+
+    body = dashboard.history_items("act")
+    assert body["slim"] == [1] and body["base"] in (1, 2)

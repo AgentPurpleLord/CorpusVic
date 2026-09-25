@@ -1989,10 +1989,15 @@ def history_items(work: str):
     decisions = db.load_history_decisions(work, BASE_DIR)
     for item in items:
         item["decision"] = decisions.get((item["provision"], item["from"], item["to"], item["piece"]))
+    from corpus.history import slim
     return {"work": work, "title": _act_title(held[-1]),
             "versions": [{"version": split_document_slug(s)[1], "slug": s} for s in held
                          if split_document_slug(s)[1] is not None],
-            "items": items}
+            "items": items,
+            # Which version is held whole, and which are kept as only their
+            # changes -- what "Keep versions slim" would act on.
+            "base": slim.base_version(work, BASE_DIR),
+            "slim": [split_document_slug(s)[1] for s in held if split_document_slug(s)[1] is not None and _is_slim(s)]}
 
 
 @app.post("/api/works/{work}/history/decide")
