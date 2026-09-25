@@ -2532,7 +2532,7 @@ def _not_writable(folder: Path) -> HTTPException:
                               f"sudo chown -R {user}:{user} {BASE_DIR / 'acts'}")
 
 
-def _replace_version(work: str, version: int, content: bytes) -> dict:
+def _replace_version(work: str, version: int, content: bytes, then_slim: bool = True) -> dict:
     """A held version fetched again -- its PDF missing, or a bad copy.
     Re-parsed keeping what is approved (the Parse Menu's "keep"): a fresh
     copy of the same reprint is no reason to withdraw anyone's work."""
@@ -2566,7 +2566,7 @@ def _replace_version(work: str, version: int, content: bytes) -> dict:
     profile = _parse_field(slug, "profile") or ""
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", "", keep_accepted=True))
     return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "replaced": True,
-            "slimmed": _slim_work(work) if ok else None}
+            "slimmed": _slim_work(work) if ok and then_slim else None}
 
 
 _slim_jobs: dict[str, dict] = {}
@@ -2608,8 +2608,7 @@ def _slim_job(work: str, job: dict) -> None:
             _kill_work_review_processes(work)
             profile = _parse_field(slug, "profile") or ""
             _run_parse_subprocess(_build_parse_command(pdf, "act", profile, "", "", keep_accepted=True))
-        job["at"] = "cutting down"
-        job["report"] = _slim_work(work)
+        job["report"] = _slim_work(work, job)
         job["state"] = "done"
     except Exception as e:
         import traceback
@@ -2626,12 +2625,33 @@ def _is_slim(slug: str) -> bool:
         return False
 
 
-def _slim_work(work: str) -> dict:
+def _slim_work(work: str, job: "dict | None" = None) -> dict:
     """Every version of the work but its base cut down to what its margin
     notes say changed (corpus/history/slim.py): a version just parsed in
-    full, and what its neighbours keep, which it can only shrink."""
+    full, and what its neighbours keep.
+
+    A slim version whose plan wants what it no longer holds -- the pages
+    around a change, blanked when it was cut down by a narrower rule -- is
+    fetched again and parsed in full first. What was let go can always be
+    fetched again, and History review cannot judge a change without both
+    versions' pages."""
     from corpus.history import slim
-    return slim.apply(work, BASE_DIR, pdf_for=_find_source_pdf)
+    wanting = [v for v, entry in slim.apply(work, BASE_DIR, dry_run=True)["versions"].items() if entry["missing"]]
+    again, failed = [], []
+    for n, version in enumerate(wanting, 1):
+        if job is not None:
+            job["at"] = f"fetching v{version} again ({n} of {len(wanting)}) for pages it let go"
+        try:
+            result = _fetch_version(work, version, replace=True, then_slim=False)
+            (again if result.get("ok") else failed).append(version)
+        except HTTPException as e:
+            failed.append(version)
+            print(f"v{version} could not be fetched again: {e.detail}", file=sys.stderr)
+    if job is not None:
+        job["at"] = "cutting down"
+    report = slim.apply(work, BASE_DIR, pdf_for=_find_source_pdf)
+    report.update(fetched_again=again, could_not_fetch=failed)
+    return report
 
 
 def _site_versions(work: str) -> list[dict]:
@@ -2738,7 +2758,7 @@ def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
 
 
-def _fetch_version(work: str, version: int, replace: bool = False) -> dict:
+def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bool = True) -> dict:
     """Downloads one version from the site and adds it as an uploaded one
     is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
@@ -2751,7 +2771,7 @@ def _fetch_version(work: str, version: int, replace: bool = False) -> dict:
     if not content.startswith(b"%PDF"):
         raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
     if replace:
-        return _replace_version(work, version, content)
+        return _replace_version(work, version, content, then_slim)
     return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
 
 
@@ -3081,6 +3101,20 @@ def _borrow_reviewed(slug: str, state: tuple) -> tuple:
     def name(n):
         return n.get("_node_id") or n.get("id") or ""
 
+    def borrowed(theirs_node, here):
+        # Its words are the neighbour's; where it is printed, and the notes
+        # printed beside it, are this version's -- a piece kept only for its
+        # pages (delta.slim's words: False) is kept for exactly this, and
+        # History review sets it beside its page. Not the neighbour's
+        # _source_node_index: it points into the neighbour's parse, and
+        # read against this one drew another node's boxes.
+        mine = here.get(name(theirs_node))
+        node = {k: v for k, v in theirs_node.items() if k != "_source_node_index"}
+        node.update(rects=(mine or {}).get("rects") or [], page_start=(mine or {}).get("page_start"),
+                    page_end=(mine or {}).get("page_end"), _borrowed=True,
+                    history=(mine or {}).get("history", theirs_node.get("history")))
+        return node
+
     out, i = [], 0
     starts = {p["node_index"]: (key, diffing.unit_end(nodes, p["node_index"]))
               for key, p in diffing.provisions(nodes).items()}
@@ -3091,9 +3125,8 @@ def _borrow_reviewed(slug: str, state: tuple) -> tuple:
                        for n in nodes[i:end] for o in own)
             if not mine and key in their_units:
                 a, b = their_units[key]
-                out.extend({**n, "rects": [], "page_start": None, "page_end": None, "_borrowed": True,
-                            "history": nodes[i + k]["history"] if k < end - i and "history" in nodes[i + k] else n.get("history")}
-                           for k, n in enumerate(theirs[a:b]))
+                here = {name(n): n for n in nodes[i:end] if name(n)}
+                out.extend(borrowed(n, here) for n in theirs[a:b])
                 i = end
                 continue
         out.append(nodes[i])

@@ -181,3 +181,27 @@ def test_a_piece_kept_for_its_pages_is_its_own_even_over_a_borrowed_neighbour():
     piece = next(n for n in whole if n["id"] == "s1/2")
     assert "_borrowed" not in piece and piece["rects"] == NEW["nodes"][2]["rects"]
     assert all(n.get("_borrowed") for n in whole if n["id"] != "s1/2")
+
+
+def test_a_version_keeps_the_pages_review_sets_a_change_beside():
+    """The whole provision a changed piece is part of, and where a version
+    hasn't got a provision, the ones either side of where it would be --
+    kept for their pages, the words staying its neighbour's."""
+    from corpus.history.slim import _around
+
+    older = delta.notes_index(_act({"1": [("1", "a")], "2": [("1", "b")], "3": [("1", "c")]})["nodes"])
+    newer = delta.notes_index(_act({"1": [("1", "a")], "2": [("1", "b")], "2A": [("1", "new")],
+                                    "3": [("1", "c")]})["nodes"])
+
+    assert _around(["s1/1"], older, newer) == {"s1"}
+    assert _around(["s2a"], older, newer) == {"s2", "s3"}, "s 2A inserted: the sections it sits between"
+    assert _around(["s2a/1"], newer, older) == {"s2a"}
+
+
+def test_a_provision_kept_for_its_pages_keeps_the_words_changed_inside_it():
+    kept = delta.slim(NEW, toward="act-v1", text=["s1/2"], pages_only=["s1"])
+
+    assert [(p["name"], p["words"]) for p in kept["slim"]["pieces"]] == [("s1/2", True), ("s1", False)]
+    whole = delta.assemble(OLD["nodes"], kept["slim"])
+    assert [n["text"] for n in whole if n["type"] == "subsection"][:2] == ["a", "b as amended"]
+    assert all(n["rects"] for n in whole[:3]), "all of s 1 printed where this version prints it"

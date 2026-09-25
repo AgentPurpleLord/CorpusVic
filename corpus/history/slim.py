@@ -75,6 +75,32 @@ def _index(parse: dict) -> dict:
     return parse["slim"]["notes"] if "slim" in parse else delta.notes_index(parse["nodes"], parse.get("unattached_notes"))
 
 
+def _around(names, here: dict, other: dict) -> set:
+    """The provisions `names` are part of, as the version `here` has them
+    -- and where `here` hasn't got one, the provisions either side of
+    where it would be. History review sets every change beside both
+    versions' printed pages, an insertion or a repeal included, so those
+    are the pages it needs; kept only for their pages, not their words.
+
+    `here` and `other` are the two versions' notes indexes (the step's
+    other side)."""
+    mine = list(here["sections"].values())
+    have = set(mine)
+    theirs = list(other["sections"].values())
+    out = set()
+    for name in names:
+        for section in {*mine, *theirs}:
+            if not (name == section or name.startswith(section + "/")):
+                continue
+            if section in have:
+                out.add(section)
+            elif section in theirs:
+                k = theirs.index(section)
+                out.update(t for t in (next((t for t in reversed(theirs[:k]) if t in have), None),
+                                       next((t for t in theirs[k + 1:] if t in have), None)) if t)
+    return out
+
+
 def plan(work: str, base_dir=None, base: "int | None" = None) -> dict:
     """{version: {"toward", "text", "pages_only"}} for every version but
     the base."""
@@ -91,14 +117,16 @@ def plan(work: str, base_dir=None, base: "int | None" = None) -> dict:
         before = order[k - 1] if k else None
         after = order[k + 1] if k + 1 < len(order) else None
         if v < base:   # built backward from the version after it
-            toward = after
+            toward, away = after, before
             text = delta.changed_pieces(idx[v], idx[after])
             pages = delta.changed_pieces(idx[before], idx[v]) if before is not None else {}
         else:          # built forward from the version before it
-            toward = before
+            toward, away = before, after
             text = delta.changed_pieces(idx[before], idx[v])
             pages = delta.changed_pieces(idx[v], idx[after]) if after is not None else {}
-        out[v] = {"toward": held[toward], "text": sorted(text), "pages_only": sorted(set(pages) - set(text))}
+        around = _around(text, idx[v], idx[toward]) | (_around(pages, idx[v], idx[away]) if away is not None else set())
+        out[v] = {"toward": held[toward], "text": sorted(text),
+                  "pages_only": sorted((set(pages) | around) - set(text))}
     return out
 
 
@@ -106,14 +134,29 @@ def _reslim(parse: dict, toward: str, text: list, pages_only: list) -> tuple[dic
     """A slim version cut down further, from what it kept. Names it never
     kept come back as missing -- that version must be fetched again."""
     slim = parse["slim"]
-    pieces = {p["name"]: p for p in slim["pieces"]}
     wanted = [*text, *pages_only]
     missing = [n for n in wanted
-               if not any(n == m or n.startswith(m + "/") for m in pieces) and n not in slim.get("removed", [])]
-    kept = [{**p, "words": any(p["name"] == t or p["name"].startswith(t + "/") or t.startswith(p["name"] + "/")
-                               for t in text)}
+               if not any(n == p["name"] or n.startswith(p["name"] + "/") for p in slim["pieces"])
+               and n not in slim.get("removed", [])]
+    # A piece kept for its pages stays so; one kept for its words keeps
+    # them while any of it is still a change in words.
+    kept = [{**p, "words": p["words"] and any(p["name"] == t or p["name"].startswith(t + "/")
+                                              or t.startswith(p["name"] + "/") for t in text)}
             for p in slim["pieces"]
             if any(p["name"] == n or p["name"].startswith(n + "/") or n.startswith(p["name"] + "/") for n in wanted)]
+    # Words now wanted inside a piece kept only for its pages: its nodes are
+    # this version's own, so they are there to be had.
+    for t in text:
+        if any(p["words"] and (t == p["name"] or t.startswith(p["name"] + "/")) for p in kept):
+            continue
+        holder = next((p for p in kept if t.startswith(p["name"] + "/")), None)
+        if holder is None:
+            continue
+        span = [k for k, n in enumerate(holder["nodes"]) if delta._name(n) == t or delta._name(n).startswith(t + "/")]
+        if span:
+            before = [delta._name(n) for n in reversed(holder["nodes"][:span[0]])]
+            kept.append({"name": t, "words": True, "after": [*before, *holder.get("after", [])],
+                         "nodes": [holder["nodes"][k] for k in span]})
     pages = sorted({r["page"] for p in kept for n in p["nodes"] for r in n.get("rects") or []}
                    | {note.get("page") for note in parse.get("unattached_notes") or [] if note.get("page")})
     return ({**parse, "slim": {**slim, "toward": toward, "pieces": kept,

@@ -147,8 +147,13 @@ def slim(parse: dict, toward: str, text: "list[str]", pages_only: "list[str]" = 
     printed sides of every change stay on hand). `parse` is the full
     parse, its nodes named."""
     nodes = parse["nodes"]
+    # Words and pages apart: a provision kept whole for where it prints
+    # (slim.plan) holds a piece whose words are this version's, and folded
+    # into it as one piece those words were the neighbour's.
+    worded = _outermost(text)
+    printed = [n for n in _outermost(pages_only) if not any(n == t or n.startswith(t + "/") for t in worded)]
     pieces = []
-    for name in _outermost([*text, *pages_only]):
+    for name, words in [*((n, True) for n in worded), *((n, False) for n in printed)]:
         span = _subtree(nodes, name)
         if not span:
             continue   # not in this version: see "removed"
@@ -156,8 +161,7 @@ def slim(parse: dict, toward: str, text: "list[str]", pages_only: "list[str]" = 
         # thing before it here that the neighbour has. Several, nearest
         # first, since the neighbour may lack the nearest too.
         after = [_name(nodes[i]) for i in range(span[0] - 1, max(-1, span[0] - 40), -1)]
-        pieces.append({"name": name, "words": name in text or any(name.startswith(t + "/") for t in text),
-                       "after": after, "nodes": [nodes[i] for i in span]})
+        pieces.append({"name": name, "words": words, "after": after, "nodes": [nodes[i] for i in span]})
     kept_pages = sorted({r["page"] for p in pieces for n in p["nodes"] for r in n.get("rects") or []}
                         | {n.get("page_start") for p in pieces for n in p["nodes"] if n.get("page_start")}
                         | {note.get("page") for note in parse.get("unattached_notes") or [] if note.get("page")})

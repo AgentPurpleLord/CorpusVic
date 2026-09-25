@@ -87,6 +87,46 @@ def _where(unit: "dict | None") -> "dict | None":
             "text": " ".join((node.get("text") or node.get("heading") or "").split()[:12])} if page else None
 
 
+def _index(units: list[dict], unit: dict) -> int:
+    return next(k for k, u in enumerate(units) if u is unit)
+
+
+def _located(units: list[dict], k: int) -> "dict | None":
+    """units[k]'s page: its own, else the nearest piece's around it in the
+    same provision -- earlier first -- searched for its own words. A piece
+    the parse drew no box round (a paragraph's continuation) is still on
+    a page, and without one there was nothing to set beside the other
+    version's."""
+    own = _where(units[k])
+    if own is not None:
+        return own
+    for j in [*range(k - 1, -1, -1), *range(k + 1, len(units))]:
+        near = _where(units[j])
+        if near is not None:
+            return {**near, "rects": [], "text": " ".join((units[k]["tree_node"]["node"].get("text") or "").split()[:12])}
+    return None
+
+
+def _absent(at: "dict | None") -> "dict | None":
+    """Where a piece a version hasn't got would be: the page of what it
+    would follow, marked so, and nothing on it outlined. A change can only
+    be judged with both versions' pages beside it -- an insertion and a
+    repeal included."""
+    return {**at, "rects": [], "text": "", "absent": True} if at else None
+
+
+def _would_follow(here: list[dict], there: list[dict], unit: dict) -> "dict | None":
+    """Where `unit`, a piece of `there`, would sit among `here`'s pieces:
+    after the nearest piece before it that `here` has, else at the
+    provision's start."""
+    paths = {u.get("path"): k for k, u in enumerate(here)}
+    for j in range(_index(there, unit) - 1, -1, -1):
+        k = paths.get(there[j].get("path"))
+        if k is not None:
+            return _absent(_located(here, k))
+    return _absent(_located(here, 0)) if here else None
+
+
 def step_changes(key: tuple, older: list[dict], newer: list[dict]) -> list[dict]:
     """The changed pieces of one provision from one version to the next."""
     out = []
@@ -95,11 +135,29 @@ def step_changes(key: tuple, older: list[dict], newer: list[dict]) -> list[dict]
             piece = HEADING
         else:
             piece = ((change["new"] or change["old"]).get("path") or "") or WHOLE
+        old_at = (_located(older, _index(older, change["old"])) if change["old"] is not None
+                  else _would_follow(older, newer, change["new"]))
+        new_at = (_located(newer, _index(newer, change["new"])) if change["new"] is not None
+                  else _would_follow(newer, older, change["old"]))
         out.append({"piece": piece, "label": change["label"], "op": change["op"],
                     "old_html": change["old_html"], "new_html": change["new_html"],
-                    "old_at": _where(change["old"]), "new_at": _where(change["new"]),
+                    "old_at": old_at, "new_at": new_at,
                     "_pair": (change["old"], change["new"])})
     return out
+
+
+def _provision_would_follow(key: tuple, nodes: list[dict], order, prov: dict, other: dict) -> "dict | None":
+    """Where the provision `key`, which only `other`'s version has, would
+    sit in this one: at the end of the provision it follows there that
+    this version has too, else the start of the one after it."""
+    keys = list(other)
+    at = keys.index(key)
+    for near, last in ([(k, True) for k in reversed(keys[:at])] + [(k, False) for k in keys[at + 1:]]):
+        if near in prov:
+            units = _units(nodes, prov[near], order)
+            if units:
+                return _absent(_located(units, len(units) - 1 if last else 0))
+    return None
 
 
 def work_changes(versions: list[tuple]) -> list[dict]:
@@ -125,15 +183,20 @@ def work_changes(versions: list[tuple]) -> list[dict]:
                 # confirms the repeal the public history shows. The same
                 # the other way for a repealed section coming back.
                 row = b_rows.get(key) if key in a_prov else a_rows.get(key)
+                present_at = _located(units, 0) if units else None
+                # The version without it: where it would be.
+                missing_at = (_provision_would_follow(key, a_nodes, a_order, a_prov, b_prov) if key in b_prov
+                              else _provision_would_follow(key, b_nodes, b_order, b_prov, a_prov))
                 if row is not None:
                     going = key in a_prov
                     words = html_view._units_html(units)
+                    row_at = _row_at(row) or missing_at
                     out.append({**base, "piece": WHOLE, "label": "whole provision",
                                 "op": "repeal" if going else "insert",
                                 "old_html": words if going else _row_html(row),
                                 "new_html": _row_html(row) if going else words,
-                                "old_at": _where(units[0] if units else None) if going else _row_at(row),
-                                "new_at": _row_at(row) if going else _where(units[0] if units else None),
+                                "old_at": present_at if going else row_at,
+                                "new_at": row_at if going else present_at,
                                 "_older": units if going else [], "_newer": [] if going else units,
                                 "_row": row})
                     continue
@@ -141,8 +204,8 @@ def work_changes(versions: list[tuple]) -> list[dict]:
                             "op": "insert" if key in b_prov else "delete",
                             "old_html": None if key in b_prov else html_view._units_html(units),
                             "new_html": html_view._units_html(units) if key in b_prov else None,
-                            "old_at": None if key in b_prov else _where(units[0] if units else None),
-                            "new_at": _where(units[0] if units else None) if key in b_prov else None,
+                            "old_at": missing_at if key in b_prov else present_at,
+                            "new_at": present_at if key in b_prov else missing_at,
                             "_older": [] if key in b_prov else units, "_newer": units if key in b_prov else []})
                 continue
             older, newer = _units(a_nodes, a_prov[key], a_order), _units(b_nodes, b_prov[key], b_order)
