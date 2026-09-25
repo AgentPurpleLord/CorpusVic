@@ -3393,7 +3393,11 @@ def _work_lineage(work: str, whole_only: bool = False) -> "dict | None":
     return result
 
 
-_timeline_cache: dict[str, tuple[tuple, dict]] = {}
+_timeline_cache: dict = {}
+# Seconds a work's timeline may be reused after what it was built from
+# changed. None here, where review happens; the public site sets it (see
+# corpus/web/public.py).
+TIMELINE_MAX_AGE = 0.0
 
 
 def _timeline(work: str) -> dict:
@@ -3422,32 +3426,41 @@ def _timeline(work: str) -> dict:
     slugs = _work_versions(work)
     signature = _work_signature(work)
     cached = _timeline_cache.get(work)
-    if cached is not None and cached[0] == signature:
+    if cached is not None and (cached[0] == signature or time.monotonic() - cached[2] < TIMELINE_MAX_AGE) \
+            and cached[1]["slugs"] == slugs:
         return cached[1]
-    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}}
-    lineage_state = _work_lineage(work)
-    if lineage_state:
-        docs = []
+    result = {"slugs": slugs, "chains": [], "by_key": {}, "order": {}, "page_keys": {}}
+    if len(slugs) >= 2:
         # Only what a person has confirmed in History review is a change
         # here (corpus/history): not a margin note, not an amending Act.
         confirmed = history_changes.confirmed(db.load_history_decisions(work, BASE_DIR))
-        # In build order, so each slim one's neighbour is still cached.
-        current = {path.stem: _current_nodes(path.stem) for path in parsed_files.build_order(
-            BASE_DIR / "data" / "parsed" / f"{s}.json" for s in lineage_state["slugs"].values())}
-        for version in lineage_state["versions"]:
-            slug = lineage_state["slugs"][version]
-            state = lineage_state["states"][version]
-            nodes, _unattached, hierarchy = current[slug]
-            effective = diffing.provisions(nodes)
-            for provision in effective.values():
+        docs, links = [], {}
+        same: dict = {}
+        # One version at a time, in build order so each slim one's
+        # neighbour is still loaded, keeping of each only what a chain
+        # needs -- and each provision's words once, however many versions
+        # print them. Holding every version whole at once was a hundred
+        # copies of the Criminal Procedure Act.
+        for path in parsed_files.build_order(BASE_DIR / "data" / "parsed" / f"{s}.json" for s in slugs):
+            slug, version = path.stem, split_document_slug(path.stem)[1]
+            state = inheritance.load_state(slug, BASE_DIR)
+            nodes, _unattached, hierarchy = _current_nodes(slug)
+            effective = {}
+            for key, provision in diffing.provisions(nodes).items():
                 root = provision["node_index"]
                 provision["nodes"] = nodes[root:diffing.unit_end(nodes, root)]
+                effective[key] = _one_copy(same, provision)
+            raw = {key: _one_copy(same, sig) for key, sig in state["raw"].items()}
             meta = _act_version(slug)
             result["order"][version] = list(effective)
+            result["page_keys"][version] = html_view.build_page_index(
+                {"nodes": nodes, "hierarchy": hierarchy, "definition_overrides": _definition_overrides(slug)},
+                _act_title(slug))["by_key"]
+            links[version] = state["links"]
             docs.append({
                 "version": version, "slug": slug,
                 "as_at": meta.get("as_at"), "as_at_printed": meta.get("as_at_printed"),
-                "raw": state["raw"], "effective": effective,
+                "raw": raw, "effective": effective,
                 "checked": inheritance.checked_keys(nodes),
                 "loose_notes": lineage.loose_notes(state["unattached"]),
                 "amending_acts": {a["citation"] for a in
@@ -3455,13 +3468,33 @@ def _timeline(work: str) -> dict:
                                   if a.get("citation")},
                 "confirmed": confirmed.get(version, {}).get("text", set()),
             })
-        chains = lineage.provision_chains(docs, {v: lineage_state["states"][v]["links"]
-                                                 for v in lineage_state["versions"]})
+            del state, nodes
+        chains = lineage.provision_chains(docs, links)
         whole = {v: step["whole"] for v, step in confirmed.items()}
         chains["chains"] = [history_changes.gate(chain, whole) for chain in chains["chains"]]
         result.update(chains)
-    _timeline_cache[work] = (signature, result)
+    _timeline_cache[work] = (signature, result, time.monotonic())
     return result
+
+
+def _one_copy(seen: dict, value):
+    """`value`, or an equal one already kept. A provision the same in a
+    hundred versions is then held once, not a hundred times; its nodes
+    are compared as a reader is shown them (_provision_fingerprint)."""
+    fingerprint = _provision_fingerprint(value) if isinstance(value, dict) else value
+    return seen.setdefault(fingerprint, value)
+
+
+def _provision_fingerprint(provision: dict) -> tuple:
+    def raws(notes):
+        return tuple(h.get("raw") if isinstance(h, dict) else h for h in notes or [])
+
+    return ("provision", provision["key"], provision.get("heading"), provision["text"],
+            raws(provision.get("history")),
+            tuple((n.get("_node_id") or n.get("id"), n.get("type"), n.get("number"), n.get("heading"),
+                   n.get("text"), raws(n.get("history")), bool(n.get("verified_at")),
+                   bool(n.get("needs_followup")))
+                  for n in provision["nodes"]))
 
 
 def _superseded(slug: str) -> "dict | None":
@@ -3564,7 +3597,10 @@ def _provision_timeline(slug: str, number: "str | None", schedule: "str | None",
         probe = {"type": node_type if other_key[0] != "provision" else "section",
                  "schedule": other_key[1] if other_key[0] == "provision" else schedule,
                  "number": other_key[2] if other_key[0] == "provision" else number}
-        url = _provision_page_url(other, _page_index(other), probe)
+        # Each version's own addresses, gathered as the timeline was built:
+        # a page index of every version per page read was a hundred
+        # versions put back together to draw one.
+        url = _provision_page_url(other, {"by_key": timeline["page_keys"].get(other_version, {})}, probe)
         if url:
             urls[other_version] = url
     return history, urls
@@ -3587,7 +3623,6 @@ def _ghosts(slug: str) -> list[dict]:
         return []
     own_index = _page_index(slug)
     own_pages = set(own_index["by_node_index"].values())
-    slug_of = {split_document_slug(s)[1]: s for s in timeline["slugs"]}
     ghosts = []
     for chain in timeline["chains"]:
         at = lineage.wording_at(chain, version)
@@ -3602,7 +3637,7 @@ def _ghosts(slug: str) -> list[dict]:
             continue  # a Part or a Schedule gone has no page to come back to
         last_version = last["to"]["version"]
         old_key = last["keys"].get(last_version, key)
-        page = _page_index(slug_of[last_version])["by_key"].get(old_key)
+        page = timeline["page_keys"].get(last_version, {}).get(old_key)
         if not page:
             continue
         if page in own_pages:

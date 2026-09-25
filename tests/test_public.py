@@ -385,3 +385,20 @@ def test_a_wal_database_really_does_need_the_directory(tmp_path):
     conn.close()
 
     assert (tmp_path / "wal.db-shm").exists() or (tmp_path / "wal.db-wal").exists()
+
+
+def test_assets_are_kept_by_the_browser_and_pages_compressed(tmp_path, monkeypatch):
+    """A versioned asset never changes at its URL, so it is kept a year;
+    one without the version must be asked after, or an edit to the CSS
+    would never reach a returning reader."""
+    from fastapi.testclient import TestClient
+    from corpus.publishing.html_view import asset_version
+    from corpus.web import public
+
+    monkeypatch.setattr(public, "_KEY", None)
+    client = TestClient(public.app)
+    kept = client.get(f"/assets/page.css?v={asset_version()}")
+    assert kept.status_code == 200 and "immutable" in kept.headers["cache-control"]
+    assert client.get("/assets/page.css").headers["cache-control"] == "no-cache"
+    assert "immutable" in client.get("/assets/fonts/Inter.woff2").headers["cache-control"]
+    assert kept.headers.get("content-encoding") == "gzip", "29KB of CSS, sent compressed"

@@ -116,14 +116,16 @@ def _load_parse(path: Path) -> tuple[dict, dict]:
     from corpus.storage import parsed
 
     stamp = parsed.stamp(path)
-    cached = _parse_cache.get(str(path))
-    if cached and cached[0] == stamp:
-        return cached[1], cached[2]
-    data = parsed.load(path)
-    annotate_ids(data["nodes"], data.get("hierarchy") or None)
-    raw = raw_index(data["nodes"])
-    _parse_cache[str(path)] = (stamp, data, raw)
-    return data, raw
+    cached = _parse_cache.pop(str(path), None)
+    if not cached or cached[0] != stamp:
+        data = parsed.load(path)
+        annotate_ids(data["nodes"], data.get("hierarchy") or None)
+        cached = (stamp, data, raw_index(data["nodes"]))
+    _parse_cache[str(path)] = cached       # most recent last
+    # A few: each is a whole Act, and a work can have a hundred versions.
+    while len(_parse_cache) > 6:
+        del _parse_cache[next(iter(_parse_cache))]
+    return cached[1], cached[2]
 
 
 def load_state(slug: str, base_dir=None) -> dict:

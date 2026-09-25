@@ -14,7 +14,9 @@ def _timeline(checked=True):
                "ended_by": {"version": 2, "change": "repealed", "notes": []}}
     absent = {"absent": True, "versions": [2], "from": {"version": 2}, "to": {"version": 2}}
     return {"slugs": ["act-v1", "act-v2"], "chains": [{"wordings": [present, absent]}],
-            "by_key": {(1, S99): 0}, "order": {1: [S98, S99, S100], 2: [S98, S100]}}
+            "by_key": {(1, S99): 0}, "order": {1: [S98, S99, S100], 2: [S98, S100]},
+            # Each version's addresses, gathered as the timeline is built.
+            "page_keys": {1: _pages("act-v1")["by_key"], 2: _pages("act-v2")["by_key"]}}
 
 
 def _pages(slug):

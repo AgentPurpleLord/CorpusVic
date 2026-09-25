@@ -859,12 +859,12 @@ def test_a_copied_button_says_so():
 
 
 def test_the_copy_script_ships_with_the_page():
-    from corpus.publishing.html_view import page_shell
+    from corpus.publishing.html_view import asset_version, page_shell
 
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
     assert 'class="copy-section"' in page
-    assert '<script src="/assets/copy.js"></script>' in page
+    assert f'<script src="/assets/copy.js?v={asset_version()}"></script>' in page
 
 
 def test_one_level_of_nesting_is_one_word_tab_stop():
@@ -909,10 +909,14 @@ def test_no_placeholder_survives_into_a_rendered_page():
 def test_asset_urls_stay_inside_a_project_site():
     """On GitHub Pages the site is served under /<repo>/, so an asset URL
     that assumed the domain root would reach for the real root instead."""
+    from corpus.publishing.html_view import asset_version
+
     page = _shell(base_url="/corpusvic/browse/a")
 
-    assert '<link rel="stylesheet" href="/corpusvic/assets/tokens.css">' in page
-    assert '<script src="/corpusvic/assets/reader.js"></script>' in page
+    v = asset_version()
+    assert f'<link rel="stylesheet" href="/corpusvic/assets/tokens.css?v={v}">' in page
+    assert f'<script src="/corpusvic/assets/reader.js?v={v}"></script>' in page
+    assert '<link rel="preload" href="/corpusvic/assets/fonts/Junicode-Roman.woff2"' in page
     # Junicode is reached relative to tokens.css, so no prefix belongs in
     # the stylesheet itself -- that is what makes one file serve both.
     from corpus.publishing.html_view import template_text

@@ -22,6 +22,8 @@
     SEARCH      the search box, on a site that has somewhere to send it.
                 Empty on the archive build, which has no server to ask --
                 a box that 404s is worse than no box
+    V           the assets' version, so a browser can keep them for a
+                year and still fetch the new ones the moment they change
     BODY        the page itself
 -->
 <html lang="en">
@@ -30,9 +32,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
 {{CANONICAL}}
-<link rel="stylesheet" href="{{ASSETS}}/tokens.css">
-<link rel="stylesheet" href="{{ASSETS}}/page.css">
-<link rel="stylesheet" href="{{ASSETS}}/reader.css">
+<link rel="preload" href="{{ASSETS}}/fonts/Junicode-Roman.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ASSETS}}/fonts/Inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ASSETS}}/tokens.css?v={{V}}">
+<link rel="stylesheet" href="{{ASSETS}}/page.css?v={{V}}">
+<link rel="stylesheet" href="{{ASSETS}}/reader.css?v={{V}}">
 <script>
 try {
   var d = document.documentElement.dataset;
@@ -53,11 +57,11 @@ try {
 <div class="{{MAIN_CLASS}}">
 {{BODY}}
 </div>
-<script src="{{ASSETS}}/theme.js"></script>
-<script src="{{ASSETS}}/copy.js"></script>
-<script src="{{ASSETS}}/reader.js"></script>
-<script src="{{ASSETS}}/preview.js"></script>
-<script src="{{ASSETS}}/readon.js"></script>
-<script src="{{ASSETS}}/history.js"></script>
+<script src="{{ASSETS}}/theme.js?v={{V}}"></script>
+<script src="{{ASSETS}}/copy.js?v={{V}}"></script>
+<script src="{{ASSETS}}/reader.js?v={{V}}"></script>
+<script src="{{ASSETS}}/preview.js?v={{V}}"></script>
+<script src="{{ASSETS}}/readon.js?v={{V}}"></script>
+<script src="{{ASSETS}}/history.js?v={{V}}"></script>
 </body>
 </html>
