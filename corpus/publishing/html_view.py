@@ -409,7 +409,7 @@ def _site_prefix(base_url: str) -> str:
     "" when a page is served from the domain root (the live dashboard,
     per deploy/README.md), or a path like "/repo-name" when the whole
     site sits under a subpath (a GitHub Pages project site -- see
-    export_static_site.py). Used by the handful of links below that
+    public.py's archive build). Used by the handful of links below that
     don't already build on base_url the way every in-Act link does, so
     they still land inside the site instead of at the real domain root."""
     return base_url.rsplit("/browse/", 1)[0] if "/browse/" in base_url else ""
@@ -697,7 +697,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     is one verdict on a whole Act, where whether a human has read the
     provision in front of you is a fact about that provision. The site
     says it per provision instead, on the provision (see
-    export_static_site.py); the dashboard, whose whole job is tracking
+    public.py's archive build); the dashboard, whose whole job is tracking
     the Act's progress, keeps the badge.
 
     ghosts, if given, are the provisions this version no longer has
@@ -1609,7 +1609,7 @@ def render_section(
     the provision's own heading -- what the reader has to know before the
     words below them mean anything. The published site uses it to say
     that a provision has not been checked by a human (see
-    export_static_site.py); it is raw HTML because what needs saying is a
+    public.py's archive build); it is raw HTML because what needs saying is a
     sentence with a link in it, not a string.
 
     show_review_badge is how much of this provision a human has checked --
@@ -2117,7 +2117,7 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
 # also means a reload picks up an edit to them without restarting the
 # server. TEMPLATE_DIR is served as "/assets": by dashboard.py and
 # review.py for the live browse pages, and copied into the build by
-# export_static_site.py for the published site.
+# public.py's archive build for the published site.
 TEMPLATE_DIR = PROJECT_ROOT / "static" / "site"
 
 _template_cache: dict[str, tuple[float, str]] = {}

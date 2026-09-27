@@ -1,5 +1,5 @@
 """
-Password-gates the published static site (see export_static_site.py) by
+Password-gates the published static site (see corpus/web/public.py's archive build) by
 encrypting each page at build time, so a testing passphrase can be handed
 out before the site is meant to be public.
 

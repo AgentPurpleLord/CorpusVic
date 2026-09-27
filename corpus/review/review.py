@@ -1612,7 +1612,7 @@ async def refuse_writes_when_read_only(request: Request, call_next):
 # stylesheets, its browser-side scripts and Junicode (see
 # corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
-# loads exactly the files export_static_site.py publishes. StaticFiles
+# loads exactly the files public.py's archive publishes. StaticFiles
 # resolves the path itself and refuses to escape the directory, which is
 # what the hand-rolled /fonts route this replaces had to check for.
 app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")

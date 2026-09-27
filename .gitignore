@@ -6,7 +6,7 @@ data/diagnostics/
 data/akn/
 data/markdown/
 
-# export_static_site.py's own output -- rebuilt by .github/workflows/pages.yml
+# The archive build's output (corpus.web.public build) -- rebuilt by .github/workflows/pages.yml
 # on every push, never committed.
 _site/
 

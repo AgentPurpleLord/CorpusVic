@@ -261,14 +261,14 @@ stale vectors will keep proposing a section the site no longer serves.
 
 ### The offline archive
 
-`export_static_site.py` still exists and still writes `_site/`. It is no
+`python -m corpus.web.public build` still writes `_site/`. It is no
 longer how the site is served -- it is a snapshot that survives this
 server, and it is the rollback if the live site ever misbehaves (see the
 commented-out block in `deploy/Caddyfile.example`).
 
 ```bash
 cd /opt/corpusvic
-sudo -u dashboard .venv/bin/python export_static_site.py --out _site
+sudo -u dashboard .venv/bin/python -m corpus.web.public build --out _site
 ```
 
 About three minutes for the whole corpus. It publishes the same works the
@@ -287,7 +287,7 @@ Description=Rebuild the offline Corpus archive
 Type=oneshot
 User=dashboard
 WorkingDirectory=/opt/corpusvic
-ExecStart=/opt/corpusvic/.venv/bin/python export_static_site.py --out _site
+ExecStart=/opt/corpusvic/.venv/bin/python -m corpus.web.public build --out _site
 UNIT
 
 sudo tee /etc/systemd/system/corpus-site.timer >/dev/null <<'UNIT'
@@ -574,7 +574,7 @@ sudo -u dashboard git commit -m "Review progress"
 sudo -u dashboard git push
 sudo -u dashboard git pull --ff-only
 sudo systemctl restart dashboard
-sudo -u dashboard .venv/bin/python export_static_site.py --out _site
+sudo -u dashboard .venv/bin/python -m corpus.web.public build --out _site
 ```
 
 To revoke the key later -- a rebuilt server, a suspicion, or just
@@ -1103,7 +1103,7 @@ sudo .venv/bin/pip install -r requirements-site.txt   # in case dependencies cha
 # that touched it leaves that side running the old version.
 sudo systemctl restart dashboard corpusvic-public
 # Only for the offline archive -- the live site is already up to date.
-sudo -u dashboard .venv/bin/python export_static_site.py --out _site
+sudo -u dashboard .venv/bin/python -m corpus.web.public build --out _site
 ```
 
 Restarting the service does not lose review progress or the login

@@ -477,7 +477,7 @@ def serving_app():
 # stylesheets, its browser-side scripts and Junicode (see
 # corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
-# loads exactly the files export_static_site.py publishes. StaticFiles
+# loads exactly the files public.py's archive publishes. StaticFiles
 # resolves the path itself and refuses to escape the directory, which is
 # what the hand-rolled /fonts route this replaces had to check for.
 app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")
@@ -1495,9 +1495,8 @@ def sync_restart():
 # Rebuilding the published site
 # ---------------------------------------------------------------------------
 #
-# The public site is a static export: nothing about adding an Act or
-# reviewing one changes what is being served until export_static_site.py
-# runs again. Left to the terminal, that shows up as "the new Acts aren't
+# The archive (corpus/web/public.py's build) is static: nothing about
+# adding an Act or reviewing one changes it until the build runs again. Left to the terminal, that shows up as "the new Acts aren't
 # on the site" with nothing wrong anywhere.
 
 _site_build: dict = {}
@@ -1507,13 +1506,13 @@ _SITE_OUT = "_site"
 
 @app.post("/api/site/rebuild")
 def site_rebuild():
-    """Runs export_static_site.py over the current data, in the
+    """Writes the archive (`python -m corpus.web.public build`) from the current data, in the
     background: a full build is minutes, far past what one request should
     be left holding open.
 
     No --password: the script takes the passphrase from deploy/site.env
     and refuses outright to replace a gated build with an open one (see
-    export_static_site.resolve_password), so the way to publish this site
+    public.resolve_password), so the way to publish this site
     in the clear stays a deliberate command rather than a button."""
     running = _site_build.get("proc")
     if running and running.poll() is None:
@@ -1521,7 +1520,7 @@ def site_rebuild():
     _SITE_BUILD_LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(_SITE_BUILD_LOG, "w", encoding="utf-8") as log_file:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "corpus.exporters.export_static_site", "--out", _SITE_OUT],
+            [sys.executable, "-m", "corpus.web.public", "build", "--out", _SITE_OUT],
             cwd=str(BASE_DIR), stdout=log_file, stderr=subprocess.STDOUT,
         )
     _site_build.update({"proc": proc, "started": datetime.now(timezone.utc).isoformat()})

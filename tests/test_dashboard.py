@@ -1066,7 +1066,7 @@ def test_rebuilding_runs_the_export_script(monkeypatch):
 
     assert client.post("/api/site/rebuild").status_code == 200
 
-    assert seen["cmd"][1:] == ["-m", "corpus.exporters.export_static_site", "--out", "_site"]
+    assert seen["cmd"][1:] == ["-m", "corpus.web.public", "build", "--out", "_site"]
     # No --password and no --no-password: the script takes the passphrase
     # from deploy/site.env and refuses to replace a gated build with an
     # open one, so this button cannot be the thing that unpublishes the
