@@ -192,6 +192,13 @@ legislation.vic.gov.au holds and fetches and parses the ones ticked;
 Amendments lists, bar those already in force by the oldest reprint held
 (`corpus/amending/`).
 
+**Report** (on the Act's card, in History review and in review) downloads
+everything flagged in review, in any version, and every change denied in
+History review, as Markdown to hand back: each with the note given when it
+was flagged or denied, the parser's reading and the reviewer's, the
+printed lines it came from and the pieces either side
+(`corpus/review/report.py`).
+
 Or add one from the dashboard's **Versions** on an Act's card: the
 PDF is placed by the version number it states, and refused if it names a
 different Act. A work held under its plain name becomes version N of

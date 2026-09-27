@@ -571,3 +571,14 @@ def test_a_slim_version_missing_pages_it_now_needs_is_fetched_again(monkeypatch)
 
     assert calls == ["dry run", (3, True, False), "slim"]
     assert report["fetched_again"] == [3] and report["could_not_fetch"] == []
+
+
+def test_the_report_downloads_as_markdown(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    res = TestClient(dashboard.app).get("/api/works/act/report.md")
+
+    assert res.status_code == 200 and res.headers["content-type"].startswith("text/markdown")
+    assert 'attachment; filename="act-report-' in res.headers["content-disposition"]
+    assert res.text.startswith("# Review report: act")
