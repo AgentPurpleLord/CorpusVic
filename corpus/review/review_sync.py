@@ -117,8 +117,15 @@ def describe(conn: sqlite3.Connection) -> list:
     return tables
 
 
+# Columns added after rows were already written, left out while empty: a
+# "note": null on every existing line would rewrite every one of them for
+# nothing. Reading a line without one leaves it null (see _insert).
+_SPARSE = {("history_decisions", "note")}
+
+
 def _line(table: Table, row: sqlite3.Row) -> str:
-    record = {c: row[c] for c in table.columns if c not in table.omit}
+    record = {c: row[c] for c in table.columns
+              if c not in table.omit and not ((table.name, c) in _SPARSE and row[c] is None)}
     # sort_keys so a field never moves on its own; ensure_ascii off so the
     # legislation's own punctuation stays readable in a diff rather than
     # becoming a row of escapes.

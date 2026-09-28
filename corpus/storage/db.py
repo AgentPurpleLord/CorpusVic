@@ -351,6 +351,18 @@ CREATE INDEX IF NOT EXISTS idx_definition_overrides_act ON definition_overrides(
 -- "whole" for the provision appearing or going) -- names, not positions,
 -- so a re-parse leaves the decisions where they were. Nothing reaches the
 -- public histories until it is confirmed here.
+-- What a reviewer said was wrong when they flagged a piece: the report
+-- they hand back (corpus/review/report.py) says what they saw, not just
+-- that something was. Its own table rather than a column of verified,
+-- which is rewritten whole from memory on every save.
+CREATE TABLE IF NOT EXISTS review_notes (
+    act TEXT NOT NULL,
+    node_id TEXT NOT NULL,
+    note TEXT NOT NULL,
+    noted_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_id)
+);
+
 CREATE TABLE IF NOT EXISTS history_decisions (
     act TEXT NOT NULL,
     provision TEXT NOT NULL,
@@ -406,6 +418,8 @@ _ADDED_COLUMNS = {
 }
 # A structural edit's anchor is a reference to a provision too.
 _ADDED_COLUMNS["structure_edits"] += (("after_id", "TEXT"),)
+# Why a change was denied, in the reviewer's words (corpus/review/report.py).
+_ADDED_COLUMNS["history_decisions"] = (("note", "TEXT"),)
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
@@ -1164,8 +1178,10 @@ def load_history_decisions(work: str, base_dir: "str | Path | None" = None) -> d
 
 
 def save_history_decision(work: str, provision: str, from_version: int, to_version: int, piece: str,
-                          decision: "str | None", base_dir: "str | Path | None" = None) -> None:
-    """Records a decision, or with None takes it back."""
+                          decision: "str | None", base_dir: "str | Path | None" = None,
+                          note: "str | None" = None) -> None:
+    """Records a decision, or with None takes it back. `note` is what the
+    reviewer said, if anything."""
     if decision not in (None, "confirmed", "denied"):
         raise ValueError(f"Unknown decision {decision!r} -- expected 'confirmed' or 'denied'.")
     conn = _connect(base_dir)
@@ -1176,10 +1192,38 @@ def save_history_decision(work: str, provision: str, from_version: int, to_versi
         else:
             conn.execute(
                 "INSERT INTO history_decisions (act, provision, from_version, to_version, piece, decision, "
-                "decided_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(act, provision, from_version, to_version, "
-                "piece) DO UPDATE SET decision = excluded.decision, decided_at = excluded.decided_at",
-                (work, provision, from_version, to_version, piece, decision, _now_iso()),
+                "decided_at, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(act, provision, from_version, "
+                "to_version, piece) DO UPDATE SET decision = excluded.decision, decided_at = excluded.decided_at, "
+                "note = excluded.note",
+                (work, provision, from_version, to_version, piece, decision, _now_iso(), (note or "").strip() or None),
             )
+
+
+def load_history_notes(work: str, base_dir: "str | Path | None" = None) -> dict[tuple, str]:
+    """{(provision, from_version, to_version, piece): note} for the
+    decisions a reviewer said something about."""
+    rows = _connect(base_dir).execute(
+        "SELECT provision, from_version, to_version, piece, note FROM history_decisions "
+        "WHERE act = ? AND note IS NOT NULL AND note != ''", (work,)).fetchall()
+    return {(r[0], r[1], r[2], r[3]): r[4] for r in rows}
+
+
+def save_review_notes(act: str, notes: dict, base_dir: "str | Path | None" = None) -> None:
+    """{node_id: note} -- an empty note takes one away."""
+    conn = _connect(base_dir)
+    with conn:
+        for node_id, note in notes.items():
+            if (note or "").strip():
+                conn.execute("INSERT INTO review_notes (act, node_id, note, noted_at) VALUES (?, ?, ?, ?) "
+                             "ON CONFLICT(act, node_id) DO UPDATE SET note = excluded.note, noted_at = excluded.noted_at",
+                             (act, node_id, note.strip(), _now_iso()))
+            else:
+                conn.execute("DELETE FROM review_notes WHERE act = ? AND node_id = ?", (act, node_id))
+
+
+def load_review_notes(act: str, base_dir: "str | Path | None" = None) -> dict[str, str]:
+    rows = _connect(base_dir).execute("SELECT node_id, note FROM review_notes WHERE act = ?", (act,)).fetchall()
+    return {r[0]: r[1] for r in rows}
 
 
 # ---------------------------------------------------------------------

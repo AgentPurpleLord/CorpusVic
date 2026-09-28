@@ -1,4 +1,4 @@
-"""Tests for export_static_site.py's own pure logic (which documents get
+"""Tests for the public site's archive build (corpus/web/public.py): its own pure logic (which documents get
 a public page, and the passphrase gate over them) and the html_view.py
 link-prefixing it depends on. The actual page-writing loop isn't
 unit-tested here, for the same reason dashboard.py's routes aren't (see
@@ -6,7 +6,7 @@ review.py's and dashboard.py's own module docstrings): it's a thin
 wrapper over already-tested render functions, checked end to end instead
 by actually running the script against real data (see the project's own
 manual smoke-testing convention)."""
-import corpus.exporters.export_static_site
+import corpus.web.public
 import corpus.publishing.html_view
 import corpus.web.dashboard
 import base64
@@ -21,11 +21,11 @@ from corpus.publishing import html_view
 from corpus.publishing.html_view import _legislation_href, _site_prefix
 from corpus.publishing.site_crypto import SiteGate, derive_key
 from conftest import make_node
-from corpus.exporters import export_static_site, export_static_site as ess
-from corpus.exporters.export_static_site import (
+from corpus.web import public
+from corpus.web.public import (
     OFFICIAL_SOURCE_URL,
     _landing_page_html,
-    _page,
+    _finished_page,
     approved_page_slugs,
     approved_units,
     select_candidate_slugs,
@@ -43,6 +43,14 @@ def _status(parsed=True, review_status="reviewed", published=True):
 def test_select_candidate_slugs_skips_an_unparsed_document():
     statuses = {"crimes-act": _status(parsed=False)}
     assert select_candidate_slugs(statuses) == []
+
+
+def test_a_bill_is_never_a_candidate():
+    """Its clauses restate the Act's wording: the site names it and links
+    out rather than hosting it (issue #98)."""
+    statuses = {"crimes-act": _status(), "crimes-bill": dict(_status(), kind="bill"),
+                "crimes-bill-em": dict(_status(), kind="em")}
+    assert select_candidate_slugs(statuses) == ["crimes-act", "crimes-bill-em"]
 
 
 def test_select_candidate_slugs_does_not_care_how_far_review_has_got():
@@ -109,31 +117,41 @@ def test_publication_never_splits_a_works_version_set():
     }
     chosen = select_candidate_slugs(statuses)
     assert chosen == ["criminal-procedure-act-v110", "criminal-procedure-act-v114"]
-    from corpus.exporters.export_static_site import site_slugs
+    from corpus.web.public import site_slugs
     assert site_slugs(chosen)["criminal-procedure-act-v114"] == "criminal-procedure-act"
 
 
 def test_the_newest_version_is_published_without_a_version_in_its_address():
     """"/browse/criminal-procedure-act/" is the Act as it now stands and
-    stays that address as new reprints land; an older one keeps its
-    versioned name, so a link to it still means that version a year from
-    now. It is also the address known_acts.yaml has always pointed every
-    cross-Act reference at."""
-    from corpus.exporters.export_static_site import site_slugs
+    stays that address as new reprints land; an older one is named by the
+    day its text is as at, so a link to it still means that text a year
+    from now. It is also the address known_acts.yaml has always pointed
+    every cross-Act reference at."""
+    from corpus.web.public import site_slugs
 
     assert site_slugs([
         "crimes-act", "criminal-procedure-act-v110", "criminal-procedure-act-v114",
-    ]) == {
+    ], {"criminal-procedure-act-v110": "2025-03-01", "criminal-procedure-act-v114": "2026-07-01"}) == {
         "crimes-act": "crimes-act",
-        "criminal-procedure-act-v110": "criminal-procedure-act-v110",
+        "criminal-procedure-act-v110": "criminal-procedure-act-2025-03-01",
         "criminal-procedure-act-v114": "criminal-procedure-act",
     }
+
+
+def test_no_address_carries_the_authorised_version_number():
+    """The number is the government's (issue #95). Two reprints stating
+    the same day still get an address each."""
+    from corpus.web.public import site_slugs
+
+    slugs = site_slugs(["cpa-v110", "cpa-v111", "cpa-v114"],
+                       {"cpa-v110": "2025-03-01", "cpa-v111": "2025-03-01", "cpa-v114": "2026-07-01"})
+    assert slugs == {"cpa-v110": "cpa-2025-03-01", "cpa-v111": "cpa-2025-03-01-2", "cpa-v114": "cpa"}
 
 
 def test_a_dashboard_url_is_rewritten_to_the_published_address():
     """dashboard.py builds its URLs for a server at a domain root, naming
     documents by their parse slug. The published site is neither."""
-    from corpus.exporters.export_static_site import _rewrite_urls
+    from corpus.web.public import _rewrite_urls
 
     slugs = {"criminal-procedure-act-v114": "criminal-procedure-act"}
     rewrite = lambda v: _rewrite_urls(v, "/repo", slugs)
@@ -331,7 +349,7 @@ def test_every_page_built_through_the_shell_carries_the_footer():
     """The landing page isn't where most readers arrive -- a shared link
     to one provision is -- so the footer belongs on whatever page they
     land on, not just the front door."""
-    page = _page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
+    page = _finished_page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
     assert '<footer class="site-footer">' in page
     assert _says_it_is_not_official(page)
     assert "own risk" in page
@@ -339,7 +357,7 @@ def test_every_page_built_through_the_shell_carries_the_footer():
 
 def test_the_footer_is_read_from_the_file_so_it_can_be_edited(tmp_path, monkeypatch):
     """The point of moving it out of Python. It used to be a constant in
-    export_static_site.py while an editable footer.html sat beside the
+    public.py's archive build while an editable footer.html sat beside the
     stylesheets loaded by nothing -- so editing the obvious file did
     nothing, silently."""
     from corpus.publishing import html_view
@@ -350,7 +368,7 @@ def test_the_footer_is_read_from_the_file_so_it_can_be_edited(tmp_path, monkeypa
             '<!-- a note to self -->\n'
             '<footer class="site-footer"><p>Rewritten by hand.</p></footer>',
             encoding="utf-8")
-        page = _page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
+        page = _finished_page("Crimes Act 1958", "<h1>3 Definitions</h1>", "/browse/crimes-act")
     finally:
         (html_view.TEMPLATE_DIR / "footer.html").write_text(original, encoding="utf-8")
 
@@ -455,7 +473,7 @@ def test_the_published_assets_are_the_template_directory(tmp_path):
     a build that didn't copy them would publish text with no styling at
     all -- and page.html is the one file Python renders rather than the
     browser fetching, so it has no business being served."""
-    from corpus.exporters.export_static_site import _copy_template
+    from corpus.web.public import _copy_template
 
     _copy_template(tmp_path)
     published = {p.name for p in (tmp_path / "assets").rglob("*")}
@@ -472,7 +490,7 @@ def test_the_published_assets_are_the_template_directory(tmp_path):
 # Hover previews
 # ---------------------------------------------------------------------------
 def _targets(html: str, base_path: str = "") -> set:
-    from corpus.exporters.export_static_site import _link_targets
+    from corpus.web.public import _link_targets
 
     return _link_targets(html, base_path)
 
@@ -508,7 +526,7 @@ def test_targets_are_read_against_the_sites_own_prefix():
 
 
 def _preview_site(tmp_path, targets, published, gate=None):
-    from corpus.exporters.export_static_site import _write_previews
+    from corpus.web.public import _write_previews
 
     written = _write_previews(tmp_path, "", targets, published, gate)
     return written, tmp_path
@@ -566,9 +584,9 @@ def test_a_gated_build_encrypts_its_previews(tmp_path, monkeypatch):
 def test_a_published_page_says_where_its_previews_come_from(tmp_path):
     """The script can't tell a static host from a server by looking, and
     guessing wrong means either a 404 on every hover or no card at all."""
-    from corpus.exporters.export_static_site import _page
+    from corpus.web.public import _finished_page
 
-    page = _page("Test Act", "<p>body</p>", "/browse/a", reader=True)
+    page = _finished_page("Test Act", "<p>body</p>", "/browse/a", reader=True)
 
     assert 'data-preview="static"' in page
 
@@ -606,7 +624,7 @@ def test_a_bill_and_its_em_are_not_listed_beside_their_act():
         if slug == "crimes-act" else []
     )
     try:
-        page = ess._landing_page_html(published, "")
+        page = public._landing_page_html(published, "")
     finally:
         corpus.web.dashboard.related_documents = original
     entries = page.split('<ul class="section-list">')[1].split("</ul>")[0]
@@ -615,19 +633,41 @@ def test_a_bill_and_its_em_are_not_listed_beside_their_act():
     assert "crimes-bill" not in entries
 
 
-def test_a_bill_no_published_act_claims_is_still_listed():
+def test_an_em_no_published_act_claims_is_still_listed():
     """Better an odd entry on the front page than a document nothing
-    reaches."""
-    import corpus.exporters.export_static_site as ess
+    reaches -- under its own heading, not among the Acts."""
+    import corpus.web.public as public
 
     original = corpus.web.dashboard.related_documents
     corpus.web.dashboard.related_documents = lambda slug: []
     try:
-        page = ess._landing_page_html([dict(_doc(slug="orphan-bill"), kind="bill")], "")
+        page = public._landing_page_html([dict(_doc(slug="orphan-em"), kind="em")], "")
     finally:
         corpus.web.dashboard.related_documents = original
 
-    assert "/browse/orphan-bill/" in page
+    assert "/browse/orphan-em/" in page.split("<h2>Explanatory memoranda</h2>")[1]
+    assert "Victorian Acts" not in page
+
+
+def test_the_landing_page_is_a_heading_and_a_list():
+    """Issue #97: no blurb, the Acts under their own heading, each by its
+    name alone ("Evidence Act 2008", not "Evidence Act 2008 Act") with
+    its currency date kept."""
+    import corpus.web.public as public
+
+    doc = dict(_doc(slug="evidence-act"), title="Evidence Act 2008", as_at="1 July 2026")
+    original = corpus.web.dashboard.related_documents
+    corpus.web.dashboard.related_documents = lambda slug: []
+    try:
+        page = public._landing_page_html([doc], "")
+    finally:
+        corpus.web.dashboard.related_documents = original
+    main = page.split("</h1>")[1].split('<footer')[0]
+
+    assert main.startswith("<h2>Victorian Acts</h2>")
+    assert "<p>" not in main.split("</ul>")[0]
+    entry = main.split("<li>")[1].split("</li>")[0]
+    assert re.sub("<[^>]+>", "", entry) == "Evidence Act 2008 as at 1 July 2026"
 
 
 # ---------------------------------------------------------------------
@@ -639,42 +679,42 @@ def test_a_custom_domain_means_no_path_prefix(tmp_path, monkeypatch):
     prefix a project site needs, every link on the site resolved to
     https://www.corpusvic.au/corpusvic/browse/..., which is
     nowhere."""
-    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    monkeypatch.setattr(public, "CNAME_FILE", tmp_path / "CNAME")
     (tmp_path / "CNAME").write_text("www.corpusvic.au\n", encoding="utf-8")
     monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/corpusvic")
 
-    assert export_static_site.custom_domain() == "www.corpusvic.au"
-    assert export_static_site._default_base_path() == ""
+    assert public.custom_domain() == "www.corpusvic.au"
+    assert public._default_base_path() == ""
 
 
 def test_without_a_custom_domain_a_project_site_keeps_its_prefix(tmp_path, monkeypatch):
-    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    monkeypatch.setattr(public, "CNAME_FILE", tmp_path / "CNAME")
     monkeypatch.setenv("GITHUB_REPOSITORY", "AgentPurpleLord/corpusvic")
 
-    assert export_static_site.custom_domain() is None
-    assert export_static_site._default_base_path() == "/corpusvic"
+    assert public.custom_domain() is None
+    assert public._default_base_path() == "/corpusvic"
 
 
 def test_a_local_preview_has_no_prefix_either(tmp_path, monkeypatch):
-    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    monkeypatch.setattr(public, "CNAME_FILE", tmp_path / "CNAME")
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
 
-    assert export_static_site._default_base_path() == ""
+    assert public._default_base_path() == ""
 
 
 def test_an_empty_cname_is_not_a_domain(tmp_path, monkeypatch):
-    monkeypatch.setattr(export_static_site, "CNAME_FILE", tmp_path / "CNAME")
+    monkeypatch.setattr(public, "CNAME_FILE", tmp_path / "CNAME")
     (tmp_path / "CNAME").write_text("\n", encoding="utf-8")
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
 
-    assert export_static_site.custom_domain() is None
+    assert public.custom_domain() is None
 
 
 def test_the_repository_names_the_domain_the_site_is_published_at():
     """The real CNAME, checked as itself: it is what tells GitHub Pages
     to keep serving www.corpusvic.au, and what keeps every link on the
     site unprefixed."""
-    assert export_static_site.custom_domain() == "www.corpusvic.au"
+    assert public.custom_domain() == "www.corpusvic.au"
 
 
 # ---------------------------------------------------------------------
@@ -723,7 +763,7 @@ def _fake_document(monkeypatch, verified: set):
 
 
 def _built(tmp_path, monkeypatch, verified: set):
-    from corpus.exporters.export_static_site import _build_doc
+    from corpus.web.public import _build_doc
 
     _fake_document(monkeypatch, verified)
     summary = _build_doc("test-act", tmp_path, "")
@@ -741,22 +781,16 @@ def test_an_unchecked_provision_is_published_with_its_own_text(tmp_path, monkeyp
     assert "hasn’t been published here yet" not in page
 
 
-def test_an_unchecked_provision_says_it_has_not_been_checked(tmp_path, monkeypatch):
+def test_a_provisions_page_carries_no_notice_checked_or_not(tmp_path, monkeypatch):
+    """Issue #96: the yellow banner on every unchecked provision was the
+    first thing read on the page. The contents says it, once, for the
+    whole document."""
     _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
-    page = read("section/s2/index.html")
 
-    assert "This provision has not been checked by a human." in page
-    assert "legislation.vic.gov.au" in page, "and says where the authorised text is"
-
-
-def test_a_checked_provision_carries_no_such_notice(tmp_path, monkeypatch):
-    """The notice has to mean something, which it stops doing the moment
-    it is on every page."""
-    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
-    page = read("section/s1/index.html")
-
-    assert "This Act may be cited as the Test Act." in page
-    assert "has not been checked by a human" not in page
+    for page in (read("section/s1/index.html"), read("section/s2/index.html")):
+        main = page.split("<footer")[0]
+        assert 'class="disclaimer"' not in main
+        assert "has not been checked by a human" not in main
 
 
 def test_the_contents_page_tags_nothing(tmp_path, monkeypatch):
@@ -822,13 +856,13 @@ def _gated_site(tmp_path):
 
 
 def test_a_gated_build_is_recognised(tmp_path):
-    from corpus.exporters.export_static_site import already_gated
+    from corpus.web.public import already_gated
 
     assert already_gated(_gated_site(tmp_path)) is True
 
 
 def test_an_open_build_is_not_mistaken_for_a_gated_one(tmp_path):
-    from corpus.exporters.export_static_site import already_gated
+    from corpus.web.public import already_gated
 
     (tmp_path / "index.html").write_text("<h1>Published legislation</h1>", encoding="utf-8")
 
@@ -836,7 +870,7 @@ def test_an_open_build_is_not_mistaken_for_a_gated_one(tmp_path):
 
 
 def test_nothing_built_yet_is_not_gated(tmp_path):
-    from corpus.exporters.export_static_site import already_gated
+    from corpus.web.public import already_gated
 
     assert already_gated(tmp_path / "never-built") is False
 
@@ -849,7 +883,7 @@ def test_nothing_built_yet_is_not_gated(tmp_path):
     ("SOMETHING_ELSE=x\n", None),
 ])
 def test_the_passphrase_is_read_from_the_servers_own_file(tmp_path, contents, expected):
-    from corpus.exporters.export_static_site import password_from_env_file
+    from corpus.web.public import password_from_env_file
 
     path = tmp_path / "site.env"
     path.write_text(contents, encoding="utf-8")
@@ -858,7 +892,7 @@ def test_the_passphrase_is_read_from_the_servers_own_file(tmp_path, contents, ex
 
 
 def test_no_file_means_no_passphrase(tmp_path):
-    from corpus.exporters.export_static_site import password_from_env_file
+    from corpus.web.public import password_from_env_file
 
     assert password_from_env_file(tmp_path / "absent.env") is None
 
@@ -867,10 +901,10 @@ def test_rebuilding_a_gated_site_with_no_passphrase_is_refused(tmp_path, monkeyp
     """The exact thing that happened. It has to stop rather than publish,
     and stop with a non-zero exit, because the build that would do this
     unattended is a nightly timer with nobody reading its output."""
-    from corpus.exporters.export_static_site import resolve_password
+    from corpus.web.public import resolve_password
 
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
-    monkeypatch.setattr("corpus.exporters.export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
+    monkeypatch.setattr("corpus.web.public.SITE_ENV_FILE", tmp_path / "absent.env")
 
     with pytest.raises(SystemExit) as refused:
         resolve_password(None, False, _gated_site(tmp_path))
@@ -879,7 +913,7 @@ def test_rebuilding_a_gated_site_with_no_passphrase_is_refused(tmp_path, monkeyp
 
 
 def test_opening_a_gated_site_deliberately_is_allowed(tmp_path, monkeypatch):
-    from corpus.exporters.export_static_site import resolve_password
+    from corpus.web.public import resolve_password
 
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
 
@@ -889,10 +923,10 @@ def test_opening_a_gated_site_deliberately_is_allowed(tmp_path, monkeypatch):
 def test_an_ungated_site_rebuilds_ungated_without_complaint(tmp_path, monkeypatch):
     """Only a gate that already exists is protected. A site that was
     never behind one is not suddenly required to be."""
-    from corpus.exporters.export_static_site import resolve_password
+    from corpus.web.public import resolve_password
 
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
-    monkeypatch.setattr("corpus.exporters.export_static_site.SITE_ENV_FILE", tmp_path / "absent.env")
+    monkeypatch.setattr("corpus.web.public.SITE_ENV_FILE", tmp_path / "absent.env")
     (tmp_path / "index.html").write_text("<h1>Open</h1>", encoding="utf-8")
 
     assert resolve_password(None, False, tmp_path) is None
@@ -901,7 +935,7 @@ def test_an_ungated_site_rebuilds_ungated_without_complaint(tmp_path, monkeypatc
 def test_the_environment_is_preferred_to_the_command_line(tmp_path, monkeypatch):
     """A passphrase on the command line is visible to anything that can
     list processes, so it is the last resort rather than the first."""
-    from corpus.exporters.export_static_site import resolve_password
+    from corpus.web.public import resolve_password
 
     monkeypatch.setenv("SITE_PASSWORD", "from the environment")
 
@@ -909,12 +943,12 @@ def test_the_environment_is_preferred_to_the_command_line(tmp_path, monkeypatch)
 
 
 def test_the_servers_file_is_preferred_to_the_command_line(tmp_path, monkeypatch):
-    from corpus.exporters.export_static_site import resolve_password
+    from corpus.web.public import resolve_password
 
     monkeypatch.delenv("SITE_PASSWORD", raising=False)
     path = tmp_path / "site.env"
     path.write_text("SITE_PASSWORD=from the file\n", encoding="utf-8")
-    monkeypatch.setattr("corpus.exporters.export_static_site.SITE_ENV_FILE", path)
+    monkeypatch.setattr("corpus.web.public.SITE_ENV_FILE", path)
 
     assert resolve_password("typed on the line", False, tmp_path) == "from the file"
 
@@ -939,7 +973,7 @@ def test_the_servers_file_is_preferred_to_the_command_line(tmp_path, monkeypatch
     (True, True, False),
 ])
 def test_crawling_is_asked_for_rather_than_arrived_at(gated, allow_indexing, indexable):
-    from corpus.exporters.export_static_site import robots_txt_for
+    from corpus.web.public import robots_txt_for
 
     robots = robots_txt_for(gated, allow_indexing)
 
@@ -956,7 +990,7 @@ def test_the_partial_notice_leads_with_the_state_not_the_arithmetic():
     """A sentence that opens on two numbers makes a reader do the
     division before they learn anything. What they need first is that
     part of this is unreviewed."""
-    from corpus.exporters.export_static_site import _partial_notice_html
+    from corpus.web.public import _partial_notice_html
     import re
 
     text = re.sub("<[^>]+>", "", _partial_notice_html(1, 434))
@@ -974,7 +1008,7 @@ def test_the_partial_notice_never_says_the_unreviewed_pages_are_empty():
     they were published in full, and a notice still saying it would send
     a reader away from a page that has exactly what they came for --
     which is worse than the over-long sentence it replaced."""
-    from corpus.exporters.export_static_site import _partial_notice_html
+    from corpus.web.public import _partial_notice_html
     import re
 
     text = re.sub("<[^>]+>", "", _partial_notice_html(1, 434)).lower()

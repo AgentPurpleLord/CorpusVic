@@ -372,7 +372,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .history.hist-js .hist-track { border: none; }
 .reader-section:not(.historical) .history.hist-js { display: none; }
 .reader-section.historical > .provisions,
-.reader-section.historical > .copy-section { display: none; }
+.reader-section.historical .section-head > .copy-section { display: none; }
 /* The wordings in one row, oldest on the left, two to a screen, that the
    reader moves through sideways. A native scroller with snap points
    rather than panels shown and hidden by script, so a trackpad swipe, a
@@ -453,16 +453,28 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   .site-footer { grid-template-columns: 1fr; }
 }
 
-/* Sits above the provisions, out of the reading column: useful, not
-   competing with the text it copies. */
+/* Beside the heading: useful, not competing with the text it copies. */
 .copy-section {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--sans); font-size: 12.5px;
   color: var(--fg); background: var(--panel);
   border: 1px solid var(--border); border-radius: 0;
-  padding: 4px 10px; margin: 0 0 14px; cursor: pointer;
+  padding: 4px 10px; margin-top: 6px; cursor: pointer;
 }
 .copy-section:hover { border-color: var(--accent); color: var(--accent); }
 .copy-section.copied { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.copy-section .copied-icon, .copy-section.copied .copy-icon { display: none; }
+.copy-section.copied .copied-icon { display: inline; }
+/* An icon alone on a phone (issue #99). The label is clipped rather than
+   hidden, so it is still the button's name, and "Copied" is still read
+   out when it changes. */
+@media (max-width: 720px) {
+  .copy-section { padding: 6px; }
+  .copy-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+}
 
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page
@@ -535,9 +547,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   background: var(--panel); color: var(--fg);
 }
 .sitesearch input:focus { outline: none; border-color: var(--accent); }
-/* With a search box present the toggle no longer needs to push itself to
+/* With a search box present the menu no longer needs to push itself to
    the right -- the box already did. */
-.sitesearch ~ .theme-toggle { margin-left: 0; }
+.sitesearch ~ .sitemenu { margin-left: 0; }
 
 .search-page-form { margin: 0 0 20px; }
 .search-page-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -600,12 +612,24 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   .sitesearch input { width: 120px; }
 }
 
-.theme-toggle {
-  margin-left: auto;
+/* The Display menu (static/site/menu.js): the theme and the reading
+   controls, out of the way of the text until asked for. */
+.sitemenu { position: relative; margin-left: auto; }
+.sitemenu[hidden], .sitemenu-panel[hidden], .menu-row[hidden] { display: none; }
+.sitemenu-btn {
   border: 1px solid var(--border); background: var(--panel); color: var(--fg);
   border-radius: 0; padding: 4px 9px; cursor: pointer; font-size: 13px;
-  font-family: var(--sans);
+  font-family: var(--reading); font-weight: 600;
 }
+.sitemenu-btn:hover, .sitemenu-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.sitemenu-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  min-width: 230px; display: grid; gap: 10px; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.menu-row { display: flex; align-items: center; gap: 8px; }
+.menu-row .ctl-label { flex: 1; }
 
 /* Below the width the two columns need, the margin notes fold in
    underneath their provision instead of being squeezed into an

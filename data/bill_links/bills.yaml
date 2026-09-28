@@ -1,0 +1,16 @@
+# Where each Bill is on legislation.vic.gov.au. A Bill's text is not
+# hosted on the site (issue #98): an Act's contents names the Bill it
+# was enacted from and links here. Checked by hand -- the site's
+# addresses do not follow the Bill's name.
+criminal-procedure-bill-2008:
+  title: Criminal Procedure Bill 2008
+  url: https://www.legislation.vic.gov.au/bills/criminal-procedure-bill-2008
+evidence-bill:
+  title: Evidence Bill 2008
+  url: https://www.legislation.vic.gov.au/bills/evidence-bill-2008
+family-violence-protection-bill-2008:
+  title: Family Violence Protection Bill 2008
+  url: https://www.legislation.vic.gov.au/bills/family-violence-protection-bill-2008
+sex-offenders-registration-bill-2004:
+  title: Sex Offenders Registration Bill 2004
+  url: https://www.legislation.vic.gov.au/bills/sex-offenders-registration-bill

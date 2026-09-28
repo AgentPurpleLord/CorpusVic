@@ -523,8 +523,9 @@ def test_the_index_states_which_version_this_parse_is():
     # Never "the Authorised Version" -- that's the government's own
     # published text, and this is this pipeline's own reading of it.
     assert "Authorised Version" not in html
-    assert "Version 114" in html
-    assert "incorporating amendments as at 1 July 2026" in html
+    # Named by its date, never by the Authorised Version's number (#95).
+    assert "114" not in html
+    assert "Incorporating amendments as at 1 July 2026" in html
 
 
 def test_an_unversioned_document_says_nothing_about_versions():
@@ -580,7 +581,7 @@ def test_render_history_offers_a_chip_and_every_wording_oldest_first():
                                          _wording(112, "alpha gamma")), "/browse/cpa", anchor="s366")
 
     assert 'class="history-chip"' in chip and 'aria-controls="hist-s366"' in chip
-    assert body.index("Version 111") < body.index("Version 112")
+    assert body.index("As at 11 April 2026") < body.index("As at 12 April 2026")
     assert 'data-at="1"' in body
 
 
@@ -592,7 +593,7 @@ def test_render_history_says_what_ended_a_wording_and_links_the_act():
     _chip, body = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED), _wording(112, "alpha")),
                                  "/browse/cpa", amendment_index=index)
 
-    assert "Amended</span> at Version 112" in body
+    assert "Amended</span> as at 12 April 2026" in body
     assert 'class="hist-act"' in body and "/browse/cpa/endnotes#" in body
 
 
@@ -632,11 +633,12 @@ def test_render_history_links_each_wording_to_its_own_version():
 
 def test_an_insertion_is_an_absent_wording_named_by_the_acts_own_word():
     absent = {"absent": True, "from": {"version": 110}, "to": {"version": 111}, "versions": [110, 111],
-              "ended_by": {"version": 112, "change": "inserted", "notes": ["New s. 366 inserted by No. 1/2026 s. 83."]}}
+              "ended_by": {"version": 112, "as_at_printed": "12 April 2026", "change": "inserted",
+                           "notes": ["New s. 366 inserted by No. 1/2026 s. 83."]}}
     _chip, body = render_history(_history(absent, _wording(112, "a")), "/browse/cpa")
 
     assert "Not yet in the Act." in body
-    assert "Inserted</span> at Version 112" in body
+    assert "Inserted</span> as at 12 April 2026" in body
 
 
 def test_an_unchecked_wording_says_so():
@@ -670,10 +672,9 @@ def test_render_superseded_banner_is_silent_without_version_context():
 def test_render_superseded_banner_names_the_current_version_and_links_to_it():
     html = render_superseded_banner(112, 114, "/browse/cpa-v114/", as_at_printed="26 April 2026")
 
-    assert "Version 112" in html
-    assert "26 April 2026" in html
-    assert 'href="/browse/cpa-v114/"' in html
-    assert "Version 114" in html
+    assert "the text as at <strong>26 April 2026</strong>" in html
+    assert 'href="/browse/cpa-v114/"' in html and "Go to the current text" in html
+    assert "Version" not in html
 
 
 
@@ -845,10 +846,27 @@ def test_every_copy_button_on_a_read_on_page_works():
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
     copy_js = template_text("copy.js")
 
-    assert "id=" not in body[body.index('class="copy-section"') - 40:body.index("Copy section</button>")]
+    button = body.index('class="copy-section"')
+    assert "id=" not in body[button - 40:body.index("</button>", button)]
     assert "getElementById" not in copy_js
     assert 'document.addEventListener("click"' in copy_js
     assert 'btn.closest(".reader-section")' in copy_js
+
+
+def test_the_copy_button_is_an_icon_on_a_phone():
+    """Issue #99: beside the heading, and on a narrow screen its icon
+    alone, the label kept as the button's name rather than removed."""
+    from corpus.publishing.html_view import template_text
+
+    body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
+    head = body.split('<div class="section-head">')[1].split("</div>")[0]
+    css = template_text("page.css")
+    phone = css[css.index("@media (max-width: 720px) {\n  .copy-section"):]
+
+    assert 'class="copy-section"' in head and 'class="copy-icon"' in head
+    assert '<span class="copy-label">Copy section</span>' in head
+    assert ".copy-label" in phone.split("}\n}")[0] and "display: none" not in phone.split("}\n}")[0]
+    assert 'querySelector(".copy-label")' in template_text("copy.js")
 
 
 def test_a_copied_button_says_so():
@@ -1083,7 +1101,26 @@ def test_a_document_with_no_version_states_nothing_rather_than_guessing():
     body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
 
     assert "Text as at" not in body
-    assert 'class="readerctl"' in body, "the reading controls are not version-dependent"
+    assert 'class="readerbar"' not in body, "an empty bar is a stray rule across the page"
+
+
+def test_the_reading_controls_are_in_the_display_menu_not_above_the_text():
+    """Issue #96: a row of buttons above every provision was the first
+    thing on the page. They and the theme sit behind one header button,
+    shown only once its script can make them work."""
+    from corpus.publishing.html_view import page_shell
+
+    body = render_section(dict(_parsed(_three_part_act()), version={"as_at_printed": "1 March 2024"}),
+                          "Test Act", "/browse/a", "s10")
+    page = page_shell("Test Act", body, base_url="/browse/a", reader=True)
+    header = page.split("<header")[1].split("</header>")[0]
+
+    assert "reader-notes" not in body and "theme-toggle-btn" not in body
+    assert '<div class="sitemenu" hidden>' in header
+    for control in ("reader-smaller", "reader-bigger", "reader-notes", "reader-history", "theme-toggle-btn"):
+        assert f'id="{control}"' in header, control
+    assert 'aria-controls="sitemenu-panel"' in header
+    assert "/menu.js?v=" in page
 
 
 def test_comparing_versions_offers_the_other_versions_of_this_provision():
@@ -1097,10 +1134,10 @@ def test_comparing_versions_offers_the_other_versions_of_this_provision():
     choices = body.split('<details class="versions">')[1].split("</details>")[0]
 
     # Newest first, and the version you are already reading is not offered.
-    assert choices.index("Version 114") < choices.index("Version 112")
-    assert "Version 113" not in choices
+    assert choices.index("1 July 2025") < choices.index("1 January 2023")
+    assert "1 March 2024" not in choices and "Version" not in choices
     # Dated, because a reader has a date in mind rather than a version number.
-    assert "as at 1 July 2025" in choices
+    assert "As at 1 July 2025" in choices
     # The same provision in that version, not that version's front page.
     assert 'href="/browse/act-v114/section/s10"' in choices
 
@@ -1241,8 +1278,8 @@ def test_an_act_offers_its_bill_and_em_from_its_own_contents():
     what it is in its own name now (see dashboard._named_as_an_em), and a
     sentence explaining a link that explains itself is noise."""
     related = [
-        {"slug": "crimes-bill", "kind": "bill", "title": "Crimes Bill 1957",
-         "href": "/browse/crimes-bill/"},
+        {"kind": "bill", "external": True, "title": "Crimes Bill 1957",
+         "href": "https://www.legislation.vic.gov.au/bills/crimes-bill-1957"},
         {"slug": "crimes-bill-em", "kind": "em",
          "title": "Crimes Bill 1957 \u2014 Explanatory Memorandum",
          "href": "/browse/crimes-bill-em/"},
@@ -1250,7 +1287,10 @@ def test_an_act_offers_its_bill_and_em_from_its_own_contents():
     page = render_index(_parsed(_definitions_act()), "Crimes Act 1958", "/browse/a", related=related)
 
     assert "Related documents" in page
-    assert 'href="/browse/crimes-bill/">Crimes Bill 1957</a>' in page
+    # The Bill is named and linked out, its text not hosted here (#98).
+    assert ('Enacted from the <a class="external" href="https://www.legislation.vic.gov.au/bills/'
+            'crimes-bill-1957" rel="noopener">Crimes Bill 1957</a>') in page
+    assert "/browse/crimes-bill/" not in page
     assert "Crimes Bill 1957 \u2014 Explanatory Memorandum</a>" in page
     assert "the Bill it was enacted from" not in page
     assert "written about that Bill" not in page
@@ -1459,10 +1499,10 @@ def test_the_contents_list_a_removed_provision_where_it_used_to_sit():
 def test_a_removed_provisions_page_is_its_history_opened():
     from corpus.publishing.html_view import render_ghost
 
-    html = render_ghost(_ghost(), "Test Act", "/browse/t", version={"version": 114})
+    html = render_ghost(_ghost(), "Test Act", "/browse/t", version={"version": 114, "as_at_printed": "14 April 2026"})
 
     assert "Section 366 [Repealed]" in html
-    assert "not in Version 114" in html and "removed at Version 113" in html
+    assert "not in the text as at 14 April 2026" in html and "removed as at 13 April 2026" in html
     assert 'class="reader-section historical"' in html
     assert "<details class=\"history\"" in html and " open>" in html
     assert "an offence" in html and "S. 366 repealed by" in html
@@ -1541,7 +1581,7 @@ def test_a_margin_note_opens_its_pieces_history_in_its_place():
     assert 0 <= start < row, "set just before the piece's own row, in its place; its rows are what opening it hides"
     body = html[start:row]
     assert "The definition of \u201cappeal\u201d" in body
-    assert re.findall(r'class="ph-point[^"]*"[^>]*>([^<]+)<', body) == ["Version 110", "Current"]
+    assert re.findall(r'class="ph-point[^"]*"[^>]*>([^<]+)<', body) == ["10 April 2026", "Current"]
     assert body.count('class="ph-step"') == 1, "one step for two wordings"
     old_side, new_side = re.search(r'class="ph-side ph-old">(.*?)class="ph-side ph-new">(.*)', body, re.S).groups()
     assert '<del class="d-del">means a hearing</del>' in old_side and "d-ins" not in old_side
@@ -1552,13 +1592,43 @@ def test_a_margin_note_opens_its_pieces_history_in_its_place():
 def test_a_piece_inserted_later_reads_not_in_the_act_before_it():
     from corpus.publishing.html_view import render_piece_history
 
-    absent = {"absent": True, "from": {"version": 1}, "to": {"version": 1}, "versions": [1]}
+    absent = {"absent": True, "from": {"version": 1, "as_at_printed": "1 January 2026"}, "to": {"version": 1},
+              "versions": [1]}
     present = {"absent": False, "from": {"version": 2}, "to": {"version": 2}, "versions": [2], "version": 2,
                "checked": True, "provision": {"heading": None, "nodes": [
                    {"type": "section", "number": "3", "_node_id": "s3", "text": ""},
                    {"type": "subsection", "number": "2", "_node_id": "s3/2", "text": "new words"}]}}
     html = render_piece_history({"wordings": [absent, present], "at": 1}, "(2)", "s3-2", "/browse/t")
 
-    assert "Not in the Act at Version 1." in html
+    assert "Not in the Act as at 1 January 2026." in html
     assert '<ins class="d-ins">new words</ins>' in html, "arrived whole: all of it marked"
     assert '<div class="prov prov-section"' not in html, "the provision's own number is not the piece's"
+
+
+def test_no_public_label_carries_the_authorised_version_number():
+    """A reprint is named by its date (issue #95): every label a history,
+    a ghost, a superseded banner or a comparison list puts on one."""
+    from corpus.publishing.html_view import render_ghost
+
+    pages = [
+        render_history(_history(_wording(111, "alpha beta", ended=_AMENDED), _wording(112, "alpha")),
+                       "/browse/cpa")[1],
+        render_ghost(_ghost(), "Test Act", "/browse/t", version={"version": 114, "as_at_printed": "14 April 2026"}),
+        render_superseded_banner(112, 114, "/browse/cpa/", as_at_printed="12 April 2026"),
+        render_section(dict(_parsed(_three_part_act()), version={"version": 113, "as_at_printed": "1 March 2024"}),
+                       "Test Act", "/browse/a", "s10",
+                       version_urls={112: "/browse/a-2023-01-01/section/s10", 113: "/browse/a/section/s10"},
+                       version_dates={112: "1 January 2023", 113: "1 March 2024"}),
+    ]
+    for page in pages:
+        text = re.sub(r"<[^>]+>", " ", page)
+        assert not re.search(r"Versions? \d", text), text
+
+
+def test_a_bill_with_no_known_page_is_named_without_a_link():
+    """A guessed legislation.vic.gov.au address 404s; the name alone
+    still says what the Act was enacted from."""
+    page = render_index(_parsed(_definitions_act()), "A", "/browse/a",
+                        related=[{"kind": "bill", "external": True, "title": "Crimes Bill 1957", "href": None}])
+
+    assert "<li>Enacted from the Crimes Bill 1957</li>" in page

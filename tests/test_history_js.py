@@ -56,11 +56,12 @@ def test_the_dots_follow_the_strip_rather_than_leading_it():
 
 # --- the live toggle ---------------------------------------------------
 
-def test_the_reading_bar_carries_the_toggle():
-    html = html_view.render_section(
+def test_the_display_menu_carries_the_toggle():
+    body = html_view.render_section(
         {"nodes": [make_node("section", "1", "Purposes", "The purposes are-")], "hierarchy": None},
         "Test Act", "/browse/a", "s1", show_review_badge=False)
-    assert 'id="reader-history"' in html
+    header = html_view.page_shell("Test Act", body, base_url="/browse/a").split("</header>")[0]
+    assert 'id="reader-history"' in header
 
 
 def test_it_is_remembered_between_pages():

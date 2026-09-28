@@ -60,10 +60,9 @@ directory and never touches your own database.
 | The reading column — provision text, margins, the contents outline | `static/site/reader.css` |
 | Page structure — the site name, header order, what loads | `static/site/page.html` |
 | **Footer wording** | `static/site/footer.html` |
-| Landing page | `export_static_site.py` → `_landing_page_html` |
-| "Only part of this document has been reviewed…" | `export_static_site.py` → `_partial_notice_html` |
-| "This provision has not been checked by a human." | `export_static_site.py` → `_unverified_notice_html` |
-| Where "the authorised text" points | `export_static_site.py` → `OFFICIAL_SOURCE_URL` / `_NAME` |
+| Landing page | `corpus/web/public.py` → `_landing_page_html` |
+| "Only part of this document has been reviewed…" | `corpus/web/public.py` → `_partial_notice_html` |
+| Where "the authorised text" points | `corpus/web/public.py` → `OFFICIAL_SOURCE_URL` / `_NAME` |
 | The admin dashboard's look | `static/admin/dashboard.css` |
 | The review GUI's look | `static/admin/review.css` |
 | History review, Teaching, Lessons | `static/admin/history.css`, `teaching.css`, `lessons.css` |

@@ -3,7 +3,7 @@ One assembly of each reader page, so the things that serve them cannot
 drift apart.
 
 Three callers want the same pages. `dashboard.py` serves them live at
-`/browse/*` for a reviewer; `export_static_site.py` writes them to files
+`/browse/*` for a reviewer; `public.py`'s archive build writes them to files
 for the published archive; and `public.py` serves them live to the world.
 Until now the first two each built the pages themselves, from the same
 renderers but with their own gathering code either side -- which is a

@@ -70,15 +70,15 @@ def test_the_form_submits_where_it_is_told():
 
 
 def test_the_pager_keeps_the_query_and_the_scope():
-    """Page two of a search that included Bills, quietly not including
+    """Page two of a search that included EMs, quietly not including
     them, is the kind of thing somebody notices as "the results changed
     when I paged"."""
     html = search_view.pager_html(_found(truncated=True), "indictable offence",
-                                  search.Scope(bills=True, superseded=True), 20,
+                                  search.Scope(explanatory=True, superseded=True), 20,
                                   "/admin/search")
 
     assert ("/admin/search?q=indictable+offence&amp;offset=40"
-            "&amp;bills=1&amp;superseded=1") in html
+            "&amp;em=1&amp;superseded=1") in html
     assert "Previous" in html  # offset is past the first page
 
 
@@ -251,7 +251,7 @@ def test_what_the_checkbox_sends_is_read_the_way_browsers_send_it(value, expecte
     """A browser sends "on" for a ticked box, a hand-typed URL is as
     likely to say "1" or "true", and an absent box sends nothing at
     all."""
-    assert search.Scope.from_params({"bills": value}).bills is expected
+    assert search.Scope.from_params({"em": value}).explanatory is expected
 
 
 # ---------------------------------------------------------------------
@@ -263,29 +263,29 @@ def test_the_default_offers_the_extras_without_having_applied_them():
     html = search_view.form_html("/search", "", search.Scope())
 
     assert "Also search" in html
-    assert "Bills" in html and "Explanatory memoranda" in html
+    assert "Explanatory memoranda" in html
+    assert "Bills" not in html, "the site does not host Bills (#98)"
     assert "Superseded reprints" in html
     assert " checked" not in html
 
 
 def test_a_toggle_that_is_on_is_shown_as_on_and_the_panel_is_open():
     """Somebody who followed a link, or came back to a page, has to see
-    why there are Bills in their results. A filter you cannot see is a
+    why there are EMs in their results. A filter you cannot see is a
     filter you blame the search for."""
-    html = search_view.form_html("/search", "arrest", search.Scope(bills=True))
+    html = search_view.form_html("/search", "arrest", search.Scope(explanatory=True))
 
     assert "<details class='search-scope' open>" in html
-    assert "name='bills' value='1' checked" in html
-    assert "name='em' value='1'>" in html
+    assert "name='em' value='1' checked" in html
+    assert "name='superseded' value='1'>" in html
 
 
-def test_a_result_from_a_bill_says_so():
-    """A Bill and its Act say nearly the same thing in nearly the same
-    words. Which one you are reading is not a detail."""
-    html = search_view.results_html(_found([_hit(kind="bill")]), "x",
-                                    search.Scope(bills=True), 0, "/search")
+def test_a_result_from_an_em_says_so():
+    """An EM is not law. Which one you are reading is not a detail."""
+    html = search_view.results_html(_found([_hit(kind="em")]), "x",
+                                    search.Scope(explanatory=True), 0, "/search")
 
-    assert "<span class='search-kind'>Bill</span>" in html
+    assert "<span class='search-kind'>Explanatory memorandum</span>" in html
 
 
 def test_a_result_from_an_act_is_not_tagged():

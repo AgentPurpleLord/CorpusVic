@@ -1612,7 +1612,7 @@ async def refuse_writes_when_read_only(request: Request, call_next):
 # stylesheets, its browser-side scripts and Junicode (see
 # corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
-# loads exactly the files export_static_site.py publishes. StaticFiles
+# loads exactly the files public.py's archive publishes. StaticFiles
 # resolves the path itself and refuses to escape the directory, which is
 # what the hand-rolled /fonts route this replaces had to check for.
 app.mount("/assets", StaticFiles(directory=html_view.TEMPLATE_DIR), name="assets")
@@ -1662,6 +1662,17 @@ class MoveRequest(BaseModel):
 
 class AcceptRequest(BaseModel):
     flagged: bool = False
+    # What was wrong, in the reviewer's words: it goes in the report they
+    # hand back (corpus/review/report.py).
+    note: str = ""
+
+
+def _note_pieces(indices, req: AcceptRequest) -> None:
+    """A flag's note on each piece it flagged; accepting takes it away,
+    since there is no longer anything wrong to say."""
+    if req.flagged and not req.note.strip():
+        return
+    db.save_review_notes(_act, {_node_id(i): req.note if req.flagged else "" for i in indices if _node_id(i)})
 
 
 class LinkRequest(BaseModel):
@@ -1909,6 +1920,7 @@ def accept_page(page_no: int, req: AcceptRequest):
 
     for i in outstanding + reflagged:
         _accept_node(i, req.flagged)
+    _note_pieces(outstanding + reflagged, req)
 
     return {
         "page": page_no,
@@ -3371,6 +3383,7 @@ def accept_node(node_index: int, req: AcceptRequest):
     time or via that whole-unit endpoint; see _unit_status."""
     _require_live(node_index)
     node = _accept_node(node_index, req.flagged)
+    _note_pieces([node_index], req)
     return {
         "node_index": node_index,
         "verified_at": node.get("verified_at"),
@@ -3429,6 +3442,7 @@ def accept_unit(unit_no: int, req: AcceptRequest):
         # Already in `verified`, so this updates the row in place rather
         # than appending a second one for the same node.
         _accept_node(i, False)
+    _note_pieces(outstanding + flagged, req)
     return {"unit_no": unit_no, "status": _unit_status(unit_no)}
 
 

@@ -1066,7 +1066,7 @@ def test_rebuilding_runs_the_export_script(monkeypatch):
 
     assert client.post("/api/site/rebuild").status_code == 200
 
-    assert seen["cmd"][1:] == ["-m", "corpus.exporters.export_static_site", "--out", "_site"]
+    assert seen["cmd"][1:] == ["-m", "corpus.web.public", "build", "--out", "_site"]
     # No --password and no --no-password: the script takes the passphrase
     # from deploy/site.env and refuses to replace a gated build with an
     # open one, so this button cannot be the thing that unpublishes the
@@ -1736,3 +1736,30 @@ def test_the_document_list_is_cached_until_a_parse_changes(tmp_path, monkeypatch
     monkeypatch.setattr(dashboard, "_list_cache", None)   # and a restart in between
     [doc] = dashboard.list_acts()
     assert (doc["node_count"], doc["unit_count"], doc["kind"]) == (2, 2, "bill")
+
+
+def test_an_acts_related_row_links_the_bill_out_and_the_em_here(monkeypatch):
+    """The Bill is never linked to a copy here (issue #98); the EM is,
+    where it is on the site."""
+    monkeypatch.setattr(dashboard, "related_documents", lambda slug: [
+        {"slug": "cp-bill", "kind": "bill"}, {"slug": "cp-bill-em", "kind": "em"}, {"slug": "gone-em", "kind": "em"}])
+    monkeypatch.setattr(dashboard, "_bill_sources", lambda: {
+        "cp-bill": {"title": "Criminal Procedure Bill 2008", "url": "https://www.legislation.vic.gov.au/bills/x"}})
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: slug.upper())
+
+    links = dashboard.related_links("cpa", lambda slug: f"/browse/{slug}/" if slug != "gone-em" else None)
+
+    assert links == [
+        {"kind": "bill", "external": True, "href": "https://www.legislation.vic.gov.au/bills/x",
+         "title": "Criminal Procedure Bill 2008"},
+        {"kind": "em", "title": "CP-BILL-EM", "href": "/browse/cp-bill-em/"},
+    ]
+
+
+def test_the_bill_registry_names_every_linked_bill():
+    """Every Bill a link file names has its legislation.vic.gov.au page
+    recorded, so no Act's contents falls back to an unlinked name."""
+    sources = dashboard._bill_sources()
+    bills = {doc["bill_slug"] for doc in dashboard._load_bill_link_docs()[0]}
+    assert bills and bills <= set(sources)
+    assert all(s["url"].startswith("https://www.legislation.vic.gov.au/bills/") for s in sources.values())

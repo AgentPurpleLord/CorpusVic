@@ -213,6 +213,19 @@ def test_an_unpublished_work_is_not_served(unlocked, monkeypatch, tmp_path):
         assert unlocked.get(address).status_code == 404, address
 
 
+def test_an_old_versioned_address_redirects_to_the_dated_one(unlocked, monkeypatch):
+    """-v112 named the Authorised Version number (issue #95); links to it
+    are out in the world, so they are moved rather than broken."""
+    monkeypatch.setattr(public, "_published_slugs", lambda: {
+        "cpa-v112": "cpa-2025-03-01", "cpa-v114": "cpa"})
+
+    res = unlocked.get("/browse/cpa-v112/section/s5?x=1")
+    assert res.status_code == 308 and res.headers["location"] == "/browse/cpa-2025-03-01/section/s5?x=1"
+    assert unlocked.get("/browse/cpa-v114/").headers["location"] == "/browse/cpa/"
+    assert unlocked.get("/api/browse/cpa-v112/preview?section=s5").headers["location"] == \
+        "/api/browse/cpa-2025-03-01/preview?section=s5"
+
+
 def test_robots_asks_crawlers_away_from_a_gated_site(client):
     assert "Disallow: /" in client.get("/robots.txt").text
 
@@ -269,10 +282,10 @@ def test_the_scope_switches_are_carried_through(unlocked, monkeypatch):
     stub = _StubIndex()
     monkeypatch.setattr(public, "_INDEX", stub)
 
-    unlocked.get("/search?q=indictable&superseded=1&bills=1")
+    unlocked.get("/search?q=indictable&superseded=1&em=1")
 
     scope = stub.asked[-1]["scope"]
-    assert (scope.superseded, scope.bills, scope.explanatory) == (True, True, False)
+    assert (scope.superseded, scope.explanatory) == (True, True)
 
 
 def test_an_ordinary_search_is_of_the_law_as_it_stands(unlocked, monkeypatch):
@@ -285,7 +298,7 @@ def test_an_ordinary_search_is_of_the_law_as_it_stands(unlocked, monkeypatch):
     unlocked.get("/search?q=indictable")
 
     scope = stub.asked[-1]["scope"]
-    assert (scope.superseded, scope.bills, scope.explanatory) == (False, False, False)
+    assert (scope.superseded, scope.explanatory) == (False, False)
 
 
 def test_the_api_takes_the_same_switches(unlocked, monkeypatch):

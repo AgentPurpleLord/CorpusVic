@@ -1,4 +1,4 @@
-# Only needed to build the published static site (export_static_site.py,
+# Only needed to build the published static site (corpus.web.public build,
 # run by .github/workflows/pages.yml). It reads the same data the GUIs do
 # -- and imports dashboard.py to do it -- so it needs everything they do.
 -r requirements-gui.txt

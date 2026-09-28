@@ -48,8 +48,6 @@ def _address(hit: dict) -> str:
 # default is not a filter somebody switched on -- it is the corpus a
 # question about the law is asked of, and the rest is extra.
 SCOPE_OPTIONS = (
-    ("bills", "bills", "Bills",
-     "The Bill an Act began as, before Parliament amended it."),
     ("em", "explanatory", "Explanatory memoranda",
      "What the Bill's drafters said it was for. Not law, and often the "
      "clearest statement of the intention behind a provision."),
@@ -154,7 +152,7 @@ def pager_html(found: dict, query: str, scope, offset: int, action: str) -> str:
     back button should mean what it says.
 
     Every link carries the scope forward. Page two of a search that
-    included Bills, quietly not including them, is the kind of thing
+    included explanatory memoranda, quietly not including them, is the kind of thing
     somebody notices as "the results changed when I paged"."""
     def link(params: dict, label: str) -> str:
         params.update(scope.params())
@@ -203,6 +201,5 @@ def page_body(index, query: str, scope, offset: int,
 # Act. Acts get nothing: the overwhelming majority of results are Acts,
 # and a tag on every one of them is a tag that says nothing.
 KIND_LABELS = {
-    "bill": "<span class='search-kind'>Bill</span> ",
     "em": "<span class='search-kind'>Explanatory memorandum</span> ",
 }

@@ -83,7 +83,10 @@ def _body_font_size(lines: list[BodyLine]) -> float:
 # fixed ending.
 # "therefore": an Act with a Preamble enacts on the strength of it (the
 # Family Violence Protection Act 2008).
-_ENACTING_WORDS_RE = re.compile(r"^The Parliament of Victoria (?:therefore )?enacts:?\s*$")
+# "as follows" is how Acts of roughly 1985-2005 put it (the Magistrates'
+# Court Act 1989, the Sentencing Act 1991): missed, their reprint's
+# "Authorised Version No." block was parsed as the Act's first heading.
+_ENACTING_WORDS_RE = re.compile(r"^The Parliament of Victoria (?:therefore )?enacts(?: as follows)?:?\s*$")
 _PREAMBLE_RE = re.compile(r"^Preamble$")
 _OLD_ENACTING_WORDS_RE = re.compile(r"\(that is to say\):?\s*$", re.IGNORECASE)
 

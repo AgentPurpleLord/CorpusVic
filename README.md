@@ -35,11 +35,10 @@ whole-document audit run offline. Nothing in there decides anything.
     run_pipeline.py       a PDF -> data/parsed/<act>.json
     review.py             the review GUI for one document
     dashboard.py          the hub, and the live browse view
-    public.py             the public site (see above)
+    public.py             the public site, served live or written out as an archive
     corpus/search.py      the full-text index behind it
     corpus/query.py       and what it makes of a question in plain words
     corpus/embeddings.py  the optional semantic half of it
-    export_static_site.py the same site as a static archive
     export_markdown.py, export_akn.py
     static/site/          the site's template: its shell, stylesheets and fonts
 
@@ -191,6 +190,13 @@ legislation.vic.gov.au holds and fetches and parses the ones ticked;
 **Fetch amending Acts** gets every Act the newest reprint's Table of
 Amendments lists, bar those already in force by the oldest reprint held
 (`corpus/amending/`).
+
+**Report** (on the Act's card, in History review and in review) downloads
+everything flagged in review, in any version, and every change denied in
+History review, as Markdown to hand back: each with the note given when it
+was flagged or denied, the parser's reading and the reviewer's, the
+printed lines it came from and the pieces either side
+(`corpus/review/report.py`).
 
 Or add one from the dashboard's **Versions** on an Act's card: the
 PDF is placed by the version number it states, and refused if it names a
@@ -420,15 +426,15 @@ cosine. `download_search_model.py` fetches the model;
 `python3 -m corpus.relevance` prints the scoreboard, so whether it earns
 its place is a measurement. See deploy/README.md.
 
-`export_static_site.py` still builds the whole site as static files, but
-as an archive rather than as the site: a copy that survives the server,
+`python -m corpus.web.public build` writes the whole site as static files,
+an archive rather than the site: a copy that survives the server,
 published off it by `.github/workflows/pages.yml`. It keeps the
 build-time encryption gate (`corpus/site_crypto.py`), because a static
 host has no server to check a passphrase.
 
 The domain lives in one place: the `CNAME` file in this repository's
 root. GitHub Pages reads it to serve the archive at a custom domain, and
-`export_static_site.py` reads it to decide that links need no path
+the archive build reads it to decide that links need no path
 prefix -- a custom domain is mapped at its own root, so a page links to
 `/browse/<act>/` rather than `/<repo>/browse/<act>/`.
 

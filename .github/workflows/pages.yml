@@ -11,7 +11,7 @@ on:
     paths:
       - "data/parsed/**"
       - "data/review/**"
-      - "export_static_site.py"
+      - "corpus/web/public.py"
       - "dashboard.py"
       - "corpus/**"
       - "static/site/**"
@@ -51,11 +51,11 @@ jobs:
       # SITE_PASSWORD gates the whole site behind an unlock page while
       # it's being tested: set it as a repository secret to turn the gate
       # on, delete the secret to publish openly. Unset here means an empty
-      # string, which export_static_site.py reads as "no gate".
+      # string, which the build reads as "no gate".
       - name: Build the static site
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
-        run: python -m corpus.exporters.export_static_site --out _site
+        run: python -m corpus.web.public build --out _site
 
       - uses: actions/configure-pages@v5
 

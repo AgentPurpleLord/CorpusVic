@@ -35,9 +35,8 @@ details. Each margin note on a Section page links into it, naming the
 Act behind its citation, because a note only ever says "No. 68/2009"
 and no reader keeps a hundred Act numbers in their head.
 
-A Section page also carries a bar of related documents: the Bill clause
-it was enacted from and the Explanatory Memorandum's note on it, worked
-out by corpus/commentary.py from run_bill_linking.py's link
+A Section page also carries a bar of related documents: the
+Explanatory Memorandum's note on it, worked out by corpus/commentary.py from run_bill_linking.py's link
 records and handed here as ready-made chips. They're ordinary links
 into those documents' own browse pages, so hovering one answers "what
 does the EM say about this provision?" without leaving the section.
@@ -409,7 +408,7 @@ def _site_prefix(base_url: str) -> str:
     "" when a page is served from the domain root (the live dashboard,
     per deploy/README.md), or a path like "/repo-name" when the whole
     site sits under a subpath (a GitHub Pages project site -- see
-    export_static_site.py). Used by the handful of links below that
+    public.py's archive build). Used by the handful of links below that
     don't already build on base_url the way every in-Act link does, so
     they still land inside the site instead of at the real domain root."""
     return base_url.rsplit("/browse/", 1)[0] if "/browse/" in base_url else ""
@@ -674,6 +673,18 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     }
 
 
+def _related_item_html(doc: dict) -> str:
+    """One entry of an Act's related row. The Bill is external: named,
+    and linked to legislation.vic.gov.au where its page is known, since
+    its text is not hosted here (see dashboard.related_links)."""
+    if not doc.get("external"):
+        return f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a></li>'
+    if not doc.get("href"):
+        return f"<li>Enacted from the {_esc(doc['title'])}</li>"
+    return (f'<li>Enacted from the <a class="external" href="{_esc(doc["href"])}" rel="noopener">'
+            f'{_esc(doc["title"])}</a> <span class="text-muted">on legislation.vic.gov.au</span></li>')
+
+
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None,
                  show_review_badge: bool = True, related: "list[dict] | None" = None,
@@ -686,7 +697,8 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     "as_at_printed"} -- see render_superseded_banner.
 
     related, if given, is the Bill this Act was enacted from and that
-    Bill's Explanatory Memorandum, as [{"title", "href", "kind"}]. They
+    Bill's Explanatory Memorandum, as [{"title", "href", "kind",
+    "external"}] (see _related_item_html). They
     belong to the Act rather than standing beside it -- an Explanatory
     Memorandum is written about a Bill and is meaningless without it --
     so they are offered here, from the Act's own contents, rather than on
@@ -697,7 +709,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     is one verdict on a whole Act, where whether a human has read the
     provision in front of you is a fact about that provision. The site
     says it per provision instead, on the provision (see
-    export_static_site.py); the dashboard, whose whole job is tracking
+    public.py's archive build); the dashboard, whose whole job is tracking
     the Act's progress, keeps the badge.
 
     ghosts, if given, are the provisions this version no longer has
@@ -738,9 +750,8 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     # Authorised Version", which is the name for the government's own
     # published text, not for anything reconstructed from it here.
     version = parsed.get("version") or {}
-    if version.get("version") is not None:
-        as_at = f' &mdash; incorporating amendments as at {_esc(version["as_at_printed"])}' if version.get("as_at_printed") else ""
-        out.append(f'<div class="act-version">Version {_esc(str(version["version"]))}{as_at}</div>')
+    if version.get("as_at_printed"):
+        out.append(f'<div class="act-version">Incorporating amendments as at {_esc(version["as_at_printed"])}</div>')
     if parsed.get("endnotes"):
         out.append(
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
@@ -755,10 +766,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         # apart. The EM now says what it is in its own name, and a
         # sentence explaining a link that already explains itself is
         # noise.
-        items = "".join(
-            f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a></li>'
-            for doc in related
-        )
+        items = "".join(_related_item_html(doc) for doc in related)
         out.append(f'<div class="related"><h2>Related documents</h2><ul class="section-list">{items}</ul></div>')
     list_open = False
 
@@ -823,8 +831,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
 
 def _crossrefs_html(crossrefs: list[dict]) -> str:
     """The "where else this provision is explained" bar -- one chip per
-    related document (the Bill clause this section was enacted from, an
-    Explanatory Memorandum note about it). Each chip is an ordinary
+    Explanatory Memorandum note about it. Each chip is an ordinary
     link into that document's own page, so hovering one previews it the
     same way every other link on the page does; the caller
     (dashboard.py, via corpus/commentary.py) works out what
@@ -1024,15 +1031,18 @@ def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
     return out
 
 
+# A reprint is named by the day it states its text is as at, never by its
+# Authorised Version number: that number is the government's, and is not
+# reproduced here (issue #95).
+def _as_at(version: dict) -> str:
+    return _esc(version["as_at_printed"]) if version.get("as_at_printed") else "an undated reprint"
+
+
 def _span_label(wording: dict) -> str:
     first, last = wording["from"], wording["to"]
     if first["version"] == last["version"]:
-        when = f" (as at {_esc(first['as_at_printed'])})" if first.get("as_at_printed") else ""
-        return f"Version {first['version']}{when}"
-    when = ""
-    if first.get("as_at_printed") and last.get("as_at_printed"):
-        when = f" ({_esc(first['as_at_printed'])} to {_esc(last['as_at_printed'])})"
-    return f"Versions {first['version']}\u2013{last['version']}{when}"
+        return f"As at {_as_at(first)}"
+    return f"As at {_as_at(first)} to {_as_at(last)}"
 
 
 _ENDED_VERB = {"changed": "Amended", "inserted": "Inserted", "repealed": "Repealed"}
@@ -1045,13 +1055,12 @@ def _ended_html(wording: dict, base_url: str, amendment_index: "dict | None") ->
     ended = wording.get("ended_by")
     if not ended:
         return ""
-    when = f" (as at {_esc(ended['as_at_printed'])})" if ended.get("as_at_printed") else ""
     verb = _ENDED_VERB.get(ended["change"], "Changed")
     notes = "".join(_timeline_note_html(raw, base_url, amendment_index) for raw in ended.get("notes") or [])
     if not notes:
         notes = '<span class="tl-note hist-quiet">The reprint does not say by what.</span>'
     return (f'<div class="hist-ended hist-{_esc(ended["change"])}">'
-            f'<span class="tl-verb">{verb}</span> at Version {ended["version"]}{when}'
+            f'<span class="tl-verb">{verb}</span> as at {_as_at(ended)}'
             f'<div class="tl-notes">{notes}</div></div>')
 
 
@@ -1273,12 +1282,10 @@ def render_piece_history(history: "dict | None", subject: str, anchor: str, base
     at = last if at is None else at
     opening = max(at - 1, 0)   # the step into the wording this page carries
 
-    def version_of(wording):
-        return wording["from"]["version"]
-
     points = []
     for n, wording in enumerate(wordings):
-        label = "Current" if n == last and not wording["absent"] else f"Version {version_of(wording)}"
+        label = ("Current" if n == last and not wording["absent"]
+                 else wording["from"].get("as_at_printed") or "Undated")
         title = _span_label(wording) + (": not in the Act" if wording["absent"] else "")
         on = " ph-on" if n in (opening, opening + 1) else ""
         points.append(f'<li><button type="button" class="ph-point{on}" data-point="{n}" title="{title}">'
@@ -1286,17 +1293,15 @@ def render_piece_history(history: "dict | None", subject: str, anchor: str, base
 
     def when(n):
         wording = wordings[n]
-        first, final = wording["from"]["version"], wording["to"]["version"]
-        label = (f"Version {first}" if first == final else f"Versions {first}\u2013{final}") + \
-            (" (current)" if n == last else "")
+        label = _span_label(wording) + (" (current)" if n == last else "")
         href = None if wording["absent"] else (version_urls or {}).get(wording.get("version"))
         return f'<a class="tl-version" href="{_esc(href)}">{label}</a>' if href else f'<span class="tl-version">{label}</span>'
 
     steps = []
     for k in range(last):
         old_html, new_html = _piece_sides(units[k], units[k + 1])
-        gone = f'<p class="hist-gone">Not in the Act at Version {version_of(wordings[k])}.</p>'
-        gone_after = f'<p class="hist-gone">Not in the Act at Version {version_of(wordings[k + 1])}: repealed.</p>'
+        gone = f'<p class="hist-gone">Not in the Act as at {_as_at(wordings[k]["from"])}.</p>'
+        gone_after = f'<p class="hist-gone">Not in the Act as at {_as_at(wordings[k + 1]["from"])}: repealed.</p>'
         steps.append(
             f'<section class="ph-step" data-step="{k}"{"" if k == opening else " hidden"}>'
             f'<div class="ph-pair">'
@@ -1348,17 +1353,16 @@ def render_ghost(ghost: dict, act_title: str, base_url: str, amendment_index: "d
                                          hierarchy_order, anchor=ghost["page"], open_=True)
     last = next(w for w in reversed(history["wordings"][:history["at"]]) if not w["absent"])
     ended = last.get("ended_by") or {}
-    when = f" (as at {_esc(ended['as_at_printed'])})" if ended.get("as_at_printed") else ""
     title = f'{ghost["label"]} [Repealed]'
-    this = f"Version {version['version']}" if (version or {}).get("version") is not None else "this version"
+    this = f"the text as at {_as_at(version)}" if (version or {}).get("as_at_printed") else "this version"
     out = [
         _readerbar_html(version or {}, superseded, version_urls, version_dates),
         '<div class="reader-main">',
         f'<article class="reader-section historical" data-section="{_esc(ghost["page"])}" data-title="{_esc(title)}">',
         f'<div class="breadcrumb"><a href="{base_url}/">{_esc(act_title)}</a></div>',
         f"<h1>{_esc(title)}</h1>",
-        f'<div class="supersede ghost-banner" role="status">This provision is not in {_esc(this)}. '
-        f'It was removed at Version {_esc(str(ended.get("version", "?")))}{when}; '
+        f'<div class="supersede ghost-banner" role="status">This provision is not in {this}. '
+        f'It was removed as at {_as_at(ended)}; '
         f'below is how it read before that.</div>',
         history_html,
         "</article>",
@@ -1380,12 +1384,13 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
     """
     if version is None or current is None or version >= current:
         return ""
-    when = f" (as at {_esc(as_at_printed)})" if as_at_printed else ""
-    link = (f' <a class="supersede-link" href="{_esc(current_url)}">Go to Version {current}</a>'
+    # The numbers only order the two; what the reader is told is the date.
+    this = f"the text as at <strong>{_esc(as_at_printed)}</strong>" if as_at_printed else "an earlier text"
+    link = (f' <a class="supersede-link" href="{_esc(current_url)}">Go to the current text</a>'
             if current_url else "")
     return (
-        f'<div class="supersede" role="status">This is <strong>Version {version}</strong>{when} '
-        f'and is not the law as it now stands &mdash; Version {current} is.{link}</div>'
+        f'<div class="supersede" role="status">This is {this}, '
+        f'not the law as it now stands.{link}</div>'
     )
 
 
@@ -1393,9 +1398,9 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
 # The section reading view
 # ---------------------------------------------------------------------------
 # A section page carries two pieces of furniture the Endnotes page does
-# not: a bar of reading controls above the text, and the provisions either
-# side of this one below it. See static/site/reader.css and reader.js for
-# the other half of each.
+# not: a bar above the text saying which day's law it is, and the
+# provisions either side of this one below it. See static/site/reader.css
+# for the other half of each.
 #
 # It used to carry a third, an outline of the rest of the document beside
 # the text. That is on the contents page now (_index_outline_html): a
@@ -1487,29 +1492,39 @@ def _version_choices_html(version_urls: "dict | None", version_dates: "dict | No
     items = []
     for version, url in reversed(others):  # newest first: the likeliest comparison
         when = (version_dates or {}).get(version)
-        dated = f' <span class="version-date">as at {_esc(when)}</span>' if when else ""
-        items.append(f'<li><a href="{_esc(url)}">Version {_esc(str(version))}</a>{dated}</li>')
+        items.append(f'<li><a href="{_esc(url)}">As at {_esc(when) if when else "an undated reprint"}</a></li>')
     return (
         '<details class="versions"><summary>Compare with another version</summary>'
         f'<ul class="version-list">{"".join(items)}</ul></details>'
     )
 
 
+_SVG = ('<svg class="{cls}" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false" '
+        'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{body}</svg>')
+_COPY_BUTTON = (
+    '<button type="button" class="copy-section" title="Copy section">'
+    + _SVG.format(cls="copy-icon", body='<rect x="9" y="9" width="13" height="13" rx="2"/>'
+                                        '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')
+    + _SVG.format(cls="copied-icon", body='<polyline points="20 6 9 17 4 12"/>')
+    + '<span class="copy-label">Copy section</span></button>'
+)
+
+
 def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dict | None",
                     version_dates: "dict | None") -> str:
-    """The bar above the text: which day's law this is, how to compare it
-    with another, and the two reading controls.
+    """The bar above the text: which day's law this is, and how to compare
+    it with another.
 
     "Text as at" is the date the reprint itself states it incorporates
     amendments to, read off the PDF's front matter -- not the day the file
     was parsed, and never offered as the authorised text. A document with
-    no version at all (a Bill, an Explanatory Memorandum) says nothing
-    rather than guessing, and keeps the reading controls."""
+    no version at all (an Explanatory Memorandum) says nothing rather
+    than guessing."""
     bits = []
     as_at = version.get("as_at_printed")
     this_version = version.get("version")
-    if as_at or this_version is not None:
-        stated = _esc(as_at) if as_at else f"Version {_esc(str(this_version))}"
+    if as_at:
+        stated = _esc(as_at)
         # "Current" only where there is something to be current against:
         # what this tool knows is the versions it holds, so on a document
         # with only one the claim would be about nothing (see
@@ -1525,22 +1540,11 @@ def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dic
             f"<strong>{stated}</strong>{tag}</div>"
         )
     bits.append(_version_choices_html(version_urls, version_dates, this_version))
-    # The controls are written out by hand rather than by reader.js so that
-    # they are in the HTML a reader without JavaScript gets -- disabled
-    # there, but never a row of buttons that silently do nothing.
-    bits.append(
-        '<div class="readerctl" hidden>'
-        '<span class="ctl-label">Size</span>'
-        '<button type="button" class="ctl-btn" id="reader-smaller" title="Smaller text">A&minus;</button>'
-        '<button type="button" class="ctl-btn" id="reader-bigger" title="Larger text">A+</button>'
-        '<button type="button" class="ctl-btn" id="reader-notes" aria-pressed="true">Notes on</button>'
-        # Every provision's wordings at once, scrolled through sideways
-        # (static/site/history.js). On every page, not only ones with a
-        # history: reading on brings in provisions that have one.
-        '<button type="button" class="ctl-btn" id="reader-history" aria-pressed="false">History off</button>'
-        "</div>"
-    )
-    return f'<div class="readerbar">{"".join(bits)}</div>'
+    # The reading controls are in the header's Display menu (static/site/
+    # page.html), not here: a row of buttons above every provision was
+    # the first thing on the page (issue #96).
+    bits = [b for b in bits if b]
+    return f'<div class="readerbar">{"".join(bits)}</div>' if bits else ""
 
 
 def _section_nav_html(sections: list, match_index: int, base_url: str,
@@ -1609,7 +1613,7 @@ def render_section(
     the provision's own heading -- what the reader has to know before the
     words below them mean anything. The published site uses it to say
     that a provision has not been checked by a human (see
-    export_static_site.py); it is raw HTML because what needs saying is a
+    public.py's archive build); it is raw HTML because what needs saying is a
     sentence with a link in it, not a string.
 
     show_review_badge is how much of this provision a human has checked --
@@ -1636,8 +1640,7 @@ def render_section(
     # the text now sits beside the contents instead (_index_outline_html):
     # a reader on a provision is reading it, and the breadcrumb, the
     # next/prev links and reading on already carry them everywhere the
-    # outline did. The reading controls stay, because they are about how
-    # this text is set rather than about where else to go.
+    # outline did.
     out = [
         _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
         '<div class="reader-main">',
@@ -1697,10 +1700,13 @@ def render_section(
     history_chip, history_html = render_history(
         timeline, base_url, amendment_index, version_urls,
         parsed.get("hierarchy") or None, anchor=section_slug)
-    if history_chip:
-        out.append(f'<div class="section-head"><h1>{_esc(title)}</h1>{history_chip}</div>')
-    else:
-        out.append(f"<h1>{_esc(title)}</h1>")
+    # Copying a provision into advice, a submission or an email is one of
+    # the things people most often come here to do, so it's a button
+    # rather than a careful drag-select that picks up the margin notes
+    # and loses the indentation (see static/site/copy.js). Beside the
+    # heading rather than on a row of its own, and an icon alone on a
+    # phone (issue #99): the label stays for screen readers.
+    out.append(f'<div class="section-head"><h1>{_esc(title)}</h1>{history_chip}{_COPY_BUTTON}</div>')
     # Ordered the way a reader needs them: whether this is even the
     # current law first, then how this provision got to its present
     # wording, then where else it's explained. A crossref chip is no
@@ -1723,13 +1729,6 @@ def render_section(
     # _build_linkifier_html's `fragment`) -- just moved onto the
     # provision <div> itself.
     slugs = compute_section_slugs(tree_node)
-    # Copying a provision into advice, a submission or an email is one of
-    # the things people most often come here to do, so it's a button
-    # rather than a careful drag-select that picks up the margin notes
-    # and loses the indentation (see static/site/copy.js).
-    out.append(
-        '<button type="button" class="copy-section">Copy section</button>'
-    )
     out.append('<div class="provisions">')
     # Materialised rather than walked, because a note's own heading is
     # decided by how many notes follow it (see _caption_html).
@@ -2117,7 +2116,7 @@ def render_preview(parsed: dict, act_title: str, section_slug: "str | None", fra
 # also means a reload picks up an edit to them without restarting the
 # server. TEMPLATE_DIR is served as "/assets": by dashboard.py and
 # review.py for the live browse pages, and copied into the build by
-# export_static_site.py for the published site.
+# public.py's archive build for the published site.
 TEMPLATE_DIR = PROJECT_ROOT / "static" / "site"
 
 _template_cache: dict[str, tuple[float, str]] = {}

@@ -52,11 +52,34 @@ try {
 <header class="siteheader">
   <a class="home" href="{{HOME}}">Corpus</a>
   {{SEARCH}}
-  <button class="theme-toggle" id="theme-toggle-btn" type="button">&#127769;</button>
+  <div class="sitemenu" hidden>
+    <button type="button" class="sitemenu-btn" id="sitemenu-btn" aria-expanded="false"
+            aria-controls="sitemenu-panel" title="Display settings">Aa</button>
+    <div class="sitemenu-panel" id="sitemenu-panel" role="group" aria-label="Display settings" hidden>
+      <div class="menu-row menu-reader" hidden>
+        <span class="ctl-label">Text size</span>
+        <button type="button" class="ctl-btn" id="reader-smaller" title="Smaller text">A&minus;</button>
+        <button type="button" class="ctl-btn" id="reader-bigger" title="Larger text">A+</button>
+      </div>
+      <div class="menu-row menu-reader" hidden>
+        <span class="ctl-label">Margin notes</span>
+        <button type="button" class="ctl-btn" id="reader-notes" aria-pressed="true">Notes on</button>
+      </div>
+      <div class="menu-row menu-reader" hidden>
+        <span class="ctl-label">History</span>
+        <button type="button" class="ctl-btn" id="reader-history" aria-pressed="false">History off</button>
+      </div>
+      <div class="menu-row">
+        <span class="ctl-label">Theme</span>
+        <button type="button" class="ctl-btn" id="theme-toggle-btn">Light</button>
+      </div>
+    </div>
+  </div>
 </header>
 <div class="{{MAIN_CLASS}}">
 {{BODY}}
 </div>
+<script src="{{ASSETS}}/menu.js?v={{V}}"></script>
 <script src="{{ASSETS}}/theme.js?v={{V}}"></script>
 <script src="{{ASSETS}}/copy.js?v={{V}}"></script>
 <script src="{{ASSETS}}/reader.js?v={{V}}"></script>

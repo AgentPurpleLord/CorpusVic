@@ -9,8 +9,9 @@
 // picks them up (nothing here sets a style directly), and read from
 // localStorage alongside the theme.
 (function () {
-  var controls = document.querySelector(".readerctl");
-  if (!controls) return;
+  // Only where there is legislative text to set; the rest of the site
+  // gets the Display menu with just its theme.
+  if (!document.querySelector(".reader-section")) return;
 
   var SIZE_KEY = "readerProvSize";
   var NOTES_KEY = "readerNotes";
@@ -34,10 +35,9 @@
     try { localStorage.setItem(key, value); } catch (e) {}
   }
 
-  // The bar is markup rather than something built here, so that a reader
-  // without JavaScript is never shown buttons that do nothing; it is
-  // hidden until this runs and can make them work.
-  controls.hidden = false;
+  // The rows are markup (static/site/page.html) rather than built here,
+  // and hidden until this runs and can make them work.
+  document.querySelectorAll(".menu-reader").forEach(function (row) { row.hidden = false; });
 
   var step = parseInt(stored(SIZE_KEY, DEFAULT_STEP), 10);
   if (!(step >= 0 && step < STEPS)) step = DEFAULT_STEP;

@@ -1,12 +1,12 @@
-/* The reading view: the reading controls above the text, the provisions
+/* The reading view: the "text as at" bar above the text, the provisions
    either side of this one below, and -- on the contents page -- the Act's
    own skeleton beside them.
 
    .page-reader is the two-column layout, and page_shell now puts it on
    the *contents* page. A provision's own page is one column of text: the
    outline that used to sit beside it moved to the contents, because a
-   reader on a provision is reading it. The reading controls are driven by
-   reader.js, which sets two attributes on <html> and nothing else:
+   reader on a provision is reading it. The reading controls, in the
+   header's Display menu (menu.js), are driven by reader.js, which sets two attributes on <html> and nothing else:
    data-prov-size (a step from 0 to 4) and data-notes ("off"), both
    remembered per reader. */
 
@@ -15,7 +15,7 @@
    they have everywhere else (see page.css's .prov). */
 .page-reader { max-width: 1240px; }
 
-/* --- the bar of reading controls ------------------------------------ */
+/* --- the bar above the text ----------------------------------------- */
 .readerbar {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px;
   font-family: var(--sans); font-size: 13px;
@@ -52,7 +52,6 @@
 .version-list li { padding: 3px 0; font-size: 13px; white-space: nowrap; }
 .version-date { color: var(--muted); font-size: 12px; }
 
-.readerctl { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .ctl-btn {
   font-family: var(--sans); font-size: 12.5px; padding: 4px 9px; cursor: pointer;
   background: var(--panel); color: var(--fg);
@@ -199,5 +198,4 @@
     border-right: 0; border-top: 2px solid var(--border);
     padding: 16px 0 0; margin-top: 26px;
   }
-  .readerctl { margin-left: 0; }
 }

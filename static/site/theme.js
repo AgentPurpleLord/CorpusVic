@@ -7,7 +7,8 @@
   var btn = document.getElementById("theme-toggle-btn");
   function paint() {
     var dark = document.documentElement.dataset.theme === "dark";
-    btn.innerHTML = dark ? "&#9728;&#65039;" : "&#127769;";
+    // Words, in the Display menu beside other settings that say theirs.
+    btn.textContent = dark ? "Dark" : "Light";
     btn.title = dark ? "Switch to light mode" : "Switch to dark mode";
   }
   paint();

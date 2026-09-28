@@ -259,7 +259,7 @@ def overlay(current_nodes: list[dict], state: dict, statuses: dict, states: dict
 
 def checked_keys(nodes: list[dict]) -> set:
     """The provisions a human has vouched for in these effective nodes:
-    every piece accepted and none flagged -- export_static_site's
+    every piece accepted and none flagged -- public.py's
     approved_units, asked of a provision rather than a page."""
     checked = set()
     for key, provision in diffing.provisions(nodes).items():
