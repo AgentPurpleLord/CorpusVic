@@ -781,22 +781,16 @@ def test_an_unchecked_provision_is_published_with_its_own_text(tmp_path, monkeyp
     assert "hasn’t been published here yet" not in page
 
 
-def test_an_unchecked_provision_says_it_has_not_been_checked(tmp_path, monkeypatch):
+def test_a_provisions_page_carries_no_notice_checked_or_not(tmp_path, monkeypatch):
+    """Issue #96: the yellow banner on every unchecked provision was the
+    first thing read on the page. The contents says it, once, for the
+    whole document."""
     _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
-    page = read("section/s2/index.html")
 
-    assert "This provision has not been checked by a human." in page
-    assert "legislation.vic.gov.au" in page, "and says where the authorised text is"
-
-
-def test_a_checked_provision_carries_no_such_notice(tmp_path, monkeypatch):
-    """The notice has to mean something, which it stops doing the moment
-    it is on every page."""
-    _summary, read = _built(tmp_path, monkeypatch, verified={"1"})
-    page = read("section/s1/index.html")
-
-    assert "This Act may be cited as the Test Act." in page
-    assert "has not been checked by a human" not in page
+    for page in (read("section/s1/index.html"), read("section/s2/index.html")):
+        main = page.split("<footer")[0]
+        assert 'class="disclaimer"' not in main
+        assert "has not been checked by a human" not in main
 
 
 def test_the_contents_page_tags_nothing(tmp_path, monkeypatch):

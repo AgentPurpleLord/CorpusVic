@@ -62,7 +62,6 @@ directory and never touches your own database.
 | **Footer wording** | `static/site/footer.html` |
 | Landing page | `corpus/web/public.py` → `_landing_page_html` |
 | "Only part of this document has been reviewed…" | `corpus/web/public.py` → `_partial_notice_html` |
-| "This provision has not been checked by a human." | `corpus/web/public.py` → `_unverified_notice_html` |
 | Where "the authorised text" points | `corpus/web/public.py` → `OFFICIAL_SOURCE_URL` / `_NAME` |
 | The admin dashboard's look | `static/admin/dashboard.css` |
 | The review GUI's look | `static/admin/review.css` |

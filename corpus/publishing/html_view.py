@@ -1398,9 +1398,9 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
 # The section reading view
 # ---------------------------------------------------------------------------
 # A section page carries two pieces of furniture the Endnotes page does
-# not: a bar of reading controls above the text, and the provisions either
-# side of this one below it. See static/site/reader.css and reader.js for
-# the other half of each.
+# not: a bar above the text saying which day's law it is, and the
+# provisions either side of this one below it. See static/site/reader.css
+# for the other half of each.
 #
 # It used to carry a third, an outline of the rest of the document beside
 # the text. That is on the contents page now (_index_outline_html): a
@@ -1501,14 +1501,14 @@ def _version_choices_html(version_urls: "dict | None", version_dates: "dict | No
 
 def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dict | None",
                     version_dates: "dict | None") -> str:
-    """The bar above the text: which day's law this is, how to compare it
-    with another, and the two reading controls.
+    """The bar above the text: which day's law this is, and how to compare
+    it with another.
 
     "Text as at" is the date the reprint itself states it incorporates
     amendments to, read off the PDF's front matter -- not the day the file
     was parsed, and never offered as the authorised text. A document with
-    no version at all (a Bill, an Explanatory Memorandum) says nothing
-    rather than guessing, and keeps the reading controls."""
+    no version at all (an Explanatory Memorandum) says nothing rather
+    than guessing."""
     bits = []
     as_at = version.get("as_at_printed")
     this_version = version.get("version")
@@ -1529,22 +1529,11 @@ def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dic
             f"<strong>{stated}</strong>{tag}</div>"
         )
     bits.append(_version_choices_html(version_urls, version_dates, this_version))
-    # The controls are written out by hand rather than by reader.js so that
-    # they are in the HTML a reader without JavaScript gets -- disabled
-    # there, but never a row of buttons that silently do nothing.
-    bits.append(
-        '<div class="readerctl" hidden>'
-        '<span class="ctl-label">Size</span>'
-        '<button type="button" class="ctl-btn" id="reader-smaller" title="Smaller text">A&minus;</button>'
-        '<button type="button" class="ctl-btn" id="reader-bigger" title="Larger text">A+</button>'
-        '<button type="button" class="ctl-btn" id="reader-notes" aria-pressed="true">Notes on</button>'
-        # Every provision's wordings at once, scrolled through sideways
-        # (static/site/history.js). On every page, not only ones with a
-        # history: reading on brings in provisions that have one.
-        '<button type="button" class="ctl-btn" id="reader-history" aria-pressed="false">History off</button>'
-        "</div>"
-    )
-    return f'<div class="readerbar">{"".join(bits)}</div>'
+    # The reading controls are in the header's Display menu (static/site/
+    # page.html), not here: a row of buttons above every provision was
+    # the first thing on the page (issue #96).
+    bits = [b for b in bits if b]
+    return f'<div class="readerbar">{"".join(bits)}</div>' if bits else ""
 
 
 def _section_nav_html(sections: list, match_index: int, base_url: str,
@@ -1640,8 +1629,7 @@ def render_section(
     # the text now sits beside the contents instead (_index_outline_html):
     # a reader on a provision is reading it, and the breadcrumb, the
     # next/prev links and reading on already carry them everywhere the
-    # outline did. The reading controls stay, because they are about how
-    # this text is set rather than about where else to go.
+    # outline did.
     out = [
         _readerbar_html(parsed.get("version") or {}, superseded, version_urls, version_dates),
         '<div class="reader-main">',

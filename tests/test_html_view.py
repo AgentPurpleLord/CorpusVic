@@ -1084,7 +1084,26 @@ def test_a_document_with_no_version_states_nothing_rather_than_guessing():
     body = render_section(_parsed(_three_part_act()), "Test Act", "/browse/a", "s10")
 
     assert "Text as at" not in body
-    assert 'class="readerctl"' in body, "the reading controls are not version-dependent"
+    assert 'class="readerbar"' not in body, "an empty bar is a stray rule across the page"
+
+
+def test_the_reading_controls_are_in_the_display_menu_not_above_the_text():
+    """Issue #96: a row of buttons above every provision was the first
+    thing on the page. They and the theme sit behind one header button,
+    shown only once its script can make them work."""
+    from corpus.publishing.html_view import page_shell
+
+    body = render_section(dict(_parsed(_three_part_act()), version={"as_at_printed": "1 March 2024"}),
+                          "Test Act", "/browse/a", "s10")
+    page = page_shell("Test Act", body, base_url="/browse/a", reader=True)
+    header = page.split("<header")[1].split("</header>")[0]
+
+    assert "reader-notes" not in body and "theme-toggle-btn" not in body
+    assert '<div class="sitemenu" hidden>' in header
+    for control in ("reader-smaller", "reader-bigger", "reader-notes", "reader-history", "theme-toggle-btn"):
+        assert f'id="{control}"' in header, control
+    assert 'aria-controls="sitemenu-panel"' in header
+    assert "/menu.js?v=" in page
 
 
 def test_comparing_versions_offers_the_other_versions_of_this_provision():

@@ -530,7 +530,7 @@ def _section_html(site_slug: str, section_slug: str) -> str:
     slug = _resolve(site_slug)
     body = reader.section_page(
         dashboard, slug, f"/browse/{site_slug}", section_slug,
-        rewrite=_site_links, show_review_badge=False, notice=_unverified_notice(slug, section_slug))
+        rewrite=_site_links, show_review_badge=False)
     if body is None:
         raise HTTPException(404, f"No such provision in {site_slug!r}.")
     return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}",
@@ -584,11 +584,6 @@ def _partial_notice(slug: str) -> "str | None":
     if checked == all_pages:
         return None
     return _partial_notice_html(len(checked), len(all_pages))
-
-
-def _unverified_notice(slug: str, section_slug: str) -> "str | None":
-    checked, _all_pages = _checked_pages(slug)
-    return None if section_slug in checked else _unverified_notice_html()
 
 
 # ---------------------------------------------------------------------------
@@ -656,10 +651,12 @@ def robots():
 #   - An unresolved citation's /legislation/<no> address is not pre-built,
 #     so that one link 404s rather than explaining the Act isn't parsed.
 #
-# A work's newest version is published in full, checked or not, each
-# unchecked provision saying so (_unverified_notice_html): publishing only
-# the checked ones read as an Act with holes in it, and a section merely
-# unchecked looked the same as one that does not exist.
+# A work's newest version is published in full, checked or not, its
+# contents page saying how much has been (_partial_notice_html):
+# publishing only the checked ones read as an Act with holes in it. A
+# provision's own page carries no notice (issue #96): repeated on every
+# page, a yellow banner above the text was the first thing read and said
+# nothing the contents had not.
 
 def select_candidate_slugs(statuses: dict[str, dict],
                            include_unpublished: bool = False) -> list[str]:
@@ -921,32 +918,9 @@ def _provision_label(node: dict) -> str:
     return " ".join(parts) or str(node.get("type", "Provision")).replace("_", " ").capitalize()
 
 
-def _unverified_notice_html() -> str:
-    """Set at the top of a provision nobody has checked yet, above its own
-    heading, because it qualifies every word below it.
-
-    The text underneath is real: it is what the parser read off the
-    official PDF, not a placeholder and not a guess at what the provision
-    might say. What it has not had is a human reading it against the page
-    to confirm the parser got it right -- which is a different and
-    smaller claim than "this may be wrong", and the notice says the
-    smaller one, because overstating the doubt would be as misleading as
-    hiding it."""
-    return (
-        '<div class="disclaimer">'
-        "<strong>This provision has not been checked by a human.</strong> "
-        "The text below was read automatically from the official PDF and has not yet been "
-        "verified against it, so it may differ from the provision as published — in its "
-        "wording, its numbering, or where one provision ends and the next begins. "
-        f'For the authorised text, see <a href="{OFFICIAL_SOURCE_URL}" rel="noopener">'
-        f"{OFFICIAL_SOURCE_NAME}</a>."
-        "</div>"
-    )
-
-
 def _partial_notice_html(checked: int, total: int) -> str:
-    """The same caveat on the contents page, where it is about the
-    document rather than about one provision.
+    """The caveat, on the contents page: about the document, and the one
+    place it is said (a provision's own page carries none, issue #96).
 
     Leads with the state rather than with the arithmetic -- "only part of
     this has been reviewed" is what a reader needs first, and a sentence
@@ -964,8 +938,7 @@ def _partial_notice_html(checked: int, total: int) -> str:
         '<div class="disclaimer">'
         "<strong>Only part of this document has been reviewed.</strong> "
         f"{checked} of {total} provisions have been checked by a human against the "
-        "official PDF. The rest are here in full, read automatically from that PDF, "
-        "and say so at the top of their own page."
+        "official PDF. The rest are here in full, read automatically from that PDF."
         "</div>"
     )
 
@@ -1031,9 +1004,8 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     browse_endnotes each build for one HTTP request, just written to
     files under out_dir/browse/<slug>/ instead.
 
-    Every provision gets its real text. One nobody has checked yet
-    carries a notice saying so, above its own heading (see
-    _unverified_notice_html). Returns the summary used for the site's own
+    Every provision gets its real text; the contents page says how much
+    of it has been checked. Returns the summary used for the site's own
     landing page, or None for a document with no provisions at all.
 
     The summary carries "pages" (the page ids this document released) and
@@ -1072,8 +1044,7 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
     if not all_pages:
         return None
     # Which provisions a human has confirmed. It no longer decides what
-    # is published -- everything is -- only which pages have to say they
-    # haven't been checked.
+    # is published -- everything is -- only what the contents page says.
     checked_pages = approved_page_slugs(nodes, units, page_index["by_node_index"])
 
     index_body = reader.contents_page(
@@ -1094,7 +1065,6 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
         body = reader.section_page(
             dashboard, slug, base_url, section_slug,
             rewrite=site, show_review_badge=False,
-            notice=None if section_slug in checked_pages else _unverified_notice_html(),
         )
         if body is None:
             continue  # not expected -- page_index only ever names real sections
