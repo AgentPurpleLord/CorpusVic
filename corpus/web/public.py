@@ -1270,7 +1270,7 @@ def _provision_count_html(doc: dict) -> str:
     checked, total = doc["checked_provisions"], doc["total_provisions"]
     if checked >= total:
         return ""
-    return f" &middot; {checked} of {total} provisions checked"
+    return f"{checked} of {total} provisions checked"
 
 
 def _landing_page_html(published: list[dict], base_path: str,
@@ -1285,14 +1285,15 @@ def _landing_page_html(published: list[dict], base_path: str,
     A document is current here exactly when site_slugs gave it the work's
     own unversioned address.
 
-    Bills and Explanatory Memorandums are left off too. An Explanatory
-    Memorandum is written about a Bill and a Bill becomes an Act: they
-    belong to that Act, and its own contents page offers them (see
-    render_index's `related`). Listing all three side by side here would
-    present them as separate publications and make choosing between them
-    a reader's first problem. One that no published Act claims is listed
-    after all -- better an odd entry than a page nothing reaches."""
-    kind_labels = {"act": "Act", "bill": "Bill", "em": "Explanatory Memorandum"}
+    An Explanatory Memorandum is left off too: it belongs to the Act
+    enacted from the Bill it explains, and that Act's own contents page
+    offers it (see render_index's `related`). One that no published Act
+    claims is listed after all, under its own heading -- better an odd
+    entry than a page nothing reaches. Bills are never published (see
+    select_candidate_slugs).
+
+    No blurb (issue #97): the disclaimer says what the site is not, and
+    the list is what it is."""
     claimed = {
         d["slug"]
         for doc in published
@@ -1303,29 +1304,26 @@ def _landing_page_html(published: list[dict], base_path: str,
         if doc["site_slug"] == split_document_slug(doc["slug"])[0]
         and (doc["kind"] == "act" or doc["slug"] not in claimed)
     ]
-    rows = "".join(
-        "<li>"
-        f'<a href="{base_path}/browse/{doc["site_slug"]}/">{html.escape(doc["title"])}</a> '
-        f'<span class="text-muted">{kind_labels.get(doc["kind"], doc["kind"])}'
-        f'{" &middot; as at " + html.escape(doc["as_at"]) if doc["as_at"] else ""}'
-        f"{_provision_count_html(doc)}</span>"
-        "</li>"
-        for doc in current
-    )
-    intro = (
-        "Automatically generated from this project’s review pipeline. Each document is "
-        "published in full, and every provision a human has not yet checked against the "
-        "official PDF says so at the top of its own page \u2014 the counts below say how "
-        "much of each document that is."
-        if current else "Nothing has been parsed and published yet."
-    )
+
+    def rows(docs):
+        out = []
+        for doc in docs:
+            facts = [f"as at {html.escape(doc['as_at'])}" if doc["as_at"] else "", _provision_count_html(doc)]
+            out.append(
+                f'<li><a href="{base_path}/browse/{doc["site_slug"]}/">{html.escape(doc["title"])}</a> '
+                f'<span class="text-muted">{" &middot; ".join(f for f in facts if f)}</span></li>')
+        return "".join(out)
+
+    acts = [doc for doc in current if doc["kind"] == "act"]
+    others = [doc for doc in current if doc["kind"] != "act"]
     body = (
         # First in the body, before the heading: a reader should meet the
         # caveat without scrolling, not after deciding what to click.
         f'<div class="disclaimer">{_NOT_OFFICIAL_HTML}</div>'
         "<h1>Published legislation</h1>"
-        f"<p>{intro}</p>"
-        + (f'<ul class="section-list">{rows}</ul>' if current else "")
+        + (f'<h2>Victorian Acts</h2><ul class="section-list">{rows(acts)}</ul>' if acts else "")
+        + (f'<h2>Explanatory memoranda</h2><ul class="section-list">{rows(others)}</ul>' if others else "")
+        + ("" if current else "<p>Nothing has been published yet.</p>")
     )
     return _finished_page("Published legislation", body, site_prefix=base_path,
                  search_url=search_url, preview_source=preview_source)

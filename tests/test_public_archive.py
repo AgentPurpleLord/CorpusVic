@@ -633,19 +633,41 @@ def test_a_bill_and_its_em_are_not_listed_beside_their_act():
     assert "crimes-bill" not in entries
 
 
-def test_a_bill_no_published_act_claims_is_still_listed():
+def test_an_em_no_published_act_claims_is_still_listed():
     """Better an odd entry on the front page than a document nothing
-    reaches."""
+    reaches -- under its own heading, not among the Acts."""
     import corpus.web.public as public
 
     original = corpus.web.dashboard.related_documents
     corpus.web.dashboard.related_documents = lambda slug: []
     try:
-        page = public._landing_page_html([dict(_doc(slug="orphan-bill"), kind="bill")], "")
+        page = public._landing_page_html([dict(_doc(slug="orphan-em"), kind="em")], "")
     finally:
         corpus.web.dashboard.related_documents = original
 
-    assert "/browse/orphan-bill/" in page
+    assert "/browse/orphan-em/" in page.split("<h2>Explanatory memoranda</h2>")[1]
+    assert "Victorian Acts" not in page
+
+
+def test_the_landing_page_is_a_heading_and_a_list():
+    """Issue #97: no blurb, the Acts under their own heading, each by its
+    name alone ("Evidence Act 2008", not "Evidence Act 2008 Act") with
+    its currency date kept."""
+    import corpus.web.public as public
+
+    doc = dict(_doc(slug="evidence-act"), title="Evidence Act 2008", as_at="1 July 2026")
+    original = corpus.web.dashboard.related_documents
+    corpus.web.dashboard.related_documents = lambda slug: []
+    try:
+        page = public._landing_page_html([doc], "")
+    finally:
+        corpus.web.dashboard.related_documents = original
+    main = page.split("</h1>")[1].split('<footer')[0]
+
+    assert main.startswith("<h2>Victorian Acts</h2>")
+    assert "<p>" not in main.split("</ul>")[0]
+    entry = main.split("<li>")[1].split("</li>")[0]
+    assert re.sub("<[^>]+>", "", entry) == "Evidence Act 2008 as at 1 July 2026"
 
 
 # ---------------------------------------------------------------------
