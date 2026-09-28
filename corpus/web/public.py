@@ -280,7 +280,7 @@ def _published_slugs() -> dict:
     are on the site.
 
     Same rule as the archive build: the newest version of a work answers
-    at the work's own name, and an older reprint keeps its versioned one
+    at the work's own name, and an older reprint at one naming its date,
     so a citation to a point in time keeps meaning that point."""
     works = db.published_works(BASE_DIR)
     candidates = [
@@ -288,16 +288,49 @@ def _published_slugs() -> dict:
         if (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists()
         and split_document_slug(slug)[0] in works
     ]
-    return site_slugs(sorted(candidates))
+    return site_slugs(sorted(candidates), as_at_of(candidates))
+
+
+def as_at_of(slugs, source=None) -> dict:
+    """{parse slug -> the ISO date its text is as at}, what site_slugs
+    names an older reprint by."""
+    version = getattr(source or dashboard, "_act_version", None)
+    return {slug: (version(slug) if version else {}).get("as_at") for slug in slugs}
+
+
+class _Moved(Exception):
+    """A document asked for by its parse slug: the old -v112 addresses,
+    which named the Authorised Version number (issue #95). Links to them
+    are out in the world, so they redirect rather than 404."""
+
+    def __init__(self, old: str, new: str):
+        self.old, self.new = old, new
+
+
+@app.exception_handler(_Moved)
+def _moved(request: Request, exc: _Moved):
+    url = request.url.path.replace(f"/{exc.old}", f"/{exc.new}", 1)
+    if request.url.query:
+        url += "?" + request.url.query
+    return RedirectResponse(url, status_code=308)
 
 
 def _resolve(site_slug: str) -> str:
     """The parse this address is served from, or a 404 saying which of
     the two reasons it is."""
-    for slug, address in _published_slugs().items():
+    published = _published_slugs()
+    for slug, address in published.items():
         if address == site_slug:
             return slug
+    if site_slug in published:
+        raise _Moved(site_slug, published[site_slug])
     raise HTTPException(404, f"{site_slug!r} is not published here.")
+
+
+def _site_links(value):
+    """dashboard.py's /browse/<parse slug> URLs, as this site's addresses
+    -- the same rewrite the archive applies (see _rewrite_urls)."""
+    return _rewrite_urls(value, "", _published_slugs())
 
 
 # ---------------------------------------------------------------------------
@@ -360,8 +393,8 @@ def _warm_pages():
     for _slug, address in published:
         yield f"/browse/{address}/", (lambda a=address: _contents_html(a))
     for slug, address in published:
-        if split_document_slug(address)[1] is not None:
-            continue   # an older reprint, at its versioned address
+        if address != split_document_slug(slug)[0]:
+            continue   # an older reprint, at its dated address
         yield f"/browse/{address}/endnotes", (lambda a=address: _endnotes_html(a))
         pages = dict.fromkeys(dashboard._page_index(slug)["by_node_index"].values())
         for page in pages:
@@ -476,7 +509,7 @@ def contents(site_slug: str, request: Request):
 def _contents_html(site_slug: str) -> str:
     slug = _resolve(site_slug)
     body = reader.contents_page(
-        dashboard, slug, f"/browse/{site_slug}", show_review_badge=False,
+        dashboard, slug, f"/browse/{site_slug}", rewrite=_site_links, show_review_badge=False,
         notice=_partial_notice(slug),
         related=[
             {"slug": d["slug"], "kind": d["kind"], "title": dashboard._act_title(d["slug"]),
@@ -500,7 +533,7 @@ def _section_html(site_slug: str, section_slug: str) -> str:
     slug = _resolve(site_slug)
     body = reader.section_page(
         dashboard, slug, f"/browse/{site_slug}", section_slug,
-        show_review_badge=False, notice=_unverified_notice(slug, section_slug))
+        rewrite=_site_links, show_review_badge=False, notice=_unverified_notice(slug, section_slug))
     if body is None:
         raise HTTPException(404, f"No such provision in {site_slug!r}.")
     return _page(dashboard._act_title(slug), body, f"/browse/{site_slug}",
@@ -652,7 +685,7 @@ def select_candidate_slugs(statuses: dict[str, dict],
     Older reprints are published because a reader needs to be able to go
     and read one: "Compare with another version" on a provision offers
     every version this pipeline holds, and an offer that 404s is worse
-    than no offer. They are published at their own versioned addresses,
+    than no offer. They are published at their own dated addresses,
     and are not listed on the landing page -- see site_slugs, which is
     what decides those addresses, and _landing_page_html.
 
@@ -665,20 +698,28 @@ def select_candidate_slugs(statuses: dict[str, dict],
     )
 
 
-def site_slugs(candidates: list[str]) -> dict[str, str]:
+def site_slugs(candidates: list[str], as_at: "dict | None" = None) -> dict[str, str]:
     """{parse slug -> the path segment it is published under}.
 
     The newest version of a work is published under the work's own name,
     with no version in the address at all: /browse/criminal-procedure-act/
     is the Act as it now stands, and stays that address as new reprints
-    land. Anything older keeps its versioned name, so a link to
-    /browse/criminal-procedure-act-v112/ still means version 112 a year
-    from now, which is exactly what a citation to a point in time needs.
+    land. Anything older has an address of its own, so a link to it
+    still means that text a year from now, which is exactly what a
+    citation to a point in time needs.
 
     It also makes the cross-Act links work: known_acts.yaml names a work
     ("criminal-procedure-act"), so every reference to the Act from another
     Act's text has always pointed at the unversioned address -- which,
-    until now, nothing was published at."""
+    until now, nothing was published at.
+
+    An older reprint is named by the day its text is as at
+    (criminal-procedure-act-2026-07-01), from `as_at` {slug -> ISO date}.
+    Never by its version number: that is the Authorised Version's
+    number, which is not ours to reproduce (issue #95). One with no date
+    recorded keeps its parse slug; every Act parsed since front matter
+    was read has one."""
+    as_at = as_at or {}
     newest: dict[str, str] = {}
     for slug in candidates:
         work, version = split_document_slug(slug)
@@ -690,7 +731,21 @@ def site_slugs(candidates: list[str]) -> dict[str, str]:
         if version is not None and (held_version is None or version > held_version):
             newest[work] = slug
     current = {slug: work for work, slug in newest.items()}
-    return {slug: current.get(slug, slug) for slug in candidates}
+    out, taken = {}, set(current.values())
+    for slug in candidates:
+        if slug in current:
+            out[slug] = current[slug]
+            continue
+        work, version = split_document_slug(slug)
+        address = f"{work}-{as_at[slug]}" if version is not None and as_at.get(slug) else slug
+        # Two reprints stating the same day: rare, and neither may take
+        # the other's address.
+        n = 2
+        while address in taken:
+            address, n = f"{work}-{as_at[slug]}-{n}", n + 1
+        taken.add(address)
+        out[slug] = address
+    return out
 
 
 def approved_units(nodes: list, units: list[list[int]]) -> set[int]:
@@ -1313,7 +1368,7 @@ def build_site(out: Path, base_path: str, password: "str | None" = None,
     statuses = {slug: dashboard.act_status(slug, publication)
                 for slug in dashboard.discover_slugs()}
     candidates = select_candidate_slugs(statuses, include_unpublished)
-    slugs = site_slugs(candidates)
+    slugs = site_slugs(candidates, as_at_of(candidates))
     # Which candidates will publish anything, worked out before any page
     # is written: an Act's contents links to its Bill and Explanatory
     # Memorandum, and it can only do that for documents this build is

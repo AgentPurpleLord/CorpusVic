@@ -343,6 +343,9 @@ def rebuild(base_dir, source=None, published=None) -> dict:
         if work not in newest or (version or -1) > (newest[work][1] or -1):
             newest[work] = (slug, version)
     current = {slug for slug, _version in newest.values()}
+    # The site's own addresses, so a result links where the page is.
+    from corpus.web.public import as_at_of, site_slugs
+    addresses = site_slugs(sorted(slugs), as_at_of(slugs, source))
 
     target = index_path(base_dir)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -362,7 +365,7 @@ def rebuild(base_dir, source=None, published=None) -> dict:
                 cursor = conn.execute(
                     "INSERT INTO doc (slug, work, version, site_slug, title, kind, as_at, is_current) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (slug, work, version, work if slug in current else slug,
+                    (slug, work, version, addresses[slug],
                      source._act_title(slug), status["kind"], status["version_as_at"],
                      1 if slug in current else 0),
                 )
@@ -821,7 +824,6 @@ def search(conn: sqlite3.Connection, raw: str, scope: "Scope | None" = None,
             "kind": row["kind"],
             "as_at": row["as_at"],
             "is_current": bool(row["is_current"]),
-            "version": row["version"],
             "label": row["label"],
             "breadcrumb": row["breadcrumb"],
             # Empty for a provision matched on its heading alone -- the

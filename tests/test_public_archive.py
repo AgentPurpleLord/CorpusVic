@@ -115,19 +115,29 @@ def test_publication_never_splits_a_works_version_set():
 
 def test_the_newest_version_is_published_without_a_version_in_its_address():
     """"/browse/criminal-procedure-act/" is the Act as it now stands and
-    stays that address as new reprints land; an older one keeps its
-    versioned name, so a link to it still means that version a year from
-    now. It is also the address known_acts.yaml has always pointed every
-    cross-Act reference at."""
+    stays that address as new reprints land; an older one is named by the
+    day its text is as at, so a link to it still means that text a year
+    from now. It is also the address known_acts.yaml has always pointed
+    every cross-Act reference at."""
     from corpus.web.public import site_slugs
 
     assert site_slugs([
         "crimes-act", "criminal-procedure-act-v110", "criminal-procedure-act-v114",
-    ]) == {
+    ], {"criminal-procedure-act-v110": "2025-03-01", "criminal-procedure-act-v114": "2026-07-01"}) == {
         "crimes-act": "crimes-act",
-        "criminal-procedure-act-v110": "criminal-procedure-act-v110",
+        "criminal-procedure-act-v110": "criminal-procedure-act-2025-03-01",
         "criminal-procedure-act-v114": "criminal-procedure-act",
     }
+
+
+def test_no_address_carries_the_authorised_version_number():
+    """The number is the government's (issue #95). Two reprints stating
+    the same day still get an address each."""
+    from corpus.web.public import site_slugs
+
+    slugs = site_slugs(["cpa-v110", "cpa-v111", "cpa-v114"],
+                       {"cpa-v110": "2025-03-01", "cpa-v111": "2025-03-01", "cpa-v114": "2026-07-01"})
+    assert slugs == {"cpa-v110": "cpa-2025-03-01", "cpa-v111": "cpa-2025-03-01-2", "cpa-v114": "cpa"}
 
 
 def test_a_dashboard_url_is_rewritten_to_the_published_address():

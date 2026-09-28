@@ -738,9 +738,8 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     # Authorised Version", which is the name for the government's own
     # published text, not for anything reconstructed from it here.
     version = parsed.get("version") or {}
-    if version.get("version") is not None:
-        as_at = f' &mdash; incorporating amendments as at {_esc(version["as_at_printed"])}' if version.get("as_at_printed") else ""
-        out.append(f'<div class="act-version">Version {_esc(str(version["version"]))}{as_at}</div>')
+    if version.get("as_at_printed"):
+        out.append(f'<div class="act-version">Incorporating amendments as at {_esc(version["as_at_printed"])}</div>')
     if parsed.get("endnotes"):
         out.append(
             f'<div class="index-nav"><a href="{base_url}/endnotes">Endnotes</a> '
@@ -1024,15 +1023,18 @@ def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
     return out
 
 
+# A reprint is named by the day it states its text is as at, never by its
+# Authorised Version number: that number is the government's, and is not
+# reproduced here (issue #95).
+def _as_at(version: dict) -> str:
+    return _esc(version["as_at_printed"]) if version.get("as_at_printed") else "an undated reprint"
+
+
 def _span_label(wording: dict) -> str:
     first, last = wording["from"], wording["to"]
     if first["version"] == last["version"]:
-        when = f" (as at {_esc(first['as_at_printed'])})" if first.get("as_at_printed") else ""
-        return f"Version {first['version']}{when}"
-    when = ""
-    if first.get("as_at_printed") and last.get("as_at_printed"):
-        when = f" ({_esc(first['as_at_printed'])} to {_esc(last['as_at_printed'])})"
-    return f"Versions {first['version']}\u2013{last['version']}{when}"
+        return f"As at {_as_at(first)}"
+    return f"As at {_as_at(first)} to {_as_at(last)}"
 
 
 _ENDED_VERB = {"changed": "Amended", "inserted": "Inserted", "repealed": "Repealed"}
@@ -1045,13 +1047,12 @@ def _ended_html(wording: dict, base_url: str, amendment_index: "dict | None") ->
     ended = wording.get("ended_by")
     if not ended:
         return ""
-    when = f" (as at {_esc(ended['as_at_printed'])})" if ended.get("as_at_printed") else ""
     verb = _ENDED_VERB.get(ended["change"], "Changed")
     notes = "".join(_timeline_note_html(raw, base_url, amendment_index) for raw in ended.get("notes") or [])
     if not notes:
         notes = '<span class="tl-note hist-quiet">The reprint does not say by what.</span>'
     return (f'<div class="hist-ended hist-{_esc(ended["change"])}">'
-            f'<span class="tl-verb">{verb}</span> at Version {ended["version"]}{when}'
+            f'<span class="tl-verb">{verb}</span> as at {_as_at(ended)}'
             f'<div class="tl-notes">{notes}</div></div>')
 
 
@@ -1273,12 +1274,10 @@ def render_piece_history(history: "dict | None", subject: str, anchor: str, base
     at = last if at is None else at
     opening = max(at - 1, 0)   # the step into the wording this page carries
 
-    def version_of(wording):
-        return wording["from"]["version"]
-
     points = []
     for n, wording in enumerate(wordings):
-        label = "Current" if n == last and not wording["absent"] else f"Version {version_of(wording)}"
+        label = ("Current" if n == last and not wording["absent"]
+                 else wording["from"].get("as_at_printed") or "Undated")
         title = _span_label(wording) + (": not in the Act" if wording["absent"] else "")
         on = " ph-on" if n in (opening, opening + 1) else ""
         points.append(f'<li><button type="button" class="ph-point{on}" data-point="{n}" title="{title}">'
@@ -1286,17 +1285,15 @@ def render_piece_history(history: "dict | None", subject: str, anchor: str, base
 
     def when(n):
         wording = wordings[n]
-        first, final = wording["from"]["version"], wording["to"]["version"]
-        label = (f"Version {first}" if first == final else f"Versions {first}\u2013{final}") + \
-            (" (current)" if n == last else "")
+        label = _span_label(wording) + (" (current)" if n == last else "")
         href = None if wording["absent"] else (version_urls or {}).get(wording.get("version"))
         return f'<a class="tl-version" href="{_esc(href)}">{label}</a>' if href else f'<span class="tl-version">{label}</span>'
 
     steps = []
     for k in range(last):
         old_html, new_html = _piece_sides(units[k], units[k + 1])
-        gone = f'<p class="hist-gone">Not in the Act at Version {version_of(wordings[k])}.</p>'
-        gone_after = f'<p class="hist-gone">Not in the Act at Version {version_of(wordings[k + 1])}: repealed.</p>'
+        gone = f'<p class="hist-gone">Not in the Act as at {_as_at(wordings[k]["from"])}.</p>'
+        gone_after = f'<p class="hist-gone">Not in the Act as at {_as_at(wordings[k + 1]["from"])}: repealed.</p>'
         steps.append(
             f'<section class="ph-step" data-step="{k}"{"" if k == opening else " hidden"}>'
             f'<div class="ph-pair">'
@@ -1348,17 +1345,16 @@ def render_ghost(ghost: dict, act_title: str, base_url: str, amendment_index: "d
                                          hierarchy_order, anchor=ghost["page"], open_=True)
     last = next(w for w in reversed(history["wordings"][:history["at"]]) if not w["absent"])
     ended = last.get("ended_by") or {}
-    when = f" (as at {_esc(ended['as_at_printed'])})" if ended.get("as_at_printed") else ""
     title = f'{ghost["label"]} [Repealed]'
-    this = f"Version {version['version']}" if (version or {}).get("version") is not None else "this version"
+    this = f"the text as at {_as_at(version)}" if (version or {}).get("as_at_printed") else "this version"
     out = [
         _readerbar_html(version or {}, superseded, version_urls, version_dates),
         '<div class="reader-main">',
         f'<article class="reader-section historical" data-section="{_esc(ghost["page"])}" data-title="{_esc(title)}">',
         f'<div class="breadcrumb"><a href="{base_url}/">{_esc(act_title)}</a></div>',
         f"<h1>{_esc(title)}</h1>",
-        f'<div class="supersede ghost-banner" role="status">This provision is not in {_esc(this)}. '
-        f'It was removed at Version {_esc(str(ended.get("version", "?")))}{when}; '
+        f'<div class="supersede ghost-banner" role="status">This provision is not in {this}. '
+        f'It was removed as at {_as_at(ended)}; '
         f'below is how it read before that.</div>',
         history_html,
         "</article>",
@@ -1380,12 +1376,13 @@ def render_superseded_banner(version: "int | None", current: "int | None", curre
     """
     if version is None or current is None or version >= current:
         return ""
-    when = f" (as at {_esc(as_at_printed)})" if as_at_printed else ""
-    link = (f' <a class="supersede-link" href="{_esc(current_url)}">Go to Version {current}</a>'
+    # The numbers only order the two; what the reader is told is the date.
+    this = f"the text as at <strong>{_esc(as_at_printed)}</strong>" if as_at_printed else "an earlier text"
+    link = (f' <a class="supersede-link" href="{_esc(current_url)}">Go to the current text</a>'
             if current_url else "")
     return (
-        f'<div class="supersede" role="status">This is <strong>Version {version}</strong>{when} '
-        f'and is not the law as it now stands &mdash; Version {current} is.{link}</div>'
+        f'<div class="supersede" role="status">This is {this}, '
+        f'not the law as it now stands.{link}</div>'
     )
 
 
@@ -1487,8 +1484,7 @@ def _version_choices_html(version_urls: "dict | None", version_dates: "dict | No
     items = []
     for version, url in reversed(others):  # newest first: the likeliest comparison
         when = (version_dates or {}).get(version)
-        dated = f' <span class="version-date">as at {_esc(when)}</span>' if when else ""
-        items.append(f'<li><a href="{_esc(url)}">Version {_esc(str(version))}</a>{dated}</li>')
+        items.append(f'<li><a href="{_esc(url)}">As at {_esc(when) if when else "an undated reprint"}</a></li>')
     return (
         '<details class="versions"><summary>Compare with another version</summary>'
         f'<ul class="version-list">{"".join(items)}</ul></details>'
@@ -1508,8 +1504,8 @@ def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dic
     bits = []
     as_at = version.get("as_at_printed")
     this_version = version.get("version")
-    if as_at or this_version is not None:
-        stated = _esc(as_at) if as_at else f"Version {_esc(str(this_version))}"
+    if as_at:
+        stated = _esc(as_at)
         # "Current" only where there is something to be current against:
         # what this tool knows is the versions it holds, so on a document
         # with only one the claim would be about nothing (see

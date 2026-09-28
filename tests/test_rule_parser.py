@@ -756,6 +756,26 @@ def test_front_matter_is_skipped_past_an_acts_own_reprinted_identity_block():
     assert section["heading"] == "Purposes"
 
 
+def test_front_matter_is_skipped_past_enacts_as_follows():
+    # The Sentencing Act 1991's wording. Missed, the version number was
+    # published as the Act's first heading (issue #95).
+    lines = [
+        line("Authorised Version No. 233", bold=True, size=14.0),
+        line("Sentencing Act 1991", bold=True, size=16.0),
+        line("No. 49 of 1991", bold=True),
+        line("Authorised Version incorporating amendments as at"),
+        line("15 April 2026"),
+        line("The Parliament of Victoria enacts as follows:", bold=True),
+        line("Part 1—Preliminary", bold=True),
+        line("1 Purposes", bold=True),
+        line("The purposes of this Act are—", x0=HEAD_X0),
+    ]
+    result = parse_act([page(lines)])
+    assert not any("Authorised Version" in (n.get("heading") or "") + (n.get("text") or "")
+                   for n in result.nodes)
+    assert find(result.nodes, "section", "1")["heading"] == "Purposes"
+
+
 def test_front_matter_is_skipped_past_an_older_acts_enacting_words():
     # An Act drafted before "The Parliament of Victoria enacts:" came into
     # use closes its own, longer-form enacting words with "... (that is
