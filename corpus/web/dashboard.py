@@ -2180,7 +2180,12 @@ def list_definitions(slug: str):
     if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- parse it first.")
     ctx = html_view._build_context(_parsed(slug), _act_title(slug))
-    found, effective = ctx["definitions_found"], ctx["definitions"]
+    found, effective = ctx["definitions_found"], dict(ctx["definitions"])
+    # A term defined only for its Part or Division links there, on those
+    # pages (markdown_export.definitions_for); still a link to show.
+    for layer in ctx["definitions_scoped"].values():
+        for term, entry in layer.items():
+            effective.setdefault(term, entry)
     decided = {row["term"]: row for row in db.load_definition_overrides(slug, BASE_DIR)}
 
     terms = []

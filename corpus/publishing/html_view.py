@@ -97,6 +97,7 @@ from corpus.exporters.markdown_export import (
     assign_filenames,
     apply_definition_overrides,
     collect_definitions,
+    definitions_for,
     collect_sections,
     compute_index_slugs,
     compute_section_slugs,
@@ -174,14 +175,18 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     tree_roots, _collisions = build_hierarchy_tree(nodes, hierarchy_order)
     sections = collect_sections(tree_roots, structural_types)
     filenames_by_eid, section_files = assign_filenames(sections)
-    definitions = collect_definitions(sections, filenames_by_eid, section_files)
+    definitions_scoped: dict = {}
+    definitions = collect_definitions(sections, filenames_by_eid, section_files, definitions_scoped)
     # After the patterns, never instead of them: an override is an answer
     # to what the matcher found, and the list a reviewer is shown on the
     # dashboard is this same before-and-after. Both are kept, so that
     # showing somebody what their decisions changed does not mean
     # building the whole structure a second time to find out.
     definitions_found = dict(definitions)
-    apply_definition_overrides(definitions, parsed.get("definition_overrides"), section_files)
+    for layer in definitions_scoped.values():
+        for term, entry in layer.items():
+            definitions_found.setdefault(term, entry)
+    apply_definition_overrides(definitions, parsed.get("definition_overrides"), section_files, definitions_scoped)
     index_slugs = compute_index_slugs(tree_roots, act_title, structural_types)
     # "section N" in an Act, "clause N" in a Bill or an EM -- decided
     # from the document's own provisions (see markdown_export's own
@@ -215,6 +220,7 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
         "section_files": section_files,
         "definitions": definitions,
         "definitions_found": definitions_found,
+        "definitions_scoped": definitions_scoped,
         "index_slugs": index_slugs,
         "part_eids": part_eids,
         "division_eids": division_eids,
@@ -1632,7 +1638,8 @@ def render_section(
     tree_node, breadcrumb = sections[match_index]
     node = tree_node["node"]
 
-    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], ctx["definitions"], base_url, ctx["secref_re"], own_title=act_title)
+    terms = definitions_for(ctx["definitions"], ctx["definitions_scoped"], tree_node, breadcrumb)
+    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], terms, base_url, ctx["secref_re"], own_title=act_title)
     title = page_title(node)
     verification = _collect_verification([tree_node])
 

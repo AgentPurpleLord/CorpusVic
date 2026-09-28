@@ -61,3 +61,71 @@ def test_split_definition_clauses_separates_terms_joins_wraps():
     assert len(clauses) == 2
     assert clauses[0] == "aircraft means every type of machine or structure used for navigation of the air;"
     assert clauses[1] == "drug of addiction means a drug of dependence within the meaning of the Drugs Act 1981;"
+
+
+# ---------------------------------------------------------------------
+# Scope (issue #72)
+# ---------------------------------------------------------------------
+
+def test_a_scope_phrase_is_never_a_term():
+    """"In this section, disclosure requirement means" (Evidence Act
+    s131A): split on the comma, "in this section" came out as a term and
+    was linked wherever it appeared."""
+    from corpus.domain.definitions import extract_terms
+
+    assert extract_terms("In this section, disclosure requirement means a process.") == ["disclosure requirement"]
+    assert extract_terms("In this Division, a reference to loss includes a reference to harm") == []
+
+
+def test_a_lead_in_names_its_scope():
+    from corpus.domain.definitions import definition_scope
+
+    assert definition_scope("In this Act—") == "act"
+    assert definition_scope("(1) In this Division—") == "division"
+    assert definition_scope("In this Division, request means a request") == "division"
+    assert definition_scope("(2A) In subsection (1)—") == "section"
+    assert definition_scope("In this section—") == "section"
+    assert definition_scope("A person who assaults another") is None
+
+
+def _scoped_act():
+    from conftest import make_node
+
+    return [
+        make_node("part", "1", "Preliminary"),
+        make_node("section", "3", "Definitions", "In this Act—"),
+        make_node("definition", None, "party", "means a party to a proceeding;"),
+        make_node("note", None, None, "The Commonwealth Act includes a definition of this term."),
+        make_node("part", "2", "Evidence"),
+        make_node("division", "1", "Privilege"),
+        make_node("section", "10", "Definitions", ""),
+        make_node("subsection", "1", None, "In this Division—"),
+        make_node("definition", None, "party", "includes an employee of a party;"),
+        make_node("section", "11", "Privilege", "A party may object."),
+        make_node("division", "2", "Witnesses"),
+        make_node("section", "20", "Calling witnesses", "A party may call a witness."),
+    ]
+
+
+def _links(section_slug):
+    import re
+    from corpus.publishing.html_view import render_section
+
+    body = render_section({"nodes": _scoped_act(), "hierarchy": None}, "Test Act", "/browse/t", section_slug)
+    return re.findall(r'href="/browse/t/section/([^"#]+)[^"]*">([^<]+)</a>', body.split('<div class="provisions">')[1])
+
+
+def test_a_term_defined_for_a_division_links_there_only_inside_it():
+    """Evidence Act s117 defines "party" for its own Division; read as the
+    Act's, it beat the Act-wide definition everywhere (issue #72)."""
+    assert ("s10", "party") in _links("s11")
+    assert ("s3", "party") in _links("s20") and ("s10", "party") not in _links("s20")
+
+
+def test_a_note_is_never_a_definition():
+    """"The Commonwealth Act includes a definition of this term" -- a Note
+    in the Evidence Act's Dictionary, shaped exactly like "X includes"."""
+    from corpus.publishing.html_view import _build_context
+
+    ctx = _build_context({"nodes": _scoped_act(), "hierarchy": None}, "Test Act")
+    assert "the commonwealth act" not in ctx["definitions"]

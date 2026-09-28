@@ -48,6 +48,7 @@ import yaml
 from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
 from corpus.parsing.tables import split_rows
 from corpus.domain.definitions import (
+    definition_scope,
     extract_section_ref_terms,
     extract_terms,
     looks_like_definitions_section,
@@ -484,6 +485,7 @@ def collect_definitions(
     sections: list[tuple[dict, list[dict]]],
     filenames_by_eid: dict[str, str],
     section_files: dict[str, str],
+    scoped: "dict | None" = None,
 ) -> dict[str, dict]:
     """term (lowercase) -> {"fragment", "file", "display"}, under two
     conditions (see definitions.py): the term is introduced inside a
@@ -494,14 +496,44 @@ def collect_definitions(
     explained beats linking to wherever the pointer happens to sit.
     "fragment" is the same header slug computed by
     compute_section_slugs/_render_body, so a term's link lands on the
-    exact clause header that page will actually render."""
+    exact clause header that page will actually render.
+
+    A term defined only "In this Division" (or Part, or section) is not
+    the Act's: the Evidence Act's s117 defines "party" for its own
+    Division, and read as Act-wide it beat the Dictionary everywhere
+    (issue #72). Those go into `scoped`, {scope eid: {term: entry}}, and
+    are laid over the Act-wide ones only on pages inside that scope (see
+    definitions_for). Without `scoped` they are left out."""
     definitions: dict[str, dict] = {}
 
-    def walk_definitions_section(tree_node, filename):
+    def walk_definitions_section(tree_node, filename, breadcrumb):
         slugs = compute_section_slugs(tree_node)
+        level = None   # Act-wide until a lead-in says otherwise
+
+        def scope_eid():
+            if level in (None, "act"):
+                return None
+            if level == "section":
+                return tree_node["eid"]
+            owner = next((c for c in reversed(breadcrumb) if c["node"]["type"] == level), None)
+            return owner["eid"] if owner else None
+
+        def add(term, entry):
+            eid = scope_eid()
+            if eid is None:
+                definitions.setdefault(term, entry)
+            elif scoped is not None:
+                scoped.setdefault(eid, {}).setdefault(term, entry)
+
         for unit in _iter_body_units(tree_node):
             key = (unit["tree_node"]["eid"], unit["clause_index"])
             node = unit["tree_node"]["node"]
+            if node.get("type") in ("note", "example"):
+                # "The Commonwealth Act includes a definition of this
+                # term" is a Note in the Evidence Act's Dictionary, and
+                # reads exactly like "X includes ...".
+                continue
+            level = definition_scope(unit["text"] or "") or level
             if node.get("type") == "definition" and node.get("heading"):
                 # Already split into its own node by the rules engine
                 # (see rule_parser.py's _try_definition_start) -- its
@@ -512,10 +544,10 @@ def collect_definitions(
                 # with the term no longer at its start).
                 term = node["heading"].strip().lower()
                 if term:
-                    definitions.setdefault(term, {"fragment": slugs.get(key), "file": filename, "display": term})
+                    add(term, {"fragment": slugs.get(key), "file": filename, "display": term})
                 continue
             for term in extract_terms(unit["text"] or ""):
-                definitions.setdefault(term, {"fragment": slugs.get(key), "file": filename, "display": term})
+                add(term, {"fragment": slugs.get(key), "file": filename, "display": term})
 
     def walk_section_refs(tree_node):
         for terms, section_num in extract_section_ref_terms(tree_node["node"].get("text") or ""):
@@ -527,18 +559,35 @@ def collect_definitions(
         for child in tree_node["children"]:
             walk_section_refs(child)
 
-    for section_node, _ in sections:
+    for section_node, breadcrumb in sections:
         if looks_like_definitions_section(section_node["node"].get("heading")):
-            walk_definitions_section(section_node, filenames_by_eid[section_node["eid"]])
+            walk_definitions_section(section_node, filenames_by_eid[section_node["eid"]], breadcrumb)
     for section_node, _ in sections:
         walk_section_refs(section_node)
     return definitions
+
+
+def definitions_for(definitions: dict, scoped: dict, section_node: dict, breadcrumb: list[dict]) -> dict:
+    """The terms that mean something on this section's page: the Act's,
+    with those defined for an enclosing Part or Division, and then for
+    the section itself, laid over them -- the nearest definition wins, as
+    it does when reading the Act."""
+    layers = [scoped[c["eid"]] for c in breadcrumb if c["eid"] in scoped]
+    if section_node["eid"] in scoped:
+        layers.append(scoped[section_node["eid"]])
+    if not layers:
+        return definitions
+    merged = dict(definitions)
+    for layer in layers:
+        merged.update(layer)
+    return merged
 
 
 def apply_definition_overrides(
     definitions: dict[str, dict],
     overrides: "list[dict] | None",
     section_files: dict[str, str],
+    scoped: "dict | None" = None,
 ) -> dict[str, dict]:
     """A person's decisions about this Act's defined terms, applied over
     what the patterns found. Returns the same dict, modified.
@@ -564,7 +613,11 @@ def apply_definition_overrides(
         if not term:
             continue
         if row.get("action") == "remove":
+            # "Stop linking this word" means everywhere, its local
+            # definitions included.
             definitions.pop(term, None)
+            for layer in (scoped or {}).values():
+                layer.pop(term, None)
             continue
         target = section_files.get((row.get("section") or "").strip().lower())
         if not target:
@@ -821,7 +874,8 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
     tree_roots, _collisions = build_hierarchy_tree(nodes, hierarchy_order)
     sections = collect_sections(tree_roots, structural_types)
     filenames_by_eid, section_files = assign_filenames(sections)
-    definitions = collect_definitions(sections, filenames_by_eid, section_files)
+    scoped: dict = {}
+    definitions = collect_definitions(sections, filenames_by_eid, section_files, scoped)
 
     title = act_title or parsed.get("act", "Act")
     index_slugs = compute_index_slugs(tree_roots, title, structural_types)
@@ -840,7 +894,8 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
                 part_eids[number.lower()] = index_slugs[tree_node["eid"]]
             elif tree_node["node"]["type"] == "division":
                 division_eids[number.lower()] = index_slugs[tree_node["eid"]]
-    linkify = _build_linkifier(section_files, part_eids, division_eids, definitions, section_ref_pattern(sections))
+    secref_re = section_ref_pattern(sections)
+    linkify = _build_linkifier(section_files, part_eids, division_eids, definitions, secref_re)
 
     out_path = Path(out_dir)
     (out_path / SECTIONS_DIR).mkdir(parents=True, exist_ok=True)
@@ -849,7 +904,10 @@ def export_to_markdown(parsed: dict, out_dir: str, act_title: str | None = None)
         prev_link = filenames_by_eid[sections[i - 1][0]["eid"]] if i > 0 else None
         next_link = filenames_by_eid[sections[i + 1][0]["eid"]] if i + 1 < len(sections) else None
         current_file = filenames_by_eid[section_node["eid"]]
-        page = render_section_page(section_node, breadcrumb, linkify, current_file, prev_link, next_link, title)
+        terms = definitions_for(definitions, scoped, section_node, breadcrumb)
+        page_linkify = linkify if terms is definitions else _build_linkifier(
+            section_files, part_eids, division_eids, terms, secref_re)
+        page = render_section_page(section_node, breadcrumb, page_linkify, current_file, prev_link, next_link, title)
         (out_path / SECTIONS_DIR / current_file).write_text(page, encoding="utf-8")
 
     (out_path / "index.md").write_text(render_index(tree_roots, title, filenames_by_eid, structural_types), encoding="utf-8")
