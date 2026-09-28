@@ -605,6 +605,34 @@ def test_bold_section_heading_ends_a_notes_block_instead_of_becoming_a_note_item
     assert "service on the accused" in note_1["text"]
 
 
+def test_a_notes_wrapped_line_opening_with_a_number_is_not_a_new_note():
+    """Crimes Act s17 (issue #72): "...a term of not less than" / "2 years
+    to be made..." sits in the note's text column, not its numbers', and
+    is note 3 wrapping -- not note 2 again, nor a new provision."""
+    small = 10.0
+    nodes = _parse([
+        line("Part I—Offences", bold=True),
+        line("17 Causing serious injury recklessly", bold=True, x0=163.7),
+        line("A person who recklessly causes serious injury is guilty of an offence.", x0=WRAP_X0),
+        line("Notes", bold=True, size=small, x0=184.2),
+        line("1", size=small, x0=184.3),
+        line("An offence against this section is a category 1 offence.", size=small, x0=204.8),
+        line("3", size=small, x0=184.3),
+        line("See section 10AA(2) that allows an order for a term of not less than", size=small, x0=204.8),
+        line("2 years to be made in certain circumstances.", size=small, x0=204.8),
+        line("18 Causing injury intentionally or recklessly", bold=True, x0=163.7),
+        line("A person who causes injury is guilty of an offence.", x0=WRAP_X0),
+    ]).nodes
+
+    notes = [(n["number"], n["text"]) for n in nodes if n["type"] == "note"]
+    assert notes == [
+        ("1", "An offence against this section is a category 1 offence."),
+        ("3", "See section 10AA(2) that allows an order for a term of not less than "
+              "2 years to be made in certain circumstances."),
+    ]
+    assert find(nodes, "section", "17")["text"].endswith("guilty of an offence.")
+
+
 def test_singular_unnumbered_note_becomes_its_own_note_node():
     """Regression (Criminal Procedure Act): a singular "Note" (as opposed
     to "Notes" with its own numbered "1 ...", "2 ..." items) is the
@@ -1153,6 +1181,43 @@ def test_a_lead_in_inside_a_subsection_opens_its_definitions():
     assert find(nodes, "definition")["text"] == (
         "has the meaning given by section 35(1) of the Crimes Act 1958;"
     )
+
+
+def test_in_subsection_1_opens_definitions_too():
+    """Crimes Act s31(2A) (issue #72): scoped to one subsection, and the
+    same announcement."""
+    nodes = _parse([
+        line("Part I—Offences", bold=True),
+        line("31 Assaults", bold=True),
+        line("(1) A person who assaults another is guilty of an offence.", x0=HEAD_X0),
+        line("(2A) In subsection (1)—", x0=181.5),
+        line("custodial officer has the same meaning as in", x0=PARA_X0, leading_bold_italic="custodial officer"),
+        line("section 10AA(8) of the Sentencing Act 1991;", x0=PARA_WRAP_X0),
+        line("emergency worker has the same meaning as in", x0=PARA_X0, leading_bold_italic="emergency worker"),
+        line("section 10AA(8) of the Sentencing Act 1991.", x0=PARA_WRAP_X0),
+    ]).nodes
+
+    assert [n["heading"] for n in nodes if n["type"] == "definition"] == ["custodial officer", "emergency worker"]
+
+
+def test_a_term_cited_mid_sentence_is_not_a_new_definition():
+    """Evidence Act s166(e) (issue #72): "...of the definition of" /
+    "document in the Dictionary—" sets the cited term in its defining
+    style, and it was split off as a definition of "document"."""
+    nodes = _parse([
+        line("Part 4.6—Ancillary provisions", bold=True),
+        line("166 Definition of request", bold=True),
+        line("In this Division, request means a request that a party makes to do", x0=WRAP_X0),
+        line("one or more of the following—", x0=WRAP_X0),
+        line("(e) in relation to a document of the kind referred", x0=PARA_X0),
+        line("to in paragraph (b) or (c) of the definition of", x0=PARA_WRAP_X0),
+        line("document in the Dictionary—to permit the", x0=PARA_WRAP_X0, leading_bold_italic="document"),
+        line("requesting party to examine the document;", x0=PARA_WRAP_X0),
+    ]).nodes
+
+    assert not any(n["type"] == "definition" for n in nodes)
+    assert find(nodes, "paragraph", "e")["text"].endswith("definition of document in the Dictionary—"
+                                                          "to permit the requesting party to examine the document;")
 
 
 def test_those_definitions_nest_under_the_subsection_that_introduced_them():
@@ -1802,6 +1867,38 @@ def test_a_schedules_numbered_list_is_one_clause_per_item():
         ("clause", "1", "Sections 36(5), 205(2)(b) and 211(2) of the Children, Youth and Families Act 2005"),
         ("clause", "2", "Section 55 of the Commission for Children and Young People Act 2012"),
         ("clause", "3", "Section 140 of the Confiscation Act 1997"),
+    ]
+
+
+def test_a_schedule_list_set_in_the_heading_column_is_still_one_clause_per_item():
+    """Crimes Act Sch 7 (issue #72): the numbers stand where section
+    headings do, in plain type, and a repealed item leaves only its stars
+    -- 4 is followed by 6. The Sections it hangs off carry letters."""
+    nodes = _parse([
+        line("Part 1—Offences", bold=True, size=16.0, x1=300),
+        line("464K Fingerprinting", bold=True, x0=141.7, x1=300),
+        line("A police officer may take fingerprints.", x0=WRAP_X0, x1=420),
+        line("Schedule 7—Summary offences for which", bold=True, size=16.0, x0=154.9, x1=430),
+        line("a person may be fingerprinted", bold=True, size=16.0, x0=194.1, x1=400),
+        line("Sections 464K, 464L, 464M", size=10.0, x0=340, x1=450),
+        line("1 A summary offence where the maximum penalty (whether", x0=141.7, x1=450),
+        line("for a first or subsequent offence) is or includes a period of", x0=163, x1=450),
+        line("imprisonment.", x0=163, x1=240),
+        line("2 An offence under section 3(2) of the Court Security", x0=141.7, x1=450),
+        line("Act 1980.", bold=True, x0=163, x1=220),
+        *[line("*", x0=x, x1=x + 5) for x in (206.7, 263.3, 320.1, 376.8, 433.5)],
+        line("4 An offence under section 36A of the Drugs, Poisons and", x0=141.7, x1=450),
+        line("Controlled Substances Act 1981.", bold=True, x0=163, x1=330),
+    ]).nodes
+
+    schedule = find(nodes, "schedule", "7")
+    assert schedule["heading"].endswith("(Sections 464K, 464L, 464M)") and not schedule["text"]
+    items = [(n["number"], n["text"]) for n in nodes if n["type"] == "clause"]
+    assert items == [
+        ("1", "A summary offence where the maximum penalty (whether for a first or subsequent offence) "
+              "is or includes a period of imprisonment."),
+        ("2", "An offence under section 3(2) of the Court Security Act 1980."),
+        ("4", "An offence under section 36A of the Drugs, Poisons and Controlled Substances Act 1981."),
     ]
 
 
