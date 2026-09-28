@@ -372,7 +372,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .history.hist-js .hist-track { border: none; }
 .reader-section:not(.historical) .history.hist-js { display: none; }
 .reader-section.historical > .provisions,
-.reader-section.historical > .copy-section { display: none; }
+.reader-section.historical .section-head > .copy-section { display: none; }
 /* The wordings in one row, oldest on the left, two to a screen, that the
    reader moves through sideways. A native scroller with snap points
    rather than panels shown and hidden by script, so a trackpad swipe, a
@@ -453,16 +453,28 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   .site-footer { grid-template-columns: 1fr; }
 }
 
-/* Sits above the provisions, out of the reading column: useful, not
-   competing with the text it copies. */
+/* Beside the heading: useful, not competing with the text it copies. */
 .copy-section {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--sans); font-size: 12.5px;
   color: var(--fg); background: var(--panel);
   border: 1px solid var(--border); border-radius: 0;
-  padding: 4px 10px; margin: 0 0 14px; cursor: pointer;
+  padding: 4px 10px; margin-top: 6px; cursor: pointer;
 }
 .copy-section:hover { border-color: var(--accent); color: var(--accent); }
 .copy-section.copied { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.copy-section .copied-icon, .copy-section.copied .copy-icon { display: none; }
+.copy-section.copied .copied-icon { display: inline; }
+/* An icon alone on a phone (issue #99). The label is clipped rather than
+   hidden, so it is still the button's name, and "Copied" is still read
+   out when it changes. */
+@media (max-width: 720px) {
+  .copy-section { padding: 6px; }
+  .copy-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+}
 
 
 /* Hover preview card -- see PREVIEW_SCRIPT. Positioned in page

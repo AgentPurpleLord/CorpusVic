@@ -846,10 +846,27 @@ def test_every_copy_button_on_a_read_on_page_works():
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
     copy_js = template_text("copy.js")
 
-    assert "id=" not in body[body.index('class="copy-section"') - 40:body.index("Copy section</button>")]
+    button = body.index('class="copy-section"')
+    assert "id=" not in body[button - 40:body.index("</button>", button)]
     assert "getElementById" not in copy_js
     assert 'document.addEventListener("click"' in copy_js
     assert 'btn.closest(".reader-section")' in copy_js
+
+
+def test_the_copy_button_is_an_icon_on_a_phone():
+    """Issue #99: beside the heading, and on a narrow screen its icon
+    alone, the label kept as the button's name rather than removed."""
+    from corpus.publishing.html_view import template_text
+
+    body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
+    head = body.split('<div class="section-head">')[1].split("</div>")[0]
+    css = template_text("page.css")
+    phone = css[css.index("@media (max-width: 720px) {\n  .copy-section"):]
+
+    assert 'class="copy-section"' in head and 'class="copy-icon"' in head
+    assert '<span class="copy-label">Copy section</span>' in head
+    assert ".copy-label" in phone.split("}\n}")[0] and "display: none" not in phone.split("}\n}")[0]
+    assert 'querySelector(".copy-label")' in template_text("copy.js")
 
 
 def test_a_copied_button_says_so():

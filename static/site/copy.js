@@ -99,12 +99,15 @@
   // The class as well as the words, so the button visibly changes state
   // rather than only its label. A second click restarts the clock instead
   // of being put back early by the first one's.
+  // The label rather than the whole button, which also holds its icons;
+  // on a phone the label is read out, not shown, and the icon swaps.
   function flash(btn, message, ok) {
-    btn.textContent = message;
+    var label = btn.querySelector(".copy-label") || btn;
+    label.textContent = message;
     btn.classList.toggle("copied", ok);
     clearTimeout(btn._copyTimer);
     btn._copyTimer = setTimeout(function () {
-      btn.textContent = "Copy section";
+      label.textContent = "Copy section";
       btn.classList.remove("copied");
     }, 1800);
   }

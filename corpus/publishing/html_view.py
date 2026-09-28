@@ -1499,6 +1499,17 @@ def _version_choices_html(version_urls: "dict | None", version_dates: "dict | No
     )
 
 
+_SVG = ('<svg class="{cls}" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false" '
+        'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{body}</svg>')
+_COPY_BUTTON = (
+    '<button type="button" class="copy-section" title="Copy section">'
+    + _SVG.format(cls="copy-icon", body='<rect x="9" y="9" width="13" height="13" rx="2"/>'
+                                        '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')
+    + _SVG.format(cls="copied-icon", body='<polyline points="20 6 9 17 4 12"/>')
+    + '<span class="copy-label">Copy section</span></button>'
+)
+
+
 def _readerbar_html(version: dict, superseded: "dict | None", version_urls: "dict | None",
                     version_dates: "dict | None") -> str:
     """The bar above the text: which day's law this is, and how to compare
@@ -1689,10 +1700,13 @@ def render_section(
     history_chip, history_html = render_history(
         timeline, base_url, amendment_index, version_urls,
         parsed.get("hierarchy") or None, anchor=section_slug)
-    if history_chip:
-        out.append(f'<div class="section-head"><h1>{_esc(title)}</h1>{history_chip}</div>')
-    else:
-        out.append(f"<h1>{_esc(title)}</h1>")
+    # Copying a provision into advice, a submission or an email is one of
+    # the things people most often come here to do, so it's a button
+    # rather than a careful drag-select that picks up the margin notes
+    # and loses the indentation (see static/site/copy.js). Beside the
+    # heading rather than on a row of its own, and an icon alone on a
+    # phone (issue #99): the label stays for screen readers.
+    out.append(f'<div class="section-head"><h1>{_esc(title)}</h1>{history_chip}{_COPY_BUTTON}</div>')
     # Ordered the way a reader needs them: whether this is even the
     # current law first, then how this provision got to its present
     # wording, then where else it's explained. A crossref chip is no
@@ -1715,13 +1729,6 @@ def render_section(
     # _build_linkifier_html's `fragment`) -- just moved onto the
     # provision <div> itself.
     slugs = compute_section_slugs(tree_node)
-    # Copying a provision into advice, a submission or an email is one of
-    # the things people most often come here to do, so it's a button
-    # rather than a careful drag-select that picks up the margin notes
-    # and loses the indentation (see static/site/copy.js).
-    out.append(
-        '<button type="button" class="copy-section">Copy section</button>'
-    )
     out.append('<div class="provisions">')
     # Materialised rather than walked, because a note's own heading is
     # decided by how many notes follow it (see _caption_html).
