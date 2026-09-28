@@ -35,9 +35,8 @@ details. Each margin note on a Section page links into it, naming the
 Act behind its citation, because a note only ever says "No. 68/2009"
 and no reader keeps a hundred Act numbers in their head.
 
-A Section page also carries a bar of related documents: the Bill clause
-it was enacted from and the Explanatory Memorandum's note on it, worked
-out by corpus/commentary.py from run_bill_linking.py's link
+A Section page also carries a bar of related documents: the
+Explanatory Memorandum's note on it, worked out by corpus/commentary.py from run_bill_linking.py's link
 records and handed here as ready-made chips. They're ordinary links
 into those documents' own browse pages, so hovering one answers "what
 does the EM say about this provision?" without leaving the section.
@@ -674,6 +673,18 @@ def build_page_index(parsed: dict, act_title: str) -> dict:
     }
 
 
+def _related_item_html(doc: dict) -> str:
+    """One entry of an Act's related row. The Bill is external: named,
+    and linked to legislation.vic.gov.au where its page is known, since
+    its text is not hosted here (see dashboard.related_links)."""
+    if not doc.get("external"):
+        return f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a></li>'
+    if not doc.get("href"):
+        return f"<li>Enacted from the {_esc(doc['title'])}</li>"
+    return (f'<li>Enacted from the <a class="external" href="{_esc(doc["href"])}" rel="noopener">'
+            f'{_esc(doc["title"])}</a> <span class="text-muted">on legislation.vic.gov.au</span></li>')
+
+
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None,
                  show_review_badge: bool = True, related: "list[dict] | None" = None,
@@ -686,7 +697,8 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     "as_at_printed"} -- see render_superseded_banner.
 
     related, if given, is the Bill this Act was enacted from and that
-    Bill's Explanatory Memorandum, as [{"title", "href", "kind"}]. They
+    Bill's Explanatory Memorandum, as [{"title", "href", "kind",
+    "external"}] (see _related_item_html). They
     belong to the Act rather than standing beside it -- an Explanatory
     Memorandum is written about a Bill and is meaningless without it --
     so they are offered here, from the Act's own contents, rather than on
@@ -754,10 +766,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
         # apart. The EM now says what it is in its own name, and a
         # sentence explaining a link that already explains itself is
         # noise.
-        items = "".join(
-            f'<li><a href="{_esc(doc["href"])}">{_esc(doc["title"])}</a></li>'
-            for doc in related
-        )
+        items = "".join(_related_item_html(doc) for doc in related)
         out.append(f'<div class="related"><h2>Related documents</h2><ul class="section-list">{items}</ul></div>')
     list_open = False
 
@@ -822,8 +831,7 @@ def render_index(parsed: dict, act_title: str, base_url: str,
 
 def _crossrefs_html(crossrefs: list[dict]) -> str:
     """The "where else this provision is explained" bar -- one chip per
-    related document (the Bill clause this section was enacted from, an
-    Explanatory Memorandum note about it). Each chip is an ordinary
+    Explanatory Memorandum note about it. Each chip is an ordinary
     link into that document's own page, so hovering one previews it the
     same way every other link on the page does; the caller
     (dashboard.py, via corpus/commentary.py) works out what

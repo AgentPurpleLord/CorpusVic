@@ -117,22 +117,20 @@ class Scope:
     page to make room for drafts of themselves.
 
     So the default is the current Acts, and everything else is something
-    you ask for. Which is also how a reader thinks about it: a Bill is of
-    interest when you want to know what was intended, not when you want
-    to know what the law is.
+    you ask for. Bills are not searchable at all: the site does not host
+    them (issue #98).
 
     Frozen, and one object rather than three booleans threaded through
     five call sites. Three parameters in a row is how a caller ends up
     passing `False, True` and meaning the other one."""
 
-    bills: bool = False
     explanatory: bool = False
     superseded: bool = False
 
     # The URL parameter each toggle is carried by, and the kind in the
     # index each one admits. Kept together so that adding a fourth kind
     # of document is one line here rather than four edits apart.
-    KINDS = (("bills", "bill"), ("explanatory", "em"))
+    KINDS = (("explanatory", "em"),)
 
     @classmethod
     def from_params(cls, params) -> "Scope":
@@ -143,15 +141,13 @@ class Scope:
         def on(name):
             return _is_on(params.get(name))
 
-        return cls(bills=on("bills"), explanatory=on("em"), superseded=on("superseded"))
+        return cls(explanatory=on("em"), superseded=on("superseded"))
 
     def params(self) -> dict:
         """The toggles that are on, for putting back into a link. Only
         the ones that are on, so an ordinary search keeps an ordinary
         URL."""
         out = {}
-        if self.bills:
-            out["bills"] = "1"
         if self.explanatory:
             out["em"] = "1"
         if self.superseded:
@@ -174,7 +170,7 @@ class Scope:
 
     def __bool__(self) -> bool:
         """Whether this is anything other than the default."""
-        return bool(self.bills or self.explanatory or self.superseded)
+        return bool(self.explanatory or self.superseded)
 
 
 def _is_on(value) -> bool:
@@ -330,9 +326,11 @@ def rebuild(base_dir, source=None, published=None) -> dict:
     base_dir = Path(base_dir)
     corpus = corpus_dir(source, base_dir)
     works = db.published_works(corpus) if published is None else set(published)
+    # What is on the site, and a Bill never is (issue #98).
     slugs = [slug for slug in source.discover_slugs()
              if (corpus / "data" / "parsed" / f"{slug}.json").exists()
-             and split_document_slug(slug)[0] in works]
+             and split_document_slug(slug)[0] in works
+             and source.act_status(slug).get("kind") != "bill"]
 
     # Which of each work's reprints is the newest held. The site publishes
     # that one at the work's own address, and search leads with it for the
@@ -859,7 +857,6 @@ def main():
     ap.add_argument("--build", action="store_true", help="rebuild the index")
     ap.add_argument("--base-dir", default=".")
     ap.add_argument("--superseded", action="store_true", help="include superseded reprints")
-    ap.add_argument("--bills", action="store_true", help="include Bills")
     ap.add_argument("--em", action="store_true", help="include explanatory memoranda")
     args = ap.parse_args()
 
@@ -873,7 +870,7 @@ def main():
 
     found = Index(args.base_dir).search(
         " ".join(args.query),
-        Scope(bills=args.bills, explanatory=args.em, superseded=args.superseded))
+        Scope(explanatory=args.em, superseded=args.superseded))
     print(f"{found['total']} match(es) for {found['parsed']}")
     for result in found["results"]:
         print(f"\n  {result['title']} -- {result['label']}")

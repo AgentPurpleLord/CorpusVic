@@ -252,14 +252,15 @@ def test_a_search_is_of_the_law_as_it_stands_by_default(with_a_bill):
     assert {hit["kind"] for hit in found["results"]} == {"act"}
 
 
-def test_bills_are_there_when_they_are_asked_for(with_a_bill):
+def test_a_bill_is_never_indexed(with_a_bill):
+    """The site does not host Bills (issue #98), so search cannot offer
+    one, whatever it is asked for."""
     tmp_path, source = with_a_bill
     index = _build(tmp_path, source)
 
-    found = index.search("contravene an intervention order", search.Scope(bills=True))
+    found = index.search("contravene an intervention order", search.Scope(explanatory=True, superseded=True))
 
-    assert "bill" in {hit["kind"] for hit in found["results"]}
-    assert "em" not in {hit["kind"] for hit in found["results"]}
+    assert "bill" not in {hit["kind"] for hit in found["results"]}
 
 
 def test_each_switch_admits_only_its_own_kind(with_a_bill):
@@ -282,7 +283,7 @@ def test_the_count_is_of_what_the_scope_allows(with_a_bill):
     index = _build(tmp_path, source)
 
     narrow = index.search("intervention order")
-    wide = index.search("intervention order", search.Scope(bills=True, explanatory=True))
+    wide = index.search("intervention order", search.Scope(explanatory=True))
 
     assert narrow["total"] < wide["total"]
     assert narrow["total"] == len(narrow["results"])
@@ -294,7 +295,7 @@ def test_a_kind_nobody_has_thought_of_yet_is_in_an_ordinary_search():
     an ordinary search rather than silently vanishing from one."""
     clause = search.Scope().sql()
 
-    assert "d.kind <> 'bill'" in clause and "d.kind <> 'em'" in clause
+    assert "d.kind <> 'em'" in clause
     assert "d.kind =" not in clause
 
 

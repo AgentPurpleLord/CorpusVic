@@ -3225,6 +3225,38 @@ def related_documents(act_slug: str) -> list[dict]:
     return unique
 
 
+def _bill_sources() -> dict:
+    """{bill slug -> {"title", "url"}} from data/bill_links/bills.yaml:
+    where each Bill is on legislation.vic.gov.au. Recorded rather than
+    derived, because its addresses do not follow the Bill's name
+    (the Sex Offenders Registration Bill 2004 is at
+    /bills/sex-offenders-registration-bill), and a guessed link 404s."""
+    import yaml
+
+    try:
+        return yaml.safe_load((BASE_DIR / "data" / "bill_links" / "bills.yaml").read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+
+
+def related_links(act_slug: str, href_of) -> list[dict]:
+    """An Act's related row, as render_index takes it. The Bill is named
+    and linked out to legislation.vic.gov.au, never to a copy here: its
+    clauses restate the Act's own wording, and hosting that is hosting
+    legislative text (issue #98). Each Explanatory Memorandum links to
+    its page here, where `href_of(slug)` gives one."""
+    sources = _bill_sources()
+    out = []
+    for doc in related_documents(act_slug):
+        if doc["kind"] == "bill":
+            source = sources.get(doc["slug"]) or {}
+            out.append({"kind": "bill", "external": True, "href": source.get("url"),
+                        "title": source.get("title") or _act_title(doc["slug"])})
+        elif href_of(doc["slug"]):
+            out.append({"kind": doc["kind"], "title": _act_title(doc["slug"]), "href": href_of(doc["slug"])})
+    return out
+
+
 def _commentary_index(act_slug: str) -> dict:
     signature = _bill_links_signature()
     cached = _commentary_cache.get(act_slug)
@@ -3293,10 +3325,11 @@ def _parsed(slug: str) -> dict:
 
 
 def _section_crossrefs(act_slug: str, section_number: str | None, schedule: str | None = None) -> list[dict]:
-    """The "Explained in" chips for one Act provision: the Bill clause it
-    was enacted from, and each Explanatory Memorandum note about it, as
-    ordinary links into those documents' own browse pages (so the hover
-    preview reads them like any other link). A related document that
+    """The "Explained in" chips for one Act provision: each Explanatory
+    Memorandum note about it, as ordinary links into the EM's own browse
+    pages (so the hover preview reads them like any other link). No Bill
+    clause: the Bill is named once, on the Act's contents (see
+    related_links). A related document that
     hasn't been parsed has no page to link to and is simply left out --
     the link record is about a document this pipeline may not hold.
 
@@ -3311,24 +3344,6 @@ def _section_crossrefs(act_slug: str, section_number: str | None, schedule: str 
     if not entry:
         return []
     chips = []
-    for bill in entry["bill"]:
-        where = diffing.provision_identity("clause", bill.get("schedule"), bill["clause_number"])
-        page = _page_index(bill["bill_slug"])["by_key"].get(where)
-        if not page:
-            continue
-        title = f"{_act_title(bill['bill_slug'])} \u2014 the clause this section was enacted from"
-        if bill.get("status") == "flagged":
-            title += f" (wording diverged; {bill['similarity']} text similarity -- worth checking)"
-        label = (
-            f"Bill Schedule {bill['schedule']} clause {bill['clause_number']}"
-            if bill.get("schedule") else f"Bill clause {bill['clause_number']}"
-        )
-        chips.append({
-            "kind": "bill",
-            "label": label,
-            "href": f"/browse/{bill['bill_slug']}/section/{page}",
-            "title": title,
-        })
     # Two EM notes can name the same clause number without being about the
     # same provision: a Bill's Schedule numbers its own clauses from 1
     # again, so "clause 11" in the body and "clause 11" of Schedule 1 are
@@ -3813,11 +3828,7 @@ def _document_kind(slug: str) -> str:
     parsed this document (run_pipeline.py and run_em_pipeline.py both
     write document_type). Anything parsed before that was recorded reads
     as an Act, which is what it will have been."""
-    parsed_path = BASE_DIR / "data" / "parsed" / f"{slug}.json"
-    try:
-        return json.loads(parsed_path.read_text(encoding="utf-8")).get("document_type") or "act"
-    except (OSError, ValueError):
-        return "act"
+    return _parse_field(slug, "document_type") or "act"
 
 
 def _preview_bar(slug: str) -> str:
@@ -3946,11 +3957,7 @@ def browse_index(slug: str):
     title = _act_title(slug)
     body = reader.contents_page(
         _SOURCE, slug, _url(f"/browse/{slug}"),
-        related=[
-            {"slug": d["slug"], "kind": d["kind"], "title": _act_title(d["slug"]),
-             "href": f"/browse/{d['slug']}/"}
-            for d in related_documents(slug)
-        ],
+        related=related_links(slug, lambda s: f"/browse/{s}/"),
     )
     return HTMLResponse(html_view.page_shell(
         title, body, _preview_bar(slug), base_url=_url(f"/browse/{slug}")))

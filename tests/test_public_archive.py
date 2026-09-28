@@ -45,6 +45,14 @@ def test_select_candidate_slugs_skips_an_unparsed_document():
     assert select_candidate_slugs(statuses) == []
 
 
+def test_a_bill_is_never_a_candidate():
+    """Its clauses restate the Act's wording: the site names it and links
+    out rather than hosting it (issue #98)."""
+    statuses = {"crimes-act": _status(), "crimes-bill": dict(_status(), kind="bill"),
+                "crimes-bill-em": dict(_status(), kind="em")}
+    assert select_candidate_slugs(statuses) == ["crimes-act", "crimes-bill-em"]
+
+
 def test_select_candidate_slugs_does_not_care_how_far_review_has_got():
     """A document earns its place provision by provision now (see
     approved_units), so being part-way through review is no longer a

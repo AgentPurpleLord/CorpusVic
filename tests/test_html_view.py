@@ -1242,8 +1242,8 @@ def test_an_act_offers_its_bill_and_em_from_its_own_contents():
     what it is in its own name now (see dashboard._named_as_an_em), and a
     sentence explaining a link that explains itself is noise."""
     related = [
-        {"slug": "crimes-bill", "kind": "bill", "title": "Crimes Bill 1957",
-         "href": "/browse/crimes-bill/"},
+        {"kind": "bill", "external": True, "title": "Crimes Bill 1957",
+         "href": "https://www.legislation.vic.gov.au/bills/crimes-bill-1957"},
         {"slug": "crimes-bill-em", "kind": "em",
          "title": "Crimes Bill 1957 \u2014 Explanatory Memorandum",
          "href": "/browse/crimes-bill-em/"},
@@ -1251,7 +1251,10 @@ def test_an_act_offers_its_bill_and_em_from_its_own_contents():
     page = render_index(_parsed(_definitions_act()), "Crimes Act 1958", "/browse/a", related=related)
 
     assert "Related documents" in page
-    assert 'href="/browse/crimes-bill/">Crimes Bill 1957</a>' in page
+    # The Bill is named and linked out, its text not hosted here (#98).
+    assert ('Enacted from the <a class="external" href="https://www.legislation.vic.gov.au/bills/'
+            'crimes-bill-1957" rel="noopener">Crimes Bill 1957</a>') in page
+    assert "/browse/crimes-bill/" not in page
     assert "Crimes Bill 1957 \u2014 Explanatory Memorandum</a>" in page
     assert "the Bill it was enacted from" not in page
     assert "written about that Bill" not in page
@@ -1584,3 +1587,12 @@ def test_no_public_label_carries_the_authorised_version_number():
     for page in pages:
         text = re.sub(r"<[^>]+>", " ", page)
         assert not re.search(r"Versions? \d", text), text
+
+
+def test_a_bill_with_no_known_page_is_named_without_a_link():
+    """A guessed legislation.vic.gov.au address 404s; the name alone
+    still says what the Act was enacted from."""
+    page = render_index(_parsed(_definitions_act()), "A", "/browse/a",
+                        related=[{"kind": "bill", "external": True, "title": "Crimes Bill 1957", "href": None}])
+
+    assert "<li>Enacted from the Crimes Bill 1957</li>" in page

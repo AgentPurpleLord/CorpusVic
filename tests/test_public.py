@@ -282,10 +282,10 @@ def test_the_scope_switches_are_carried_through(unlocked, monkeypatch):
     stub = _StubIndex()
     monkeypatch.setattr(public, "_INDEX", stub)
 
-    unlocked.get("/search?q=indictable&superseded=1&bills=1")
+    unlocked.get("/search?q=indictable&superseded=1&em=1")
 
     scope = stub.asked[-1]["scope"]
-    assert (scope.superseded, scope.bills, scope.explanatory) == (True, True, False)
+    assert (scope.superseded, scope.explanatory) == (True, True)
 
 
 def test_an_ordinary_search_is_of_the_law_as_it_stands(unlocked, monkeypatch):
@@ -298,7 +298,7 @@ def test_an_ordinary_search_is_of_the_law_as_it_stands(unlocked, monkeypatch):
     unlocked.get("/search?q=indictable")
 
     scope = stub.asked[-1]["scope"]
-    assert (scope.superseded, scope.bills, scope.explanatory) == (False, False, False)
+    assert (scope.superseded, scope.explanatory) == (False, False)
 
 
 def test_the_api_takes_the_same_switches(unlocked, monkeypatch):

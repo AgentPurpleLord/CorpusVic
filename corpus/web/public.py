@@ -287,6 +287,7 @@ def _published_slugs() -> dict:
         slug for slug in dashboard.discover_slugs()
         if (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists()
         and split_document_slug(slug)[0] in works
+        and dashboard._document_kind(slug) != "bill"
     ]
     return site_slugs(sorted(candidates), as_at_of(candidates))
 
@@ -511,12 +512,8 @@ def _contents_html(site_slug: str) -> str:
     body = reader.contents_page(
         dashboard, slug, f"/browse/{site_slug}", rewrite=_site_links, show_review_badge=False,
         notice=_partial_notice(slug),
-        related=[
-            {"slug": d["slug"], "kind": d["kind"], "title": dashboard._act_title(d["slug"]),
-             "href": f"/browse/{_published_slugs()[d['slug']]}/"}
-            for d in dashboard.related_documents(slug)
-            if d["slug"] in _published_slugs()
-        ],
+        related=dashboard.related_links(
+            slug, lambda s: f"/browse/{_published_slugs()[s]}/" if s in _published_slugs() else None),
     )
     # The contents are what carries an outline column now, so this is the
     # page laid out in two; a provision's own page is one column of text.
@@ -600,27 +597,27 @@ def _unverified_notice(slug: str, section_slug: str) -> "str | None":
 
 
 @app.get("/search", response_class=HTMLResponse)
-def search_page(q: str = "", superseded: str = "", bills: str = "", em: str = "",
+def search_page(q: str = "", superseded: str = "", em: str = "",
                 offset: int = 0):
     """A plain page for a plain GET form, so search works with
     JavaScript off -- which for a reference work about the law is worth
     more than a type-ahead.
 
-    The three scope parameters default to off, which is what makes an
+    The scope parameters default to off, which is what makes an
     ordinary search a search of the law as it stands. See
     corpus/search.py's Scope."""
     scope = search.Scope.from_params(
-        {"superseded": superseded, "bills": bills, "em": em})
+        {"superseded": superseded, "em": em})
     body = search_view.page_body(_INDEX, q, scope, offset,
                                  action="/search", unavailable=search.SearchUnavailable)
     return _page("Search", body, query=q)
 
 
 @app.get("/api/search")
-def search_api(q: str = "", superseded: str = "", bills: str = "", em: str = "",
+def search_api(q: str = "", superseded: str = "", em: str = "",
                offset: int = 0, limit: int = 20):
     scope = search.Scope.from_params(
-        {"superseded": superseded, "bills": bills, "em": em})
+        {"superseded": superseded, "em": em})
     try:
         return _INDEX.search(q, scope, limit=min(max(limit, 1), 100), offset=max(offset, 0))
     except search.SearchUnavailable as e:
@@ -692,9 +689,13 @@ def select_candidate_slugs(statuses: dict[str, dict],
     Pure and file-I/O-free so it's unit-testable on fabricated status
     dicts -- see tests/test_public_archive.py. `statuses` is
     {slug: dashboard.act_status(slug)}."""
+    # Never a Bill: its clauses restate the Act's wording, and the site
+    # does not host legislative text it is not the Act's (issue #98). It
+    # stays in the pipeline, which uses it to tie EM notes to sections.
     return sorted(
         slug for slug, status in statuses.items()
         if status["parsed"] and (include_unpublished or status.get("published"))
+        and status.get("kind") != "bill"
     )
 
 
@@ -1077,15 +1078,10 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
 
     index_body = reader.contents_page(
         dashboard, slug, base_url, rewrite=site, show_review_badge=False,
-        # Only documents this build actually published: a link from an
-        # Act's contents to a Bill nobody has reviewed yet would be a
-        # link to a page that isn't there.
-        related=[
-            {"slug": d["slug"], "kind": d["kind"], "title": dashboard._act_title(d["slug"]),
-             "href": f"{base_path}/browse/{slugs.get(d['slug'], d['slug'])}/"}
-            for d in dashboard.related_documents(slug)
-            if d["slug"] in (published_slugs or ())
-        ],
+        # Only documents this build actually published: a link to an EM
+        # it did not write would be a link to a page that isn't there.
+        related=dashboard.related_links(
+            slug, lambda s: f"{base_path}/browse/{slugs.get(s, s)}/" if s in (published_slugs or ()) else None),
         notice=(None if checked_pages == all_pages
                 else _partial_notice_html(len(checked_pages), len(all_pages))),
     )
