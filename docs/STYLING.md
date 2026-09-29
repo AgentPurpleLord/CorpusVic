@@ -96,6 +96,16 @@ better against every surface, muted text and the accent at least 6:1,
 in both themes. Check a new colour against `--bg`, `--panel` and
 `--surface` before using it for text — WCAG's formula, not the eye.
 
+Links are `--link`, a truer blue than the navy `--accent` of the
+controls, so a reference in the text is found at a glance. In running
+text they also carry a light underline: blue alone is only 2.4:1 against
+the body text, under the 3:1 needed when colour is the only cue.
+Navigation (the outline, contents, breadcrumbs, chips) goes without.
+
+Anything that confirms an action — "Copied", a saved change — is green:
+give the button `is-success` (`--success` / `--on-success`) rather than
+styling it afresh.
+
 ## Shape and space
 
 Curves come from `--radius-sm` (6px: chips, inputs, tags) and `--radius`

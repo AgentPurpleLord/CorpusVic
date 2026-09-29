@@ -51,6 +51,11 @@
   font-weight: 300 700; font-style: italic; font-display: swap;
 }
 * { box-sizing: border-box; }
+a:not(.btn) { color: var(--link); }
+a:not(.btn):hover { color: var(--link-hover); }
+/* "It worked", the same green as the site's (tokens.css --success). */
+.btn.is-success, button.is-success { background: var(--success); border-color: var(--success); color: var(--on-success); }
+
 html, body { height: 100%; }
 body {
   margin: 0;

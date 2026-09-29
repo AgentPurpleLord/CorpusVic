@@ -6,6 +6,11 @@
   --denied: var(--pending);
 }
 * { box-sizing: border-box; }
+a:not(.btn) { color: var(--link); }
+a:not(.btn):hover { color: var(--link-hover); }
+/* "It worked", the same green as the site's (tokens.css --success). */
+.btn.is-success, button.is-success { background: var(--success); border-color: var(--success); color: var(--on-success); }
+
 body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--fg);
        display: grid; grid-template-rows: auto 1fr; height: 100vh; }
 header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px;

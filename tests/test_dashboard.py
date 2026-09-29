@@ -1852,3 +1852,57 @@ def test_a_link_has_to_be_a_slug_and_nobody_elses(tmp_path, monkeypatch):
     client.post("/api/works/crimes-act/name", json={"address": "crimes"})
     assert client.post("/api/works/dpcsa/name", json={"address": "crimes"}).status_code == 409
     assert client.post("/api/works/nope/name", json={"title": "N"}).status_code == 404
+
+
+# ---------------------------------------------------------------------
+# The admin pages never serve a stale stylesheet
+# ---------------------------------------------------------------------
+
+
+def test_the_dashboard_names_its_stylesheet_by_version_and_is_rechecked(tmp_path, monkeypatch):
+    """After the redesign the dashboard kept its old palette: a fixed
+    stylesheet URL, which a browser kept "fresh" on its own heuristics."""
+    import re
+    from corpus.web import admin_page
+
+    client = _dashboard_at(tmp_path, monkeypatch)
+    res = client.get("/")
+
+    assert res.headers["cache-control"] == "no-cache"
+    assert re.search(r'href="static/admin/dashboard\.css\?v=[0-9a-f]{10}"', res.text)
+    assert f"?v={admin_page.static_version()}" in res.text
+
+
+def test_the_version_follows_a_stylesheet_change(tmp_path, monkeypatch):
+    from corpus.web import admin_page
+
+    css = tmp_path / "static" / "admin" / "x.css"
+    css.parent.mkdir(parents=True)
+    (tmp_path / "static" / "site").mkdir()
+    css.write_text("a { color: red; }")
+    monkeypatch.setattr(admin_page, "_STATIC", tmp_path / "static")
+    admin_page._memo.clear()
+    before = admin_page.static_version()
+
+    css.write_text("a { color: blue; }")
+    assert admin_page.static_version() != before
+
+
+def test_static_files_are_rechecked(tmp_path, monkeypatch):
+    """tokens.css is reached through an @import, whose URL cannot carry
+    the version."""
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "BASE_DIR", corpus.PROJECT_ROOT)
+
+    for path in ("/static/admin/dashboard.css", "/static/site/tokens.css"):
+        res = client.get(path)
+        assert res.status_code == 200 and res.headers["cache-control"] == "no-cache", path
+
+
+def test_the_review_page_names_its_stylesheet_by_version():
+    from fastapi.testclient import TestClient
+    from corpus.review import review
+
+    res = TestClient(review.app).get("/")
+    assert res.headers["cache-control"] == "no-cache"
+    assert "static/admin/review.css?v=" in res.text
