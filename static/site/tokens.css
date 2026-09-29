@@ -3,7 +3,7 @@
      body text 13:1 or better, muted text and the accent 6:1 or better,
      in both themes (see docs/STYLING.md). */
   color-scheme: light;
-  --bg: #ebf2fa;
+  --bg: #fffaff;
   --panel: #eef2f6;          /* quiet surfaces: chips, notices */
   --surface: #ffffff;        /* raised: menus, cards, modals */
   --fg: #13223a;
