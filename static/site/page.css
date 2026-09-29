@@ -253,12 +253,25 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    other -- which is the whole point, since the question ("what does
    the EM say about this?") is one a reader wants answered without
    leaving the section. */
-.crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; font-family: var(--sans); }
-.crossref {
-  font-size: 11.5px; padding: 2px 9px; border-radius: 0;
-  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+/* The chip: every small control on the site -- the EM chips, History,
+   Copy section, Earlier/Later, the Display menu's buttons -- one shape
+   and size, written by html_view._chip. They were each styled on their
+   own and no two lined up. Only what differs goes below with its own
+   class: a variant's border, a state, an icon. */
+.chip {
+  flex: none; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--chip-h); padding: 0 var(--chip-pad);
+  font-family: var(--sans); font-size: var(--chip-font); font-weight: 400; line-height: 1;
+  white-space: nowrap; text-decoration: none; cursor: pointer;
+  color: var(--fg); background: var(--panel);
+  border: 1px solid var(--border); border-radius: 0;
 }
-.crossref:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.chip:hover, .chip:focus-visible { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.chip[aria-pressed="true"], .chip.ph-on { border-color: var(--accent); background: var(--accent); color: #fff; }
+.chip:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--muted); }
+
+.crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; }
 .crossref-em { border-style: dashed; }
 
 /* A provision's history -- see html_view.render_history and
@@ -269,13 +282,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    .historical on the article swaps the text for the timeline. */
 .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .section-head h1 { flex: 1 1 auto; min-width: 0; }
-.history-chip {
-  flex: none; font-family: var(--sans); font-size: 12px; line-height: 1.4;
-  padding: 3px 10px; margin-top: 2px; cursor: pointer;
-  border: 1px solid var(--border); border-left: 3px solid var(--flagged);
-  border-radius: 0; background: var(--panel); color: var(--fg);
-}
-.history-chip:hover, .history-chip[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.section-head > .chip { margin-top: 4px; }
+.history-chip { border-left: 3px solid var(--flagged); }
+.history-chip[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 .history-count {
   display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 4px;
   font-size: 11px; text-align: center; background: var(--verify-none-bg); color: var(--muted);
@@ -307,12 +316,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .tl-note { display: block; }
 .hist-quiet { font-style: italic; }
 .hist-compare { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
-.hist-cmp {
-  font-family: var(--sans); font-size: 11.5px; padding: 2px 8px; cursor: pointer;
-  border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--fg);
-}
-.hist-cmp:hover { border-color: var(--accent); color: var(--accent); }
-.hist-cmp[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
 .hist-heading { font-weight: 600; margin-bottom: 6px; }
 /* Two wordings side by side need a smaller measure than one. */
 .hist-provisions .prov { --prov-size: 16px; max-width: none; }
@@ -351,16 +354,10 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .ph-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
 .ph-subject { font-weight: 600; }
 .ph-nav { display: flex; gap: 6px; }
-.ph-nav button, .ph-point {
-  font: inherit; font-size: 12px; color: var(--fg); background: var(--bg);
-  border: 1px solid var(--border); padding: 2px 8px; cursor: pointer;
-}
-.ph-nav button:disabled { opacity: 0.4; cursor: default; }
 /* The versions it has read in, joined by a rule; the two on screen lit. */
 .ph-timeline { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin: 10px 0; padding: 0; }
 .ph-timeline li { display: flex; align-items: center; }
 .ph-timeline li + li::before { content: ""; width: 18px; border-top: 1px solid var(--border); }
-.ph-point.ph-on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ph-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .ph-side { min-width: 0; }
 .ph-when { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
@@ -391,12 +388,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin: 0 0 10px; font-size: 12px; color: var(--muted);
 }
-.hist-step {
-  font-family: var(--sans); font-size: 13px; padding: 2px 10px; cursor: pointer;
-  border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--fg);
-}
-.hist-step:disabled { opacity: 0.4; cursor: default; }
-.hist-step:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
 .hist-dots { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
 .hist-dot { width: 9px; height: 9px; padding: 0; border: 1px solid var(--muted); background: transparent; cursor: pointer; }
 .hist-dot.on { background: var(--accent); border-color: var(--accent); }
@@ -454,14 +445,6 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 
 /* Beside the heading: useful, not competing with the text it copies. */
-.copy-section {
-  flex: none; display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--sans); font-size: 12.5px;
-  color: var(--fg); background: var(--panel);
-  border: 1px solid var(--border); border-radius: 0;
-  padding: 4px 10px; margin-top: 6px; cursor: pointer;
-}
-.copy-section:hover { border-color: var(--accent); color: var(--accent); }
 .copy-section.copied { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 .copy-section .copied-icon, .copy-section.copied .copy-icon { display: none; }
 .copy-section.copied .copied-icon { display: inline; }
@@ -469,7 +452,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    hidden, so it is still the button's name, and "Copied" is still read
    out when it changes. */
 @media (max-width: 720px) {
-  .copy-section { padding: 6px; }
+  .copy-section { width: var(--chip-h); padding: 0; }
   .copy-label {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
@@ -541,8 +524,8 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    plain GET form -- see html_view._search_form_html for why. */
 .sitesearch { margin-left: auto; display: flex; }
 .sitesearch input {
-  font-family: var(--sans); font-size: 13px;
-  padding: 4px 9px; width: 190px;
+  font-family: var(--sans); font-size: 13px; box-sizing: border-box;
+  height: var(--chip-h); padding: 0 9px; width: 190px;
   border: 1px solid var(--border); border-radius: 0;
   background: var(--panel); color: var(--fg);
 }
@@ -616,12 +599,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    controls, out of the way of the text until asked for. */
 .sitemenu { position: relative; margin-left: auto; }
 .sitemenu[hidden], .sitemenu-panel[hidden], .menu-row[hidden] { display: none; }
-.sitemenu-btn {
-  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-  border-radius: 0; padding: 4px 9px; cursor: pointer; font-size: 13px;
-  font-family: var(--reading); font-weight: 600;
-}
-.sitemenu-btn:hover, .sitemenu-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.sitemenu { display: flex; }
+.sitemenu-btn { font-family: var(--reading); font-size: 13px; font-weight: 600; }
+.sitemenu-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 .sitemenu-panel {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
   min-width: 230px; display: grid; gap: 10px; padding: 12px 14px;

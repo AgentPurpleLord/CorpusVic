@@ -50,9 +50,9 @@
     var nav = document.createElement("div");
     nav.className = "hist-nav";
     nav.innerHTML =
-      '<button type="button" class="hist-step" data-step="-1" aria-label="Earlier wording">&#9664; Earlier</button>' +
+      '<button type="button" class="chip hist-step" data-step="-1" aria-label="Earlier wording">&#9664; Earlier</button>' +
       '<div class="hist-dots" role="group" aria-label="Wordings"></div>' +
-      '<button type="button" class="hist-step" data-step="1" aria-label="Later wording">Later &#9654;</button>';
+      '<button type="button" class="chip hist-step" data-step="1" aria-label="Later wording">Later &#9654;</button>';
     var dots = nav.querySelector(".hist-dots");
     panelsOf(history).forEach(function (panel, n) {
       var dot = document.createElement("button");

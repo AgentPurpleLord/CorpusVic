@@ -85,9 +85,18 @@ The dark values are a separate ramp rather than the light ones inverted
 (accent hue ~31.5°, neutral ~17.3°). If you choose a new accent, pick a
 lighter step of it for dark so it stays legible on the dark ground.
 
-Check both themes before you push — the moon button in the header
+Check both themes before you push — Theme in the header's Aa menu
 toggles it. The choice is shared with the review GUI through
 `localStorage.reviewTheme`, so the two surfaces stay in step.
+
+## Chips
+
+Every small control — the EM chips, History, Copy section, Earlier and
+Later, the Aa menu and its buttons — is one `.chip` (`page.css`), sized
+by `--chip-h`, `--chip-font` and `--chip-pad` in `tokens.css`. Change
+those to resize them all at once; the header's search box takes the same
+height. A new control gets the `chip` class (from Python, through
+`html_view._chip`) and only its own differences as extra rules.
 
 ## Fonts
 
