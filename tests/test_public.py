@@ -226,6 +226,14 @@ def test_an_old_versioned_address_redirects_to_the_dated_one(unlocked, monkeypat
         "/api/browse/cpa-2025-03-01/preview?section=s5"
 
 
+def test_a_renamed_works_old_link_redirects(unlocked, monkeypatch):
+    monkeypatch.setattr(public, "_published_slugs", lambda: {"dpcsa": "drugs-poisons-act"})
+    monkeypatch.setattr(public, "addresses_of", lambda source=None: {"dpcsa": "drugs-poisons-act"})
+
+    res = unlocked.get("/browse/dpcsa/section/s4")
+    assert res.status_code == 308 and res.headers["location"] == "/browse/drugs-poisons-act/section/s4"
+
+
 def test_robots_asks_crawlers_away_from_a_gated_site(client):
     assert "Disallow: /" in client.get("/robots.txt").text
 

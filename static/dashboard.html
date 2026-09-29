@@ -363,6 +363,28 @@
   </div>
 </div>
 
+<div class="overlay" id="name-modal">
+  <div class="modal">
+    <h2>Name &mdash; <span id="name-work"></span></h2>
+    <div class="hint">
+      What this work is called on the public site, and the link it lives at. Leave either blank for
+      what the parse gives. Older versions are linked from it with their date. The old link keeps
+      working: it redirects.
+    </div>
+    <label for="name-title">Title</label>
+    <input id="name-title" type="text" autocomplete="off" style="width:100%">
+    <label for="name-address" style="margin-top:10px">Link</label>
+    <input id="name-address" type="text" autocomplete="off" style="width:100%"
+           pattern="[a-z0-9]+(-[a-z0-9]+)*" title="Lowercase letters, digits and single hyphens">
+    <div class="hint" id="name-preview"></div>
+    <div class="footer">
+      <button type="button" class="btn" onclick="saveWorkName(true)">Reset</button>
+      <button type="button" class="btn" onclick="closeModal('name-modal')">Cancel</button>
+      <button type="button" class="btn primary" onclick="saveWorkName(false)">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -567,6 +589,7 @@ function actCardHtml(s) {
     <div class="act-card">
       <div class="head">
         <span class="slug">${s.work}</span>
+        ${s.title ? `<span class="work-title">${escapeHtml(s.title)}</span>` : ""}
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
         ${publishBadge}
         ${kindBadge}
@@ -578,6 +601,8 @@ function actCardHtml(s) {
       <div class="actions">
         ${parseBtn}
         ${reviewBtn}
+        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openNameModal('${s.work}')"
+                title="The title and link this work has on the public site">Name</button>
         ${browseBtn}
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
@@ -1183,6 +1208,52 @@ async function loadActs() {
   ACTS = await actsRes.json();
   BILL_LINKS = await linksRes.json();
   renderActs();
+}
+
+let nameWork = null;
+
+function openNameModal(work) {
+  const s = ACTS.find((a) => a.work === work && a.title) || {};
+  nameWork = work;
+  document.getElementById("name-work").textContent = work;
+  const title = document.getElementById("name-title");
+  const address = document.getElementById("name-address");
+  title.placeholder = s.parsed_title || "";
+  title.value = s.title && s.title !== s.parsed_title ? s.title : "";
+  address.placeholder = work;
+  address.value = s.address || "";
+  const preview = () => {
+    document.getElementById("name-preview").textContent =
+      `Public link: /browse/${address.value.trim() || work}/`;
+  };
+  address.oninput = preview;
+  preview();
+  openModal("name-modal");
+  title.focus();
+}
+
+async function saveWorkName(reset) {
+  const body = reset ? { title: "", address: "" } : {
+    title: document.getElementById("name-title").value,
+    address: document.getElementById("name-address").value,
+  };
+  try {
+    const res = await fetch(`api/works/${encodeURIComponent(nameWork)}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't rename it.");
+    closeModal("name-modal");
+    toast(reset ? `${nameWork} is named as parsed again.` : `${nameWork} renamed.`);
+    await loadActs();
+    loadSearchState();
+    // Lives in the review database: something waiting to be pushed.
+    loadSync();
+  } catch (e) {
+    toast(e.message, true);
+  }
 }
 
 async function togglePublication(work, publish, btn) {

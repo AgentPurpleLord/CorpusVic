@@ -246,6 +246,17 @@ CREATE TABLE IF NOT EXISTS publication (
     changed_at TEXT NOT NULL
 );
 
+-- What a work is called on the public site, where a person has said.
+-- Uploaded under a short slug ("dpcsa"), a work read as that slug on the
+-- site and lived at /browse/dpcsa/. A title or address left NULL is the
+-- parse's own: the title read off the PDF, the work's name as the link.
+CREATE TABLE IF NOT EXISTS work_names (
+    work       TEXT PRIMARY KEY,
+    title      TEXT,
+    address    TEXT,
+    changed_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS custom_types (
     act TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -1356,3 +1367,28 @@ def seed_publication(works, base_dir: "str | Path | None" = None) -> int:
             [(work, _now_iso()) for work in fresh],
         )
     return len(fresh)
+
+
+def load_work_names(base_dir: "str | Path | None" = None) -> dict[str, dict]:
+    """{work: {"title", "address"}} for every work somebody has named."""
+    rows = _connect(base_dir).execute("SELECT work, title, address FROM work_names").fetchall()
+    return {row["work"]: {"title": row["title"], "address": row["address"]} for row in rows}
+
+
+def set_work_name(work: str, title: "str | None", address: "str | None",
+                  base_dir: "str | Path | None" = None) -> None:
+    """Names a work. Blank for either goes back to the parse's own; both
+    blank removes the row, so a work named and then reset leaves no trace
+    in data/review/work_names.jsonl."""
+    title, address = (title or "").strip() or None, (address or "").strip() or None
+    conn = _connect(base_dir)
+    with conn:
+        if title is None and address is None:
+            conn.execute("DELETE FROM work_names WHERE work = ?", (work,))
+            return
+        conn.execute(
+            "INSERT INTO work_names (work, title, address, changed_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(work) DO UPDATE SET title = excluded.title, address = excluded.address, "
+            "changed_at = excluded.changed_at",
+            (work, title, address, _now_iso()),
+        )
