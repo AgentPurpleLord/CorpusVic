@@ -73,7 +73,7 @@ def test_act_status_reports_not_parsed_when_no_parsed_json_exists(tmp_path, monk
         "kind": "act",
         "node_count": None,
         "unit_count": None,
-        "reviewed_units": None,
+        "review_rows": None,
         "review_status": "not-parsed",
         "akn_exported": False,
         "markdown_exported": False,
@@ -100,36 +100,80 @@ def test_act_status_counts_nodes_and_units_once_parsed(tmp_path, monkeypatch):
     assert status["node_count"] == 3
     assert status["unit_count"] == 2  # section 1 (+ its subsection), section 2
     assert status["review_status"] == "not-started"
-    assert status["reviewed_units"] == 0
+    assert status["review_rows"] == 0
 
 
-def test_act_status_is_reviewed_once_every_unit_is_committed(tmp_path, monkeypatch):
+# ---------------------------------------------------------------------
+# Review progress: provisions checked, by which are approved
+# ---------------------------------------------------------------------
+
+_PROGRESS_NODES = [
+    make_node("section", "1", "Murder", "A person who kills."),
+    make_node("subsection", "1", None, "In this section."),
+    make_node("section", "2", "Manslaughter", "A person who kills by accident."),
+    make_node("schedule", "1", "Forms", ""),
+    make_node("clause", "1", None, "Form one."),
+]
+
+
+def _approve(tmp_path, *ids, flagged=()):
+    index = {"s1": 0, "s1/1": 1, "s2": 2, "sch1": 3, "sch1/cl1": 4}
+    rows = [dict(_PROGRESS_NODES[index[i]], _node_id=i, _source_node_index=index[i],
+                 **({"needs_followup": True} if i in flagged else {"verified_at": "2026-09-29T00:00:00"}))
+            for i in ids]
+    db.save_verified("t-act", rows, base_dir=tmp_path)
+
+
+def _progress_at(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
-    _write_parsed(tmp_path, "crimes-act", nodes)
-
-    committed = [
-        dict(nodes[0], _node_id="s0", _source_node_index=0, _unit_end_index=0),
-        dict(nodes[1], _node_id="s1", _source_node_index=1, _unit_end_index=1),
-    ]
-    db.save_verified("crimes-act", committed, base_dir=tmp_path)
-
-    status = dashboard.act_status("crimes-act")
-    assert status["review_status"] == "reviewed"
-    assert status["reviewed_units"] == 2
+    monkeypatch.chdir(tmp_path)
+    _write_parsed(tmp_path, "t-act", _PROGRESS_NODES)
+    dashboard._cache()["progress"].clear()
 
 
-def test_act_status_is_in_progress_when_only_some_units_are_committed(tmp_path, monkeypatch):
-    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
-    nodes = [make_node("section", "1", "Murder"), make_node("section", "2", "Manslaughter")]
-    _write_parsed(tmp_path, "crimes-act", nodes)
+def test_progress_counts_sections_and_schedule_clauses_not_their_pieces(tmp_path, monkeypatch):
+    """Two Sections and a Schedule's clause: three provisions, however
+    many subsections they hold."""
+    _progress_at(tmp_path, monkeypatch)
+    assert dashboard._review_progress("t-act") == {"checked": 0, "total": 3}
 
-    committed = [dict(nodes[0], _node_id="s0", _source_node_index=0, _unit_end_index=0)]
-    db.save_verified("crimes-act", committed, base_dir=tmp_path)
+    _approve(tmp_path, "s1", "s1/1", "sch1", "sch1/cl1")
+    assert dashboard._review_progress("t-act") == {"checked": 2, "total": 3}
 
-    status = dashboard.act_status("crimes-act")
-    assert status["review_status"] == "in-progress"
-    assert status["reviewed_units"] == 1
+
+def test_a_provision_with_any_piece_unapproved_or_flagged_is_not_checked(tmp_path, monkeypatch):
+    _progress_at(tmp_path, monkeypatch)
+    _approve(tmp_path, "s1", "s2", "sch1/cl1", flagged=("sch1/cl1",))
+
+    # s1's subsection is unapproved, the clause is flagged: only s2.
+    assert dashboard._review_progress("t-act") == {"checked": 1, "total": 3}
+
+
+def test_progress_is_not_moved_by_a_rename_or_another_acts_review(tmp_path, monkeypatch):
+    """It was the unit review would resume at, a position, and moved
+    under edits that checked nothing."""
+    _progress_at(tmp_path, monkeypatch)
+    _approve(tmp_path, "s2")
+    before = dashboard._review_progress("t-act")
+
+    db.set_work_name("t-act", "Test Act 1999", "test-act", tmp_path)
+    db.save_verified("other-act", [{"type": "section", "number": "1", "_node_id": "s1",
+                                    "_source_node_index": 0, "verified_at": "2026-09-29T00:00:00"}],
+                     base_dir=tmp_path)
+    assert dashboard._review_progress("t-act") == before == {"checked": 1, "total": 3}
+
+
+def test_the_card_carries_provisions_reviewed(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    _progress_at(tmp_path, monkeypatch)
+    dashboard._DASHBOARD_USERNAME = None
+    monkeypatch.setattr(dashboard, "discover_slugs", lambda: ["t-act"])
+    _approve(tmp_path, "s2")
+
+    card = TestClient(dashboard.app).get("/api/acts").json()[0]
+    assert (card["provisions_checked"], card["provisions_total"], card["review_status"]) == (1, 3, "in-progress")
+    assert card["review_rows"] == 1
 
 
 def test_act_status_flags_akn_and_markdown_exports(tmp_path, monkeypatch):
@@ -1663,7 +1707,7 @@ def _reparse(monkeypatch, tmp_path, **form):
     (tmp_path / "acts").mkdir(exist_ok=True)
     (tmp_path / "acts" / "demo-act.pdf").write_bytes(b"%PDF-1.4")
     monkeypatch.setattr(dashboard, "act_status",
-                        lambda slug: {"parsed": True, "reviewed_units": 7, "unit_count": 9})
+                        lambda slug: {"parsed": True, "review_rows": 7, "unit_count": 9})
     return TestClient(dashboard.app).post("/api/acts/demo-act/reparse", data=form)
 
 
@@ -1722,6 +1766,7 @@ def test_the_document_list_is_cached_until_a_parse_changes(tmp_path, monkeypatch
     import os
 
     monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.chdir(tmp_path)   # the card's progress reads the parse through review.py
     monkeypatch.setattr(dashboard, "_list_cache", None)
     parsed = tmp_path / "data" / "parsed" / "act.json"
     parsed.parent.mkdir(parents=True)
