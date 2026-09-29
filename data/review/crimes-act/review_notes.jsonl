@@ -1,3 +1,6 @@
+{"act": "crimes-act", "node_id": "pti/div1/subdiv4/s17/note-2~50ff5c", "note": "misread of note 3", "noted_at": "2026-09-29T06:45:41.572015+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv4/s18/note-6", "note": "misread of note 2", "noted_at": "2026-09-29T06:45:27.665674+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv4/s18/note-6~abdb5e", "note": "misread of note 3", "noted_at": "2026-09-29T06:45:31.831203+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8/s35/1/definition-commercial-sexual-services/a", "note": "showing as (1)(a), should be 'commercial sexual services (a)'", "noted_at": "2026-09-28T06:52:16.119530+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8/s35/1/definition-commercial-sexual-services/b", "note": "showing as (1)(b), should be 'commercial sexual services (b)'", "noted_at": "2026-09-28T06:52:10.475234+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8/s35/1/definition-commercial-sexual-services/c", "note": "showing as (1)(c) instead of commcercial sexual services(c)", "noted_at": "2026-09-28T06:51:48.147175+00:00"}
@@ -12,3 +15,26 @@
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8/s35/2/definition-partner", "note": "should be apart of (2)", "noted_at": "2026-09-28T06:54:12.114210+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8/s35/2/definition-partner/a", "note": "should be (2)(a) not partner(2)(a)", "noted_at": "2026-09-28T06:54:30.021864+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8/s35/2/definition-partner/b", "note": "should be (2)(b) not partner(2)(b)", "noted_at": "2026-09-28T06:54:38.638887+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/a~d56e4d", "note": "should be example (a)", "noted_at": "2026-09-29T06:46:13.791945+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/b~3ee8b0", "note": "example (b)", "noted_at": "2026-09-29T06:46:18.343634+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/c", "note": "example (c)", "noted_at": "2026-09-29T06:46:22.980990+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/d", "note": "example (d)", "noted_at": "2026-09-29T06:46:26.325756+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/e", "note": "example (e)", "noted_at": "2026-09-29T06:46:29.891427+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/e~e649f8", "note": "(1)(e)", "noted_at": "2026-09-29T06:47:00.025173+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/f", "note": "example (f)", "noted_at": "2026-09-29T06:46:33.992641+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/f/c", "note": "(1)(c)", "noted_at": "2026-09-29T06:46:39.871198+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/f~a1cc96", "note": "(1)(f)", "noted_at": "2026-09-29T06:47:03.647069+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/g", "note": "(1)(g)", "noted_at": "2026-09-29T06:47:07.058017+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/h", "note": "(1)(h)", "noted_at": "2026-09-29T06:47:11.177932+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/i", "note": "(1)(c)(i)", "noted_at": "2026-09-29T06:46:45.609507+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/ii", "note": "(1)(c)(ii)", "noted_at": "2026-09-29T06:46:50.412752+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/ii/d", "note": "(1)(d)", "noted_at": "2026-09-29T06:46:56.564705+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s36aa/1/i~fd89d2", "note": "(1)(i)", "noted_at": "2026-09-29T06:47:22.685894+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s37/2/definition-parent/a", "note": "parent(a)", "noted_at": "2026-09-29T06:48:11.650438+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8/s37/2/definition-parent/b", "note": "parent (b)", "noted_at": "2026-09-29T06:48:14.690569+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8a/s42/5", "note": "should detect definition of 'application of force'", "noted_at": "2026-09-29T06:50:30.355262+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8a/s42/5/a", "note": "application of force (a)", "noted_at": "2026-09-29T06:50:36.292830+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8a/s42/5/b", "note": "application of force (b)", "noted_at": "2026-09-29T06:50:46.671630+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8b/s49a/3/note-12", "note": "misread of note 2", "noted_at": "2026-09-29T06:52:53.923078+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8b/s49a/3/note-2", "note": "misread cuts off", "noted_at": "2026-09-29T06:52:50.183064+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8b/s49a/3/note-3", "note": "should be note 3", "noted_at": "2026-09-29T06:52:58.266095+00:00"}
