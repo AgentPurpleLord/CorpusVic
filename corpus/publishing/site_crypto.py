@@ -107,20 +107,19 @@ _GATE_TEMPLATE = """<!doctype html>
 <style>
   :root {
     color-scheme: light;
-    --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --accent: #ec3013;
-    --border: color-mix(in srgb, #201e1d 40%, transparent);
-    --muted: #605d5d;
+    --bg: #f7f9fb; --panel: #ffffff; --fg: #13223a; --accent: #2f4b7c; --on-accent: #ffffff;
+    --border: #b3bfcd; --muted: #4d5b70;
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --accent: #ff7f67;
-    --border: #413b3b; --muted: #969191;
+    --bg: #0f1622; --panel: #1b2638; --fg: #e5eaf1; --accent: #9fb6dd; --on-accent: #0f1622;
+    --border: #3b4d69; --muted: #a2aec0;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
     padding: 24px; background: var(--bg); color: var(--fg);
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.45;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.6;
     font-kerning: normal; font-variant-ligatures: common-ligatures contextual;
   }
   form { width: 320px; max-width: 100%; }
@@ -129,13 +128,13 @@ _GATE_TEMPLATE = """<!doctype html>
   input {
     width: 100%; padding: 8px 10px; font: inherit; font-size: 14px;
     background: var(--panel); color: var(--fg);
-    border: 1px solid var(--border); border-radius: 0;
+    border: 1px solid var(--border); border-radius: 6px;
   }
   input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
   button {
     width: 100%; margin-top: 10px; padding: 8px 12px; font: inherit; font-size: 14px;
-    cursor: pointer; border: 0; border-radius: 0;
-    background: var(--accent); color: var(--bg);
+    cursor: pointer; border: 0; border-radius: 6px;
+    background: var(--accent); color: var(--on-accent);
   }
   button:disabled { opacity: 0.5; cursor: progress; }
   #err { color: var(--accent); font-size: 12.5px; min-height: 17px; margin-top: 8px; }

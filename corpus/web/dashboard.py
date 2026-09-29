@@ -108,7 +108,7 @@ from corpus.review.link_targets import load_known_acts
 from corpus.domain.profiles import available_profiles, profile_for
 from corpus.ai.backend import OllamaBackend, pull_model
 from corpus.parsing.versions import document_slug, read_front_matter, split_document_slug
-from corpus.review.review import _resume_point, build_current_nodes, group_into_units
+from corpus.review.review import build_current_nodes, group_into_units
 
 BASE_DIR = PROJECT_ROOT
 STATIC_DIR = BASE_DIR / "static"
@@ -176,7 +176,8 @@ def _cache() -> dict:
         except (OSError, ValueError):
             _list_cache = {}
         _list_cache = {"summaries": _list_cache.get("summaries") or {},
-                       "pdf_versions": _list_cache.get("pdf_versions") or {}, "base": str(BASE_DIR)}
+                       "pdf_versions": _list_cache.get("pdf_versions") or {},
+                       "progress": _list_cache.get("progress") or {}, "base": str(BASE_DIR)}
     return _list_cache
 
 
@@ -294,7 +295,9 @@ def act_status(slug: str, publication: "dict | None" = None) -> dict:
         "kind": "act",
         "node_count": None,
         "unit_count": None,
-        "reviewed_units": None,
+        # How many review decisions are stored: whether there is work a
+        # re-parse must carry. Not progress -- see _review_progress.
+        "review_rows": None,
         "review_status": "not-parsed",
         "akn_exported": (BASE_DIR / "data" / "akn" / f"{slug}.xml").exists(),
         "markdown_exported": (BASE_DIR / "data" / "markdown" / slug / "index.md").exists(),
@@ -308,18 +311,34 @@ def act_status(slug: str, publication: "dict | None" = None) -> dict:
     status["node_count"] = summary["node_count"]
     status["unit_count"] = len(units)
 
-    verified = db.load_verified(slug, base_dir=BASE_DIR)
-    resume_unit = _resume_point(units, list(verified))  # copy: _resume_point may trim its list arg
-    status["reviewed_units"] = min(resume_unit, len(units))
-    if not units:
-        status["review_status"] = "reviewed"
-    elif resume_unit >= len(units):
-        status["review_status"] = "reviewed"
-    elif resume_unit > 0:
-        status["review_status"] = "in-progress"
-    else:
-        status["review_status"] = "not-started"
+    status["review_rows"] = db.act_signature(slug, BASE_DIR)[0][0]
+    status["review_status"] = "in-progress" if status["review_rows"] else "not-started"
     return status
+
+
+def _review_progress(slug: str) -> dict:
+    """{"checked", "total"} provisions, as the public site counts them
+    (corpus/review/progress.py) -- by which provisions are approved, never
+    by where review would resume.
+
+    Kept against this work's parses and its review decisions only, in
+    memory and on disk: nothing else can change the answer, and a
+    rename, an edit to another Act or a restart then leaves it alone."""
+    from corpus.review.progress import provisions_checked
+
+    work, version = split_document_slug(slug)
+    family = [slug] + ([s for s in _work_versions(work) if s != slug] if version is not None else [])
+    key = repr((tuple(_parse_signature(s) for s in family),
+                tuple(tuple(map(tuple, db.act_signature(s, BASE_DIR))) for s in family)))
+    cache = _cache()["progress"]
+    entry = cache.get(slug)
+    if entry and entry["key"] == key:
+        return {"checked": entry["checked"], "total": entry["total"]}
+    nodes, _unattached, _hierarchy = _current_nodes(slug)
+    checked, total = provisions_checked(nodes, group_into_units(nodes), _page_index(slug)["by_node_index"])
+    cache[slug] = {"key": key, "checked": checked, "total": total}
+    _cache()["dirty"] = True
+    return {"checked": checked, "total": total}
 
 
 # ---------------------------------------------------------------------------
@@ -1568,6 +1587,21 @@ def index():
 def list_acts():
     publication = db.load_publication(BASE_DIR)
     statuses = [act_status(slug, publication) for slug in discover_slugs()]
+    # Progress for the version each card shows, the newest parsed one of
+    # its work: counting every reprint of the CPA on each load would be
+    # slow, and nothing shows the others'.
+    newest = {}
+    for status in statuses:
+        if status["parsed"]:
+            held = newest.get(status["work"])
+            if held is None or (status["version"] or 0) >= (held["version"] or 0):
+                newest[status["work"]] = status
+    for status in newest.values():
+        progress = _review_progress(status["slug"])
+        status["provisions_checked"], status["provisions_total"] = progress["checked"], progress["total"]
+        status["review_status"] = ("reviewed" if progress["checked"] >= progress["total"]
+                                   else "in-progress" if progress["checked"] or status["review_rows"]
+                                   else "not-started")
     _save_cache()
     # Added here rather than in act_status, whose results are cached to
     # disk: a rename has to show on the card at once.
@@ -2902,11 +2936,11 @@ def reparse_act(
     wants_discard = chosen == "discard"
     keep_accepted = chosen == "keep"
     status = act_status(slug)
-    reviewed = status.get("reviewed_units") or 0
+    reviewed = status.get("review_rows") or 0
     if status["parsed"] and reviewed > 0 and confirm.strip().lower() != "true":
         raise HTTPException(
             409,
-            f"{slug} has {reviewed} of {status['unit_count']} unit(s) already reviewed. "
+            f"{slug} has {reviewed} review decision(s) already. "
             + (
                 "Discarding review data throws every one of those decisions away -- accepted pieces, flags, "
                 "link annotations, independent assessments and AI scan findings -- and cannot be undone. "

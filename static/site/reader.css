@@ -17,9 +17,9 @@
 
 /* --- the bar above the text ----------------------------------------- */
 .readerbar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-5);
   font-family: var(--sans); font-size: 13px;
-  border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--border); padding-bottom: var(--space-4); margin-bottom: var(--space-6);
 }
 .asat { display: flex; align-items: baseline; gap: 8px; }
 /* Small caps-with-letterspacing for a label, per Butterick: all-caps set
@@ -30,7 +30,7 @@
 .asat strong { font-weight: 600; font-size: 13.5px; }
 .asat-tag {
   font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 2px 7px; background: var(--verify-full-bg); color: var(--done);
+  padding: 2px 9px; border-radius: 999px; background: var(--verify-full-bg); color: var(--done);
 }
 .asat-tag.superseded { background: var(--warn-bg); color: var(--flagged); }
 
@@ -45,18 +45,19 @@
 .versions[open] > summary::after { content: ""; }
 .versions > summary:hover { text-decoration: underline; }
 .version-list {
-  list-style: none; margin: 0; padding: 10px 14px;
-  position: absolute; z-index: 5; left: 0; top: 100%; min-width: 230px;
-  background: var(--panel); border: 1px solid var(--border);
+  list-style: none; margin: var(--space-2) 0 0; padding: var(--space-3) var(--space-4);
+  position: absolute; z-index: 5; left: 0; top: 100%; min-width: 240px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
-.version-list li { padding: 3px 0; font-size: 13px; white-space: nowrap; }
+.version-list li { padding: 5px 0; font-size: 13px; white-space: nowrap; }
 .version-date { color: var(--muted); font-size: 12px; }
 
 /* A menu setting that is off reads quieter than one that is on. */
 .ctl-btn[aria-pressed="false"] { color: var(--muted); }
 
 /* --- outline beside the contents ------------------------------------ */
-.reader-cols { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 0 34px; }
+.reader-cols { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 0 48px; }
 .outline {
   font-family: var(--sans); font-size: 13px; line-height: 1.4;
   border-right: 1px solid var(--border); padding-right: 20px;
@@ -82,7 +83,8 @@
      provision sits is visible rather than inferred. */
   margin: 3px 0 7px 2px; padding-left: 11px; border-left: 2px solid var(--border);
 }
-.outline-list a { display: block; padding: 3px 0; color: var(--muted); }
+.outline-list a { display: block; padding: 4px 8px; margin-left: -8px; border-radius: var(--radius-sm); color: var(--muted); }
+.outline-list a:hover { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
 .outline-list a:hover { color: var(--accent); text-decoration: none; }
 /* Chapters, Parts and Divisions are all the outline carries, so every
    line in it is a heading over the ones indented beneath it. */

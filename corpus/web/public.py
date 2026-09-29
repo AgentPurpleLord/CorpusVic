@@ -38,6 +38,7 @@ from corpus.storage import db
 from corpus.domain.hierarchy import group_into_units
 from corpus.publishing.site_crypto import ROBOTS_TXT, ROBOTS_TXT_ALLOW_ALL, SiteGate
 from corpus.parsing.versions import split_document_slug
+from corpus.review.progress import approved_page_slugs, approved_units, provisions_checked  # noqa: F401
 
 # The project, not this module's own folder. data/, deploy/ and the
 # published corpus all hang off the root, and counting .parents from a
@@ -204,14 +205,14 @@ _UNLOCK_PAGE = """<!doctype html>
 <style>
   :root { color-scheme: light dark; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-         font-family: ui-sans-serif, system-ui, sans-serif; background:#f3f2f2; color:#201e1d; }
-  @media (prefers-color-scheme: dark) { body { background:#120e0e; color:#eeeaea; } form { background:#1c1717 !important; border-color:#413b3b !important; } input { background:#120e0e !important; color:#eeeaea !important; border-color:#413b3b !important; } }
-  form { background:#eae9e9; border:1px solid #cfcccc; padding:26px; width:320px; }
-  h1 { font-size:16px; margin:0 0 4px; }
-  p { font-size:13px; color:#605d5d; margin:0 0 16px; }
-  input { width:100%; padding:8px; font:inherit; border:1px solid #cfcccc; background:#fff; color:#201e1d; box-sizing:border-box; }
-  button { width:100%; margin-top:10px; padding:9px; border:0; background:#ec3013; color:#fff; font:inherit; cursor:pointer; }
-  .err { color:#ae1800; font-size:12.5px; margin-top:10px; min-height:1em; }
+         font-family: ui-sans-serif, system-ui, sans-serif; line-height:1.6; background:#f7f9fb; color:#13223a; }
+  @media (prefers-color-scheme: dark) { body { background:#0f1622; color:#e5eaf1; } form { background:#1b2638 !important; border-color:#2b3a52 !important; } input { background:#0f1622 !important; color:#e5eaf1 !important; border-color:#3b4d69 !important; } button { background:#9fb6dd !important; color:#0f1622 !important; } }
+  form { background:#fff; border:1px solid #d6dde7; border-radius:10px; box-shadow:0 4px 6px rgba(19,34,58,.05), 0 10px 24px rgba(19,34,58,.10); padding:32px; width:340px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  p { font-size:13px; color:#4d5b70; margin:0 0 18px; }
+  input { width:100%; padding:9px 12px; font:inherit; border:1px solid #b3bfcd; border-radius:6px; background:#fff; color:#13223a; box-sizing:border-box; }
+  button { width:100%; margin-top:12px; padding:10px; border:0; border-radius:6px; background:#2f4b7c; color:#fff; font:inherit; cursor:pointer; }
+  .err { color:#b42318; font-size:12.5px; margin-top:10px; min-height:1em; }
 </style></head>
 <body>
 <form onsubmit="unlock(event)">
@@ -680,7 +681,7 @@ def select_candidate_slugs(statuses: dict[str, dict],
     """Which documents are even eligible for the site: every parsed one
     somebody has put on the site, including older versions of a work.
     How much of a candidate a human has checked is a separate question,
-    answered per provision by approved_page_slugs below, and it decides
+    answered per provision by approved_page_slugs (corpus/review/progress.py), and it decides
     what each page says about itself rather than whether it exists.
 
     Publication is decided per *work* (see corpus/db.py), so a work's
@@ -767,40 +768,6 @@ def site_slugs(candidates: list[str], as_at: "dict | None" = None,
         taken.add(address)
         out[slug] = address
     return out
-
-
-def approved_units(nodes: list, units: list[list[int]]) -> set[int]:
-    """Which units a reviewer has actually approved -- positions into
-    `units`, for the effective nodes review.build_effective_nodes_indexed
-    returns (a merged-away node is None there, and doesn't count against
-    the unit it used to be in).
-
-    Approved means every node still in the unit carries verified_at and
-    none is flagged for follow-up. The two are deliberately exclusive in
-    review.py: flagging a piece means "not sure, revisit this", and
-    commit_unit leaves such a node unstamped on purpose. So a flagged
-    provision counts as unchecked and says so on its own page, which is
-    the point of the reviewer having flagged it."""
-    approved = set()
-    for u, unit in enumerate(units):
-        live = [nodes[i] for i in unit if nodes[i] is not None]
-        if live and all(n.get("verified_at") and not n.get("needs_followup") for n in live):
-            approved.add(u)
-    return approved
-
-
-def approved_page_slugs(nodes: list, units: list[list[int]], by_node_index: dict[int, str]) -> set[str]:
-    """The page ids (build_page_index's own "s14", "s14_2", ...) whose
-    provision a human has checked. A page is one unit -- a Section and
-    everything nested under it -- so it is checked exactly when that unit
-    is. Every page carries its text either way; this decides which of
-    them have to say they haven't been confirmed."""
-    approved = approved_units(nodes, units)
-    unit_of_root = {unit[0]: u for u, unit in enumerate(units)}
-    return {
-        page for node_index, page in by_node_index.items()
-        if unit_of_root.get(node_index) in approved
-    }
 
 
 # dashboard.py builds its browse URLs for the live dashboard: rooted at

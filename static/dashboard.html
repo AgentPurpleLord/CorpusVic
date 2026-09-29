@@ -523,7 +523,11 @@ function onParseKindChange() {
 function statusLabel(s) {
   if (!s.parsed) return "not parsed";
   if (s.review_status === "reviewed") return "reviewed";
-  if (s.review_status === "in-progress") return `reviewing ${s.reviewed_units}/${s.unit_count} units`;
+  if (s.review_status === "in-progress") {
+    return s.provisions_total != null
+      ? `${s.provisions_checked} / ${s.provisions_total} provisions reviewed`
+      : "review started";
+  }
   return "not yet reviewed";
 }
 function statusClass(s) {
@@ -539,7 +543,8 @@ function actCardHtml(s) {
   // has to say which one it is -- the slug alone doesn't always.
   const kindBadge = s.parsed && s.kind !== "act"
     ? `<span class="badge">${KIND_LABELS[s.kind] || s.kind}</span>` : "";
-  const nodesBadge = s.parsed ? `<span class="badge">${s.node_count} nodes, ${s.unit_count} units</span>` : "";
+  const nodesBadge = s.parsed && s.provisions_total != null
+    ? `<span class="badge">${s.provisions_total} provisions</span>` : "";
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
   const reviewBtn = s.parsed
@@ -1343,7 +1348,7 @@ function openParseMenu(work, ticked, mode) {
   document.getElementById("parse-versions").innerHTML = versions.map((v) => {
     const state = !v.has_pdf ? "no source PDF"
       : !v.parsed ? "not parsed yet"
-      : `${v.reviewed_units || 0} of ${v.unit_count} units reviewed`;
+      : v.review_rows ? "review started" : "not reviewed";
     const asAt = v.version_as_at ? ` &middot; as at ${escapeHtml(v.version_as_at)}` : "";
     return `<label class="parse-version"><input type="checkbox" value="${escapeHtml(v.slug)}"
         ${v.has_pdf ? "" : "disabled"} ${start.has(v.slug) && v.has_pdf ? "checked" : ""}
@@ -1369,7 +1374,7 @@ function openParseMenu(work, ticked, mode) {
 function paintParseMenu() {
   const ticked = tickedVersions();
   const mode = (document.querySelector("#parse-mode-group input[name=mode]:checked") || {}).value || "carry";
-  const reviewed = ticked.filter((v) => v.parsed && (v.reviewed_units || 0) > 0);
+  const reviewed = ticked.filter((v) => v.parsed && (v.review_rows || 0) > 0);
   document.getElementById("parse-pages").style.display = ticked.length === 1 ? "" : "none";
   document.getElementById("parse-mode-group").style.display = reviewed.length ? "block" : "none";
   document.getElementById("parse-keep-note").style.display = reviewed.length && mode === "keep" ? "block" : "none";
@@ -1382,7 +1387,7 @@ function paintParseMenu() {
   if (confirmLabel.dataset.mode !== mode) confirmBox.checked = false;
   confirmLabel.dataset.mode = mode;
   if (reviewed.length) {
-    const which = reviewed.map((v) => `${versionName(v)} (${v.reviewed_units} of ${v.unit_count} units)`).join(", ");
+    const which = reviewed.map((v) => versionName(v)).join(", ");
     warn.textContent = `Already reviewed: ${which}. ` + (
       mode === "discard" ? "Every one of those decisions will be deleted."
       : mode === "keep" ? "Everything you approved keeps its text and its tick; everything else is re-read from the new parse."

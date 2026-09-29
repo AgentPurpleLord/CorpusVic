@@ -1,56 +1,89 @@
 :root {
+  /* A faded navy on cool, blue-tinted greys. Every text pair is checked:
+     body text 13:1 or better, muted text and the accent 6:1 or better,
+     in both themes (see docs/STYLING.md). */
   color-scheme: light;
-  --bg: #f3f2f2;
-  --panel: #eae9e9;
-  --fg: #000000;
-  --muted: #605d5d;
-  --border: color-mix(in srgb, #201e1d 40%, transparent);
-  --accent: #ec3013;
-  --done: #16a34a;
-  --pending: #7d7979;
-  --flagged: #d97706;
-  --verify-full-bg: #dcfce7;
-  --verify-partial-bg: #fef3c7;
-  --verify-none-bg: color-mix(in srgb, #201e1d 10%, transparent);
-  --bar-bg: #201e1d;
-  --bar-fg: #eae9e9;
-  --bar-link: #ff9783;
-  --ins-bg: #dcfce7;
+  --bg: #f7f9fb;
+  --panel: #eef2f6;          /* quiet surfaces: chips, notices */
+  --surface: #ffffff;        /* raised: menus, cards, modals */
+  --fg: #13223a;
+  --muted: #4d5b70;
+  --border: #d6dde7;
+  --border-strong: #b3bfcd;
+  --accent: #2f4b7c;
+  --accent-strong: #223a62;
+  --accent-soft: #e7edf6;
+  --on-accent: #ffffff;
+  --done: #1f7a4d;
+  --pending: #6b7788;
+  --flagged: #94580f;
+  --verify-full-bg: #e3f3e9;
+  --verify-partial-bg: #fbf3e4;
+  --verify-none-bg: #eef2f6;
+  --bar-bg: #13223a;
+  --bar-fg: #eef2f6;
+  --bar-link: #b9cbea;
+  --ins-bg: #e3f3e9;
   --ins-fg: #14532d;
-  --del-bg: #fee2e2;
+  --del-bg: #fbe7e7;
   --del-fg: #7f1d1d;
-  --warn-bg: #fef3c7;
-  --warn-border: #d97706;
+  --warn-bg: #fbf3e4;
+  --warn-fg: #6b4210;
+  --warn-border: #d9a55a;
+  --info-bg: #eef3fa;
+  --shadow-sm: 0 1px 2px rgba(19, 34, 58, 0.06), 0 1px 3px rgba(19, 34, 58, 0.08);
+  --shadow: 0 4px 6px rgba(19, 34, 58, 0.05), 0 10px 24px rgba(19, 34, 58, 0.10);
+
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  /* Every chip on the site, and the header's search box beside one. */
-  --chip-h: 26px;
-  --chip-font: 12px;
-  --chip-pad: 10px;
   --reading: 'Junicode', Georgia, serif;
+
+  /* Curves: small for controls, larger for panels. */
+  --radius-sm: 6px;
+  --radius: 10px;
+  /* One spacing scale, so gaps are chosen rather than invented. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  /* Every chip on the site, and the header's search box beside one. */
+  --chip-h: 30px;
+  --chip-font: 12.5px;
+  --chip-pad: 12px;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #120e0e;
-  --panel: #1c1717;
-  --fg: #eeeaea;
-  --muted: #969191;
-  --border: #413b3b;
-  --accent: #ff7f67;
-  --done: #5fd37f;
-  --pending: #989090;
-  --flagged: #f0b135;
-  --verify-full-bg: #092c13;
-  --verify-partial-bg: #3b2400;
-  --verify-none-bg: color-mix(in srgb, #eeeaea 12%, transparent);
-  --bar-bg: #0a0808;
-  --bar-fg: #eeeaea;
-  --bar-link: #ffa08b;
-  --ins-bg: #092c13;
-  --ins-fg: #86efac;
-  --del-bg: #3a1616;
-  --del-fg: #fca5a5;
-  --warn-bg: #3b2400;
-  --warn-border: #f0b135;
+  --bg: #0f1622;
+  --panel: #162031;
+  --surface: #1b2638;
+  --fg: #e5eaf1;
+  --muted: #a2aec0;
+  --border: #2b3a52;
+  --border-strong: #3b4d69;
+  --accent: #9fb6dd;
+  --accent-strong: #bccbe8;
+  --accent-soft: #1f2d45;
+  --on-accent: #0f1622;
+  --done: #6fcf97;
+  --pending: #8d99ab;
+  --flagged: #e2a857;
+  --verify-full-bg: #12301f;
+  --verify-partial-bg: #2e2412;
+  --verify-none-bg: #1f2d45;
+  --bar-bg: #0b1220;
+  --bar-fg: #e5eaf1;
+  --bar-link: #b9cbea;
+  --ins-bg: #12301f;
+  --ins-fg: #9be7b5;
+  --del-bg: #3a1a1f;
+  --del-fg: #f5b3b3;
+  --warn-bg: #2e2412;
+  --warn-fg: #f0c987;
+  --warn-border: #8a6526;
+  --info-bg: #182338;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 /* Inter, self-hosted */
 @font-face {
