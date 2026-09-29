@@ -1,7 +1,8 @@
 * { box-sizing: border-box; }
 /* Typography follows the following rules:
   1. body text 15-25px
-  2. line spacing 120%-140%
+  2. line spacing 150%-160%: legislation is read slowly and closely, and
+     room between lines is what keeps a long sentence followable
   3. 45-90 characters line length
   4. Kerning explicitly set
   5. Ligatures explicitly set */
@@ -11,7 +12,7 @@ body {
   color: var(--fg);
   font-family: var(--sans);
   font-size: 17px;
-  line-height: 1.45;
+  line-height: 1.6;
   font-kerning: normal;
   font-variant-ligatures:
   common-ligatures contextual;
@@ -22,9 +23,9 @@ body {
   color: var(--bar-fg);
   font-family: var(--sans);
   font-size: 12px;
-  padding: 6px 20px;
+  padding: 8px 28px;
   display: flex;
-  gap: 14px;
+  gap: 16px;
   align-items: center;
 }
 
@@ -33,24 +34,27 @@ body {
 .page {
   max-width: 980px;
   margin: 0 auto;
-  padding: 26px 20px 60px;
+  padding: 40px 28px 80px;
 }
 
-h1 { font-size: 22px; margin: 0 0 10px; font-family: var(--sans); }
-h2 { font-size: 17px; margin: 30px 0 8px; border-bottom: 2px solid var(--border); padding-bottom: 4px; font-family: var(--sans); }
-h3 { font-size: 15px; margin: 22px 0 6px; font-family: var(--sans); color: var(--fg); }
-h4, h5, h6 { font-size: 14px; margin: 16px 0 4px; font-weight: 600; font-family: var(--sans); }
-p { margin: 0 0 13px; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-.breadcrumb { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
-.verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 2px 9px; border-radius: 0; margin-bottom: 18px; }
+/* Hierarchy by size and weight, not rules: a heading is set apart by
+   the space around it. */
+h1 { font-size: 24px; line-height: 1.3; letter-spacing: -0.01em; margin: 0 0 var(--space-4); font-family: var(--sans); }
+h2 { font-size: 18px; line-height: 1.35; margin: 40px 0 var(--space-3); font-family: var(--sans); }
+h3 { font-size: 15.5px; margin: 28px 0 var(--space-2); font-family: var(--sans); color: var(--fg); }
+h4, h5, h6 { font-size: 14px; margin: 20px 0 6px; font-weight: 600; font-family: var(--sans); }
+p { margin: 0 0 18px; }
+a { color: var(--accent); text-decoration: none; text-underline-offset: 3px; }
+a:hover { color: var(--accent-strong); text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.breadcrumb { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-bottom: var(--space-3); }
+.verify-badge { display: inline-block; font-family: var(--sans); font-size: 11.5px; padding: 3px 10px; border-radius: 999px; margin-bottom: 20px; }
 .verify-full { background: var(--verify-full-bg); color: var(--done); }
 .verify-partial { background: var(--verify-partial-bg); color: var(--flagged); }
 .verify-none { background: var(--verify-none-bg); color: var(--pending); }
-.section-list { list-style: none; padding-left: 0; margin: 0 0 10px; }
-.section-list li { padding: 3px 0; font-family: var(--sans); font-size: 14px; }
-.section-nav { margin-top: 32px; padding-top: 14px; border-top: 2px solid var(--border); font-family: var(--sans); font-size: 13px; }
+.section-list { list-style: none; padding-left: 0; margin: 0 0 var(--space-4); }
+.section-list li { padding: 6px 0; font-family: var(--sans); font-size: 14.5px; }
+.section-nav { margin-top: 48px; padding-top: var(--space-5); border-top: 1px solid var(--border); font-family: var(--sans); font-size: 13.5px; }
 
 /* SECTION BODY
   Two-column grid. Column 1 = provision text Column 2 = margin note text
@@ -62,7 +66,7 @@ a:hover { text-decoration: underline; }
 .provisions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 190px;
-  column-gap: 24px;
+  column-gap: 32px;
 }
 
 .prov {
@@ -72,8 +76,8 @@ a:hover { text-decoration: underline; }
   align-items: baseline;
   font-family: var(--reading);
   font-size: var(--prov-size, 19px);
-  line-height: 1.42;
-  margin: 0 0 11px calc(var(--depth, 0) * 1.37em);
+  line-height: 1.6;
+  margin: 0 0 18px calc(var(--depth, 0) * 1.37em);
   max-width: calc(34em + var(--label));
 }
 
@@ -180,8 +184,8 @@ a:hover { text-decoration: underline; }
   margin: 20px 0 8px calc(var(--depth, 0) * 26px);
 }
 .prov-heading .prov-num { padding-right: 0; }
-.prov-notes { font-family: var(--sans); font-size: 11.5px; color: var(--muted); line-height: 1.45; }
-.hist-note { display: block; margin-bottom: 5px; }
+.prov-notes { font-family: var(--sans); font-size: 11.5px; color: var(--muted); line-height: 1.55; }
+.hist-note { display: block; margin-bottom: 6px; }
 /* A note the parser placed by proximity rather than by an explicit
    citation -- flagged so a reader can tell a guess from a certainty. */
 .hist-note.low { border-left: 2px solid var(--border); padding-left: 6px; font-style: italic; }
@@ -198,32 +202,32 @@ a:hover { text-decoration: underline; }
 .related h2 { margin-bottom: 8px; }
 .act-version { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: -6px 0 14px; }
 .endnote-text { margin-bottom: 18px; }
-.endnote-text p { margin: 0 0 11px; }
+.endnote-text p { margin: 0 0 18px; }
 /* Only an Act parsed before the endnote block builder existed falls
    back to this: its text still carries the source PDF's own wrap
    points, so honouring them beats running every line together. */
 .endnote-raw { white-space: pre-line; }
 .endnote-heading { font-family: var(--sans); font-weight: 600; font-size: 13.5px; margin: 18px 0 7px; }
-.endnote-bullets { margin: 0 0 11px; padding-left: 20px; }
-.endnote-bullets li { margin-bottom: 9px; }
+.endnote-bullets { margin: 0 0 18px; padding-left: 20px; }
+.endnote-bullets li { margin-bottom: 10px; }
 /* A provision the endnotes reproduce verbatim -- the Act's own words, not
    the endnote's commentary about them. */
 .endnote-quote {
   /* The Act's own words again, so the same reading settings as .prov. */
-  font-family: var(--reading); font-size: 19px; line-height: 1.42; max-width: 34em;
-  margin: 0 0 11px; padding: 2px 0 2px 14px;
-  border-left: 3px solid var(--border); color: var(--fg);
+  font-family: var(--reading); font-size: 19px; line-height: 1.6; max-width: 34em;
+  margin: 0 0 18px; padding: 4px 0 4px 16px;
+  border-left: 3px solid var(--border-strong); color: var(--fg);
 }
 /* The first line of a reproduced provision is its own heading ("64 How
    appeal is commenced"), the way the printed page sets it. */
 .endnote-quote p:first-child { font-weight: 600; }
 .endnote-quote p:last-child { margin-bottom: 0; }
 .endnote-aside { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
-.amend { border-top: 1px solid var(--border); padding: 12px 0 4px; }
+.amend { border-top: 1px solid var(--border); padding: var(--space-4) 0 var(--space-2); }
 .amend-head { font-family: var(--sans); font-weight: 600; font-size: 14px; margin-bottom: 6px; }
 .amend-cite {
   display: inline-block; font-weight: 500; font-size: 11.5px; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 0; padding: 1px 8px; margin-right: 8px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; margin-right: 8px;
 }
 .amend-fields { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 14px; margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px; }
 .amend-fields dt { color: var(--muted); }
@@ -231,8 +235,8 @@ a:hover { text-decoration: underline; }
 .amend-provisions { font-family: var(--sans); font-size: 12.5px; }
 .amend-provisions summary { cursor: pointer; color: var(--accent); }
 .amend-prov-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: 0; padding: 1px 6px; color: var(--fg); }
-a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.amend-prov { font-size: 11.5px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 7px; color: var(--fg); background: var(--surface); }
+a.amend-prov:hover { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
 .amend-more { font-size: 11.5px; color: var(--muted); align-self: center; }
 /* The citation inside a margin note, linked to that Act's own entry
    in the Endnotes. Inline, so the note still reads as the one line
@@ -265,10 +269,11 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
   font-family: var(--sans); font-size: var(--chip-font); font-weight: 400; line-height: 1;
   white-space: nowrap; text-decoration: none; cursor: pointer;
   color: var(--fg); background: var(--panel);
-  border: 1px solid var(--border); border-radius: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
 }
-.chip:hover, .chip:focus-visible { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-.chip[aria-pressed="true"], .chip.ph-on { border-color: var(--accent); background: var(--accent); color: #fff; }
+.chip:hover, .chip:focus-visible { background: var(--accent-soft); border-color: var(--border-strong); color: var(--accent); text-decoration: none; }
+.chip[aria-pressed="true"], .chip.ph-on { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .chip:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--muted); }
 
 .crossrefs { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: -4px 0 20px; }
@@ -286,16 +291,17 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .history-chip { border-left: 3px solid var(--flagged); }
 .history-chip[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 .history-count {
-  display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 4px;
+  display: inline-block; min-width: 1.5em; margin-left: 4px; padding: 1px 5px; border-radius: 999px;
   font-size: 11px; text-align: center; background: var(--verify-none-bg); color: var(--muted);
 }
-.history { margin: 0 0 20px; font-family: var(--sans); }
+.history { margin: 0 0 var(--space-5); font-family: var(--sans); }
+.history[open] > .history-summary { border-radius: var(--radius) var(--radius) 0 0; }
 .history-summary {
-  cursor: pointer; font-size: 12.5px; padding: 6px 10px;
+  cursor: pointer; font-size: 12.5px; padding: var(--space-2) var(--space-3); border-radius: var(--radius);
   border: 1px solid var(--border); border-left: 3px solid var(--flagged); background: var(--panel);
 }
-.hist-track { border: 1px solid var(--border); border-top: none; }
-.hist-panel { padding: 10px 12px; border-top: 1px solid var(--border); min-width: 0; }
+.hist-track { border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); background: var(--surface); }
+.hist-panel { padding: var(--space-4); border-top: 1px solid var(--border); min-width: 0; }
 .hist-panel:first-child { border-top: none; }
 .hist-here { border-left: 3px solid var(--accent); }
 .hist-head { margin-bottom: 8px; }
@@ -327,7 +333,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .section-list li.ghost a { color: var(--muted); }
 .ghost-tag {
   font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 1px 6px; background: var(--del-bg); color: var(--del-fg);
+  padding: 1px 7px; border-radius: 999px; background: var(--del-bg); color: var(--del-fg);
 }
 
 /* Historical mode, once history.js has taken the list over. */
@@ -348,8 +354,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    provision reads on around it. */
 .ph-hidden { display: none !important; }
 .piece-hist {
-  grid-column: 1 / -1; margin: 6px 0 16px; padding: 10px 12px;
-  border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel);
+  grid-column: 1 / -1; margin: var(--space-2) 0 var(--space-5); padding: var(--space-4);
+  border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow-sm);
 }
 .ph-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
 .ph-subject { font-weight: 600; }
@@ -400,9 +407,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    which direction to inference, and on a page about what an Act used to
    say that inference is the whole point. The strike is the Act's own
    convention for it. */
-.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 2px; border-radius: 0; }
+.d-ins { background: var(--ins-bg); color: var(--ins-fg); text-decoration: none; padding: 0 3px; border-radius: 3px; }
 .d-del {
-  background: var(--del-bg); color: var(--del-fg); padding: 0 2px; border-radius: 0;
+  background: var(--del-bg); color: var(--del-fg); padding: 0 3px; border-radius: 3px;
   text-decoration: line-through; text-decoration-thickness: 2px;
   text-decoration-color: color-mix(in srgb, var(--del-fg) 70%, transparent);
 }
@@ -411,9 +418,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    and at the top of the page: a reader on a superseded version is
    reading the wrong law, and that's worth interrupting them for. */
 .supersede {
-  font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
-  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 3px;
-  border-radius: 0; padding: 8px 12px; margin: 0 0 16px;
+  font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--warn-fg);
+  background: var(--warn-bg); border: 1px solid transparent; border-left: 4px solid var(--warn-border);
+  border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-5);
 }
 .supersede-link { white-space: nowrap; }
 
@@ -424,9 +431,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    first in the page body, before the heading, so it is read rather than
    scrolled past. */
 .disclaimer {
-  font-family: var(--sans); font-size: 13.5px; line-height: 1.55;
-  background: var(--warn-bg); border: 1px solid var(--warn-border); border-left-width: 4px;
-  padding: 12px 16px; margin: 0 0 26px;
+  font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--fg);
+  background: var(--info-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius); padding: var(--space-4) var(--space-5); margin: 0 0 var(--space-6);
 }
 /* The wording is in static/site/footer.html, which is editable and
    live-reloading; this is only how it sits on the page. Two columns
@@ -434,9 +441,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    then where to report a problem -- collapsing to one where there is no
    room for two. */
 .site-footer {
-  font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--muted);
-  border-top: 2px solid var(--border); margin-top: 44px; padding-top: 16px;
-  display: grid; grid-template-columns: 2fr 1fr; gap: 10px 32px;
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.65; color: var(--muted);
+  border-top: 1px solid var(--border); margin-top: 64px; padding-top: var(--space-5);
+  display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-3) var(--space-6);
 }
 .site-footer p { margin: 0 0 10px; }
 .site-footer p:last-child { margin-bottom: 0; }
@@ -445,7 +452,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 }
 
 /* Beside the heading: useful, not competing with the text it copies. */
-.copy-section.copied { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.copy-section.copied { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .copy-section .copied-icon, .copy-section.copied .copy-icon { display: none; }
 .copy-section.copied .copied-icon { display: inline; }
 /* An icon alone on a phone (issue #99). The label is clipped rather than
@@ -465,11 +472,11 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .linkpeek {
   position: absolute; z-index: 40; display: none;
   width: min(420px, 90vw); max-height: 340px; overflow-y: auto;
-  background: var(--panel); color: var(--fg);
-  border: 1px solid var(--border); border-radius: 0;
-  padding: 12px 14px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
-  font-size: 13.5px; line-height: 1.55;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4);
+  box-shadow: var(--shadow);
+  font-size: 13.5px; line-height: 1.6;
 }
 .linkpeek.open { display: block; }
 .linkpeek .peek-title { font-family: var(--sans); font-weight: 600; font-size: 13px; margin-bottom: 2px; }
@@ -493,7 +500,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
    from the top of one -- and slim enough that keeping it costs little.
    --header-h is what the outline's own sticky offset is measured from, so
    the two never cover each other. */
-:root { --header-h: 41px; }
+:root { --header-h: 58px; }
 /* Anything an in-page link can land on clears that header. Without this
    the target scrolls to top: 0, which is *underneath* the bar -- click a
    breadcrumb's "Subdivision (4)" and you arrive at a page where the
@@ -510,13 +517,14 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 [id] { scroll-margin-top: calc(var(--header-h) + 12px); }
 .siteheader {
   position: sticky; top: 0; z-index: 30;
-  display: flex; align-items: center; gap: 14px;
-  padding: 8px 20px; background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: 14px 28px; background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(8px);
+  box-shadow: 0 1px 0 var(--border), var(--shadow-sm);
   font-family: var(--sans);
 }
 .home {
-  font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: var(--fg);
+  font-weight: 700; font-size: 16px; letter-spacing: -0.01em; color: var(--accent);
 }
 .home:hover { color: var(--accent); text-decoration: none; }
 /* The search box sits in the header on every reader page, so a search
@@ -525,11 +533,11 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .sitesearch { margin-left: auto; display: flex; }
 .sitesearch input {
   font-family: var(--sans); font-size: 13px; box-sizing: border-box;
-  height: var(--chip-h); padding: 0 9px; width: 190px;
-  border: 1px solid var(--border); border-radius: 0;
-  background: var(--panel); color: var(--fg);
+  height: var(--chip-h); padding: 0 var(--space-3); width: 220px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--fg);
 }
-.sitesearch input:focus { outline: none; border-color: var(--accent); }
+.sitesearch input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 /* With a search box present the menu no longer needs to push itself to
    the right -- the box already did. */
 .sitesearch ~ .sitemenu { margin-left: 0; }
@@ -538,11 +546,11 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .search-page-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .search-page-form input[type="search"] {
   flex: 1 1 260px; font-family: var(--sans); font-size: 15px; padding: 7px 10px;
-  border: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--fg);
 }
 .search-page-form button {
   font-family: var(--sans); font-size: 14px; padding: 7px 16px; cursor: pointer;
-  border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 0;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); border-radius: var(--radius-sm);
 }
 /* The scope panel. A <details> rather than anything scripted, so that
    search keeps working with JavaScript off -- see search_view.form_html. */
@@ -588,7 +596,7 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 /* Themed rather than the browser's yellow, which is unreadable on the
    dark palette the inline script at the top of every page may have
    already chosen. */
-.search-snippet mark { background: var(--badge-progress-bg, #fef3c7); color: inherit; padding: 0 1px; }
+.search-snippet mark { background: var(--accent-soft); color: inherit; padding: 0 2px; border-radius: 3px; }
 .search-pager { font-family: var(--sans); font-size: 14px; display: flex; gap: 18px; margin-top: 8px; }
 
 @media (max-width: 560px) {
@@ -604,9 +612,9 @@ a.amend-prov:hover { border-color: var(--accent); color: var(--accent); text-dec
 .sitemenu-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 .sitemenu-panel {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
-  min-width: 230px; display: grid; gap: 10px; padding: 12px 14px;
-  background: var(--panel); border: 1px solid var(--border);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  min-width: 250px; display: grid; gap: var(--space-3); padding: var(--space-4);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 .menu-row { display: flex; align-items: center; gap: 8px; }
 .menu-row .ctl-label { flex: 1; }

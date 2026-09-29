@@ -205,14 +205,14 @@ _UNLOCK_PAGE = """<!doctype html>
 <style>
   :root { color-scheme: light dark; }
   body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-         font-family: ui-sans-serif, system-ui, sans-serif; background:#f3f2f2; color:#201e1d; }
-  @media (prefers-color-scheme: dark) { body { background:#120e0e; color:#eeeaea; } form { background:#1c1717 !important; border-color:#413b3b !important; } input { background:#120e0e !important; color:#eeeaea !important; border-color:#413b3b !important; } }
-  form { background:#eae9e9; border:1px solid #cfcccc; padding:26px; width:320px; }
-  h1 { font-size:16px; margin:0 0 4px; }
-  p { font-size:13px; color:#605d5d; margin:0 0 16px; }
-  input { width:100%; padding:8px; font:inherit; border:1px solid #cfcccc; background:#fff; color:#201e1d; box-sizing:border-box; }
-  button { width:100%; margin-top:10px; padding:9px; border:0; background:#ec3013; color:#fff; font:inherit; cursor:pointer; }
-  .err { color:#ae1800; font-size:12.5px; margin-top:10px; min-height:1em; }
+         font-family: ui-sans-serif, system-ui, sans-serif; line-height:1.6; background:#f7f9fb; color:#13223a; }
+  @media (prefers-color-scheme: dark) { body { background:#0f1622; color:#e5eaf1; } form { background:#1b2638 !important; border-color:#2b3a52 !important; } input { background:#0f1622 !important; color:#e5eaf1 !important; border-color:#3b4d69 !important; } button { background:#9fb6dd !important; color:#0f1622 !important; } }
+  form { background:#fff; border:1px solid #d6dde7; border-radius:10px; box-shadow:0 4px 6px rgba(19,34,58,.05), 0 10px 24px rgba(19,34,58,.10); padding:32px; width:340px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  p { font-size:13px; color:#4d5b70; margin:0 0 18px; }
+  input { width:100%; padding:9px 12px; font:inherit; border:1px solid #b3bfcd; border-radius:6px; background:#fff; color:#13223a; box-sizing:border-box; }
+  button { width:100%; margin-top:12px; padding:10px; border:0; border-radius:6px; background:#2f4b7c; color:#fff; font:inherit; cursor:pointer; }
+  .err { color:#b42318; font-size:12.5px; margin-top:10px; min-height:1em; }
 </style></head>
 <body>
 <form onsubmit="unlock(event)">

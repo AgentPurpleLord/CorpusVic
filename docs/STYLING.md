@@ -73,17 +73,40 @@ The first six are the ones you will want most, and none of them is code.
 ## Colours are tokens, not hex codes
 
 Everything on the site draws its colour from a variable in
-`tokens.css`. Change `--accent` once and every button, link and
-highlight follows, in both themes.
+`tokens.css` — and so does every admin screen (dashboard, review,
+history, lessons, teaching): each `static/admin/*.css` starts by
+importing `../site/tokens.css` and only renames tokens for its own use.
+Change `--accent` once and every button, link and highlight follows, on
+both surfaces and in both themes.
 
 Write a hex code directly into `page.css` and you have made an exception
 — it will look right in light mode and wrong in dark, because the dark
 theme only overrides the tokens. If you need a new colour, add it to
 **both** `:root` blocks in `tokens.css`.
 
-The dark values are a separate ramp rather than the light ones inverted
-(accent hue ~31.5°, neutral ~17.3°). If you choose a new accent, pick a
-lighter step of it for dark so it stays legible on the dark ground.
+The palette is a faded navy (`--accent`, with `--accent-strong` for
+hover and `--accent-soft` for tinted fills) on cool, blue-tinted greys:
+`--bg` for the page, `--panel` for quiet surfaces, `--surface` for
+raised ones (menus, cards, modals). The dark values are a separate ramp
+rather than the light ones inverted; a new accent needs a lighter step
+of it for dark.
+
+Contrast is the constraint that doesn't move: body text is 13:1 or
+better against every surface, muted text and the accent at least 6:1,
+in both themes. Check a new colour against `--bg`, `--panel` and
+`--surface` before using it for text — WCAG's formula, not the eye.
+
+## Shape and space
+
+Curves come from `--radius-sm` (6px: chips, inputs, tags) and `--radius`
+(10px: panels, notices, menus, modals); round tags are `999px`. Raised
+things take `--shadow` (or `--shadow-sm` for a card) instead of a hard
+border. Gaps come from the `--space-1`…`--space-6` scale (4–32px).
+
+The legislative text is set at line-height 1.6 with 18px between
+provisions: it is read slowly, and the room is what keeps a long
+provision followable. Keep the 34em measure — width, not size, is what
+readability rests on.
 
 Check both themes before you push — Theme in the header's Aa menu
 toggles it. The choice is shared with the review GUI through

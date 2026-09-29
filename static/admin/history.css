@@ -1,11 +1,9 @@
+@import url("../site/tokens.css");
+/* The palette, curves and spacing are the public site's
+   (static/site/tokens.css), so the two surfaces stay one design. Below
+   is only what this screen calls things. */
 :root {
-  --bg: #f3f2f2; --panel: #eae9e9; --fg: #201e1d; --muted: #605d5d;
-  --border: color-mix(in srgb, #201e1d 30%, transparent); --accent: #ec3013;
-  --done: #16a34a; --denied: #7d7979; --flagged: #d97706;
-}
-:root[data-theme="dark"] {
-  --bg: #120e0e; --panel: #1c1717; --fg: #eeeaea; --muted: #a39d9d;
-  --border: color-mix(in srgb, #eeeaea 30%, transparent);
+  --denied: var(--pending);
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--fg);
