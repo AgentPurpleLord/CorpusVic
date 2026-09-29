@@ -65,3 +65,15 @@
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8b/s49x/4/note-18", "note": "misread of note 2", "noted_at": "2026-09-29T09:53:53.700934+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8b/s49x/4/note-2", "note": "misread of note", "noted_at": "2026-09-29T09:53:49.588987+00:00"}
 {"act": "crimes-act", "node_id": "pti/div1/subdiv8b/s49x/4/note-3", "note": "should be note 3", "noted_at": "2026-09-29T09:53:58.490180+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s16", "note": "should be section 51P misread", "noted_at": "2026-09-29T10:33:21.017459+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51a/1/definition-deal/c", "note": "j", "noted_at": "2026-09-29T10:29:27.186562+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51a/1/definition-distribute/b", "note": "j", "noted_at": "2026-09-29T10:29:31.266618+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51a/1/definition-law-enforcement-agency/d/i", "note": "j", "noted_at": "2026-09-29T10:29:42.073261+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51a/1/definition-material/c/note~10e3c4", "note": "should me 'material note 1'", "noted_at": "2026-09-29T10:30:06.931261+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51n/1/continuation~82e7c0", "note": "misread of note 2", "noted_at": "2026-09-29T10:32:14.795790+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51n/1/e/ii/example-1", "note": "misread ends too quickly", "noted_at": "2026-09-29T10:31:57.624668+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51n/1/e/ii/example-2", "note": "misread of rear half of Note 1 and only parto f Note 2", "noted_at": "2026-09-29T10:32:08.491773+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8d/s51p", "note": "misread ends too early", "noted_at": "2026-09-29T10:33:14.851130+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8e/s52a/definition-treatment-or-support-services/d/example~6cb0ae", "note": "should be example linked to definition", "noted_at": "2026-09-29T10:35:50.689636+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8e/s52a/definition-worker/a/example~1d4792", "note": "should be example linked to 'worker", "noted_at": "2026-09-29T10:36:06.723053+00:00"}
+{"act": "crimes-act", "node_id": "pti/div1/subdiv8e/s52a/definition-worker/b/example~3e5e1b", "note": "should be example linked to 'worker'", "noted_at": "2026-09-29T10:36:15.711807+00:00"}
