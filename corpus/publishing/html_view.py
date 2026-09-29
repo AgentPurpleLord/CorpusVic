@@ -97,6 +97,7 @@ from corpus.exporters.markdown_export import (
     assign_filenames,
     apply_definition_overrides,
     collect_definitions,
+    definitions_for,
     collect_sections,
     compute_index_slugs,
     compute_section_slugs,
@@ -174,14 +175,18 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
     tree_roots, _collisions = build_hierarchy_tree(nodes, hierarchy_order)
     sections = collect_sections(tree_roots, structural_types)
     filenames_by_eid, section_files = assign_filenames(sections)
-    definitions = collect_definitions(sections, filenames_by_eid, section_files)
+    definitions_scoped: dict = {}
+    definitions = collect_definitions(sections, filenames_by_eid, section_files, definitions_scoped)
     # After the patterns, never instead of them: an override is an answer
     # to what the matcher found, and the list a reviewer is shown on the
     # dashboard is this same before-and-after. Both are kept, so that
     # showing somebody what their decisions changed does not mean
     # building the whole structure a second time to find out.
     definitions_found = dict(definitions)
-    apply_definition_overrides(definitions, parsed.get("definition_overrides"), section_files)
+    for layer in definitions_scoped.values():
+        for term, entry in layer.items():
+            definitions_found.setdefault(term, entry)
+    apply_definition_overrides(definitions, parsed.get("definition_overrides"), section_files, definitions_scoped)
     index_slugs = compute_index_slugs(tree_roots, act_title, structural_types)
     # "section N" in an Act, "clause N" in a Bill or an EM -- decided
     # from the document's own provisions (see markdown_export's own
@@ -215,6 +220,7 @@ def _build_context_uncached(parsed: dict, act_title: str) -> dict:
         "section_files": section_files,
         "definitions": definitions,
         "definitions_found": definitions_found,
+        "definitions_scoped": definitions_scoped,
         "index_slugs": index_slugs,
         "part_eids": part_eids,
         "division_eids": division_eids,
@@ -829,6 +835,17 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     )
 
 
+def _chip(label_html: str, *, href: "str | None" = None, cls: str = "", attrs: str = "") -> str:
+    """Every small control on the site, one shape (.chip in page.css): a
+    link where it goes somewhere, a button where it does something.
+    `label_html` and `attrs` are markup already escaped by the caller."""
+    classes = f"chip {cls}".strip()
+    extra = f" {attrs.strip()}" if attrs.strip() else ""
+    if href is not None:
+        return f'<a class="{classes}" href="{_esc(href)}"{extra}>{label_html}</a>'
+    return f'<button type="button" class="{classes}"{extra}>{label_html}</button>'
+
+
 def _crossrefs_html(crossrefs: list[dict]) -> str:
     """The "where else this provision is explained" bar -- one chip per
     Explanatory Memorandum note about it. Each chip is an ordinary
@@ -843,9 +860,8 @@ def _crossrefs_html(crossrefs: list[dict]) -> str:
     if not crossrefs:
         return ""
     chips = "".join(
-        f'<a class="crossref crossref-{_esc(ref.get("kind") or "other")}" href="{_esc(ref["href"])}"'
-        f'{f" title=" + chr(34) + _esc(ref["title"]) + chr(34) if ref.get("title") else ""}>'
-        f'{_esc(ref["label"])}</a>'
+        _chip(_esc(ref["label"]), href=ref["href"], cls=f'crossref crossref-{_esc(ref.get("kind") or "other")}',
+              attrs=f'title="{_esc(ref["title"])}"' if ref.get("title") else "")
         for ref in crossrefs
     )
     return f'<div class="crossrefs">{chips}</div>'
@@ -1130,7 +1146,7 @@ def render_history(history: "dict | None", base_url: str, amendment_index: "dict
                 older, newer = (units[other], units[n]) if other < n else (units[n], units[other])
                 views.append(f'<div class="hist-body hist-provisions" data-view="{view}" hidden>'
                              f'{_compare_html(older, newer)}</div>')
-                choices.append(f'<button type="button" class="hist-cmp" data-view="{view}">{label_text}</button>')
+                choices.append(_chip(label_text, cls="hist-cmp", attrs=f'data-view="{view}"'))
             if choices:
                 head.append('<div class="hist-compare" role="group" aria-label="Compare">Compare '
                             + "".join(choices) + "</div>")
@@ -1138,8 +1154,8 @@ def render_history(history: "dict | None", base_url: str, amendment_index: "dict
                       f'<header class="hist-head">{"".join(head)}</header>{"".join(views)}</section>')
 
     count = len(wordings)
-    chip = (f'<button type="button" class="history-chip" aria-controls="{panel_id}" aria-expanded="false">'
-            f'History <span class="history-count">{count}</span></button>')
+    chip = _chip(f'History <span class="history-count">{count}</span>', cls="history-chip",
+                 attrs=f'aria-controls="{panel_id}" aria-expanded="false"')
     body = (
         f'<details class="history" id="{panel_id}" data-at="{at if at is not None else count - 1}"'
         f'{" open" if open_ else ""}>'
@@ -1288,8 +1304,8 @@ def render_piece_history(history: "dict | None", subject: str, anchor: str, base
                  else wording["from"].get("as_at_printed") or "Undated")
         title = _span_label(wording) + (": not in the Act" if wording["absent"] else "")
         on = " ph-on" if n in (opening, opening + 1) else ""
-        points.append(f'<li><button type="button" class="ph-point{on}" data-point="{n}" title="{title}">'
-                      f'{_esc(label)}</button></li>')
+        point = _chip(_esc(label), cls=f"ph-point{on}", attrs=f'data-point="{n}" title="{title}"')
+        points.append(f"<li>{point}</li>")
 
     def when(n):
         wording = wordings[n]
@@ -1312,11 +1328,12 @@ def render_piece_history(history: "dict | None", subject: str, anchor: str, base
             f'</div>{_ended_html(wordings[k], base_url, amendment_index)}</section>')
 
     in_attr = f' data-in="{_esc(within)}"' if within else ""
+    nav = (_chip("&#9664; Earlier", cls="ph-move", attrs='data-by="-1"')
+           + _chip("Later &#9654;", cls="ph-move", attrs='data-by="1"')
+           + _chip("Close", cls="ph-close", attrs=f'data-close="piece-{_esc(anchor)}"'))
     return (f'<div class="piece-hist" id="piece-{_esc(anchor)}" data-opening="{opening}"{in_attr} hidden>'
             f'<div class="ph-head"><span class="ph-subject">{_esc(subject)}</span>'
-            '<span class="ph-nav"><button type="button" class="ph-move" data-by="-1">&#9664; Earlier</button>'
-            '<button type="button" class="ph-move" data-by="1">Later &#9654;</button>'
-            f'<button type="button" class="ph-close" data-close="piece-{_esc(anchor)}">Close</button></span></div>'
+            f'<span class="ph-nav">{nav}</span></div>'
             f'<ol class="ph-timeline">{"".join(points)}</ol>'
             f'{"".join(steps)}</div>')
 
@@ -1502,7 +1519,7 @@ def _version_choices_html(version_urls: "dict | None", version_dates: "dict | No
 _SVG = ('<svg class="{cls}" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false" '
         'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{body}</svg>')
 _COPY_BUTTON = (
-    '<button type="button" class="copy-section" title="Copy section">'
+    '<button type="button" class="chip copy-section" title="Copy section">'
     + _SVG.format(cls="copy-icon", body='<rect x="9" y="9" width="13" height="13" rx="2"/>'
                                         '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')
     + _SVG.format(cls="copied-icon", body='<polyline points="20 6 9 17 4 12"/>')
@@ -1632,7 +1649,8 @@ def render_section(
     tree_node, breadcrumb = sections[match_index]
     node = tree_node["node"]
 
-    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], ctx["definitions"], base_url, ctx["secref_re"], own_title=act_title)
+    terms = definitions_for(ctx["definitions"], ctx["definitions_scoped"], tree_node, breadcrumb)
+    linkify = _build_linkifier_html(ctx["section_files"], ctx["part_eids"], ctx["division_eids"], terms, base_url, ctx["secref_re"], own_title=act_title)
     title = page_title(node)
     verification = _collect_verification([tree_node])
 

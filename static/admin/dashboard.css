@@ -143,6 +143,7 @@ main { padding: 20px; max-width: 980px; margin: 0 auto; }
 }
 .act-card .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .act-card .slug { font-weight: 600; font-size: 14.5px; }
+.act-card .work-title { color: var(--muted); font-size: 13.5px; }
 .badge {
   font-size: 11.5px;
   padding: 2px 8px;

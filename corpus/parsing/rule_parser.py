@@ -199,11 +199,16 @@ _GROUP_HEADING_MAX_WORDS = 8
 # Mid-sentence it is doing something else entirely -- "it does not matter
 # that the offence is described in this section—" and "Nothing in this
 # section—" both end exactly the same way and define nothing.
+# "In subsection (1)\u2014" (Crimes Act s31(2A)) scopes its terms to one
+# subsection, and is the same announcement.
 _DEFINITIONS_LEAD_IN_RE = re.compile(
-    r"^(?:\(\S{1,6}\)\s*)?In th(?:is|e)\s+"
-    r"(?:Act|section|Division|Part|Subdivision|Chapter|Schedule)\b[^.;]{0,60}[\u2014:]\s*$",
+    r"^(?:\(\S{1,6}\)\s*)?In\s+(?:th(?:is|e)\s+"
+    r"(?:Act|section|subsection|Division|Part|Subdivision|Chapter|Schedule)\b"
+    r"|(?:sub)?sections?\s+\(|paragraphs?\s+\()[^.;]{0,60}[\u2014:]\s*$",
     re.IGNORECASE,
 )
+
+_ENDS_MID_SENTENCE_RE = re.compile(r"\b(?:of|the|a|an|to|in|by|with|as|from|under)\s*$", re.IGNORECASE)
 
 _DEFLIKE_RE = re.compile(
     r"^[A-Za-z][\w \"',()/-]{0,80}?\s+(?:means?\b|has\b|have\b|includes?\b)|[—-]\s*see\s+section\b",
@@ -426,9 +431,18 @@ _RULE_RE = re.compile(r"^[\u2550\u2500]{3,}$")
 _AMENDING_SCHEDULE_RE = re.compile(r"\bamendments\b|(?:^|—|–|-)\s*(?:consequential\s+)?amendment\s+of\b", re.IGNORECASE)
 
 
-def _next_item_number(prev: "str | None", number: str) -> bool:
+def _next_item_number(prev: "str | None", number: str, gap: bool = False) -> bool:
     """Does `number` follow `prev` in a Schedule's list? 1 opens one; 4
-    is followed by 5, or by 4A for an item inserted after it; 4A by 4B."""
+    is followed by 5, or by 4A for an item inserted after it; 4A by 4B.
+
+    `gap`: a repealed item came between, leaving only its "* * * * *"
+    (Crimes Act Sch 7 goes 4, stars, 6; Sch 8 opens on 2). Any later
+    number follows, within reach -- a year opening a wrapped line is not
+    an item."""
+    if gap:
+        m = re.match(r"(\d+)", number)
+        last = int(re.match(r"(\d+)", prev).group(1)) if prev and re.match(r"\d+", prev) else 0
+        return bool(m) and last < int(m.group(1)) <= last + 30
     if prev is None:
         return number == "1"
     m = re.match(r"(\d+)([A-Z]*)$", prev)
@@ -569,7 +583,7 @@ def _append_heading(node: dict, text: str, char_end: int, line: "BodyLine | None
 # line naming which section(s) it "hangs off" -- "Sections 6(3), 159(3)"
 # or "Section 5" -- see basic-structure.yaml's own note on this and
 # _try_schedule_hangs_off below.
-_SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+[\d()\s,]+\.?$")
+_SCHEDULE_HANGS_OFF_RE = re.compile(r"^Sections?\s+\d[\dA-Z()\s,]*\.?$")
 
 # A Schedule heading with nothing but its number on the line, its title
 # set below it -- how a Bill's introduction print sets them ("SCHEDULE
@@ -692,6 +706,10 @@ class _LineParser:
         self.heading_x0: "float | None" = None
         self._term_line: "BodyLine | None" = None   # the line a defined term was last read from
         self.schedule_last_number: "str | None" = None
+        self.schedule_gap = False
+        # Where a Notes block's numbers stand; a line opening with digits
+        # further in is its text wrapping.
+        self._note_number_x0: "float | None" = None
         # A repealed row since the last list item opened, so the next item
         # may skip the ones repealed (see _later_in_run).
         self.repealed_since_item = False
@@ -766,6 +784,7 @@ class _LineParser:
             self._definition_rank = None
         if level in ("schedule", "dictionary"):
             self.schedule_last_number = None
+            self.schedule_gap = False
         if level == "part" and any(n["type"] == "dictionary" for n in self.stack):
             # A Dictionary's "Part 1—Definitions" is a list of defined
             # terms with no section to announce it; its other Parts are
@@ -774,6 +793,7 @@ class _LineParser:
             self._definition_rank = None
         elif level in ("clause", "item") and self._in_schedule():
             self.schedule_last_number = number
+            self.schedule_gap = False
         if level in (self.top_level_type, "clause", "item") and line.bold and heading:
             self.heading_x0 = line.x0   # a heading's, not a list item's
         node = {
@@ -849,6 +869,8 @@ class _LineParser:
             top = self.stack[-1] if self.stack else None
             marker["seen"] = seen_record(row[0], above, top, self.margins.get(row[0].page_no % 2), self.body_size, top)
             self.nodes.append(marker)
+            if self._in_schedule():
+                self.schedule_gap = True
             if self.stack and self.stack[-1]["type"] in ("paragraph", "subparagraph"):
                 self.repealed_since_item = True
         run.clear()
@@ -1219,6 +1241,14 @@ class _LineParser:
             # An Act's year carried onto the next line ("...Provisions) Act"
             # / "1958 provides for..."), not note 1958.
             m = None
+        column = self._note_number_x0
+        if (m or text.isdigit()) and kind == "note" and self.current_marked_block is not None \
+                and column is not None and line.x0 > column + _INDENT_TOLERANCE:
+            # In the text column, not the numbers': "...not less than" /
+            # "2 years to be made..." (Crimes Act s17 note 3) wraps, it is
+            # not note 2 -- nor, opening with a number, a new provision.
+            _append_text(self.current_marked_block, text, line, char_end)
+            return True
         # A hanging-indent note number ("1") can land as its own line,
         # separate from its text, if the PDF laid it out with a tab
         # stop rather than inline -- don't let that split fool us into
@@ -1232,6 +1262,8 @@ class _LineParser:
         # reclassified normally.
         if (m or (kind == "note" and text.isdigit() and len(text) <= 3 and not self._wrapped(line, text))) and not line.bold:
             self._close_marked_block()
+            if kind == "note":
+                self._note_number_x0 = line.x0
             self.current_marked_block = {
                 "type": kind, "number": m.group(1) if m else text, "heading": None,
                 "text": m.group(2) if m else "",
@@ -1411,9 +1443,11 @@ class _LineParser:
         m = _SCHEDULE_ITEM_RE.match(text)
         if not m or not self._in_schedule() or self.heading_x0 is None:
             return False
-        if line.x0 <= self.heading_x0 + _INDENT_TOLERANCE * 3:
+        if line.bold and line.x0 <= self.heading_x0 + _INDENT_TOLERANCE * 3:
             return False   # the heading column: a clause heading, handled as one
-        if not _next_item_number(self.schedule_last_number, m.group(1)):
+        # Plain type in the heading column is still an item: the Crimes Act
+        # sets its Schedules' lists there, hanging text indented under.
+        if not _next_item_number(self.schedule_last_number, m.group(1), self.schedule_gap):
             return False
         self._open_node(self._provision_type(), m.group(1), None, line, char_start)
         _append_text(self.stack[-1], m.group(2).strip(), line, char_end)
@@ -1498,6 +1532,11 @@ class _LineParser:
             # Dictionary has no topical headings among its terms, and its
             # first term can stand alone on its line under the Part
             # heading ("ACT court", defined only by a Note).
+            return False
+        if _ENDS_MID_SENTENCE_RE.search(self.prev_text or ""):
+            # "...of the definition of" / "document in the Dictionary—"
+            # (Evidence Act s166(e)): a defined term cited in a sentence
+            # still running, set in its defining style, not a new one.
             return False
         term = line.leading_bold_italic
         if not text.startswith(term):

@@ -95,11 +95,45 @@ def is_definition_start(line: str) -> bool:
     return bool(_DEF_RE.match(line.strip()))
 
 
+# "In this Division, a reference to ... includes" (Crimes Act s248(2)),
+# "In this section, disclosure requirement means" (Evidence Act s131A):
+# split on the comma, the scope phrase came out as a term, and "In this
+# Division" was linked wherever it appeared (issue #72).
+# "a reference to X includes ..." is a rule of reading, not a definition.
+_SCOPE_PHRASE_RE = re.compile(
+    r"^(?:(?:in|for the purposes of)\s+(?:this|that|these|those|the|sub-?sections?|sections?|paragraphs?|clauses?)\b"
+    r"|(?:an?\s+)?references?\s+to\b)",
+    re.IGNORECASE,
+)
+
+# What a lead-in limits its definitions to: "In this Division—", "In
+# subsection (1)—", or inline, "In this Division, request means ...".
+_SCOPE_LEAD_IN_RE = re.compile(
+    r"^(?:\(\S{1,6}\)\s*)?In\s+(?:th(?:is|e)\s+(?P<word>Act|Chapter|Part|Division|Subdivision|Schedule"
+    r"|section|subsection|clause|subclause|paragraph)\b|(?P<pinpoint>(?:sub)?sections?|paragraphs?)\s+\()",
+    re.IGNORECASE,
+)
+
+
+def definition_scope(text: str) -> "str | None":
+    """The level a lead-in opening `text` confines its terms to -- "act",
+    "chapter", "part", "division", "subdivision", "schedule", or
+    "section" for anything within one provision -- or None if it opens
+    with none."""
+    m = _SCOPE_LEAD_IN_RE.match((text or "").strip())
+    if not m:
+        return None
+    if m.group("pinpoint"):
+        return "section"
+    word = m.group("word").lower()
+    return "section" if word in ("section", "subsection", "clause", "subclause", "paragraph") else word
+
+
 def _split_terms(raw: str) -> list[str]:
     raw = raw.strip().strip('"')
     parts = re.split(r"\s*,\s*|\s+and\s+", raw)
     terms = (p.strip().strip('"').lower() for p in parts if p.strip())
-    return [t for t in terms if t not in _STOPWORDS]
+    return [t for t in terms if t not in _STOPWORDS and not _SCOPE_PHRASE_RE.match(t)]
 
 
 def extract_terms(text: str) -> list[str]:

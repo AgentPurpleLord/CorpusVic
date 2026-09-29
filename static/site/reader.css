@@ -52,14 +52,8 @@
 .version-list li { padding: 3px 0; font-size: 13px; white-space: nowrap; }
 .version-date { color: var(--muted); font-size: 12px; }
 
-.ctl-btn {
-  font-family: var(--sans); font-size: 12.5px; padding: 4px 9px; cursor: pointer;
-  background: var(--panel); color: var(--fg);
-  border: 1px solid var(--border); border-radius: 0;
-}
-.ctl-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* A menu setting that is off reads quieter than one that is on. */
 .ctl-btn[aria-pressed="false"] { color: var(--muted); }
-.ctl-btn:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--muted); }
 
 /* --- outline beside the contents ------------------------------------ */
 .reader-cols { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 0 34px; }

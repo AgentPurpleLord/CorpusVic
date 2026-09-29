@@ -289,7 +289,21 @@ def _published_slugs() -> dict:
         and split_document_slug(slug)[0] in works
         and dashboard._document_kind(slug) != "bill"
     ]
-    return site_slugs(sorted(candidates), as_at_of(candidates))
+    return site_slugs(sorted(candidates), as_at_of(candidates), addresses_of())
+
+
+def addresses_of(source=None) -> dict:
+    """{work: the link a person gave it} (db.work_names), for site_slugs."""
+    names = getattr(source or dashboard, "_work_names", None)
+    return {work: n["address"] for work, n in (names() if names else {}).items() if n.get("address")}
+
+
+def link_map(slugs: dict, addresses: dict) -> dict:
+    """site_slugs' map, plus each work's own name for its current address:
+    known_acts.yaml names a work ("dpcsa"), so that is what links from
+    other Acts carry, and a work renamed has to be found under it."""
+    works = {split_document_slug(slug)[0] for slug in slugs}
+    return {**{work: addresses.get(work) or work for work in works}, **slugs}
 
 
 def as_at_of(slugs, source=None) -> dict:
@@ -323,15 +337,17 @@ def _resolve(site_slug: str) -> str:
     for slug, address in published.items():
         if address == site_slug:
             return slug
-    if site_slug in published:
-        raise _Moved(site_slug, published[site_slug])
+    # A parse slug, or the name of a work since given a link of its own.
+    moved = link_map(published, addresses_of()).get(site_slug)
+    if moved:
+        raise _Moved(site_slug, moved)
     raise HTTPException(404, f"{site_slug!r} is not published here.")
 
 
 def _site_links(value):
     """dashboard.py's /browse/<parse slug> URLs, as this site's addresses
     -- the same rewrite the archive applies (see _rewrite_urls)."""
-    return _rewrite_urls(value, "", _published_slugs())
+    return _rewrite_urls(value, "", link_map(_published_slugs(), addresses_of()))
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +410,8 @@ def _warm_pages():
     for _slug, address in published:
         yield f"/browse/{address}/", (lambda a=address: _contents_html(a))
     for slug, address in published:
-        if address != split_document_slug(slug)[0]:
+        work = split_document_slug(slug)[0]
+        if address != (addresses_of().get(work) or work):
             continue   # an older reprint, at its dated address
         yield f"/browse/{address}/endnotes", (lambda a=address: _endnotes_html(a))
         pages = dict.fromkeys(dashboard._page_index(slug)["by_node_index"].values())
@@ -696,7 +713,8 @@ def select_candidate_slugs(statuses: dict[str, dict],
     )
 
 
-def site_slugs(candidates: list[str], as_at: "dict | None" = None) -> dict[str, str]:
+def site_slugs(candidates: list[str], as_at: "dict | None" = None,
+               addresses: "dict | None" = None) -> dict[str, str]:
     """{parse slug -> the path segment it is published under}.
 
     The newest version of a work is published under the work's own name,
@@ -716,8 +734,12 @@ def site_slugs(candidates: list[str], as_at: "dict | None" = None) -> dict[str, 
     Never by its version number: that is the Authorised Version's
     number, which is not ours to reproduce (issue #95). One with no date
     recorded keeps its parse slug; every Act parsed since front matter
-    was read has one."""
-    as_at = as_at or {}
+    was read has one.
+
+    `addresses` {work -> link} is what a person named a work
+    (db.work_names): "dpcsa" can stay short, or a work uploaded under a
+    short name be given its long one. Its reprints are dated from it."""
+    as_at, addresses = as_at or {}, addresses or {}
     newest: dict[str, str] = {}
     for slug in candidates:
         work, version = split_document_slug(slug)
@@ -728,19 +750,20 @@ def site_slugs(candidates: list[str], as_at: "dict | None" = None) -> dict[str, 
         _w, held_version = split_document_slug(held)
         if version is not None and (held_version is None or version > held_version):
             newest[work] = slug
-    current = {slug: work for work, slug in newest.items()}
+    current = {slug: addresses.get(work) or work for work, slug in newest.items()}
     out, taken = {}, set(current.values())
     for slug in candidates:
         if slug in current:
             out[slug] = current[slug]
             continue
         work, version = split_document_slug(slug)
-        address = f"{work}-{as_at[slug]}" if version is not None and as_at.get(slug) else slug
+        base = addresses.get(work) or work
+        address = f"{base}-{as_at[slug]}" if version is not None and as_at.get(slug) else slug
         # Two reprints stating the same day: rare, and neither may take
         # the other's address.
         n = 2
         while address in taken:
-            address, n = f"{work}-{as_at[slug]}-{n}", n + 1
+            address, n = f"{base}-{as_at[slug]}-{n}", n + 1
         taken.add(address)
         out[slug] = address
     return out
@@ -1269,9 +1292,11 @@ def _landing_page_html(published: list[dict], base_path: str,
         for doc in published
         for d in dashboard.related_documents(doc["slug"])
     }
+    addresses = addresses_of()
     current = [
         doc for doc in published
-        if doc["site_slug"] == split_document_slug(doc["slug"])[0]
+        if doc["site_slug"] == (addresses.get(split_document_slug(doc["slug"])[0])
+                                or split_document_slug(doc["slug"])[0])
         and (doc["kind"] == "act" or doc["slug"] not in claimed)
     ]
 
@@ -1332,7 +1357,8 @@ def build_site(out: Path, base_path: str, password: "str | None" = None,
     statuses = {slug: dashboard.act_status(slug, publication)
                 for slug in dashboard.discover_slugs()}
     candidates = select_candidate_slugs(statuses, include_unpublished)
-    slugs = site_slugs(candidates, as_at_of(candidates))
+    addresses = addresses_of()
+    slugs = link_map(site_slugs(candidates, as_at_of(candidates), addresses), addresses)
     # Which candidates will publish anything, worked out before any page
     # is written: an Act's contents links to its Bill and Explanatory
     # Memorandum, and it can only do that for documents this build is

@@ -1569,7 +1569,39 @@ def list_acts():
     publication = db.load_publication(BASE_DIR)
     statuses = [act_status(slug, publication) for slug in discover_slugs()]
     _save_cache()
-    return statuses
+    # Added here rather than in act_status, whose results are cached to
+    # disk: a rename has to show on the card at once.
+    names = _work_names()
+    return [{**status, "title": _act_title(status["slug"]) if status["parsed"] else None,
+             "parsed_title": _parsed_title(status["slug"]) if status["parsed"] else None,
+             "address": (names.get(status["work"]) or {}).get("address")}
+            for status in statuses]
+
+
+class WorkNameRequest(BaseModel):
+    title: str = ""
+    address: str = ""
+
+
+@app.post("/api/works/{work}/name")
+def set_work_name(work: str, req: WorkNameRequest):
+    """What a work is called on the public site, and the link it lives at
+    (db.work_names). Blank goes back to the parse's own. Written out to
+    data/review/work_names.jsonl with the review work, so it travels."""
+    _held(work)
+    address = req.address.strip().lower()
+    if address:
+        if not _SLUG_RE.match(address):
+            raise HTTPException(400, "A link is lowercase letters, digits and single hyphens.")
+        works = {split_document_slug(s)[0] for s in discover_slugs()}
+        taken = (works - {work}) | {n["address"] for w, n in db.load_work_names(BASE_DIR).items()
+                                    if w != work and n.get("address")}
+        if address in taken:
+            raise HTTPException(409, f"{address!r} is another work's link already.")
+    db.set_work_name(work, req.title, address, BASE_DIR)
+    # Search holds titles and addresses as they were when it was built.
+    _rebuild_search_index_soon()
+    return {"ok": True, "work": work, "names": db.load_work_names(BASE_DIR).get(work)}
 
 
 class DefinitionOverrideRequest(BaseModel):
@@ -2180,7 +2212,12 @@ def list_definitions(slug: str):
     if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
         raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- parse it first.")
     ctx = html_view._build_context(_parsed(slug), _act_title(slug))
-    found, effective = ctx["definitions_found"], ctx["definitions"]
+    found, effective = ctx["definitions_found"], dict(ctx["definitions"])
+    # A term defined only for its Part or Division links there, on those
+    # pages (markdown_export.definitions_for); still a link to show.
+    for layer in ctx["definitions_scoped"].values():
+        for term, entry in layer.items():
+            effective.setdefault(term, entry)
     decided = {row["term"]: row for row in db.load_definition_overrides(slug, BASE_DIR)}
 
     terms = []
@@ -3727,6 +3764,33 @@ def _ghosts(slug: str) -> list[dict]:
 
 
 _act_title_cache: dict[str, str] = {}
+_work_names_memo: list = [None, {}]
+
+
+def _review_db_stamp() -> tuple:
+    stamp = []
+    for path in (db.db_path(BASE_DIR), Path(f"{db.db_path(BASE_DIR)}-wal")):
+        try:
+            st = path.stat()
+            stamp.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            stamp.append(None)
+    return tuple(stamp)
+
+
+def _work_names() -> dict:
+    """{work: {"title", "address"}} a person has set (db.work_names), read
+    again whenever the review database changes. Keyed on its files rather
+    than cleared by the endpoint, because the public site reads it in
+    another process that the dashboard cannot reach."""
+    stamp = _review_db_stamp()
+    if _work_names_memo[0] != stamp:
+        try:
+            names = db.load_work_names(BASE_DIR)
+        except Exception:
+            names = {}
+        _work_names_memo[:] = [stamp, names]
+    return _work_names_memo[1]
 
 
 # _detect_act_citation looks for an Act's own "Xxx Act YYYY" citation
@@ -3778,8 +3842,16 @@ def _act_version(slug: str) -> dict:
 
 
 def _act_title(slug: str) -> str:
+    """The work's title as a person named it (db.work_names), or the
+    parse's own."""
+    named = (_work_names().get(split_document_slug(slug)[0]) or {}).get("title")
+    return named or _parsed_title(slug)
+
+
+def _parsed_title(slug: str) -> str:
     """The Act's own "Xxx Act YYYY" citation, as the pipeline read it off
-    the PDF's front matter and recorded in the parse.
+    the PDF's front matter and recorded in the parse -- what a cleared
+    name goes back to.
 
     This used to re-extract the *whole* source PDF through the body-line
     pipeline on every browse request to read one line off page 1 -- hence

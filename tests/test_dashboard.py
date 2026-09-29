@@ -1763,3 +1763,47 @@ def test_the_bill_registry_names_every_linked_bill():
     bills = {doc["bill_slug"] for doc in dashboard._load_bill_link_docs()[0]}
     assert bills and bills <= set(sources)
     assert all(s["url"].startswith("https://www.legislation.vic.gov.au/bills/") for s in sources.values())
+
+
+# ---------------------------------------------------------------------
+# A work's title and link on the public site
+# ---------------------------------------------------------------------
+
+
+def _named(tmp_path, monkeypatch):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "discover_slugs", lambda: ["crimes-act", "dpcsa"])
+    monkeypatch.setattr(dashboard, "_rebuild_search_index_soon", lambda: None)
+    dashboard._act_title_cache.clear()
+    return client
+
+
+def test_a_work_uploaded_under_a_short_name_can_be_given_its_title(tmp_path, monkeypatch):
+    client = _named(tmp_path, monkeypatch)
+    title = "Drugs, Poisons and Controlled Substances Act 1981"
+
+    res = client.post("/api/works/dpcsa/name", json={"title": title, "address": ""})
+
+    assert res.status_code == 200
+    assert dashboard._act_title("dpcsa") == title
+    assert corpus.storage.db.load_work_names(tmp_path) == {"dpcsa": {"title": title, "address": None}}
+
+
+def test_resetting_a_name_leaves_no_row(tmp_path, monkeypatch):
+    client = _named(tmp_path, monkeypatch)
+    client.post("/api/works/dpcsa/name", json={"title": "X Act 1981", "address": "x-act"})
+
+    client.post("/api/works/dpcsa/name", json={"title": "", "address": ""})
+
+    assert corpus.storage.db.load_work_names(tmp_path) == {}
+    assert dashboard._act_title("dpcsa") != "X Act 1981"
+
+
+def test_a_link_has_to_be_a_slug_and_nobody_elses(tmp_path, monkeypatch):
+    client = _named(tmp_path, monkeypatch)
+
+    assert client.post("/api/works/dpcsa/name", json={"address": "Drugs Act"}).status_code == 400
+    assert client.post("/api/works/dpcsa/name", json={"address": "crimes-act"}).status_code == 409
+    client.post("/api/works/crimes-act/name", json={"address": "crimes"})
+    assert client.post("/api/works/dpcsa/name", json={"address": "crimes"}).status_code == 409
+    assert client.post("/api/works/nope/name", json={"title": "N"}).status_code == 404

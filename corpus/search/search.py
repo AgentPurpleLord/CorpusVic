@@ -342,8 +342,8 @@ def rebuild(base_dir, source=None, published=None) -> dict:
             newest[work] = (slug, version)
     current = {slug for slug, _version in newest.values()}
     # The site's own addresses, so a result links where the page is.
-    from corpus.web.public import as_at_of, site_slugs
-    addresses = site_slugs(sorted(slugs), as_at_of(slugs, source))
+    from corpus.web.public import addresses_of, as_at_of, site_slugs
+    addresses = site_slugs(sorted(slugs), as_at_of(slugs, source), addresses_of(source))
 
     target = index_path(base_dir)
     target.parent.mkdir(parents=True, exist_ok=True)

@@ -256,8 +256,8 @@ def test_render_section_renders_the_related_document_chips():
 
     assert "crossrefs-label" not in body
     assert "Explained in" not in body
-    assert '<a class="crossref crossref-bill" href="/browse/b/section/c5" title="the clause">Bill clause 5</a>' in body
-    assert '<a class="crossref crossref-em" href="/browse/b-em/section/c5">EM on clause 5</a>' in body
+    assert '<a class="chip crossref crossref-bill" href="/browse/b/section/c5" title="the clause">Bill clause 5</a>' in body
+    assert '<a class="chip crossref crossref-em" href="/browse/b-em/section/c5">EM on clause 5</a>' in body
 
 
 def test_render_section_without_crossrefs_renders_no_bar():
@@ -580,7 +580,7 @@ def test_render_history_offers_a_chip_and_every_wording_oldest_first():
     chip, body = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED),
                                          _wording(112, "alpha gamma")), "/browse/cpa", anchor="s366")
 
-    assert 'class="history-chip"' in chip and 'aria-controls="hist-s366"' in chip
+    assert 'class="chip history-chip"' in chip and 'aria-controls="hist-s366"' in chip
     assert body.index("As at 11 April 2026") < body.index("As at 12 April 2026")
     assert 'data-at="1"' in body
 
@@ -831,10 +831,10 @@ def test_a_run_on_sentence_does_not_get_swallowed_into_a_false_act_name(monkeypa
 def test_a_section_page_offers_a_copy_button():
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
 
-    assert 'class="copy-section"' in body
+    assert 'class="chip copy-section"' in body
     # Before the provisions, so tabbing into the page reaches it without
     # first walking the whole section.
-    assert body.index('class="copy-section"') < body.index('<div class="provisions">')
+    assert body.index('class="chip copy-section"') < body.index('<div class="provisions">')
 
 
 def test_every_copy_button_on_a_read_on_page_works():
@@ -846,7 +846,7 @@ def test_every_copy_button_on_a_read_on_page_works():
     body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3")
     copy_js = template_text("copy.js")
 
-    button = body.index('class="copy-section"')
+    button = body.index('class="chip copy-section"')
     assert "id=" not in body[button - 40:body.index("</button>", button)]
     assert "getElementById" not in copy_js
     assert 'document.addEventListener("click"' in copy_js
@@ -863,7 +863,7 @@ def test_the_copy_button_is_an_icon_on_a_phone():
     css = template_text("page.css")
     phone = css[css.index("@media (max-width: 720px) {\n  .copy-section"):]
 
-    assert 'class="copy-section"' in head and 'class="copy-icon"' in head
+    assert 'class="chip copy-section"' in head and 'class="copy-icon"' in head
     assert '<span class="copy-label">Copy section</span>' in head
     assert ".copy-label" in phone.split("}\n}")[0] and "display: none" not in phone.split("}\n}")[0]
     assert 'querySelector(".copy-label")' in template_text("copy.js")
@@ -881,7 +881,7 @@ def test_the_copy_script_ships_with_the_page():
 
     page = page_shell("Test Act", render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3"))
 
-    assert 'class="copy-section"' in page
+    assert 'class="chip copy-section"' in page
     assert f'<script src="/assets/copy.js?v={asset_version()}"></script>' in page
 
 
@@ -1581,7 +1581,7 @@ def test_a_margin_note_opens_its_pieces_history_in_its_place():
     assert 0 <= start < row, "set just before the piece's own row, in its place; its rows are what opening it hides"
     body = html[start:row]
     assert "The definition of \u201cappeal\u201d" in body
-    assert re.findall(r'class="ph-point[^"]*"[^>]*>([^<]+)<', body) == ["10 April 2026", "Current"]
+    assert re.findall(r'class="chip ph-point[^"]*"[^>]*>([^<]+)<', body) == ["10 April 2026", "Current"]
     assert body.count('class="ph-step"') == 1, "one step for two wordings"
     old_side, new_side = re.search(r'class="ph-side ph-old">(.*?)class="ph-side ph-new">(.*)', body, re.S).groups()
     assert '<del class="d-del">means a hearing</del>' in old_side and "d-ins" not in old_side
@@ -1632,3 +1632,32 @@ def test_a_bill_with_no_known_page_is_named_without_a_link():
                         related=[{"kind": "bill", "external": True, "title": "Crimes Bill 1957", "href": None}])
 
     assert "<li>Enacted from the Crimes Bill 1957</li>" in page
+
+
+def test_every_control_on_a_page_is_the_one_chip():
+    """One shape for every small control (.chip, html_view._chip): styled
+    one by one, the copy button, the EM chips and the header's box and
+    button never lined up."""
+    from corpus.publishing.html_view import page_shell, render_piece_history, template_text
+
+    body = render_section(_parsed(_definitions_act()), "Test Act", "/browse/a", "s3",
+                          crossrefs=[{"kind": "em", "label": "EM on clause 3", "href": "/browse/em/section/c3"}])
+    history = render_history(_history(_wording(111, "alpha beta", ended=_AMENDED), _wording(112, "alpha")),
+                             "/browse/cpa")
+    absent = {"absent": True, "from": {"version": 1, "as_at_printed": "1 January 2026"}, "to": {"version": 1},
+              "versions": [1]}
+    present = {"absent": False, "from": {"version": 2}, "to": {"version": 2}, "versions": [2], "version": 2,
+               "checked": True, "provision": {"heading": None, "nodes": [
+                   {"type": "section", "number": "3", "_node_id": "s3", "text": ""},
+                   {"type": "subsection", "number": "2", "_node_id": "s3/2", "text": "new"}]}}
+    piece = render_piece_history({"wordings": [absent, present], "at": 1}, "(2)", "s3-2", "/browse/t")
+    page = page_shell("Test Act", body, base_url="/browse/a", search_url="/search")
+
+    for html in (body, *history, piece, page.split("</header>")[0]):
+        for tag in re.findall(r"<button[^>]*>", html):
+            assert 'class="chip' in tag, tag
+    assert re.search(r'<a class="chip crossref crossref-em"', body)
+    assert 'class="chip hist-step"' in template_text("history.js")
+    css = template_text("page.css")
+    search = css[css.index(".sitesearch input {"):]
+    assert "height: var(--chip-h)" in search.split("}")[0], "the header's box and the Aa chip share one height"

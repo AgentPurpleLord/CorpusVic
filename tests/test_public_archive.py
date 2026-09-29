@@ -1017,3 +1017,16 @@ def test_the_partial_notice_never_says_the_unreviewed_pages_are_empty():
     for false_claim in ("do not contain", "no body text", "still to come",
                         "not yet published", "empty"):
         assert false_claim not in text, f"the notice claims {false_claim!r}, which is not true"
+
+
+def test_a_work_given_a_link_is_published_there_and_dates_its_reprints_from_it():
+    """db.work_names: "dpcsa" can keep a short link, or a short upload
+    take a long one; its older reprints are dated from whichever."""
+    from corpus.web.public import link_map, site_slugs
+
+    slugs = site_slugs(["cpa-v110", "cpa-v114", "dpcsa"], {"cpa-v110": "2025-03-01", "cpa-v114": "2026-07-01"},
+                       {"cpa": "criminal-procedure-act"})
+    assert slugs == {"cpa-v110": "criminal-procedure-act-2025-03-01", "cpa-v114": "criminal-procedure-act",
+                     "dpcsa": "dpcsa"}
+    # A link naming the work -- how other Acts cite it -- still arrives.
+    assert link_map(slugs, {"cpa": "criminal-procedure-act"})["cpa"] == "criminal-procedure-act"
