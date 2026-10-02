@@ -1906,3 +1906,13 @@ def test_the_review_page_names_its_stylesheet_by_version():
     res = TestClient(review.app).get("/")
     assert res.headers["cache-control"] == "no-cache"
     assert "static/admin/review.css?v=" in res.text
+
+
+def test_a_later_reprint_still_names_its_bill_and_em(monkeypatch):
+    monkeypatch.setattr(dashboard, "_load_bill_link_docs", lambda: (
+        [{"bill_slug": "cp-bill", "act_slug": "cpa-v114", "links": []}],
+        [{"em_slug": "cp-bill-em", "bill_slug": "cp-bill", "act_slug": "cpa-v114", "links": []}]))
+
+    assert dashboard.related_documents("cpa-v134") == [
+        {"slug": "cp-bill", "kind": "bill"}, {"slug": "cp-bill-em", "kind": "em"}]
+    assert dashboard.related_documents("other-act") == []

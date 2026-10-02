@@ -25,6 +25,14 @@ from pathlib import Path
 from fastapi import HTTPException
 
 
+def _generation(stamp: str) -> "str | None":
+    """The code half of a "<code>|<data>" stamp. A page rendered by other
+    code is not served at all: old markup under new stylesheets and
+    scripts is broken, not merely behind (a deploy left the old copy
+    button and the Bill chips on every page until each was visited)."""
+    return stamp.split("|", 1)[0] if stamp and "|" in stamp else None
+
+
 class PageCache:
     def __init__(self, path: Path, stamp, min_refresh: float = 10.0):
         """`stamp()` says what the site's data is now; a page rendered
@@ -100,7 +108,7 @@ class PageCache:
         `render()` returns the page's HTML, or raises HTTPException."""
         stamp = self.stamp()
         hit = self.read(url)
-        if hit is not None:
+        if hit is not None and _generation(hit[0]) == _generation(stamp):
             if hit[0] != stamp:
                 self._schedule(url, render)
             return hit[2], hit[1]
@@ -136,7 +144,7 @@ class PageCache:
         the site -- is dropped, not kept as it was."""
         stamp = self.stamp()
         hit = self.read(url)
-        if hit is not None and (hit[0] == stamp or missing_only):
+        if hit is not None and (hit[0] == stamp or (missing_only and _generation(hit[0]) == _generation(stamp))):
             return
         try:
             with self.render_lock:
@@ -150,10 +158,11 @@ class PageCache:
         self._write(url, stamp, html)
 
     def fill(self, pages) -> None:
-        """Every (url, render) in `pages` never rendered, rendered, in the
-        order given, most read first. Not the stale ones: while a reviewer
-        works that is every page, over and over, and a stale page is
-        rendered again when it is next read."""
+        """Every (url, render) in `pages` never rendered -- or rendered by
+        other code, after a deploy -- rendered, in the order given, most
+        read first. Not the merely stale ones: while a reviewer works that
+        is every page, over and over, and a stale page is rendered again
+        when it is next read."""
         for url, render in pages:
             self._take_wanted(render_url=None)
             self.refresh(url, render, missing_only=True)

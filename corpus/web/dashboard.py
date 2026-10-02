@@ -3286,7 +3286,9 @@ def related_documents(act_slug: str) -> list[dict]:
     bill_docs, em_docs = _load_bill_link_docs()
     related = []
     for doc in bill_docs:
-        if doc.get("act_slug") != act_slug or not doc.get("bill_slug"):
+        # Any reprint of the Act: the record names the one it was made against.
+        if not doc.get("act_slug") or not doc.get("bill_slug") \
+                or split_document_slug(doc["act_slug"])[0] != split_document_slug(act_slug)[0]:
             continue
         related.append({"slug": doc["bill_slug"], "kind": "bill"})
         for em in em_docs:

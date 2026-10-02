@@ -30,6 +30,16 @@ anyway.
 """
 import re
 
+from corpus.parsing.versions import split_document_slug
+
+
+def _same_work(linked: "str | None", act_slug: str) -> bool:
+    """A link record names the reprint it was made against
+    (criminal-procedure-act-v114); it holds for every reprint of that Act,
+    whose sections keep their numbers -- an inserted one takes a letter.
+    Matched on the exact slug, the current CPA had no EM chips at all."""
+    return bool(linked) and split_document_slug(linked)[0] == split_document_slug(act_slug)[0]
+
 # "44A" on its own, or the leading section of a pinpoint like "44A(2)".
 # Deliberately strict: extract_em_target's section_ref is whatever
 # followed the word "section" in running prose, which is sometimes not a
@@ -102,7 +112,7 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
     # this Act.
     act_provision_by_clause: dict[str, dict[tuple, tuple]] = {}
     for doc in bill_link_docs:
-        if doc.get("act_slug") != act_slug:
+        if not _same_work(doc.get("act_slug"), act_slug):
             continue
         bill_slug = doc.get("bill_slug")
         mapping: dict[tuple, tuple] = {}
@@ -150,7 +160,7 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
         bill_slug = doc.get("bill_slug")
         for link in doc.get("links") or []:
             target = link.get("target")
-            if not target or target.get("act_slug") != act_slug:
+            if not target or not _same_work(target.get("act_slug"), act_slug):
                 continue
             if target["kind"] == "bill_clause":
                 found = act_provision_by_clause.get(bill_slug, {}).get(
