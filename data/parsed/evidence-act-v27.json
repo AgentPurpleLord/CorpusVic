@@ -24,8 +24,8 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "0c3c642629a39429",
-  "parser_version": "304808f13f5c267a",
+  "fingerprint": "92594c6c293850cf",
+  "parser_version": "73a62a26e1071d95",
   "nodes": [
     {
       "type": "chapter",
@@ -25333,13 +25333,13 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 D is the accused in a sexual assault trial. W has made a statement to the police that X told W that X had seen D leave a night club with the victim shortly before the sexual assault is alleged to have occurred. Unless an exception to the hearsay rule applies, evidence of what X told W cannot be given at the trial. 2 P had told W that the handbrake on W's car did not work. Unless an exception to the hearsay rule applies, evidence of that statement cannot be given by P, W or anyone else to prove that the handbrake was defective. 3 W had bought a video cassette recorder and written down its serial number on a document. Unless an exception to the hearsay rule applies, the document is inadmissible to prove that a video cassette recorder later found in D's possession was the video cassette recorder bought by W.",
+      "text": "D is the accused in a sexual assault trial. W has made a statement to the police that X told W that X had seen D leave a night club with the victim shortly before the sexual assault is alleged to have occurred. Unless an exception to the hearsay rule applies, evidence of what X told W cannot be given at the trial.",
       "page_start": 52,
       "page_end": 52,
       "char_start": 48878,
-      "char_end": 49696,
+      "char_end": 49195,
       "source": "rules",
       "rects": [
         {
@@ -25347,7 +25347,7 @@
           "x0": 184.3,
           "y0": 473.7,
           "x1": 452.5,
-          "y1": 660.2
+          "y1": 544.6
         }
       ],
       "seen": {
@@ -25410,10 +25410,130 @@
             "x1": 123.2,
             "y1": 513.9
           },
-          "confidence": "high"
+          "confidence": "low"
         }
       ],
-      "id": "ch3/pt3.2/div1/s59/2a/example~c7ea15"
+      "id": "ch3/pt3.2/div1/s59/2a/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "P had told W that the handbrake on W's car did not work. Unless an exception to the hearsay rule applies, evidence of that statement cannot be given by P, W or anyone else to prove that the handbrake was defective.",
+      "page_start": 52,
+      "page_end": 52,
+      "char_start": 49196,
+      "char_end": 49412,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 52,
+          "x0": 184.3,
+          "y0": 548.7,
+          "x1": 445.9,
+          "y1": 596.7
+        }
+      ],
+      "seen": {
+        "page": 52,
+        "y0": 548.7,
+        "x0": 184.3,
+        "x1": 191.9,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "given at the trial.",
+          "x1": 275.0,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subsection",
+          "x0": 181.4
+        },
+        "open": {
+          "type": "subsection",
+          "x0": 181.4
+        },
+        "margin": 454.3,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": "3",
+        "part": "3.2",
+        "division": "1",
+        "subdivision": null,
+        "section": "59",
+        "subsection": "2A",
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "ch3/pt3.2/div1/s59/2a/example-2"
+    },
+    {
+      "type": "example",
+      "number": "3",
+      "heading": null,
+      "text": "W had bought a video cassette recorder and written down its serial number on a document. Unless an exception to the hearsay rule applies, the document is inadmissible to prove that a video cassette recorder later found in D's possession was the video cassette recorder bought by W.",
+      "page_start": 52,
+      "page_end": 52,
+      "char_start": 49413,
+      "char_end": 49696,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 52,
+          "x0": 184.3,
+          "y0": 600.7,
+          "x1": 449.3,
+          "y1": 660.2
+        }
+      ],
+      "seen": {
+        "page": 52,
+        "y0": 600.7,
+        "x0": 184.3,
+        "x1": 191.9,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "3",
+        "above": {
+          "text": "prove that the handbrake was defective.",
+          "x1": 366.0,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subsection",
+          "x0": 181.4
+        },
+        "open": {
+          "type": "subsection",
+          "x0": 181.4
+        },
+        "margin": 454.3,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": "3",
+        "part": "3.2",
+        "division": "1",
+        "subdivision": null,
+        "section": "59",
+        "subsection": "2A",
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "ch3/pt3.2/div1/s59/2a/example-3"
     },
     {
       "type": "section",
@@ -35318,21 +35438,21 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 P sues D, her doctor, for the negligent performance of a surgical operation. Unless an exception to the opinion rule applies, P's neighbour, W, who had the same operation, cannot give evidence of his opinion that D had not performed the operation as well as his own. 2 P considers that electrical work that D, an electrician, has done for her is unsatisfactory. Unless an exception to the opinion rule applies, P cannot give evidence of her opinion that D does not have the necessary skills to do electrical work.",
+      "text": "P sues D, her doctor, for the negligent performance of a surgical operation. Unless an exception to the opinion rule applies, P's neighbour, W, who had the same operation, cannot give evidence of his opinion that D had not performed the operation as well as his own.",
       "page_start": 68,
       "page_end": 68,
       "char_start": 69258,
-      "char_end": 69773,
+      "char_end": 69526,
       "source": "rules",
       "rects": [
         {
           "page": 68,
-          "x0": 184.2,
+          "x0": 184.3,
           "y0": 563.1,
           "x1": 453.3,
-          "y1": 686.0
+          "y1": 622.5
         }
       ],
       "seen": {
@@ -35374,7 +35494,67 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "ch3/pt3.3/s76/example~92eb13"
+      "id": "ch3/pt3.3/s76/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "P considers that electrical work that D, an electrician, has done for her is unsatisfactory. Unless an exception to the opinion rule applies, P cannot give evidence of her opinion that D does not have the necessary skills to do electrical work.",
+      "page_start": 68,
+      "page_end": 68,
+      "char_start": 69527,
+      "char_end": 69773,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 68,
+          "x0": 184.2,
+          "y0": 626.6,
+          "x1": 443.1,
+          "y1": 686.0
+        }
+      ],
+      "seen": {
+        "page": 68,
+        "y0": 626.6,
+        "x0": 184.2,
+        "x1": 191.8,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "the operation as well as his own.",
+          "x1": 337.5,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "section",
+          "x0": 163.7
+        },
+        "open": {
+          "type": "section",
+          "x0": 163.7
+        },
+        "margin": 454.3,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": "3",
+        "part": "3.3",
+        "division": null,
+        "subdivision": null,
+        "section": "76",
+        "subsection": null,
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "ch3/pt3.3/s76/example-2"
     },
     {
       "type": "section",
@@ -92783,11 +92963,11 @@
       "type": "paragraph",
       "number": "e",
       "heading": null,
-      "text": "in relation to a document of the kind referred to in paragraph (b) or (c) of the definition of",
+      "text": "in relation to a document of the kind referred to in paragraph (b) or (c) of the definition of document in the Dictionary\u2014to permit the requesting party, adequately and in an appropriate way, to examine and test the document and the way in which it was produced and has been kept;",
       "page_start": 159,
       "page_end": 159,
       "char_start": 174654,
-      "char_end": 174752,
+      "char_end": 174938,
       "source": "rules",
       "rects": [
         {
@@ -92795,7 +92975,7 @@
           "x0": 216.2,
           "y0": 568.2,
           "x1": 454.2,
-          "y1": 598.2
+          "y1": 667.2
         }
       ],
       "seen": {
@@ -92840,66 +93020,6 @@
       "id": "ch4/pt4.6/div1/s166/e"
     },
     {
-      "type": "definition",
-      "number": null,
-      "heading": "document",
-      "text": "in the Dictionary\u2014to permit the requesting party, adequately and in an appropriate way, to examine and test the document and the way in which it was produced and has been kept;",
-      "page_start": 159,
-      "page_end": 159,
-      "char_start": 174753,
-      "char_end": 174938,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 159,
-          "x0": 235.3,
-          "y0": 595.8,
-          "x1": 444.6,
-          "y1": 667.2
-        }
-      ],
-      "seen": {
-        "page": 159,
-        "y0": 595.8,
-        "x0": 235.3,
-        "x1": 444.6,
-        "size": 12.0,
-        "bold": false,
-        "lbi": "document",
-        "text": "document in the Dictionary\u2014to permit the",
-        "above": {
-          "text": "aragraph (b) or (c) of the definition of",
-          "x1": 450.5,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "section",
-          "x0": 157.7
-        },
-        "open": {
-          "type": "paragraph",
-          "x0": 216.2
-        },
-        "margin": 454.1,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": null,
-        "chapter": "4",
-        "part": "4.6",
-        "division": "1",
-        "subdivision": null,
-        "section": "166",
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": "document"
-      },
-      "id": "ch4/pt4.6/div1/s166/definition-document"
-    },
-    {
       "type": "paragraph",
       "number": "f",
       "heading": null,
@@ -92934,12 +93054,12 @@
           "size": 12.0
         },
         "parent": {
-          "type": "definition",
-          "x0": 235.3
+          "type": "section",
+          "x0": 157.7
         },
         "open": {
-          "type": "definition",
-          "x0": 235.3
+          "type": "paragraph",
+          "x0": 216.2
         },
         "margin": 454.3,
         "body": 12.0
@@ -92955,9 +93075,9 @@
         "paragraph": "f",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": "document"
+        "definition": null
       },
-      "id": "ch4/pt4.6/div1/s166/definition-document/f"
+      "id": "ch4/pt4.6/div1/s166/f"
     },
     {
       "type": "paragraph",
@@ -92994,8 +93114,8 @@
           "size": 12.0
         },
         "parent": {
-          "type": "definition",
-          "x0": 235.3
+          "type": "section",
+          "x0": 157.7
         },
         "open": {
           "type": "paragraph",
@@ -93015,9 +93135,9 @@
         "paragraph": "g",
         "subparagraph": null,
         "sub_subparagraph": null,
-        "definition": "document"
+        "definition": null
       },
-      "id": "ch4/pt4.6/div1/s166/definition-document/g"
+      "id": "ch4/pt4.6/div1/s166/g"
     },
     {
       "type": "section",
