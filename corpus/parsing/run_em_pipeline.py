@@ -11,7 +11,7 @@ Writes:
     data/extracted/<em-slug>.json     -- cleaned per-page text
     data/parsed/<em-slug>.json     -- the structured node list
 
-Next step: python review.py <em-slug>
+Then review it from the dashboard (or: python -m corpus.review.review <em-slug>)
     (an EM entry has no children of its own -- an EM's structure is flat
     -- so group_into_units naturally gives each entry its own single-
     piece review unit.)
@@ -91,7 +91,9 @@ def main():
         print(f"ERROR: {em_slug} -- completeness invariant violated, aborting.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Next: python review.py {em_slug}")
+    # The last line of the log the dashboard shows: what follows it there is
+    # the dashboard refreshing its list, not more parsing.
+    print(f"Done: {em_slug} parsed. Open it from the dashboard's Review button.")
 
 
 if __name__ == "__main__":

@@ -2007,3 +2007,43 @@ def test_a_page_that_is_not_a_pdf_is_not_kept(tmp_path, monkeypatch):
 
     assert job["state"] == "failed" and "not a PDF" in job["error"]
     assert not (tmp_path / "acts" / "b.pdf").exists()
+
+
+# ---------------------------------------------------------------------
+# After a parse: the list says it is updating; a slow one is logged
+# ---------------------------------------------------------------------
+
+
+def test_a_slow_list_names_where_the_time_went(capsys):
+    dashboard._log_slow_list(1.5, 1.0, {"a": 0.5})
+    assert capsys.readouterr().err == "", "quick enough to say nothing"
+
+    dashboard._log_slow_list(34.2, 1.1, {"crimes-act": 0.2, "criminal-procedure-act-v134": 32.9})
+    assert capsys.readouterr().err.strip() == \
+        "api/acts took 34.2s (status 1.1s, progress 33.1s: criminal-procedure-act-v134)"
+
+
+def test_the_list_reports_its_timing(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(dashboard, "discover_slugs", lambda: [])
+    seen = []
+    monkeypatch.setattr(dashboard, "_log_slow_list", lambda *args: seen.append(args))
+
+    dashboard.list_acts()
+    assert len(seen) == 1
+
+
+def test_the_dashboard_says_the_list_is_updating_and_does_not_hold_the_parse_menu():
+    html = (corpus.PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+    load = html[html.index("async function loadActs()"):].split("\n}\n")[0]
+    assert 'id="acts-status"' in html
+    assert "Updating the list" in load and "status.hidden = true" in load
+    parse_menu = html[html.index('getElementById("parse-form").addEventListener'):].split("\n});")[0]
+    assert "await loadActs()" not in parse_menu and "loadActs();" in parse_menu
+
+
+def test_the_pipelines_no_longer_advise_python_review_py():
+    for name in ("run_pipeline.py", "run_em_pipeline.py"):
+        text = (corpus.PROJECT_ROOT / "corpus" / "parsing" / name).read_text(encoding="utf-8")
+        assert "python review.py" not in text, name
+        assert 'print(f"Done: ' in text, name

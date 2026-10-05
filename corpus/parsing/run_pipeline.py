@@ -47,7 +47,7 @@ Writes:
     data/parsed/<act-slug>.json     -- the structured node list + endnotes
     data/diagnostics/<act-slug>.json   -- the anomaly report
 
-Next step: python review.py <act-slug>
+Then review it from the dashboard (or: python -m corpus.review.review <act-slug>)
 """
 import argparse
 import json
@@ -278,7 +278,9 @@ def main():
         print(f"ERROR: {act_slug} -- completeness invariant violated, aborting.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Next: python review.py {act_slug}")
+    # The last line of the log the dashboard shows: what follows it there is
+    # the dashboard refreshing its list, not more parsing.
+    print(f"Done: {act_slug} parsed. Open it from the dashboard's Review button.")
 
 
 if __name__ == "__main__":

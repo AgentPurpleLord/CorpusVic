@@ -249,3 +249,9 @@ pre#log {
 .check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 400; }
 .check input { width: auto; }
 #vic-log { white-space: pre-wrap; max-height: 260px; overflow-y: auto; margin-top: 14px; }
+
+/* The list being worked out again (see loadActs). */
+.list-status { color: var(--muted); font-size: 13px; margin: 0 0 12px; animation: list-pulse 1.6s ease-in-out infinite; }
+.list-status.failed { color: var(--warning-fg); animation: none; }
+@keyframes list-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .list-status { animation: none; } }
