@@ -95,7 +95,7 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 
 from corpus.amending import fetch as amending_fetch, load as amending_load, match as amending_match
-from corpus.history import changes as history_changes, delta, versions as history_versions
+from corpus.history import catalogue, changes as history_changes, delta, versions as history_versions
 from corpus.search import search
 from corpus.review import inheritance, review_sync, sync
 from corpus.storage import parsed as parsed_files
@@ -2870,6 +2870,183 @@ def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bo
     if replace:
         return _replace_version(work, version, content, then_slim)
     return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
+
+
+# ---------------------------------------------------------------------------
+# Adding a document straight from legislation.vic.gov.au
+# ---------------------------------------------------------------------------
+# Searched by title (corpus/history/catalogue.py), retrieved and parsed
+# here. An upload's filename became its slug ("dpcsa"); a document found
+# by its title is filed under a slug made from it.
+
+def _held_by_citation() -> dict:
+    """{(Act No., year): work} for every Act held -- the identity a search
+    result is matched on, since a work's slug need not resemble its
+    title."""
+    held = {}
+    for slug in discover_slugs():
+        version = _act_version(slug)
+        if version.get("act_no"):
+            held[(str(version["act_no"]), version.get("year"))] = split_document_slug(slug)[0]
+    return held
+
+
+def _suggested_act_work(title: str, taken: set) -> str:
+    """"Bail Act 1977" -> bail-act, the way the works here are named; with
+    its year where that is already somebody else's."""
+    short = slugify(re.sub(r"\s+\d{4}$", "", title.strip()))
+    return short if short not in taken else slugify(title)
+
+
+@app.get("/api/vic/search")
+def vic_search(q: str = ""):
+    try:
+        found = catalogue.search(q)
+    except (OSError, ValueError) as e:
+        raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+    works = {split_document_slug(s)[0] for s in discover_slugs()}
+    by_citation = _held_by_citation()
+    return {
+        "acts": [{**a, "held_as": by_citation.get((str(a["act_no"]), a["year"])),
+                  "suggested": _suggested_act_work(a["title"], works)} for a in found["acts"]],
+        "bills": [{**b, "held_as": slugify(b["title"]) if slugify(b["title"]) in works else None,
+                   "suggested": slugify(b["title"])} for b in found["bills"]],
+    }
+
+
+class VicImportRequest(BaseModel):
+    kind: str                       # "act" or "bill"
+    slug: str
+    title: str = ""                 # an Act's, to find its reprints
+    act_no: str = ""
+    year: "int | None" = None
+    bill_id: str = ""
+    documents: list[str] = ["bill", "em"]
+
+
+# One at a time, in the background: a parse takes minutes, longer than a
+# proxy holds a request open.
+_vic_import: dict = {}
+_vic_import_lock = threading.Lock()
+
+
+@app.post("/api/vic/import")
+def vic_import(req: VicImportRequest):
+    slug = req.slug.strip().lower()
+    if not _SLUG_RE.match(slug):
+        raise HTTPException(400, "A slug is lowercase letters, digits and single hyphens.")
+    works = {split_document_slug(s)[0] for s in discover_slugs()}
+    if req.kind == "act":
+        held = _held_by_citation().get((str(req.act_no), req.year))
+        if held or slug in works:
+            raise HTTPException(409, f"Already held as {held or slug}: add its other reprints from its card.")
+        targets = [("act", slug)]
+    elif req.kind == "bill":
+        targets = [(kind, slug if kind == "bill" else f"{slug}-em") for kind in ("bill", "em") if kind in req.documents]
+        if not targets:
+            raise HTTPException(400, "Choose the Bill, its Explanatory Memorandum, or both.")
+        clash = [t for _k, t in targets if t in works or (BASE_DIR / "acts" / f"{t}.pdf").exists()]
+        if clash:
+            raise HTTPException(409, f"Already held: {', '.join(clash)}.")
+    else:
+        raise HTTPException(400, f"Unknown kind {req.kind!r}.")
+    with _vic_import_lock:
+        if _vic_import.get("state") == "running":
+            raise HTTPException(409, f"{_vic_import['title']} is still being retrieved.")
+        _vic_import.clear()
+        _vic_import.update(state="running", title=req.title or slug, step="starting", results=[], error=None)
+    threading.Thread(target=_vic_import_job, args=(req, targets, _vic_import), daemon=True).start()
+    return dict(_vic_import)
+
+
+@app.get("/api/vic/import")
+def vic_import_status():
+    if not _vic_import:
+        raise HTTPException(404, "Nothing has been retrieved since the dashboard started.")
+    return dict(_vic_import)
+
+
+def _download_pdf(url: str) -> bytes:
+    try:
+        content = amending_fetch._get(url)
+    except OSError as e:
+        raise HTTPException(502, f"Could not download {url}: {e}")
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(502, f"{url} is not a PDF.")
+    return content
+
+
+def _vic_import_job(req: VicImportRequest, targets: list, job: dict) -> None:
+    try:
+        if req.kind == "act":
+            _import_act(req, targets[0][1], job)
+        else:
+            _import_bill(req, targets, job)
+        job["state"] = "done" if all(r["ok"] for r in job["results"]) else "failed"
+    except HTTPException as e:
+        job.update(state="failed", error=str(e.detail))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        job.update(state="failed", error=f"{type(e).__name__}: {e}")
+
+
+def _import_act(req: VicImportRequest, work: str, job: dict) -> None:
+    """The newest reprint the site has as one PDF, filed in acts/<work>/ so
+    the work is versioned from the start and its older reprints can be
+    fetched from its card."""
+    job["step"] = "finding the newest reprint"
+    try:
+        versions = history_versions.available(req.title, req.act_no, req.year)
+    except amending_fetch.NotFound as e:
+        raise HTTPException(404, str(e))
+    newest = next((v for v in reversed(versions) if v.get("pdf_url")), None)
+    if newest is None:
+        raise HTTPException(404, f"The site has no single PDF of any reprint of {req.title}.")
+    latest = versions[-1]["version"] if versions else None
+    note = (f"Version {latest} is published in volumes, which cannot be read as one PDF; "
+            f"version {newest['version']} was retrieved instead." if latest != newest["version"] else None)
+    job["step"] = f"downloading version {newest['version']}"
+    content = _download_pdf(newest["pdf_url"])
+    dest = BASE_DIR / "acts" / work / f"{work}-v{int(newest['version']):03d}.pdf"
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+    except PermissionError as e:
+        raise _not_writable(dest.parent) from e
+    job["step"] = f"parsing version {newest['version']}"
+    slug = document_slug(work, int(newest["version"]))
+    _act_title_cache.pop(slug, None)
+    ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", "", "", ""))
+    job["results"].append({"slug": slug, "ok": ok, "log": log, "note": note})
+
+
+def _import_bill(req: VicImportRequest, targets: list, job: dict) -> None:
+    """The Bill's introduction print and its Explanatory Memorandum, each
+    parsed as its kind -- the EM under the Bill's slug plus "-em", the
+    name the EM linking already expects."""
+    job["step"] = "finding the Bill's documents"
+    try:
+        documents = catalogue.bill_documents(req.bill_id)
+    except (OSError, ValueError) as e:
+        raise HTTPException(502, f"Could not read the Bill's record: {e}")
+    for kind, slug in targets:
+        name = "Explanatory Memorandum" if kind == "em" else "Bill"
+        doc = next((d for d in documents if d["kind"] == kind), None)
+        if doc is None:
+            job["results"].append({"slug": slug, "ok": False, "log": f"The site publishes no PDF of its {name}.", "note": None})
+            continue
+        job["step"] = f"downloading the {name}"
+        dest = BASE_DIR / "acts" / f"{slug}.pdf"
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(_download_pdf(doc["pdf_url"]))
+        except PermissionError as e:
+            raise _not_writable(dest.parent) from e
+        job["step"] = f"parsing the {name}"
+        _act_title_cache.pop(slug, None)
+        ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, kind, "", "", ""))
+        job["results"].append({"slug": slug, "ok": ok, "log": log, "note": None})
 
 
 @app.post("/api/acts/{slug}/reparse")

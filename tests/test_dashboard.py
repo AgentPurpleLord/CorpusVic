@@ -1916,3 +1916,94 @@ def test_a_later_reprint_still_names_its_bill_and_em(monkeypatch):
     assert dashboard.related_documents("cpa-v134") == [
         {"slug": "cp-bill", "kind": "bill"}, {"slug": "cp-bill-em", "kind": "em"}]
     assert dashboard.related_documents("other-act") == []
+
+
+# ---------------------------------------------------------------------
+# Adding a document from legislation.vic.gov.au
+# ---------------------------------------------------------------------
+
+
+def _vic(tmp_path, monkeypatch, held=()):
+    client = _dashboard_at(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "discover_slugs", lambda: list(held))
+    monkeypatch.setattr(dashboard, "_act_version",
+                        lambda slug: {"act_no": "6231", "year": 1958} if slug == "crimes-act" else {})
+    dashboard._vic_import.clear()
+    return client
+
+
+def test_search_marks_an_act_held_by_its_number_not_its_name(tmp_path, monkeypatch):
+    client = _vic(tmp_path, monkeypatch, held=["crimes-act", "bail-act"])
+    monkeypatch.setattr(dashboard.catalogue, "search", lambda q: {
+        "acts": [{"title": "Crimes Act 1958", "act_no": "6231", "year": 1958, "path": "/c"},
+                 {"title": "Bail Act 1977", "act_no": "9008", "year": 1977, "path": "/b"}],
+        "bills": [{"id": "x", "title": "Bail Amendment Bill 2023", "year": 2023, "status": "Passed", "path": "/x"}]})
+
+    found = client.get("/api/vic/search?q=act").json()
+
+    assert [(a["held_as"], a["suggested"]) for a in found["acts"]] == [
+        ("crimes-act", "crimes-act-1958"),   # its short name is taken -- by itself, held
+        (None, "bail-act-1977")]             # "bail-act" is some other work here
+    assert found["bills"][0]["suggested"] == "bail-amendment-bill-2023"
+
+
+def test_an_import_is_refused_for_a_bad_slug_a_held_work_or_while_one_runs(tmp_path, monkeypatch):
+    client = _vic(tmp_path, monkeypatch, held=["crimes-act"])
+    act = {"kind": "act", "title": "Crimes Act 1958", "act_no": "6231", "year": 1958}
+
+    assert client.post("/api/vic/import", json={**act, "slug": "Crimes Act"}).status_code == 400
+    assert client.post("/api/vic/import", json={**act, "slug": "crimes-act-1958"}).status_code == 409
+    assert client.post("/api/vic/import", json={"kind": "bill", "slug": "b", "documents": []}).status_code == 400
+    dashboard._vic_import.update(state="running", title="Bail Act 1977")
+    assert client.post("/api/vic/import", json={"kind": "bill", "slug": "some-bill"}).status_code == 409
+
+
+def test_an_act_is_filed_as_a_versioned_work_and_parsed(tmp_path, monkeypatch):
+    _vic(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard.history_versions, "available", lambda title, no, year: [
+        {"version": 140, "pdf_url": "https://x/140.pdf"}, {"version": 141, "pdf_url": None}])
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF-1.4 " + url.encode())
+    ran = []
+    monkeypatch.setattr(dashboard, "_run_parse_subprocess", lambda cmd: ran.append(cmd) or (True, 0, "parsed"))
+    job = {"results": []}
+
+    req = dashboard.VicImportRequest(kind="act", slug="bail-act", title="Bail Act 1977", act_no="9008", year=1977)
+    dashboard._vic_import_job(req, [("act", "bail-act")], job)
+
+    pdf = tmp_path / "acts" / "bail-act" / "bail-act-v140.pdf"
+    assert pdf.read_bytes().startswith(b"%PDF") and job["state"] == "done"
+    assert ran[0][2:5] == ["corpus.parsing.run_pipeline", "acts/bail-act/bail-act-v140.pdf", "--document-type"]
+    [result] = job["results"]
+    assert result["slug"] == "bail-act-v140" and "in volumes" in result["note"]
+
+
+def test_a_bill_brings_its_em_each_parsed_as_its_kind(tmp_path, monkeypatch):
+    _vic(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard.catalogue, "bill_documents", lambda bill_id: [
+        {"title": "Introduction print – Bill", "kind": "bill", "pdf_url": "https://x/bi1.pdf"},
+        {"title": "Introduction print – Explanatory Memorandum", "kind": "em", "pdf_url": "https://x/exi1.pdf"}])
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF-1.4")
+    ran = []
+    monkeypatch.setattr(dashboard, "_run_parse_subprocess", lambda cmd: ran.append(cmd) or (True, 0, ""))
+    job = {"results": []}
+
+    req = dashboard.VicImportRequest(kind="bill", slug="bail-bill-2023", bill_id="x")
+    dashboard._vic_import_job(req, [("bill", "bail-bill-2023"), ("em", "bail-bill-2023-em")], job)
+
+    assert (tmp_path / "acts" / "bail-bill-2023.pdf").exists() and (tmp_path / "acts" / "bail-bill-2023-em.pdf").exists()
+    assert ran[0][2] == "corpus.parsing.run_pipeline" and ran[0][-1] == "bill"
+    assert ran[1][2] == "corpus.parsing.run_em_pipeline"
+    assert [r["slug"] for r in job["results"]] == ["bail-bill-2023", "bail-bill-2023-em"] and job["state"] == "done"
+
+
+def test_a_page_that_is_not_a_pdf_is_not_kept(tmp_path, monkeypatch):
+    _vic(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard.catalogue, "bill_documents", lambda bill_id: [
+        {"title": "Introduction print – Bill", "kind": "bill", "pdf_url": "https://x/bi1.pdf"}])
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"<html>error</html>")
+    job = {"results": []}
+
+    dashboard._vic_import_job(dashboard.VicImportRequest(kind="bill", slug="b", bill_id="x"), [("bill", "b")], job)
+
+    assert job["state"] == "failed" and "not a PDF" in job["error"]
+    assert not (tmp_path / "acts" / "b.pdf").exists()
