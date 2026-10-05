@@ -87,6 +87,8 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
+
+from corpus.web.admin_page import admin_html, revalidate_static
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from starlette.applications import Starlette
@@ -742,6 +744,9 @@ document.getElementById("f").addEventListener("submit", async (e) => {
 });
 </script>
 </body></html>"""
+
+
+app.middleware("http")(revalidate_static)
 
 
 @app.middleware("http")
@@ -1581,7 +1586,7 @@ def do_logout(request: Request):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "dashboard.html")
+    return admin_html(STATIC_DIR / "dashboard.html")
 
 @app.get("/api/acts")
 def list_acts():
@@ -1765,7 +1770,7 @@ class HistoryDecision(BaseModel):
 @app.get("/history/{work}/")
 def history_page(work: str):
     _validate_slug(work)
-    return FileResponse(STATIC_DIR / "history.html")
+    return admin_html(STATIC_DIR / "history.html")
 
 
 # -- Teaching: your decisions as examples the parser is checked against ----
@@ -1778,7 +1783,7 @@ _teaching_checks: dict[str, dict] = {}
 @app.get("/teaching/{slug}/")
 def teaching_page(slug: str):
     _validate_slug(slug)
-    return FileResponse(STATIC_DIR / "teaching.html")
+    return admin_html(STATIC_DIR / "teaching.html")
 
 
 @app.get("/api/teaching/{slug}")
@@ -1850,7 +1855,7 @@ def _candidate(cid: str) -> dict:
 
 @app.get("/lessons/")
 def lessons_page():
-    return FileResponse(STATIC_DIR / "lessons.html")
+    return admin_html(STATIC_DIR / "lessons.html")
 
 
 @app.get("/api/lessons")
@@ -3281,7 +3286,9 @@ def related_documents(act_slug: str) -> list[dict]:
     bill_docs, em_docs = _load_bill_link_docs()
     related = []
     for doc in bill_docs:
-        if doc.get("act_slug") != act_slug or not doc.get("bill_slug"):
+        # Any reprint of the Act: the record names the one it was made against.
+        if not doc.get("act_slug") or not doc.get("bill_slug") \
+                or split_document_slug(doc["act_slug"])[0] != split_document_slug(act_slug)[0]:
             continue
         related.append({"slug": doc["bill_slug"], "kind": "bill"})
         for em in em_docs:

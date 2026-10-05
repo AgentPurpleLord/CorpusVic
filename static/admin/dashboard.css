@@ -20,6 +20,11 @@
 }
 :root[data-theme="dark"] { --toast-error-bg: #5c1a1a; }
 * { box-sizing: border-box; }
+a:not(.btn) { color: var(--link); }
+a:not(.btn):hover { color: var(--link-hover); }
+/* "It worked", the same green as the site's (tokens.css --success). */
+.btn.is-success, button.is-success { background: var(--success); border-color: var(--success); color: var(--on-success); }
+
 body {
   margin: 0;
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;

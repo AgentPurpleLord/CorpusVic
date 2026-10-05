@@ -365,7 +365,11 @@ def _site_stamp() -> str:
     now = time.monotonic()
     if _stamp_memo.get("at", -1.0) + 1.0 > now and _stamp_memo.get("base") == BASE_DIR:
         return _stamp_memo["stamp"]
-    parts = [dashboard._RUNNING_CODE, html_view.asset_version()]
+    # "<code>|<data>": a page rendered by other code is never served (see
+    # page_cache._generation); one merely behind the data is, and is
+    # rendered again behind the reader.
+    code = hashlib.sha1(repr((dashboard._RUNNING_CODE, html_view.asset_version())).encode()).hexdigest()[:12]
+    parts = []
     for path in (db.db_path(BASE_DIR), Path(f"{db.db_path(BASE_DIR)}-wal")):
         try:
             st = path.stat()
@@ -374,7 +378,7 @@ def _site_stamp() -> str:
             parts.append(None)
     parsed = sorted((p.name, p.stat().st_mtime_ns) for p in (BASE_DIR / "data" / "parsed").glob("*.json"))
     parts.append(parsed)
-    stamp = hashlib.sha1(repr(parts).encode()).hexdigest()[:16]
+    stamp = f"{code}|{hashlib.sha1(repr(parts).encode()).hexdigest()[:16]}"
     _stamp_memo.update(at=now, base=BASE_DIR, stamp=stamp)
     return stamp
 
@@ -801,8 +805,18 @@ def _rewrite_urls(value, base_path: str, slugs: dict):
     if isinstance(value, dict):
         return {k: _rewrite_urls(v, base_path, slugs) for k, v in value.items()}
     if isinstance(value, list):
-        return [_rewrite_urls(v, base_path, slugs) for v in value]
+        return [_rewrite_urls(v, base_path, slugs) for v in value if not _chip_to_unpublished(v, slugs)]
     return value
+
+
+def _chip_to_unpublished(value, slugs: dict) -> bool:
+    """A crossref chip into a document the site does not publish -- an
+    EM nobody has put on the site -- is a link to a 404, so it is left
+    off rather than rewritten."""
+    if not (isinstance(value, dict) and "label" in value and isinstance(value.get("href"), str)):
+        return False
+    m = _BROWSE_URL_RE.match(value["href"])
+    return bool(m) and m.group(1) not in slugs
 
 
 def publishes_anything(slug: str) -> bool:

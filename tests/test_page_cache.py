@@ -137,3 +137,43 @@ def test_every_cached_page_can_be_rendered_again_by_its_url(monkeypatch):
         "card crimes-act s3 s3-1"]
     with pytest.raises(HTTPException):
         public._render_url("/search?q=bail")
+
+
+def test_a_page_rendered_by_other_code_is_rendered_again_not_served(tmp_path):
+    """After a deploy the old markup under the new stylesheets is broken,
+    not merely behind: the copy button sat under the heading in its old
+    form, and the Bill chips stayed, until each page was visited twice."""
+    stamp = ["code1|data1"]
+    cache = _cache(tmp_path, stamp)
+    cache.get("/x", lambda: "old markup")
+
+    stamp[0] = "code2|data1"
+    assert cache.get("/x", lambda: "new markup")[0] == "new markup"
+
+
+def test_data_moving_on_still_serves_the_page_and_renders_behind(tmp_path):
+    stamp = ["code1|data1"]
+    cache = _cache(tmp_path, stamp)
+    cache.get("/x", lambda: "before the edit")
+    stamp[0] = "code1|data2"
+    queued = []
+    cache._schedule = lambda url, render: queued.append(url)
+
+    assert cache.get("/x", lambda: pytest.fail("not while a reader waits"))[0] == "before the edit"
+    assert queued == ["/x"]
+
+
+def test_filling_after_a_deploy_renders_every_page_again(tmp_path):
+    """Pages nobody visits would otherwise keep the old code's markup."""
+    stamp = ["code1|data1"]
+    cache = _cache(tmp_path, stamp)
+    cache.get("/a", lambda: "a")
+    cache.get("/b", lambda: "b")
+    stamp[0] = "code1|data2"
+    rendered = []
+    cache.fill([(u, lambda u=u: rendered.append(u) or u) for u in ("/a", "/b")])
+    assert rendered == [], "data alone: left for the next reader"
+
+    stamp[0] = "code2|data2"
+    cache.fill([(u, lambda u=u: rendered.append(u) or u) for u in ("/a", "/b")])
+    assert rendered == ["/a", "/b"]

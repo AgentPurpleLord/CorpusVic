@@ -1030,3 +1030,13 @@ def test_a_work_given_a_link_is_published_there_and_dates_its_reprints_from_it()
                      "dpcsa": "dpcsa"}
     # A link naming the work -- how other Acts cite it -- still arrives.
     assert link_map(slugs, {"cpa": "criminal-procedure-act"})["cpa"] == "criminal-procedure-act"
+
+
+def test_an_em_chip_into_an_unpublished_em_is_left_off():
+    """Rewritten, it would link to a page the site does not have."""
+    from corpus.web.public import _rewrite_urls
+
+    chips = [{"kind": "em", "label": "EM on clause 5", "href": "/browse/cp-bill-em/section/c5"},
+             {"kind": "em", "label": "EM on clause 6", "href": "/browse/other-em/section/c6"}]
+
+    assert _rewrite_urls(chips, "", {"cp-bill-em": "cp-bill-em"}) == [chips[0]]

@@ -144,6 +144,8 @@ from pathlib import Path
 import pymupdf
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
+
+from corpus.web.admin_page import admin_html, revalidate_static
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
@@ -1599,6 +1601,9 @@ app = FastAPI(title="Legislation review")
 _READ_ONLY = False
 
 
+app.middleware("http")(revalidate_static)
+
+
 @app.middleware("http")
 async def refuse_writes_when_read_only(request: Request, call_next):
     if _READ_ONLY and request.method not in ("GET", "HEAD", "OPTIONS"):
@@ -1726,7 +1731,7 @@ class NodeTypeDeleteRequest(BaseModel):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "review.html")
+    return admin_html(STATIC_DIR / "review.html")
 
 def _box_label(label: "str | None", node: dict) -> str:
     """What a box is called on the page. compute_unit_labels calls a unit's

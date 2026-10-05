@@ -1661,3 +1661,17 @@ def test_every_control_on_a_page_is_the_one_chip():
     css = template_text("page.css")
     search = css[css.index(".sitesearch input {"):]
     assert "height: var(--chip-h)" in search.split("}")[0], "the header's box and the Aa chip share one height"
+
+
+def test_links_are_the_link_blue_and_success_is_green():
+    """Links a truer blue than the navy controls, underlined in running
+    text; "Copied" and every confirming button the success green."""
+    from corpus.publishing.html_view import template_text
+
+    css, tokens = template_text("page.css"), template_text("tokens.css")
+    assert "--link:" in tokens and "--success:" in tokens and "--on-success:" in tokens
+    base = css[css.index("\na {"):]
+    assert "color: var(--link)" in base.split("}")[0] and "text-decoration: underline" in base.split("}")[0]
+    success = css[css.index(".chip.is-success"):].split("}")[0]
+    assert ".copy-section.copied" in success and "var(--success)" in success
+    assert 'classList.toggle("copied"' in template_text("copy.js")

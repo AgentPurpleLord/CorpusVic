@@ -186,3 +186,16 @@ def test_a_section_named_in_an_ems_prose_is_a_body_section():
 
     assert index[body("44A")]["em"][0]["em_node_index"] == 3
     assert provision_key("1", "44A") not in index
+
+
+def test_a_record_made_against_one_reprint_holds_for_every_reprint_of_the_act():
+    """The CPA's records name v114; matched on the exact slug, its current
+    version had no EM chips at all."""
+    bill = _bill_doc(act_slug="cpa-v114", links=[_bill_link("5", "7")])
+    em = _em_doc(act_slug="cpa-v114", links=[{
+        "em_node_index": 12, "clause_number": "5",
+        "target": {"kind": "bill_clause", "act_slug": "cpa-v114", "clause_number": "5"},
+    }])
+
+    assert build_commentary_index("cpa-v134", [bill], [em])[body("7")]["em"][0]["em_node_index"] == 12
+    assert build_commentary_index("other-act", [bill], [em]) == {}

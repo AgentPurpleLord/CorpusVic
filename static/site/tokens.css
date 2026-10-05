@@ -1,6 +1,6 @@
 :root {
   /* A faded navy on cool, blue-tinted greys. Every text pair is checked:
-     body text 13:1 or better, muted text and the accent 6:1 or better,
+     body text 13:1 or better, muted text, links and the accent 5.8:1 or better,
      in both themes (see docs/STYLING.md). */
   color-scheme: light;
   --bg: #fffaff;
@@ -14,6 +14,13 @@
   --accent-strong: #223a62;
   --accent-soft: #e7edf6;
   --on-accent: #ffffff;
+  /* Links are a truer blue than the navy of the controls, so a reference
+     in the text is found at a glance (7:1 or better on every surface). */
+  --link: #1a47c9;
+  --link-hover: #12348f;
+  /* "It worked": a copied section, a saved change. */
+  --success: #18794e;
+  --on-success: #ffffff;
   --done: #1f7a4d;
   --pending: #6b7788;
   --flagged: #94580f;
@@ -65,6 +72,10 @@
   --accent-strong: #bccbe8;
   --accent-soft: #1f2d45;
   --on-accent: #0f1622;
+  --link: #93bbff;
+  --link-hover: #bcd4ff;
+  --success: #6fcf97;
+  --on-success: #0f1622;
   --done: #6fcf97;
   --pending: #8d99ab;
   --flagged: #e2a857;
