@@ -25,7 +25,7 @@
   <div class="stat" id="summary"></div>
   <div class="spacer"></div>
   <button class="btn" onclick="loadActs()">Refresh</button>
-  <button class="btn primary" onclick="openModal('add-modal')">+ Add Act / Bill / EM</button>
+  <button class="btn primary" onclick="openModal('add-modal'); showAddTab('vic')">+ Add Act / Bill / EM</button>
   <button class="btn" id="theme-toggle-btn">&#127769;</button>
   <button class="btn" onclick="logout()">Log out</button>
 </header>
@@ -116,7 +116,37 @@
 <div class="overlay" id="add-modal">
   <div class="modal">
     <h2>Add a new Act, Bill, or Explanatory Memorandum</h2>
-    <form id="add-form">
+    <div class="add-tabs" role="tablist">
+      <button type="button" class="btn small on" id="add-tab-vic" role="tab" aria-selected="true"
+              onclick="showAddTab('vic')">From legislation.vic.gov.au</button>
+      <button type="button" class="btn small" id="add-tab-upload" role="tab" aria-selected="false"
+              onclick="showAddTab('upload')">Upload a PDF</button>
+    </div>
+
+    <div id="add-vic">
+      <label for="vic-q">Search by title</label>
+      <input type="search" id="vic-q" autocomplete="off" placeholder="e.g. Bail" oninput="vicSearchSoon()"
+             style="width:100%">
+      <div class="hint" id="vic-status"></div>
+      <div id="vic-results" class="vic-results"></div>
+      <div id="vic-pick" class="vic-pick" hidden>
+        <div class="vic-pick-title" id="vic-pick-title"></div>
+        <label for="vic-slug">Filed as</label>
+        <input type="text" id="vic-slug" autocomplete="off" pattern="[a-z0-9]+(-[a-z0-9]+)*"
+               title="Lowercase letters, digits and single hyphens" style="width:100%">
+        <div id="vic-bill-docs" hidden>
+          <label class="check"><input type="checkbox" id="vic-doc-bill" checked> The Bill (introduction print)</label>
+          <label class="check"><input type="checkbox" id="vic-doc-em" checked> Its Explanatory Memorandum</label>
+        </div>
+        <div class="footer">
+          <button type="button" class="btn" onclick="closeModal('add-modal')">Cancel</button>
+          <button type="button" class="btn primary" id="vic-retrieve" onclick="retrieveVic()">Retrieve and parse</button>
+        </div>
+      </div>
+      <pre id="vic-log" hidden></pre>
+    </div>
+
+    <form id="add-form" hidden>
       <label>PDF file</label>
       <input type="file" name="pdf" accept="application/pdf" required>
 
@@ -1448,6 +1478,124 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
   if (failed.length) toast(`Not parsed: ${failed.join(", ")} -- see the log`, true);
   else { toast(`Parsed ${ticked.map(versionName).join(", ")}`); closeModal("parse-modal"); }
 });
+
+function showAddTab(which) {
+  const vic = which === "vic";
+  document.getElementById("add-vic").hidden = !vic;
+  document.getElementById("add-form").hidden = vic;
+  for (const [id, on] of [["add-tab-vic", vic], ["add-tab-upload", !vic]]) {
+    const tab = document.getElementById(id);
+    tab.classList.toggle("on", on);
+    tab.setAttribute("aria-selected", on ? "true" : "false");
+  }
+  if (vic) document.getElementById("vic-q").focus();
+}
+
+// Searching legislation.vic.gov.au as you type, a moment after the last
+// key, and only the latest answer drawn: an earlier, slower one arriving
+// late would replace the results for what is now in the box.
+let vicTimer = null, vicSeq = 0, vicPicked = null;
+function vicSearchSoon() {
+  clearTimeout(vicTimer);
+  vicTimer = setTimeout(vicSearch, 300);
+}
+
+async function vicSearch() {
+  const q = document.getElementById("vic-q").value.trim();
+  const status = document.getElementById("vic-status");
+  const results = document.getElementById("vic-results");
+  if (q.length < 2) { results.innerHTML = ""; status.textContent = ""; return; }
+  const seq = ++vicSeq;
+  status.textContent = "Searching legislation.vic.gov.au…";
+  try {
+    const res = await fetch(`api/vic/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json().catch(() => ({}));
+    if (seq !== vicSeq) return;
+    if (!res.ok) throw new Error(data.detail || `The server answered ${res.status}.`);
+    VIC_RESULTS = data;
+    const group = (label, rows, kind) => rows.length ? `<div class="vic-group">${label}</div>` + rows.map((r, i) => `
+      <button type="button" class="vic-row" onclick="pickVic('${kind}', ${i})">
+        <span class="vic-title">${escapeHtml(r.title)}</span>
+        <span class="vic-meta">${kind === "acts"
+          ? `No. ${escapeHtml(r.act_no || "?")} of ${r.year || "?"}`
+          : `${r.year || ""}${r.status ? " · " + escapeHtml(r.status) : ""}`}</span>
+        ${r.held_as ? `<span class="badge done">Held as ${escapeHtml(r.held_as)}</span>` : ""}
+      </button>`).join("") : "";
+    results.innerHTML = group("Acts in force", data.acts, "acts") + group("Bills", data.bills, "bills");
+    status.textContent = data.acts.length || data.bills.length ? "" : "Nothing on legislation.vic.gov.au has that in its title.";
+  } catch (e) {
+    if (seq === vicSeq) status.textContent = e.message;
+  }
+}
+
+let VIC_RESULTS = { acts: [], bills: [] };
+function pickVic(kind, i) {
+  const r = VIC_RESULTS[kind][i];
+  if (r.held_as) {
+    toast(`Already held as ${r.held_as}` + (kind === "acts" ? " -- add its other reprints from its card." : "."), true);
+    return;
+  }
+  vicPicked = { kind, ...r };
+  document.getElementById("vic-pick").hidden = false;
+  document.getElementById("vic-pick-title").textContent = r.title;
+  document.getElementById("vic-slug").value = r.suggested;
+  document.getElementById("vic-bill-docs").hidden = kind !== "bills";
+  document.getElementById("vic-pick").scrollIntoView({ block: "nearest" });
+}
+
+async function retrieveVic() {
+  if (!vicPicked) return;
+  const bill = vicPicked.kind === "bills";
+  const body = bill
+    ? { kind: "bill", slug: document.getElementById("vic-slug").value, title: vicPicked.title, bill_id: vicPicked.id,
+        documents: [["bill", "vic-doc-bill"], ["em", "vic-doc-em"]]
+          .filter(([, id]) => document.getElementById(id).checked).map(([k]) => k) }
+    : { kind: "act", slug: document.getElementById("vic-slug").value, title: vicPicked.title,
+        act_no: String(vicPicked.act_no || ""), year: vicPicked.year };
+  const btn = document.getElementById("vic-retrieve");
+  btn.disabled = true;
+  try {
+    const res = await fetch("api/vic/import", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't start it.");
+    pollVicImport();
+  } catch (e) {
+    btn.disabled = false;
+    toast(e.message, true);
+  }
+}
+
+// A parse takes minutes, so it runs on the server and this asks how far
+// it has got until it has finished.
+async function pollVicImport() {
+  const log = document.getElementById("vic-log");
+  log.hidden = false;
+  try {
+    const res = await fetch("api/vic/import");
+    const job = await res.json();
+    if (job.state === "running") {
+      log.textContent = `Retrieving ${job.title}: ${job.step}…`;
+      setTimeout(pollVicImport, 2000);
+      return;
+    }
+    const lines = (job.results || []).map((r) => `${r.ok ? "Parsed" : "Failed"}: ${r.slug}${r.note ? "\n" + r.note : ""}\n${r.log || ""}`);
+    log.textContent = [job.error, ...lines].filter(Boolean).join("\n\n");
+    if (job.state === "done") {
+      toast(`Added ${(job.results || []).map((r) => r.slug).join(" and ")}.`);
+      document.getElementById("vic-pick").hidden = true;
+      vicPicked = null;
+    } else {
+      toast(job.error || "Retrieving failed -- see the log.", true);
+    }
+    document.getElementById("vic-retrieve").disabled = false;
+    loadActs();
+  } catch (e) {
+    log.textContent = String(e);
+    document.getElementById("vic-retrieve").disabled = false;
+  }
+}
 
 document.getElementById("add-form").addEventListener("submit", async (e) => {
   e.preventDefault();

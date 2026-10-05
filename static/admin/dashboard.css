@@ -231,3 +231,21 @@ pre#log {
   z-index: 100;
 }
 #toast.error { background: var(--toast-error-bg); }
+
+/* "+ Add" from legislation.vic.gov.au: a search, its results, the pick. */
+.add-tabs { display: flex; gap: 8px; margin: 4px 0 18px; }
+.add-tabs .btn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.vic-results { max-height: 320px; overflow-y: auto; margin-top: 10px; }
+.vic-group { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+.vic-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 12px; margin-bottom: 4px; background: var(--surface);
+}
+.vic-row:hover { background: var(--accent-soft); }
+.vic-title { flex: 1; font-weight: 500; }
+.vic-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.vic-pick { margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.vic-pick-title { font-weight: 600; margin-bottom: 10px; }
+.check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 400; }
+.check input { width: auto; }
+#vic-log { white-space: pre-wrap; max-height: 260px; overflow-y: auto; margin-top: 14px; }
