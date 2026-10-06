@@ -2581,11 +2581,13 @@ def _background_command(cmd: list[str]) -> list[str]:
 
 
 def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
-    background = getattr(_job_thread, "background", False)
+    # Every parse, not only a background job's: a parse started from a
+    # dialog stalled the public site just the same, and the site's readers
+    # matter more than a parse finishing a little sooner.
     try:
-        result = subprocess.run(_background_command(cmd) if background else cmd, cwd=str(BASE_DIR),
+        result = subprocess.run(_background_command(cmd), cwd=str(BASE_DIR),
                                 capture_output=True, text=True, timeout=1800,
-                                preexec_fn=_low_priority if background and os.name == "posix" else None)
+                                preexec_fn=_low_priority if os.name == "posix" else None)
     except subprocess.TimeoutExpired as e:
         return False, None, f"Timed out after 30 minutes.\n{e.stdout or ''}\n{e.stderr or ''}"
     return result.returncode == 0, result.returncode, result.stdout + result.stderr
