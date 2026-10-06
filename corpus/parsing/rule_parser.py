@@ -424,7 +424,8 @@ def _bracket_level(content: str, stack: list[dict], after_repeal: bool = False) 
 
 _INDENT_TOLERANCE = 3.0
 
-_SCHEDULE_ITEM_RE = re.compile(r"^(\d+[A-Z]*)\s+(\S.*)$")
+# "1 Sections 36(5)..." or, in the Bail Act's Schedules, "1. Treason."
+_SCHEDULE_ITEM_RE = re.compile(r"^(\d+[A-Z]*)\.?\s+(\S.*)$")
 _RULE_RE = re.compile(r"^[\u2550\u2500]{3,}$")
 # "Consequential amendments", "Amendment of the Bail Act 1977" -- not the
 # title of an Amendment Act a transitional Schedule names.
@@ -1242,6 +1243,15 @@ class _LineParser:
             # / "1958 provides for..."), not note 1958.
             m = None
         column = self._note_number_x0
+        if kind == "note" and column is not None and self.current_marked_block is not None \
+                and self.current_marked_block.get("number") and line.x0 < column - _INDENT_TOLERANCE:
+            # Left of the notes' own numbers is not a note: a note's text
+            # wraps at or right of them. The Bail Act's Schedules open with
+            # Notes and then set their list at the margin ("1. Treason."),
+            # which ran into note 2 as its text.
+            self._close_marked_block()
+            self.marked_block_type = None
+            return False
         if (m or text.isdigit()) and kind == "note" and self.current_marked_block is not None \
                 and column is not None and line.x0 > column + _INDENT_TOLERANCE:
             # In the text column, not the numbers': "...not less than" /
@@ -1824,11 +1834,22 @@ def _without_own_marker(printed: str, node: dict) -> str:
 _ITEM_NOTE_RE = re.compile(r"^Schs?\.?\s*(\d+[A-Za-z]*)\s+items?\b", re.IGNORECASE)
 
 
+# "an item of Part 1 of Schedule 4", "item 3 of Schedule 2" in the Act's
+# own words.
+_ITEM_TEXT_RE = re.compile(
+    r"\bitems?\s+(?:\d+[A-Z]*\s+)?(?:of|in)\s+(?:Part\s+\d+[A-Z]*(?:\s+or\s+\d+[A-Z]*)?\s+of\s+)?"
+    r"Schedule\s+(\d+[A-Z]*)\b")
+
+
 def _item_schedules(pages: list[PageText]) -> "frozenset[str]":
-    """The Schedules the Act's margin notes cite by item ("Sch. 2 item
-    4.1 substituted by ...")."""
-    return frozenset(m.group(1) for page in pages for note in (getattr(page, "margin_notes", None) or [])
-                     if (m := _ITEM_NOTE_RE.match(note.strip())))
+    """The Schedules the Act calls by item: its margin notes ("Sch. 2 item
+    4.1 substituted by ..."), or its text ("an offence against a provision
+    specified in an item of Part 1 of Schedule 4" -- Bail Act s 3, whose
+    Schedule 4 no note cites)."""
+    by_note = {m.group(1) for page in pages for note in (getattr(page, "margin_notes", None) or [])
+               if (m := _ITEM_NOTE_RE.match(note.strip()))}
+    text = " ".join(line.text.strip() for page in pages for line in page.body_lines)
+    return frozenset(by_note | {m.group(1) for m in _ITEM_TEXT_RE.finditer(text)})
 
 
 def parse_act(

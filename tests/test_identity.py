@@ -195,3 +195,13 @@ def test_a_schedule_clause_answers_to_its_former_name():
 
     assert (index_of["sch1/s2"], index_of["sch1/s2/a"], index_of["sch2/pt1/s4"]) == (1, 2, 3)
     assert index_of["s2/a"] == 0 and "s7" not in index_of, "outside a Schedule, nothing is renamed"
+
+
+def test_review_follows_a_schedules_clauses_becoming_items():
+    """Bail Act Sch 4's entries turned from clauses into items once the
+    Act's own word was read: the same provisions, with their review."""
+    from corpus.parsing.identity import name_index
+
+    index_of = name_index([(7, "sch4/item1"), (8, "sch4/item1/2")])
+
+    assert index_of["sch4/cl1"] == 7 and index_of["sch4/cl1/2"] == 8
