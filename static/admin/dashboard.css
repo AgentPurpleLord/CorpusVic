@@ -216,12 +216,6 @@ main { padding: 32px 28px; max-width: 1020px; margin: 0 auto; }
 .modal label:has(input[type=checkbox]) {
   display: flex; align-items: center; font-size: 13px; color: var(--fg); margin: 12px 0 0;
 }
-pre#log {
-  background: var(--log-bg); color: var(--log-fg);
-  padding: 10px; border-radius: var(--radius);
-  font-size: 12px; max-height: 300px; overflow: auto;
-  white-space: pre-wrap; word-break: break-word;
-}
 
 #toast {
   display: none;
@@ -255,3 +249,55 @@ pre#log {
 .list-status.failed { color: var(--warning-fg); animation: none; }
 @keyframes list-pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .list-status { animation: none; } }
+
+/* What a parse found (renderParseResult in dashboard.html): the numbers
+   a reviewer acts on first, anything worth a look next, the raw log last
+   and folded away. */
+.parse-results { margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+.pr {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); padding: var(--space-4) var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.pr.pr-failed { border-color: var(--del-fg); }
+.pr-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.pr-title { font-weight: 600; font-size: 15px; }
+.pr-sub { color: var(--muted); font-size: 13px; margin-top: -6px; }
+.pr-status { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+.pr-status.ok { background: var(--verify-full-bg); color: var(--success); }
+.pr-status.failed { background: var(--del-bg); color: var(--del-fg); }
+.pr-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-2); }
+.pr-tile { background: var(--panel); border-radius: var(--radius-sm); padding: var(--space-3); }
+.pr-value { font-size: 22px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.pr-of { font-size: 13px; font-weight: 400; color: var(--muted); }
+.pr-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pr-tile.good .pr-value { color: var(--success); }
+.pr-tile.bad { background: var(--del-bg); }
+.pr-tile.bad .pr-value, .pr-tile.bad .pr-label { color: var(--del-fg); }
+.pr-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--space-4); margin: 0; font-size: 13px; }
+.pr-facts dt { color: var(--muted); }
+.pr-facts dd { margin: 0; }
+.pr-block { border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); background: var(--panel); font-size: 13px; }
+.pr-block.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.pr-block.bad { background: var(--del-bg); color: var(--del-fg); }
+.pr-blockhead { font-weight: 600; margin-bottom: 4px; }
+.pr-subhead { margin-top: var(--space-2); font-weight: 500; }
+.pr-items { margin: 4px 0 0; padding-left: 1.2em; }
+.pr-items li { margin: 2px 0; }
+.pr-more { list-style: none; margin-left: -1.2em; opacity: .8; }
+.pr-next { font-size: 13px; }
+.pr-error { color: var(--del-fg); font-size: 13px; }
+.pr-log summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.pr-log pre {
+  background: var(--log-bg); color: var(--log-fg);
+  padding: 10px; border-radius: var(--radius-sm); margin: var(--space-2) 0 0;
+  font-size: 12px; max-height: 300px; overflow: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.pr-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  animation: pr-spin .8s linear infinite;
+}
+@keyframes pr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pr-spinner { animation: none; } }

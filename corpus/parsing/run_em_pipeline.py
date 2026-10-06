@@ -25,6 +25,7 @@ from corpus.parsing.em_parser import parse_em
 from corpus.parsing.extract import extract_pages, pages_to_dicts, slugify
 from corpus.domain.hierarchy import HIERARCHY_ORDER, group_into_units
 from corpus.parsing.reparse import apply_remap, describe_remap, parse_fingerprint
+from corpus.parsing import run_summary
 from corpus.parsing.versions import read_front_matter
 
 
@@ -84,6 +85,14 @@ def main():
         print(f"Review progress: {describe_remap(remap)}")
 
     complete = result.lines_consumed == result.lines_total
+    run_summary.emit({
+        "slug": em_slug, "document_type": "em", "source": str(pdf_path), "version": None,
+        "pages": {"first": 1, "last": len(pages), "count": len(pages), "detected": False},
+        "lines": {"consumed": result.lines_consumed, "total": result.lines_total},
+        "parser_warnings": run_summary.sample(result.warnings),
+        "review": run_summary.remap_summary(remap), "complete": complete,
+        **run_summary.node_counts(result.nodes),
+    })
     print(f"Completeness: {result.lines_consumed}/{result.lines_total} lines accounted for ({'OK' if complete else 'MISMATCH'})")
     if not complete:
         # Same hard invariant as rule_parser.py's own Act/Bill parsing --

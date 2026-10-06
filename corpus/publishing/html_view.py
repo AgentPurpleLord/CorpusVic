@@ -959,6 +959,10 @@ def _wording_units(nodes: list[dict], hierarchy_order: list[str]) -> list[dict]:
         rel = relative_id(name, root_name) if name else node["type"]
         unit["path"] = rel
         unit["name"] = name
+        if node["type"] == "figure":
+            # Its text names the image file; a reader compares charts by
+            # what they are.
+            unit["text"] = f"[Chart{': ' + node['heading'] if node.get('heading') else ''}]"
         # The provision's own heading, which its first body piece carries
         # only when the provision has words of its own before its list.
         unit["root_heading"] = root["node"].get("heading") or ""
@@ -1612,9 +1616,9 @@ def _figure_html(node: dict, depth: int, alt: str, base_url: str, id_attr: str =
     beside it for any other. Sized up front so the text below does not
     jump when it arrives, and fetched only as it nears the screen.
 
-    The alt text is the provision's title, as the user decided: the
-    chart restates the provision's own wording, which is on the page.
-    Figures live beside /browse/, at the site's root, wherever the site
+    The alt text is the chart's own heading where it has one (read off
+    the image -- see corpus/parsing/figures.py), else `alt`, the place it
+    prints. Figures live beside /browse/, at the site's root, wherever the site
     is published (base_url is "<root>/browse/<slug>")."""
     ref = figure_ref(node)
     if ref is None:
@@ -1628,7 +1632,7 @@ def _figure_html(node: dict, depth: int, alt: str, base_url: str, id_attr: str =
     return (
         f'<div class="prov prov-figure"{id_attr} style="--depth:{depth}">'
         f'<figure><picture>{webp}<img src="{_esc(src)}.png" width="{ref["width"]}" height="{ref["height"]}"'
-        f' alt="{_esc(alt)}" loading="lazy" decoding="async"></picture></figure></div>'
+        f' alt="{_esc(node.get("heading") or alt)}" loading="lazy" decoding="async"></picture></figure></div>'
     )
 
 

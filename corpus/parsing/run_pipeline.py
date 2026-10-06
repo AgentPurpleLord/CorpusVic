@@ -66,6 +66,7 @@ from corpus.parsing.versions import document_slug, read_front_matter, work_direc
 from corpus.parsing.rule_parser import parse_act
 from corpus.parsing.toc import detect_body_start
 from corpus.parsing.identity import annotate_ids
+from corpus.parsing import run_summary
 from corpus.parsing.figures import extract_figures
 from corpus.parsing.tree import attach_history
 
@@ -140,6 +141,13 @@ def main():
     pages = all_pages[start:body_end]
     endnote_pages = all_pages[endnotes_start - 1 : end] if endnotes_start else []
     print(f"Using pages {start + 1}-{body_end} ({len(pages)} pages)")
+    summary = {
+        "slug": act_slug, "document_type": args.document_type, "source": str(pdf_path),
+        "version": describe_version(version) if is_version else None,
+        "pages": {"first": start + 1, "last": body_end, "count": len(pages),
+                  "detected": args.start_page is None},
+        "endnotes": {"page": endnotes_start} if endnote_pages else None,
+    }
     if endnote_pages:
         print(f"Endnotes detected at page {endnotes_start} -- parsed separately ({len(endnote_pages)} pages)")
 
@@ -170,6 +178,9 @@ def main():
         print(f"Using profile corpus/domain/rules/{profile_name}.yaml (override with --profile, "
               "or --no-profile for none)")
     nodes, parse_result = run_parser(pages, act_slug, profile_name, document_type=args.document_type)
+    summary["profile"] = profile_name
+    summary["lines"] = {"consumed": parse_result.lines_consumed, "total": parse_result.lines_total}
+    summary["parser_warnings"] = run_summary.sample(parse_result.warnings)
     engine_meta = {"engine": "rules", "profile": profile_name, "document_type": args.document_type}
     hierarchy_order = parse_result.hierarchy
 
@@ -177,6 +188,7 @@ def main():
     if endnote_pages:
         endnotes_result = parse_endnotes(endnote_pages)
         endnotes = endnotes_result.to_dict()
+        summary["endnotes"]["amending_acts"] = len(endnotes_result.amending_acts)
         print(
             f"[{act_slug}] endnotes -> {len(endnotes_result.amending_acts)} amending Act(s) in the Table of "
             f"Amendments, {endnotes_result.lines_consumed}/{endnotes_result.lines_total} lines consumed"
@@ -196,6 +208,7 @@ def main():
         print(f"  {unlinked} amendment note(s) could not be auto-linked to a node (kept for manual review)")
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
+    summary["margin_notes"] = {"unlinked": unlinked, "provenance": provenance}
 
     # Charts print as images, which no line carries (corpus/parsing/
     # figures.py). Placed before naming, so each gets its name in place.
@@ -206,6 +219,9 @@ def main():
     # Named after attach_history, which annotates the paths each name is
     # built from.
     annotate_ids(nodes, hierarchy_order)
+    summary["figures"] = [{"page": n["page_start"], "heading": n.get("heading")}
+                          for n in nodes if n["type"] == "figure"]
+    summary.update(run_summary.node_counts(nodes, hierarchy_order))
 
     parsed_dir = Path("data/parsed")
     parsed_dir.mkdir(parents=True, exist_ok=True)
@@ -241,6 +257,7 @@ def main():
     # position after it. Move the rows onto the provisions they actually
     # describe instead, before anything reads them again.
     remap = apply_remap(act_slug, nodes, group_into_units(nodes), keep_accepted=args.keep_accepted)
+    summary["review"] = run_summary.remap_summary(remap)
     if remap is not None:
         print(f"Review progress: {describe_remap(remap)}")
         for label in remap["changed"][:5]:
@@ -256,6 +273,7 @@ def main():
     # review work this version already has of its own).
     if is_version:
         carried = apply_carry_forward(work, act_slug, nodes, group_into_units(nodes))
+        summary["carried"] = run_summary.remap_summary(carried)
         if carried is not None:
             print(f"Review carried forward from {carried['source']}: {describe_remap(carried)}")
             for label in carried["changed"][:5]:
@@ -276,6 +294,12 @@ def main():
         f"({'OK' if report.complete else 'MISMATCH -- see diagnostics'})"
     )
     print(f"Diagnostics: {n_err} error(s), {n_warn} warning(s), {n_info} info -> {diag_path}")
+    summary["complete"] = report.complete
+    summary["diagnostics"] = {
+        "errors": n_err, "warnings": n_warn, "info": n_info,
+        "top": run_summary.sample([f.message for f in report.by_severity("error") + report.by_severity("warning")]),
+    }
+    run_summary.emit(summary)
     if not report.complete:
         # Every input line landing in exactly one node is a hard
         # invariant of the parser (see rule_parser.py's module

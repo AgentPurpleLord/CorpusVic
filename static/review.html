@@ -144,7 +144,7 @@
     </div>
     <label>Heading</label>
     <input type="text" id="edit-heading">
-    <label>Text</label>
+    <label id="edit-text-label">Text</label>
     <textarea id="edit-text"></textarea>
     <div class="modal-actions">
       <button class="btn" id="edit-cancel">Cancel</button>
@@ -1361,6 +1361,9 @@ function renderPieceText(piece) {
   // just where the PDF wrapped -- runs the whole table into one
   // paragraph and hides the very structure being reviewed.
   if (piece.type === "table") return escapeHtml(piece.text || "");
+  // A figure's text is its image's file name (corpus/parsing/figures.py):
+  // the image is shown instead.
+  if (piece.type === "figure") return "";
   const text = piece.reflowed;
   const sorted = [...piece.links].sort((a, b) => a.start_reflowed - b.start_reflowed);
   let html = "";
@@ -2354,6 +2357,10 @@ function openEditModal(nodeIndex) {
   document.getElementById("edit-number").value = piece.number || "";
   document.getElementById("edit-heading").value = piece.heading || "";
   document.getElementById("edit-text").value = piece.text || "";
+  // Kept and sent back as it was: it is which image this is, not words.
+  const isFigure = piece.type === "figure";
+  document.getElementById("edit-text").hidden = isFigure;
+  document.getElementById("edit-text-label").hidden = isFigure;
   // Where it sits, as the Act cites it. The section itself has nowhere
   // within itself to go.
   const isRoot = currentUnit.pieces[0] && currentUnit.pieces[0].node_index === nodeIndex;

@@ -557,6 +557,9 @@ mark.unresolved { border-bottom: 2px dashed #9ca3af; }
   width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13.5px; font-family: inherit;
 }
 .modal textarea { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+/* A field a piece has no use for (a chart's file name) is hidden, and the
+   label rule above would otherwise show its label anyway. */
+.modal [hidden] { display: none; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 .type-list { border: 1px solid var(--border); border-radius: var(--radius); margin-top: 8px; max-height: 320px; overflow-y: auto; }
