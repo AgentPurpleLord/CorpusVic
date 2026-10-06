@@ -4,3 +4,6 @@ rich
 pyyaml
 # Figures are stored as lossless WebP beside their PNG (corpus/parsing/figures.py).
 Pillow
+# Reads a chart's heading off its image. Optional: without it headings are
+# typed in review. On a bare server OpenCV may need: sudo apt install libgl1
+rapidocr-onnxruntime

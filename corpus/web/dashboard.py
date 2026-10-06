@@ -105,7 +105,7 @@ from corpus.domain import commentary, diffing, lineage
 from corpus.domain.act_registry import load_act_registry
 from corpus.domain.amendments import build_amendment_index, summarise_by_act
 from corpus.domain.commentary import build_commentary_index
-from corpus.parsing import figures
+from corpus.parsing import figures, run_summary
 from corpus.parsing.extract import slugify
 from corpus.review.link_targets import load_known_acts
 from corpus.domain.profiles import available_profiles, profile_for
@@ -2493,6 +2493,14 @@ def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
     return result.returncode == 0, result.returncode, result.stdout + result.stderr
 
 
+def _parse_output(log: str) -> dict:
+    """{"log", "summary"} from a pipeline's output: the summary line it
+    ends with (corpus/parsing/run_summary.py) taken out of the log and
+    handed over as data, for the parse panels to draw."""
+    text, summary = run_summary.split_log(log)
+    return {"log": text, "summary": summary}
+
+
 def _find_source_pdf(slug: str) -> "Path | None":
     """The PDF a document was parsed from, or would be parsed from.
 
@@ -2543,7 +2551,7 @@ async def new_act(
 
     cmd = _build_parse_command(dest, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log}
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log)}
 
 
 def _kill_work_review_processes(work: str) -> None:
@@ -2636,7 +2644,7 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
     _kill_work_review_processes(work)
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "slimmed": _slim_work(work) if ok else None}
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log), "slimmed": _slim_work(work) if ok else None}
 
 
 def _not_writable(folder: Path) -> HTTPException:
@@ -2680,7 +2688,7 @@ def _replace_version(work: str, version: int, content: bytes, then_slim: bool = 
     _act_title_cache.pop(slug, None)
     profile = _parse_field(slug, "profile") or ""
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", "", keep_accepted=True))
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log, "replaced": True,
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log), "replaced": True,
             "slimmed": _slim_work(work) if ok and then_slim else None}
 
 
@@ -3036,7 +3044,7 @@ def _import_act(req: VicImportRequest, work: str, job: dict) -> None:
     slug = document_slug(work, int(newest["version"]))
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", "", "", ""))
-    job["results"].append({"slug": slug, "ok": ok, "log": log, "note": note})
+    job["results"].append({"slug": slug, "ok": ok, **_parse_output(log), "note": note})
 
 
 def _import_bill(req: VicImportRequest, targets: list, job: dict) -> None:
@@ -3064,7 +3072,7 @@ def _import_bill(req: VicImportRequest, targets: list, job: dict) -> None:
         job["step"] = f"parsing the {name}"
         _act_title_cache.pop(slug, None)
         ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, kind, "", "", ""))
-        job["results"].append({"slug": slug, "ok": ok, "log": log, "note": None})
+        job["results"].append({"slug": slug, "ok": ok, **_parse_output(log), "note": None})
 
 
 @app.post("/api/acts/{slug}/reparse")
@@ -3166,7 +3174,7 @@ def reparse_act(
         # "Review" click rather than let it keep serving the old node
         # list against a database that may no longer line up with it.
         _kill_review_process(slug)
-    return {"ok": ok, "slug": slug, "returncode": returncode, "log": log,
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log),
             "cleared": cleared, "mode": chosen}
 
 

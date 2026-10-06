@@ -147,7 +147,7 @@
           <button type="button" class="btn primary" id="vic-retrieve" onclick="retrieveVic()">Retrieve and parse</button>
         </div>
       </div>
-      <pre id="vic-log" hidden></pre>
+      <div id="vic-log" class="parse-results" hidden></div>
     </div>
 
     <form id="add-form" hidden>
@@ -187,10 +187,7 @@
         <button type="submit" class="btn primary">Parse</button>
       </div>
     </form>
-    <div id="add-log-wrap" style="display:none">
-      <label>Output</label>
-      <pre id="log"></pre>
-    </div>
+    <div id="add-log-wrap" class="parse-results" style="display:none"></div>
   </div>
 </div>
 
@@ -278,10 +275,7 @@
         <button type="submit" class="btn primary" id="parse-submit-btn">Parse</button>
       </div>
     </form>
-    <div id="parse-log-wrap" style="display:none">
-      <label>Output</label>
-      <pre id="parse-log"></pre>
-    </div>
+    <div id="parse-log-wrap" class="parse-results" style="display:none"></div>
   </div>
 </div>
 
@@ -1388,7 +1382,7 @@ function openParseMenu(work, ticked, mode) {
   const start = new Set(ticked || newest);
   document.getElementById("parse-work").textContent = work;
   document.getElementById("parse-log-wrap").style.display = "none";
-  document.getElementById("parse-log").textContent = "";
+  document.getElementById("parse-log-wrap").innerHTML = "";
   document.getElementById("parse-form").reset();
   document.getElementById("parse-versions").innerHTML = versions.map((v) => {
     const state = !v.has_pdf ? "no source PDF"
@@ -1458,17 +1452,19 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
   const submitBtn = document.getElementById("parse-submit-btn");
   submitBtn.disabled = true;
   const logWrap = document.getElementById("parse-log-wrap");
-  const logEl = document.getElementById("parse-log");
   logWrap.style.display = "block";
-  logEl.textContent = "";
+  logWrap.innerHTML = "";
+  widenFor(logWrap);
   const confirmed = document.getElementById("parse-confirm-checkbox").checked;
   const mode = (document.querySelector("#parse-mode-group input[name=mode]:checked") || {}).value || "carry";
   const failed = [];
   for (const [n, v] of ticked.entries()) {
     submitBtn.textContent = `Parsing ${versionName(v)} (${n + 1} of ${ticked.length})...`;
-    const head = `${logEl.textContent ? "\n\n" : ""}== ${versionName(v)} ==\n`;
-    logEl.textContent += head + "Running...";
-    let out;
+    const panel = document.createElement("div");
+    logWrap.appendChild(panel);
+    renderParseRunning(panel, versionName(v));
+    panel.scrollIntoView({ block: "nearest" });
+    let data;
     try {
       const fd = new FormData(form);
       if (ticked.length > 1) { fd.delete("start_page"); fd.delete("end_page"); }
@@ -1476,25 +1472,158 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
       fd.set("mode", mode);
       fd.delete("discard");
       const res = await fetch(`api/acts/${v.slug}/reparse`, { method: "POST", body: fd });
-      const data = await res.json();
-      const cleared = Object.entries(data.cleared || {});
-      out = (cleared.length ? `Discarded review data: ${cleared.map(([t, k]) => `${k} ${t}`).join(", ")}\n` : "")
-        + (data.log || data.detail || "(no output)");
+      data = await res.json();
       if (!data.ok) failed.push(versionName(v));
     } catch (err) {
-      out = String(err);
+      data = { ok: false, log: String(err) };
       failed.push(versionName(v));
     }
-    logEl.textContent = logEl.textContent.slice(0, -"Running...".length) + out;
+    renderParseResult(panel, { slug: v.slug, ...data, log: data.log || data.detail });
   }
   // The parses are done here; the list then takes a while to work out
   // again, and says so itself rather than holding this dialog open.
   submitBtn.disabled = false;
   paintParseMenu();
-  if (failed.length) toast(`Not parsed: ${failed.join(", ")} -- see the log`, true);
-  else { toast(`Parsed ${ticked.map(versionName).join(", ")}`); closeModal("parse-modal"); }
+  // Left open either way: what the parse found is the point of looking.
+  if (failed.length) toast(`Not parsed: ${failed.join(", ")} -- see below`, true);
+  else toast(`Parsed ${ticked.map(versionName).join(", ")}`);
   loadActs();
 });
+
+// ---------------------------------------------------------------------
+// What a parse found, drawn from the summary the pipeline ends its log
+// with (corpus/parsing/run_summary.py). The log itself stays, folded
+// away under the panel, for when the numbers aren't enough.
+// ---------------------------------------------------------------------
+
+const PR_NAMES = {
+  chapter: ["Chapter", "Chapters"], part: ["Part", "Parts"], division: ["Division", "Divisions"],
+  subdivision: ["Subdivision", "Subdivisions"], schedule: ["Schedule", "Schedules"],
+  subsection: ["subsection", "subsections"], subclause: ["subclause", "subclauses"],
+  paragraph: ["paragraph", "paragraphs"], definition: ["definition", "definitions"],
+  note: ["note", "notes"], example: ["example", "examples"], penalty: ["penalty", "penalties"],
+  table: ["table", "tables"], figure: ["chart", "charts"], repealed: ["repealed run", "repealed runs"],
+};
+
+function prCount(n, type) {
+  const [one, many] = PR_NAMES[type] || [type, type + "s"];
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+}
+
+function prList(types, byType) {
+  return types.filter((t) => byType[t]).map((t) => prCount(byType[t], t)).join(" · ");
+}
+
+function prTile(value, label, cls = "") {
+  return `<div class="pr-tile ${cls}"><div class="pr-value">${value}</div><div class="pr-label">${escapeHtml(label)}</div></div>`;
+}
+
+function prSample(sample) {
+  if (!sample || !sample.count) return "";
+  const more = sample.count - sample.items.length;
+  return `<ul class="pr-items">${sample.items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}`
+    + (more > 0 ? `<li class="pr-more">and ${more} more — see the full log</li>` : "") + "</ul>";
+}
+
+// A modal is sized for a form; the panel needs the room of the wide one.
+function widenFor(el) {
+  const modal = el.closest(".modal");
+  if (modal) modal.classList.add("wide");
+}
+
+function renderParseRunning(el, name, step) {
+  el.innerHTML = `<div class="pr pr-running" role="status">
+    <div class="pr-head"><span class="pr-spinner" aria-hidden="true"></span>
+      <span class="pr-title">Parsing ${escapeHtml(name || "")}</span></div>
+    <div class="pr-sub">${escapeHtml(step || "Reading the PDF and working out its structure. A large Act takes a minute or two.")}</div>
+  </div>`;
+}
+
+function renderParseResult(el, data) {
+  const s = data.summary;
+  const ok = !!data.ok;
+  const slug = data.slug || (s && s.slug) || "";
+  const out = [];
+  out.push(`<div class="pr-head">
+    <span class="pr-status ${ok ? "ok" : "failed"}">${ok ? "&#10003; Parsed" : "&#10007; Not parsed"}</span>
+    <span class="pr-title">${escapeHtml(slug)}</span></div>`);
+  const sub = [s && s.version, data.note].filter(Boolean);
+  if (sub.length) out.push(`<div class="pr-sub">${sub.map(escapeHtml).join(" — ")}</div>`);
+  const cleared = Object.entries(data.cleared || {});
+  if (cleared.length) {
+    out.push(`<div class="pr-block warn">Discarded review data: ${escapeHtml(cleared.map(([t, k]) => `${k} ${t}`).join(", "))}</div>`);
+  }
+
+  if (s) {
+    const t = s.by_type || {};
+    const lines = s.lines || {};
+    const whole = lines.total && lines.consumed === lines.total;
+    const provisionWord = s.document_type === "act" ? "provisions" : s.document_type === "bill" ? "clauses" : "entries";
+    const tiles = [
+      prTile((s.provisions || 0).toLocaleString(), provisionWord),
+      prTile(`${(lines.consumed || 0).toLocaleString()}<span class="pr-of">/${(lines.total || 0).toLocaleString()}</span>`,
+             whole ? "lines read — all accounted for" : "lines read — some unaccounted for", whole ? "good" : "bad"),
+    ];
+    if (s.history_notes) tiles.push(prTile(s.history_notes.toLocaleString(), "amendment notes attached"));
+    for (const type of ["definition", "note", "penalty", "table", "figure"]) {
+      if (t[type]) tiles.push(prTile(t[type].toLocaleString(), (PR_NAMES[type] || [type, type])[t[type] === 1 ? 0 : 1]));
+    }
+    out.push(`<div class="pr-tiles">${tiles.join("")}</div>`);
+
+    const structure = prList(["chapter", "part", "division", "subdivision", "schedule"], t);
+    const inside = prList(["subsection", "subclause", "paragraph", "example", "repealed"], t);
+    if (structure || inside) {
+      out.push(`<dl class="pr-facts">${structure ? `<dt>Structure</dt><dd>${structure}</dd>` : ""}`
+        + `${inside ? `<dt>Within provisions</dt><dd>${inside}</dd>` : ""}</dl>`);
+    }
+
+    for (const [key, title] of [["review", "Your review, carried onto this parse"], ["carried", "Review carried forward"]]) {
+      const r = s[key];
+      if (!r || !(r.matched || r.orphaned || r.text_changed)) continue;
+      const bits = [`${r.matched.toLocaleString()} reviewed piece${r.matched === 1 ? "" : "s"} kept`];
+      if (r.moved) bits.push(`${r.moved} moved`);
+      if (r.kept) bits.push(`${r.kept} approved but now read differently (kept, as asked)`);
+      if (r.refreshed) bits.push(`${r.refreshed} re-read from this parse`);
+      const changed = r.text_changed ? `<div class="pr-subhead">${r.text_changed} whose wording changed — acceptance withdrawn</div>${prSample(r.changed)}` : "";
+      const orphaned = r.orphaned ? `<div class="pr-subhead">${r.orphaned} no longer in the parse — kept for you to re-file</div>${prSample(r.orphans)}` : "";
+      out.push(`<div class="pr-block ${r.text_changed || r.orphaned ? "warn" : ""}">
+        <div class="pr-blockhead">${escapeHtml(title)}${r.source ? ` from ${escapeHtml(r.source)}` : ""}</div>
+        <div>${bits.join(" · ")}</div>${changed}${orphaned}</div>`);
+    }
+
+    const d = s.diagnostics || {};
+    const pw = s.parser_warnings || {};
+    const mn = s.margin_notes || {};
+    if (d.errors || d.warnings || pw.count || mn.unlinked || !whole) {
+      const counts = [];
+      if (d.errors) counts.push(`${d.errors} error${d.errors === 1 ? "" : "s"}`);
+      if (d.warnings) counts.push(`${d.warnings} warning${d.warnings === 1 ? "" : "s"}`);
+      out.push(`<div class="pr-block ${d.errors || !whole ? "bad" : "warn"}">
+        <div class="pr-blockhead">Worth a look${counts.length ? ` — ${counts.join(", ")}` : ""}</div>
+        ${prSample(d.top)}
+        ${pw.count ? `<div class="pr-subhead">From the parser</div>${prSample(pw)}` : ""}
+        ${mn.unlinked ? `<div class="pr-subhead">${mn.unlinked} amendment note${mn.unlinked === 1 ? "" : "s"} could not be linked to a provision — kept for review</div>` : ""}
+      </div>`);
+    }
+
+    const facts = [];
+    if (s.pages) facts.push(["Pages", `${s.pages.first}–${s.pages.last} (${s.pages.count})${s.pages.detected ? ", start found automatically" : ""}`]);
+    if (s.profile) facts.push(["Profile", s.profile]);
+    if (s.endnotes) facts.push(["Endnotes", `from page ${s.endnotes.page}${s.endnotes.amending_acts != null ? ` — ${s.endnotes.amending_acts} amending Acts in the table` : ""}`]);
+    for (const f of s.figures || []) {
+      facts.push([`Chart, p. ${f.page}`, f.heading || "No heading read — add one in review, or it is described by its provision"]);
+    }
+    if (mn.provenance) facts.push(["Provenance notes", `${mn.provenance} (where a provision came from — nothing to link)`]);
+    if (facts.length) {
+      out.push(`<dl class="pr-facts">${facts.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`).join("")}</dl>`);
+    }
+  }
+  if (ok) out.push(`<div class="pr-next">Open it from the dashboard's <strong>Review</strong> button.</div>`);
+  // Open by itself when there is nothing else to go on.
+  out.push(`<details class="pr-log"${!s || !ok ? " open" : ""}><summary>Full log</summary>
+    <pre>${escapeHtml(data.log || "(no output)")}</pre></details>`);
+  el.innerHTML = `<div class="pr ${ok ? "" : "pr-failed"}">${out.join("")}</div>`;
+}
 
 function showAddTab(which) {
   const vic = which === "vic";
@@ -1589,17 +1718,21 @@ async function retrieveVic() {
 async function pollVicImport() {
   const log = document.getElementById("vic-log");
   log.hidden = false;
+  widenFor(log);
   try {
     const res = await fetch("api/vic/import");
     const job = await res.json();
     if (job.state === "running") {
-      log.textContent = `Retrieving ${job.title}: ${job.step}…`;
+      renderParseRunning(log, job.title, job.step);
       setTimeout(pollVicImport, 2000);
       return;
     }
-    const lines = (job.results || []).map((r) => `${r.ok ? "Parsed" : "Failed"}: ${r.slug}${r.note ? "\n" + r.note : ""}\n${r.log || ""}`);
-    log.textContent = [job.error, ...lines].filter(Boolean).join("\n\n")
-      + (job.state === "done" ? "\n\nParsed. Updating the dashboard's list…" : "");
+    log.innerHTML = job.error ? `<div class="pr-error">${escapeHtml(job.error)}</div>` : "";
+    for (const r of job.results || []) {
+      const panel = document.createElement("div");
+      log.appendChild(panel);
+      renderParseResult(panel, r);
+    }
     if (job.state === "done") {
       toast(`Added ${(job.results || []).map((r) => r.slug).join(" and ")}.`);
       document.getElementById("vic-pick").hidden = true;
@@ -1610,7 +1743,7 @@ async function pollVicImport() {
     document.getElementById("vic-retrieve").disabled = false;
     loadActs();
   } catch (e) {
-    log.textContent = String(e);
+    renderParseResult(log, { ok: false, log: String(e) });
     document.getElementById("vic-retrieve").disabled = false;
   }
 }
@@ -1622,15 +1755,15 @@ document.getElementById("add-form").addEventListener("submit", async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = "Parsing...";
   const logWrap = document.getElementById("add-log-wrap");
-  const logEl = document.getElementById("log");
   logWrap.style.display = "block";
-  logEl.textContent = "Running -- this can take a little while for a large PDF...";
+  widenFor(logWrap);
+  const pdf = form.querySelector("input[type=file]").files[0];
+  renderParseRunning(logWrap, pdf ? pdf.name : "the PDF");
   try {
     const res = await fetch("api/acts/new", { method: "POST", body: new FormData(form) });
     const data = await res.json();
-    logEl.textContent = data.log || "(no output)";
+    renderParseResult(logWrap, { ...data, log: data.log || data.detail });
     if (data.ok) {
-      logEl.textContent += "\n\nParsed. Updating the dashboard's list…";
       toast(`Parsed ${data.slug}`);
       loadActs();
     } else if (res.ok) {
@@ -1639,7 +1772,7 @@ document.getElementById("add-form").addEventListener("submit", async (e) => {
       toast(data.detail || "Request failed", true);
     }
   } catch (err) {
-    logEl.textContent = String(err);
+    renderParseResult(logWrap, { ok: false, log: String(err) });
     toast(String(err), true);
   } finally {
     submitBtn.disabled = false;

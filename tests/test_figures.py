@@ -23,6 +23,8 @@ from conftest import make_node
 @pytest.fixture
 def figures_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(figures, "FIGURES_DIR", tmp_path / "figures")
+    # No OCR model in these tests: headings are tested with a stand-in.
+    monkeypatch.setattr(figures, "_OCR", False)
     return tmp_path / "figures"
 
 
@@ -151,6 +153,15 @@ def test_the_page_shows_a_chart_as_webp_with_a_png_fallback(figures_dir):
     assert "620x727" not in body.replace('width="620" height="727"', "")
 
 
+def test_a_chart_with_a_heading_of_its_own_is_described_by_it(figures_dir):
+    nodes = _act_with_chart()
+    nodes[2]["heading"] = "Flow Chart 1 – Terrorism record or terrorism risk"
+
+    body = render_section({"nodes": nodes, "hierarchy": None}, "Bail Act 1977", "/browse/bail-act", "s3d")
+
+    assert 'alt="Flow Chart 1 – Terrorism record or terrorism risk"' in body
+
+
 def test_without_a_webp_only_the_png_is_offered(figures_dir):
     body = render_section({"nodes": _act_with_chart(), "hierarchy": None},
                           "Bail Act 1977", "/browse/bail-act", "s3d")
@@ -209,3 +220,50 @@ def test_the_archive_copies_the_figures_its_documents_print(tmp_path, figures_di
     assert public._copy_figures(tmp_path / "_site", ["bail-act"]) == 2
     assert sorted(p.name for p in (tmp_path / "_site" / "figures").iterdir()) == \
         ["0123456789ab.png", "0123456789ab.webp"]
+
+
+def test_an_image_stored_upside_down_comes_out_the_way_the_page_draws_it():
+    """The Evidence Act's diagram is stored flipped and drawn with a
+    negative d; copied as stored it was upside down on the site."""
+    assert figures._orientation((308.6, 0, 0, 457.3, 144, 188)) == []
+    assert figures._orientation((308.6, 0, 0, -457.3, 144, 645)) == ["FLIP_TOP_BOTTOM"]
+    assert figures._orientation((-308.6, 0, 0, 457.3, 452, 188)) == ["FLIP_LEFT_RIGHT"]
+    assert figures._orientation((0, 457.3, 308.6, 0, 144, 188)) == ["TRANSPOSE"]
+
+
+def test_store_turns_the_image_before_naming_it(tmp_path, figures_dir):
+    _pdf_with_images(tmp_path / "act.pdf")
+    pixmap = find_figures(tmp_path / "act.pdf", 1, 1)[0]["pixmap"]
+
+    upright = store(pixmap)
+    flipped = store(pixmap, matrix=(300, 0, 0, -225, 150, 425))
+
+    # The test chart's line is at row 45 of 90: flipped, it is at 44.
+    assert upright != flipped
+    image = Image.open(figures_dir / f"{flipped.split()[0]}.png").convert("RGB")
+    assert image.getpixel((0, 44)) == (0, 0, 0)
+
+
+def test_ocr_that_drops_spaces_is_respaced_with_the_acts_own_words():
+    words = {"terrorism", "record", "or", "risk", "flow", "chart"}
+
+    assert figures.tidy_heading("Flow Chart 1-Terrorismrecord orterrorismrisk", words) == \
+        "Flow Chart 1 – Terrorism record or terrorism risk"
+    assert figures.tidy_heading("FlowChart 5-Unacceptable", words) == "Flow Chart 5 – Unacceptable"
+
+
+def _fake_ocr(*lines):
+    """RapidOCR's shape: ([box, text, confidence], ...), elapsed."""
+    def ocr(_array):
+        return [[[[10, 12 + 40 * i], [400, 12 + 40 * i], [400, 40 + 40 * i], [10, 40 + 40 * i]], text, 0.98]
+                for i, text in enumerate(lines)], 0.1
+    return ocr
+
+
+def test_the_heading_is_the_charts_first_line_when_it_reads_as_one():
+    image = Image.new("RGB", (600, 900), "white")
+
+    assert figures.read_heading(image, set(), _fake_ocr("Flow Chart 2 - Which tests apply?", "Is the accused")) == \
+        "Flow Chart 2 – Which tests apply?"
+    # The Evidence Act's diagram has no title: its first box is not one.
+    assert figures.read_heading(image, set(), _fake_ocr("Is the evidence relevant?")) is None
