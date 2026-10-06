@@ -127,3 +127,20 @@ def test_the_dashboard_has_the_updates_panel():
 
     assert 'id="updates-btn"' in page and 'id="updates-modal"' in page
     assert "GITHUB_TOKEN=" in page and "async function pollUpdate()" in page
+
+
+def test_neither_service_weights_the_machine():
+    """CPUWeight 500 on the public site carried its page renderer with it:
+    re-rendering every page after a deploy, it starved the dashboard to
+    502s and a crawl. Equal shares, background work niced on both sides."""
+    for unit in ("dashboard.service", "public.service"):
+        text = (PROJECT_ROOT / "deploy" / unit).read_text(encoding="utf-8")
+        assert not any(line.startswith(("CPUWeight=", "IOWeight=")) for line in text.splitlines()), unit
+
+
+def test_the_dashboard_does_not_ask_github_on_every_load():
+    page = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
+
+    assert "\nloadUpdates(false);" not in page
+    sync = page[page.index("function renderSync(s)"):]
+    assert 'getElementById("updates-dot").hidden' in sync[:600]
