@@ -47,7 +47,7 @@ Writes:
     data/parsed/<act-slug>.json     -- the structured node list + endnotes
     data/diagnostics/<act-slug>.json   -- the anomaly report
 
-Next step: python review.py <act-slug>
+Then review it from the dashboard (or: python -m corpus.review.review <act-slug>)
 """
 import argparse
 import json
@@ -66,6 +66,7 @@ from corpus.parsing.versions import document_slug, read_front_matter, work_direc
 from corpus.parsing.rule_parser import parse_act
 from corpus.parsing.toc import detect_body_start
 from corpus.parsing.identity import annotate_ids
+from corpus.parsing.figures import extract_figures
 from corpus.parsing.tree import attach_history
 
 
@@ -196,6 +197,12 @@ def main():
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
 
+    # Charts print as images, which no line carries (corpus/parsing/
+    # figures.py). Placed before naming, so each gets its name in place.
+    nodes, figure_pages = extract_figures(nodes, pdf_path, start + 1, body_end)
+    if figure_pages:
+        print(f"Figures: {len(figure_pages)} found (pp. {', '.join(map(str, figure_pages))})")
+
     # Named after attach_history, which annotates the paths each name is
     # built from.
     annotate_ids(nodes, hierarchy_order)
@@ -278,7 +285,9 @@ def main():
         print(f"ERROR: {act_slug} -- completeness invariant violated, aborting.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Next: python review.py {act_slug}")
+    # The last line of the log the dashboard shows: what follows it there is
+    # the dashboard refreshing its list, not more parsing.
+    print(f"Done: {act_slug} parsed. Open it from the dashboard's Review button.")
 
 
 if __name__ == "__main__":

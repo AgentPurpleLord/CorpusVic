@@ -105,6 +105,7 @@ from corpus.domain import commentary, diffing, lineage
 from corpus.domain.act_registry import load_act_registry
 from corpus.domain.amendments import build_amendment_index, summarise_by_act
 from corpus.domain.commentary import build_commentary_index
+from corpus.parsing import figures
 from corpus.parsing.extract import slugify
 from corpus.review.link_targets import load_known_acts
 from corpus.domain.profiles import available_profiles, profile_for
@@ -1590,8 +1591,11 @@ def index():
 
 @app.get("/api/acts")
 def list_acts():
+    started = time.monotonic()
     publication = db.load_publication(BASE_DIR)
     statuses = [act_status(slug, publication) for slug in discover_slugs()]
+    status_took = time.monotonic() - started
+    progress_took: dict = {}
     # Progress for the version each card shows, the newest parsed one of
     # its work: counting every reprint of the CPA on each load would be
     # slow, and nothing shows the others'.
@@ -1602,12 +1606,15 @@ def list_acts():
             if held is None or (status["version"] or 0) >= (held["version"] or 0):
                 newest[status["work"]] = status
     for status in newest.values():
+        t = time.monotonic()
         progress = _review_progress(status["slug"])
+        progress_took[status["slug"]] = time.monotonic() - t
         status["provisions_checked"], status["provisions_total"] = progress["checked"], progress["total"]
         status["review_status"] = ("reviewed" if progress["checked"] >= progress["total"]
                                    else "in-progress" if progress["checked"] or status["review_rows"]
                                    else "not-started")
     _save_cache()
+    _log_slow_list(time.monotonic() - started, status_took, progress_took)
     # Added here rather than in act_status, whose results are cached to
     # disk: a rename has to show on the card at once.
     names = _work_names()
@@ -1615,6 +1622,17 @@ def list_acts():
              "parsed_title": _parsed_title(status["slug"]) if status["parsed"] else None,
              "address": (names.get(status["work"]) or {}).get("address")}
             for status in statuses]
+
+
+def _log_slow_list(total: float, status: float, progress: dict) -> None:
+    """One line in the dashboard's log when the list is slow to come back
+    -- after a parse it rebuilds that work's state to count what is
+    reviewed, and a long wait there looked like the parse had hung."""
+    if total < 2.0:
+        return
+    slowest = max(progress.items(), key=lambda kv: kv[1], default=(None, 0.0))
+    detail = f", progress {sum(progress.values()):.1f}s" + (f": {slowest[0]}" if slowest[0] and slowest[1] >= 1.0 else "")
+    print(f"api/acts took {total:.1f}s (status {status:.1f}s{detail})", file=sys.stderr, flush=True)
 
 
 class WorkNameRequest(BaseModel):
@@ -4231,6 +4249,11 @@ def _index() -> "search.Index":
     if _SEARCH.path != search.index_path(BASE_DIR):
         _SEARCH = search.Index(BASE_DIR)
     return _SEARCH
+
+
+@app.get("/figures/{name}")
+def figure(name: str):
+    return figures.figure_response(name)
 
 
 @app.get("/browse/{slug}")

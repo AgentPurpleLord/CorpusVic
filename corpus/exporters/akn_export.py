@@ -64,6 +64,7 @@ import xml.etree.ElementTree as ET
 
 from corpus.parsing.extract import reflow
 from corpus.domain.hierarchy import HIERARCHY_ORDER, make_ranks
+from corpus.parsing.figures import figure_ref
 from corpus.parsing.tables import split_rows
 from corpus.parsing.versions import read_front_matter
 
@@ -234,7 +235,7 @@ def build_hierarchy_tree(nodes: list[dict], hierarchy_order: list[str] = HIERARC
                 # AKN has no native element for a penalty, so it renders
                 # through the same <hcontainer name="penalty"> fallback
                 # a note does; the eId still names it for what it is.
-                "penalty": "pnlty", "table": "tbl",
+                "penalty": "pnlty", "table": "tbl", "figure": "fig",
             }.get(t, "el")
             token = f"{prefix}_{sum(1 for c in parent['children'] if c['node']['type'] == t) + 1}"
             eid = unique(f"{parent['eid']}__{token}" if parent["eid"] else token)
@@ -307,6 +308,11 @@ def render_tree_node(tree_node: dict, top_level: bool = False, hierarchy_order: 
                 _render_p(wrap_up, child["node"].get("text") or "")
     elif t == "table":
         _render_table(ET.SubElement(el, _q("content")), node.get("text") or "")
+    elif t == "figure" and figure_ref(node):
+        # AKN's <img> is HTML's; the reference text is no words of the Act.
+        p = ET.SubElement(ET.SubElement(el, _q("content")), _q("p"))
+        ref = figure_ref(node)
+        ET.SubElement(p, _q("img"), {"src": f"/figures/{ref['src']}.png", "alt": "Chart"})
     else:
         content = ET.SubElement(el, _q("content"))
         _render_p(content, node.get("text") or "")

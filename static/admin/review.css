@@ -438,6 +438,8 @@ body[data-view-mode="pdf"] #main { display: none; }
 .piece-table-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
 .piece-table table { border-collapse: collapse; font-family: var(--font-reading); font-size: 15px; }
 .piece-table th, .piece-table td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; text-align: left; }
+.piece-figure { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.piece-figure img { max-width: min(100%, 420px); height: auto; background: #fff; border-radius: var(--radius-sm); }
 .piece-table th { font-weight: 600; background: var(--hover-bg); }
 /* The piece whose box is being pointed at on the page, and the other
    way round. The pairing is the whole reason for drawing boxes. */

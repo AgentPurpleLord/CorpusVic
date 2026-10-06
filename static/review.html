@@ -1533,8 +1533,12 @@ function buildPiece(piece, idx) {
     // unreadable. So the text box stays the text box, with a rendered
     // copy under it: the reviewer checks the columns against the PDF in
     // the table, and fixes a cell split in the wrong place by typing.
+    // A figure's text is the stored image's name and size (see
+    // corpus/parsing/figures.py), so the image is shown under it.
+    const figureMatch = piece.type === "figure" && /^([0-9a-f]{12}) \d+x\d+$/.exec((piece.text || "").trim());
     const tableHtml = piece.type === "table"
-      ? renderPieceTable(piece.text) : "";
+      ? renderPieceTable(piece.text)
+      : figureMatch ? `<div class="piece-figure"><img src="figures/${figureMatch[1]}.png" alt="Chart" loading="lazy"></div>` : "";
     const findingsHtml = (piece.findings || [])
       .map((f) => {
         // "ai-scan" findings come from run_ai_review.py's whole-document

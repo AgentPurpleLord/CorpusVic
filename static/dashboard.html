@@ -108,6 +108,10 @@
     <span class="site-state" id="site-state"></span>
     <span class="site-state" id="search-state"></span>
   </div>
+  <!-- Shown while the list is being worked out again: after a parse that
+       rebuilds the work's state to count what is reviewed, and the wait
+       read as the parse having hung. -->
+  <div id="acts-status" class="list-status" role="status" hidden></div>
   <div id="acts"></div>
   <div id="empty" style="display:none">No Acts yet -- click "+ Add Act / Bill / EM" to parse your first one.</div>
 </main>
@@ -1239,10 +1243,21 @@ async function pollSite(announce = true) {
 }
 
 async function loadActs() {
-  const [actsRes, linksRes] = await Promise.all([fetch("api/acts"), fetch("api/bill-links")]);
-  ACTS = await actsRes.json();
-  BILL_LINKS = await linksRes.json();
-  renderActs();
+  const status = document.getElementById("acts-status");
+  status.classList.remove("failed");
+  status.textContent = "Updating the list…";
+  status.hidden = false;
+  try {
+    const [actsRes, linksRes] = await Promise.all([fetch("api/acts"), fetch("api/bill-links")]);
+    if (!actsRes.ok) throw new Error(`the server answered ${actsRes.status}`);
+    ACTS = await actsRes.json();
+    BILL_LINKS = await linksRes.json();
+    renderActs();
+    status.hidden = true;
+  } catch (e) {
+    status.textContent = `Couldn't update the list: ${e.message}`;
+    status.classList.add("failed");
+  }
 }
 
 let nameWork = null;
@@ -1472,11 +1487,13 @@ document.getElementById("parse-form").addEventListener("submit", async (e) => {
     }
     logEl.textContent = logEl.textContent.slice(0, -"Running...".length) + out;
   }
-  await loadActs();
+  // The parses are done here; the list then takes a while to work out
+  // again, and says so itself rather than holding this dialog open.
   submitBtn.disabled = false;
   paintParseMenu();
   if (failed.length) toast(`Not parsed: ${failed.join(", ")} -- see the log`, true);
   else { toast(`Parsed ${ticked.map(versionName).join(", ")}`); closeModal("parse-modal"); }
+  loadActs();
 });
 
 function showAddTab(which) {
@@ -1581,7 +1598,8 @@ async function pollVicImport() {
       return;
     }
     const lines = (job.results || []).map((r) => `${r.ok ? "Parsed" : "Failed"}: ${r.slug}${r.note ? "\n" + r.note : ""}\n${r.log || ""}`);
-    log.textContent = [job.error, ...lines].filter(Boolean).join("\n\n");
+    log.textContent = [job.error, ...lines].filter(Boolean).join("\n\n")
+      + (job.state === "done" ? "\n\nParsed. Updating the dashboard's list…" : "");
     if (job.state === "done") {
       toast(`Added ${(job.results || []).map((r) => r.slug).join(" and ")}.`);
       document.getElementById("vic-pick").hidden = true;
@@ -1612,6 +1630,7 @@ document.getElementById("add-form").addEventListener("submit", async (e) => {
     const data = await res.json();
     logEl.textContent = data.log || "(no output)";
     if (data.ok) {
+      logEl.textContent += "\n\nParsed. Updating the dashboard's list…";
       toast(`Parsed ${data.slug}`);
       loadActs();
     } else if (res.ok) {
