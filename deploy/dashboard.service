@@ -19,14 +19,12 @@ ExecStart=/opt/corpusvic/.venv/bin/python3 -m corpus.web.dashboard --host 127.0.
 Restart=on-failure
 RestartSec=5
 
-# The public site comes first on a shared machine. This service and every
-# parse it starts (they run in its cgroup) get a fifth of the default share
-# of CPU and disk while the site wants them, and all of it while the site
-# is idle -- a parse running made the site stop answering. See also
-# CPUWeight in public.service. Takes effect once the unit is copied to
-# /etc/systemd/system and `systemctl daemon-reload` run.
-CPUWeight=20
-IOWeight=20
+# No CPUWeight/IOWeight, on either service: a weighted cgroup carries its
+# background work with it. Weighted toward the public site, its page
+# renderer -- re-rendering every page after each deploy -- starved this
+# service (502s, then a crawl). With equal shares each side gets half the
+# machine when both are busy, and inside each the background work is
+# niced (parses here, the renderer there), so requests win on both sides.
 
 # Bound to loopback only (see --host above) -- Caddy is the only thing
 # facing the internet; see deploy/Caddyfile.example.

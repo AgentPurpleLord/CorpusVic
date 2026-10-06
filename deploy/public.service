@@ -17,10 +17,7 @@ ExecStart=/opt/corpusvic/.venv/bin/python3 -m corpus.web.public --host 127.0.0.1
 Restart=always
 RestartSec=2
 
-# First call on CPU and disk whenever the dashboard (and the parses it
-# runs) want them too: see dashboard.service.
-CPUWeight=500
-IOWeight=500
+# No CPUWeight/IOWeight: see dashboard.service for why.
 
 # Bound to loopback (see --host); Caddy is the only thing facing the
 # internet. See deploy/Caddyfile.example.

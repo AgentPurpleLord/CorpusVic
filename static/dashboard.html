@@ -687,7 +687,10 @@ async function pollUpdate() {
     } catch (e) { away = true; }
   }
 }
-loadUpdates(false);
+// Not loaded with the page: it asks GitHub for every pull request and its
+// checks, and fetches again what the sync panel just fetched. The dot is
+// set from the sync status instead (renderSync); the panel asks GitHub
+// when it is opened.
 
 // Background jobs (dashboard /api/tasks): polled lightly for the count in
 // the header, and drawn in full while the list is open.
@@ -1032,6 +1035,7 @@ function renderSync(s) {
   const detail = document.getElementById("sync-detail");
   strip.hidden = false;
   renderStale(s);
+  document.getElementById("updates-dot").hidden = !(s.behind > 0 || s.code_stale);
 
   const waiting = (s.pending || []).length;
   // Discarding is about this checkout alone, so it stays available
