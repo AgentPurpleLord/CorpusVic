@@ -384,7 +384,10 @@ def test_every_version_not_held_is_fetched_in_one_job(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard, "_site_versions", lambda work: [
         {"version": v, "pdf_url": f"https://x/{v}.pdf" if v != 112 else None} for v in (109, 110, 111, 112, 113)])
     fetched = []
-    monkeypatch.setattr(dashboard, "_fetch_version", lambda work, v: fetched.append(v) or {"ok": v != 113, "slug": f"act-v{v}"})
+    monkeypatch.setattr(dashboard, "_fetch_version",
+                        lambda work, v, then_slim=True: fetched.append(v) or {"ok": v != 113, "slug": f"act-v{v}"})
+    monkeypatch.setattr(dashboard, "_slim_work", lambda work, job=None: None)
+    monkeypatch.setattr(dashboard, "_act_title", lambda slug: "Act")
     monkeypatch.setattr(dashboard.threading, "Thread", Now)
 
     job = dashboard.fetch_all_work_versions("act")

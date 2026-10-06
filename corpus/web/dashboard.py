@@ -2491,9 +2491,46 @@ def _build_parse_command(pdf_path: Path, kind: str, profile: str, start_page: st
     return cmd
 
 
-def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
+# Set in a background job's thread (_in_background): its parses run at low
+# priority, so fetching forty versions leaves the dashboard answering.
+_job_thread = threading.local()
+
+
+def _in_background(target, *args) -> threading.Thread:
+    def run():
+        was = getattr(_job_thread, "background", False)
+        _job_thread.background = True
+        try:
+            target(*args)
+        finally:
+            _job_thread.background = was
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    return thread
+
+
+def _low_priority() -> None:
+    # In the child, before the parse starts: niceness 10 gives the CPU to
+    # the dashboard (and the public site) first whenever both want it.
     try:
-        result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True, timeout=1800)
+        os.nice(10)
+    except (AttributeError, OSError):
+        pass
+
+
+def _background_command(cmd: list[str]) -> list[str]:
+    """`cmd` at idle disk priority where ionice exists (Linux), so a parse
+    reading a 400-page PDF doesn't hold up the pages being served."""
+    ionice = shutil.which("ionice")
+    return [ionice, "-c", "3", *cmd] if ionice else cmd
+
+
+def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
+    background = getattr(_job_thread, "background", False)
+    try:
+        result = subprocess.run(_background_command(cmd) if background else cmd, cwd=str(BASE_DIR),
+                                capture_output=True, text=True, timeout=1800,
+                                preexec_fn=_low_priority if background and os.name == "posix" else None)
     except subprocess.TimeoutExpired as e:
         return False, None, f"Timed out after 30 minutes.\n{e.stdout or ''}\n{e.stderr or ''}"
     return result.returncode == 0, result.returncode, result.stdout + result.stderr
@@ -2646,7 +2683,8 @@ async def add_work_version(work: str, pdf: UploadFile = File(...)):
     return _add_version(work, await pdf.read(), Path(pdf.filename).name)
 
 
-def _add_version(work: str, content: bytes, filename: str, version: "int | None" = None) -> dict:
+def _add_version(work: str, content: bytes, filename: str, version: "int | None" = None,
+                 then_slim: bool = True) -> dict:
     """Refused unless the PDF says it is the same Act (its number and year,
     fixed for the Act's whole life) and a version not already held. A
     work held under its plain name is first made version N of itself
@@ -2697,7 +2735,8 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
     _kill_work_review_processes(work)
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
-    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log, slug, ok), "slimmed": _slim_work(work) if ok else None}
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log, slug, ok),
+            "slimmed": _slim_work(work) if ok and then_slim else None}
 
 
 def _not_writable(folder: Path) -> HTTPException:
@@ -2759,8 +2798,9 @@ def slim_work_versions(work: str):
     job = _slim_jobs.get(work)
     if job and job["state"] == "running":
         raise HTTPException(409, "Already slimming this work's versions.")
-    job = _slim_jobs[work] = {"state": "running", "at": None, "report": None, "error": None}
-    threading.Thread(target=_slim_job, args=(work, job), daemon=True).start()
+    task = _task("slim", f"Keeping versions of {work} slim", work)
+    job = _slim_jobs[work] = {"state": "running", "at": None, "report": None, "error": None, "task": task["id"]}
+    _in_background(_slim_job, work, job, task)
     return job
 
 
@@ -2772,24 +2812,31 @@ def slim_work_status(work: str):
     return _slim_jobs[work]
 
 
-def _slim_job(work: str, job: dict) -> None:
+def _slim_job(work: str, job: dict, task: "dict | None" = None) -> None:
     from corpus.history import slim
+    task = task or _task("slim", f"Keeping versions of {work} slim", work)
     try:
         base = slim.base_version(work, BASE_DIR)
         for version, slug in slim.versions(work, BASE_DIR).items():
+            if task["cancel_requested"]:
+                job["state"] = "cancelled"
+                _task_finished(task, "done")
+                return
             pdf = _find_source_pdf(slug)
             if version == base or pdf is None or _is_slim(slug):
                 continue
-            job["at"] = f"parsing v{version} again"
+            job["at"] = task["at"] = f"parsing v{version} again"
             _kill_work_review_processes(work)
             profile = _parse_field(slug, "profile") or ""
             _run_parse_subprocess(_build_parse_command(pdf, "act", profile, "", "", keep_accepted=True))
+        task["at"] = "cutting down"
         job["report"] = _slim_work(work, job)
         job["state"] = "done"
     except Exception as e:
         import traceback
         traceback.print_exc()
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
+    _task_finished(task, job["state"])
 
 
 def _is_slim(slug: str) -> bool:
@@ -2852,6 +2899,56 @@ def work_versions_available(work: str):
         for v in _site_versions(work)]}
 
 
+# ---------------------------------------------------------------------------
+# Running tasks: every background job, for the dashboard's "Running tasks"
+# list, and a way to stop one. A job is stopped between its steps -- after
+# the version in hand, never mid-parse: a parse cut off half-way leaves a
+# version half-written (its parse file and its review rows disagreeing).
+# ---------------------------------------------------------------------------
+_tasks: dict[str, dict] = {}
+_tasks_lock = threading.Lock()
+# How long a finished task stays in the list, to say how it ended.
+_TASK_KEPT_SECONDS = 3600
+
+
+def _task(kind: str, title: str, work: "str | None" = None, cancellable: bool = True) -> dict:
+    task = {"id": secrets.token_hex(4), "kind": kind, "title": title, "work": work, "state": "running",
+            "at": None, "started": time.time(), "finished": None, "cancellable": cancellable,
+            "cancel_requested": False}
+    with _tasks_lock:
+        for tid in [t for t, v in _tasks.items() if v["finished"] and time.time() - v["finished"] > _TASK_KEPT_SECONDS]:
+            del _tasks[tid]
+        _tasks[task["id"]] = task
+    return task
+
+
+def _task_finished(task: dict, state: str) -> None:
+    task.update(state="cancelled" if task["cancel_requested"] and state == "done" else state, finished=time.time())
+
+
+@app.get("/api/tasks")
+def list_tasks():
+    with _tasks_lock:
+        tasks = [dict(t) for t in _tasks.values()]
+    for t in tasks:
+        if t["kind"] == "retrieve" and t["state"] == "running" and _vic_import.get("task") == t["id"]:
+            t["at"] = _vic_import.get("step")
+    return sorted(tasks, key=lambda t: (t["state"] != "running", -t["started"]))
+
+
+@app.post("/api/tasks/{task_id}/cancel")
+def cancel_task(task_id: str):
+    task = _tasks.get(task_id)
+    if task is None:
+        raise HTTPException(404, "No such task.")
+    if task["state"] != "running":
+        raise HTTPException(409, "It has finished already.")
+    if not task["cancellable"]:
+        raise HTTPException(409, "This one can't be stopped part-way; it is a single parse.")
+    task["cancel_requested"] = True
+    return dict(task)
+
+
 # One fetch at a time for a work, in the background: a parse takes
 # minutes, longer than a proxy will hold a request open, and two at once
 # would each restart the same review servers.
@@ -2869,9 +2966,10 @@ def fetch_work_version(work: str, version: int, replace: bool = False):
         job = _version_fetches.get(work)
         if job and job["state"] == "running":
             raise HTTPException(409, f"Version {job['version']} is still being fetched.")
-        job = {"version": version, "state": "running", "result": None, "error": None}
+        task = _task("fetch", f"{'Fetching again' if replace else 'Fetching'} v{version} of {work}", work, cancellable=False)
+        job = {"version": version, "state": "running", "result": None, "error": None, "task": task["id"]}
         _version_fetches[work] = job
-    threading.Thread(target=_fetch_version_job, args=(work, version, job, replace), daemon=True).start()
+    _in_background(_fetch_version_job, work, version, job, replace, task)
     return job
 
 
@@ -2888,18 +2986,26 @@ def fetch_all_work_versions(work: str):
         job = _version_fetches.get(work)
         if job and job["state"] == "running":
             raise HTTPException(409, f"Version {job['version']} is still being fetched.")
+        task = _task("fetch-all", f"Fetching every version of {_act_title(_held(work)[-1])}", work)
         job = {"version": wanted[0], "all": wanted, "done": [], "failed": [], "state": "running",
-               "result": None, "error": None}
+               "result": None, "error": None, "task": task["id"]}
         _version_fetches[work] = job
-    threading.Thread(target=_fetch_all_job, args=(work, job), daemon=True).start()
+    _in_background(_fetch_all_job, work, job, task)
     return job
 
 
-def _fetch_all_job(work: str, job: dict) -> None:
-    for version in job["all"]:
+def _fetch_all_job(work: str, job: dict, task: "dict | None" = None) -> None:
+    task = task or _task("fetch-all", f"Fetching every version of {work}", work)
+    for n, version in enumerate(job["all"], 1):
+        if task["cancel_requested"]:
+            break
         job["version"] = version
+        task["at"] = f"v{version} ({n} of {len(job['all'])})"
         try:
-            result = _fetch_version(work, version)
+            # Slimmed once at the end, not after each: every pass reads the
+            # whole work, in this process, and forty of them slowed every
+            # page the dashboard served.
+            result = _fetch_version(work, version, then_slim=False)
             (job["done"] if result.get("ok") else job["failed"]).append(
                 {"version": version, "slug": result.get("slug"), "error": None if result.get("ok") else "the parse failed"})
         except HTTPException as e:
@@ -2908,7 +3014,15 @@ def _fetch_all_job(work: str, job: dict) -> None:
             import traceback
             traceback.print_exc()
             job["failed"].append({"version": version, "error": f"{type(e).__name__}: {e}"})
-    job["state"] = "done"
+    if job["done"] and not task["cancel_requested"]:
+        task["at"] = "keeping versions slim"
+        try:
+            _slim_work(work)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+    job["state"] = "cancelled" if task["cancel_requested"] else "done"
+    _task_finished(task, "done")
 
 
 @app.get("/api/works/{work}/versions/fetch")
@@ -2920,7 +3034,8 @@ def fetch_work_version_status(work: str):
     return job
 
 
-def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False) -> None:
+def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False,
+                       task: "dict | None" = None) -> None:
     # Whatever goes wrong is the job's answer, in words: an unexpected
     # error would otherwise reach the page only as a failed request.
     try:
@@ -2932,6 +3047,8 @@ def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False
         import traceback
         traceback.print_exc()
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
+    if task is not None:
+        _task_finished(task, job["state"])
 
 
 def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bool = True) -> dict:
@@ -2948,7 +3065,7 @@ def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bo
         raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
     if replace:
         return _replace_version(work, version, content, then_slim)
-    return _add_version(work, content, f"{work}-v{version:03d}.pdf", version)
+    return _add_version(work, content, f"{work}-v{version:03d}.pdf", version, then_slim)
 
 
 # ---------------------------------------------------------------------------
@@ -3033,8 +3150,10 @@ def vic_import(req: VicImportRequest):
         if _vic_import.get("state") == "running":
             raise HTTPException(409, f"{_vic_import['title']} is still being retrieved.")
         _vic_import.clear()
-        _vic_import.update(state="running", title=req.title or slug, step="starting", results=[], error=None)
-    threading.Thread(target=_vic_import_job, args=(req, targets, _vic_import), daemon=True).start()
+        task = _task("retrieve", f"Retrieving {req.title or slug}", cancellable=False)
+        _vic_import.update(state="running", title=req.title or slug, step="starting", results=[], error=None,
+                           task=task["id"])
+    _in_background(_vic_import_job, req, targets, _vic_import, task)
     return dict(_vic_import)
 
 
@@ -3055,7 +3174,7 @@ def _download_pdf(url: str) -> bytes:
     return content
 
 
-def _vic_import_job(req: VicImportRequest, targets: list, job: dict) -> None:
+def _vic_import_job(req: VicImportRequest, targets: list, job: dict, task: "dict | None" = None) -> None:
     try:
         if req.kind == "act":
             _import_act(req, targets[0][1], job)
@@ -3068,6 +3187,8 @@ def _vic_import_job(req: VicImportRequest, targets: list, job: dict) -> None:
         import traceback
         traceback.print_exc()
         job.update(state="failed", error=f"{type(e).__name__}: {e}")
+    if task is not None:
+        _task_finished(task, job["state"])
 
 
 def _import_act(req: VicImportRequest, work: str, job: dict) -> None:

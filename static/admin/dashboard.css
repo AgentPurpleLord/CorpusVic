@@ -322,3 +322,13 @@ main { padding: 32px 28px; max-width: 1020px; margin: 0 auto; }
 }
 @keyframes pr-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pr-spinner { animation: none; } }
+
+/* Running tasks: the header's count, and the list. */
+#tasks-btn .count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px;
+                    background: var(--accent); color: var(--on-accent); font-size: 11px; line-height: 18px; text-align: center; }
+#tasks-btn .count[hidden] { display: none; }
+.task-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.task-row:first-child { border-top: 0; }
+.task-main { flex: 1; min-width: 0; }
+.task-row.failed strong { color: var(--del-fg); }
+.task-row.cancelled strong, .task-row.done strong { color: var(--muted); }

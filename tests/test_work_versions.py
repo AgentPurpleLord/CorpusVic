@@ -145,8 +145,9 @@ def test_a_fetched_version_is_added_as_an_uploaded_one_is(held, monkeypatch):
     job = _fetch(client, 1)
     assert job["state"] == "done" and job["result"]["slug"] == "cpa-v1"
     assert (dashboard.BASE_DIR / "acts" / "cpa" / "cpa-v001.pdf").read_bytes() == b"%PDF v1"
-    assert _fetch(client, 2) == {"version": 2, "state": "failed", "result": None,
-                                 "error": "The site has no single PDF of version 2."}
+    failed = {k: v for k, v in _fetch(client, 2).items() if k != "task"}
+    assert failed == {"version": 2, "state": "failed", "result": None,
+                      "error": "The site has no single PDF of version 2."}
 
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 3, "act_no": "7", "year": 2009})
     assert "the PDF says 3" in _fetch(client, 1)["error"]

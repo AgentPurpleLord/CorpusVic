@@ -24,6 +24,7 @@
   <h1>Legislation pipeline dashboard</h1>
   <div class="stat" id="summary"></div>
   <div class="spacer"></div>
+  <button class="btn" id="tasks-btn" onclick="openTasks()" title="Background jobs: fetching versions, slimming, retrieving">Running tasks <span class="count" id="tasks-count" hidden></span></button>
   <button class="btn" onclick="loadActs()">Refresh</button>
   <button class="btn primary" onclick="openModal('add-modal'); showAddTab('vic')">+ Add Act / Bill / EM</button>
   <button class="btn" id="theme-toggle-btn">&#127769;</button>
@@ -391,6 +392,16 @@
   </div>
 </div>
 
+<!-- Background jobs, and a way to stop one between its steps. -->
+<div class="overlay" id="tasks-modal">
+  <div class="modal wide">
+    <h2>Running tasks</h2>
+    <p class="hint">A task stops after the version it is working on: a parse cut off half-way would leave that
+      version half-written. Background parses run at low priority, so the dashboard stays responsive.</p>
+    <div id="tasks-list"></div>
+  </div>
+</div>
+
 <!-- A parse's whole log, opened from its results panel. -->
 <div class="overlay" id="log-modal">
   <div class="modal wide">
@@ -535,6 +546,54 @@ async function loadProfiles() {
   } catch (e) { /* the field still takes a typed name */ }
 }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+// Background jobs (dashboard /api/tasks): polled lightly for the count in
+// the header, and drawn in full while the list is open.
+let tasksTimer = null;
+async function loadTasks() {
+  let tasks = [];
+  try { tasks = await (await fetch("api/tasks")).json(); } catch (e) { return; }
+  const running = tasks.filter((t) => t.state === "running");
+  const count = document.getElementById("tasks-count");
+  count.hidden = !running.length;
+  count.textContent = running.length;
+  if (document.getElementById("tasks-modal").classList.contains("open")) paintTasks(tasks);
+  clearTimeout(tasksTimer);
+  tasksTimer = setTimeout(loadTasks, running.length ? 4000 : 20000);
+}
+
+function paintTasks(tasks) {
+  const since = (t) => {
+    const mins = Math.round((Date.now() / 1000 - t.started) / 60);
+    return mins < 1 ? "just now" : `${mins} min ago`;
+  };
+  const word = { running: "Running", done: "Finished", failed: "Failed", cancelled: "Stopped" };
+  document.getElementById("tasks-list").innerHTML = tasks.length ? tasks.map((t) => `<div class="task-row ${t.state}">
+      <div class="task-main"><strong>${escapeHtml(t.title)}</strong>
+        <div class="hint">${word[t.state] || t.state}${t.state === "running" && t.at ? ` &middot; ${escapeHtml(t.at)}` : ""}
+          &middot; started ${since(t)}${t.cancel_requested && t.state === "running" ? " &middot; stopping after this step" : ""}</div></div>
+      ${t.state === "running" && t.cancellable && !t.cancel_requested
+        ? `<button class="btn" onclick="cancelTask('${escapeHtml(t.id)}', this)">Stop</button>` : ""}
+    </div>`).join("") : `<p class="hint">Nothing is running.</p>`;
+}
+
+function openTasks() {
+  openModal("tasks-modal");
+  document.getElementById("tasks-list").innerHTML = `<p class="hint">Loading&hellip;</p>`;
+  loadTasks();
+}
+
+async function cancelTask(id, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`api/tasks/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't stop it.");
+    toast("Stopping after the step in hand.");
+  } catch (e) { toast(e.message, true); btn.disabled = false; }
+  loadTasks();
+}
+loadTasks();
 
 // Every dialog closes with an × or Escape, not only its Cancel button. A
 // click on the backdrop does not: a stray one would lose a half-filled

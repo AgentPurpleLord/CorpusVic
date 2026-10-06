@@ -524,6 +524,26 @@ async function followSlim() {
   await load();
 }
 
+// A Stop button beside the log while a fetch of every version runs.
+function paintStop(job) {
+  let btn = document.getElementById("stop-fetch");
+  if (job.state !== "running" || !job.task) { if (btn) btn.remove(); return; }
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "stop-fetch";
+    btn.className = "btn";
+    btn.textContent = "Stop fetching";
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await jsonOf(await fetch(`../../api/tasks/${encodeURIComponent(job.task)}/cancel`, { method: "POST" }));
+        btn.textContent = "Stopping after this version\u2026";
+      } catch (err) { toast(err.message, true); btn.disabled = false; }
+    };
+    document.getElementById("log").before(btn);
+  }
+}
+
 async function followFetchAll() {
   const log = document.getElementById("log");
   let job;
@@ -533,9 +553,12 @@ async function followFetchAll() {
   while (true) {
     const done = job.done.length + job.failed.length;
     log.textContent = (job.state === "running"
-        ? `Fetching every version: v${job.version} (${done + 1} of ${job.all.length})\u2026 This carries on if you close the page.\n`
+        ? `Fetching every version: v${job.version} (${done + 1} of ${job.all.length})\u2026 This carries on if you close the page. `
+          + `Stop it from here or the dashboard's Running tasks; it stops after the version in hand.\n`
+        : job.state === "cancelled" ? `Stopped after ${job.done.length} of ${job.all.length} versions.\n`
         : `Fetched ${job.done.length} of ${job.all.length} versions.\n`)
       + job.failed.map((f) => `v${f.version}: ${f.error}\n`).join("");
+    paintStop(job);
     if (job.state !== "running") break;
     await new Promise((r) => setTimeout(r, 5000));
     try { job = await jsonOf(await fetch(`${API}/versions/fetch`)); } catch { return; }
