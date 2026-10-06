@@ -24,7 +24,7 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "c7f45dd1317af5c8",
+  "fingerprint": "e679e297ed35ebc1",
   "parser_version": "73a62a26e1071d95",
   "nodes": [
     {
@@ -18877,8 +18877,8 @@
     {
       "type": "figure",
       "number": null,
-      "heading": null,
-      "text": "9ae2d115e907 620x727",
+      "heading": "Chart 1 - Terrorism record or terrorism risk",
+      "text": "a9ef448095a4 620x727",
       "page_start": 32,
       "page_end": 32,
       "rects": [
@@ -18903,13 +18903,13 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pt1/s3d/2/b/figure~9188ae"
+      "id": "pt1/s3d/2/b/figure-chart-1-terrorism-record-or-terrorism-ri"
     },
     {
       "type": "figure",
       "number": null,
-      "heading": null,
-      "text": "936ef00616fc 1300x2156",
+      "heading": "Flow Chart 2 \u2013 Which tests apply to adults generally?",
+      "text": "14dcb93d7d59 1300x2156",
       "page_start": 33,
       "page_end": 33,
       "rects": [
@@ -18934,7 +18934,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pt1/s3d/2/b/figure~3ecdf6"
+      "id": "pt1/s3d/2/b/figure-flow-chart-2-which-tests-apply-to-adults"
     },
     {
       "type": "subsection",
@@ -18999,8 +18999,8 @@
     {
       "type": "figure",
       "number": null,
-      "heading": null,
-      "text": "8a30b7fef7e1 897x1213",
+      "heading": "Flow Chart 3 \u2013 Exceptional circumstances and unacceptable risk tests",
+      "text": "68ee34e569a0 897x1213",
       "page_start": 34,
       "page_end": 34,
       "rects": [
@@ -19025,7 +19025,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pt1/s3d/4/figure~7d3cf4"
+      "id": "pt1/s3d/4/figure-flow-chart-3-exceptional-circumstances-a"
     },
     {
       "type": "subsection",
@@ -19090,8 +19090,8 @@
     {
       "type": "figure",
       "number": null,
-      "heading": null,
-      "text": "b6996feb844a 922x1241",
+      "heading": "Flow Chart 4 \u2013 Show compelling reason and unacceptable risk tests",
+      "text": "eda168241358 922x1241",
       "page_start": 35,
       "page_end": 35,
       "rects": [
@@ -19116,7 +19116,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pt1/s3d/5/figure~9d0f56"
+      "id": "pt1/s3d/5/figure-flow-chart-4-show-compelling-reason-and-"
     },
     {
       "type": "subsection",
@@ -19181,8 +19181,8 @@
     {
       "type": "figure",
       "number": null,
-      "heading": null,
-      "text": "3a7d76a7070f 1057x1110",
+      "heading": "Flow Chart 5 \u2013 Unacceptable risk test alone",
+      "text": "2ad854564afb 1057x1110",
       "page_start": 36,
       "page_end": 36,
       "rects": [
@@ -19207,7 +19207,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pt1/s3d/6/figure~935763"
+      "id": "pt1/s3d/6/figure-flow-chart-5-unacceptable-risk-test-alon"
     },
     {
       "type": "section",
