@@ -20,7 +20,10 @@ from corpus.parsing.extract import PageText
 # continuation of the previous note, not a new one.
 _CITATION_START_RE = re.compile(
     r"^("
-    r"Notes?\s*[\w]*\s*to\s+s\.|Examples?\s+to\s+s\.|Heading\s+preceding|Heading\s+(inserted|amended|substituted|repealed)"
+    # "Note to Sch. 2 item 22(d) ..." as well as "Note to s. 6": glued
+    # onto the note above it, it took that note's citation with it.
+    r"Notes?\s*[\w]*\s*to\s+(?:s\.|Schs?\.?\s*\d|Pt\s|Ch\.\s)|Examples?\s+to\s+(?:s\.|Schs?\.?\s*\d)"
+    r"|Heading\s+preceding|Heading\s+(inserted|amended|substituted|repealed)"
     r"|S\.|Ss\b|Pt\s|Ch\.\s|Schs?\.?\s*\d|Dictionary\s"
     # A provenance note ("No. 6103 s. 15.", "cf. [1819] 60 George III")
     # starts a note of its own rather than continuing the one above it --
@@ -38,6 +41,10 @@ _CITATION_RE = re.compile(
     r"^(?:Notes?\s*(?P<noteid>[\w]*)\s*to\s+s\.\s*(?P<nsection>\d+[A-Za-z]*)(?P<nsub>(?:\([^)]*\))*))"
     r"|^(?:Examples?\s*(?P<exid>[\w]*)\s*to\s+s\.\s*(?P<esection>\d+[A-Za-z]*)(?P<esub>(?:\([^)]*\))*))"
     r"|^(?:Heading\s+preceding\s+s\.\s*(?P<hsection>\d+[A-Za-z]*))"
+    # The note printed in a Schedule, or under one of its items: "Notes
+    # to Sch. 1 inserted ...", "Note to Sch. 2 item 22(d) substituted ...".
+    r"|^(?:Notes?\s*(?P<snoteid>[\w]*)\s*to\s+Schs?\.?\s*(?P<nschedule>\d+[A-Za-z]*)"
+    r"(?:\s*(?:cl|item)s?\.?\s*(?P<nschclause>\d+[A-Za-z]*(?:\.\d+[A-Za-z]*)?)(?P<nschsub>(?:\([^)]*\))*))?)"
     # A Schedule, and optionally one clause of it: "Sch. 2 repealed by
     # ...", "Sch. 1 cl. 4A(1) amended by ...". Schedules number their own
     # clauses from 1 again, so the clause only means anything alongside
@@ -162,6 +169,13 @@ def parse_note(raw: str) -> dict:
             result["sub_path"] = _split_subpath(gd.get("esub"))
             result["target_kind"] = "example"
             result["target_id"] = gd.get("exid") or None
+        elif gd.get("nschedule"):
+            result["schedule"] = gd["nschedule"]
+            if gd.get("nschclause"):
+                result["section"] = gd["nschclause"]
+                result["sub_path"] = _split_subpath(gd.get("nschsub"))
+            result["target_kind"] = "note"
+            result["target_id"] = gd.get("snoteid") or None
         elif gd.get("schedule"):
             result["schedule"] = gd["schedule"]
             if gd.get("schclause"):

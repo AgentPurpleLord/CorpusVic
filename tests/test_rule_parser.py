@@ -2045,3 +2045,63 @@ def test_a_margin_note_for_a_sub_item_reaches_it_and_it_reads_bare():
     parsed = {"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"}
     page = html_view.render_section(parsed, "An Act 2008", "", "i4")
     assert '<span class="prov-num">4.1</span>' in page
+
+
+def _bail_schedule_1():
+    """Bail Act Sch 1: Notes, then the list at the margin, each number
+    with a full stop -- "1. Treason." ran into note 2 as its text."""
+    return [
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("1 Short title", bold=True, x0=170, x1=250),
+        line("This Act may be cited as the Bail Act 1977.", x0=WRAP_X0, x1=420),
+        line("Schedule 1—Schedule 1 offences", bold=True, size=16.0, x0=186.7, x1=412),
+        line("Notes", bold=True, size=10.0, x0=184.3, x1=210),
+        line("1", size=10.0, x0=184.3, x1=191),
+        line("Section 4AA(1) sets out when a person who is accused of an", size=10.0, x0=204.7, x1=449),
+        line("offence in this Schedule will be subject to the test.", size=10.0, x0=204.7, x1=423),
+        line("2", size=10.0, x0=184.3, x1=191),
+        line("However, the test also applies in other circumstances.", size=10.0, x0=204.7, x1=437),
+        line("1. Treason.", x0=141.7, x1=214),
+        line("2. Murder.", x0=141.7, x1=212),
+        line("3. An offence against section 75A of the Crimes Act 1958", x0=141.7, x1=443),
+        line("(armed robbery).", x0=170, x1=254),
+        line("3A. An offence against section 77 of the Crimes Act 1958", x0=141.7, x1=434),
+        line("(aggravated burglary).", x0=170, x1=280),
+        line("4. An offence against any of the following provisions of the", x0=141.7, x1=448),
+        line("Drugs, Poisons and Controlled Substances Act 1981—", bold=True, x0=170, x1=449),
+        line("(a) section 71 (trafficking);", x0=190.8, x1=441),
+        line("(b) section 72 (cultivation).", x0=190.1, x1=435),
+    ]
+
+
+def test_a_schedules_list_numbered_with_full_stops_follows_its_notes():
+    nodes = _parse(_bail_schedule_1()).nodes
+
+    notes = [(n["number"], n["text"]) for n in nodes if n["type"] == "note"]
+    assert notes == [
+        ("1", "Section 4AA(1) sets out when a person who is accused of an offence in this Schedule will be "
+              "subject to the test."),
+        ("2", "However, the test also applies in other circumstances."),
+    ]
+    entries = [(n["number"], n["text"]) for n in nodes if n["type"] == "clause"]
+    assert entries == [
+        ("1", "Treason."),
+        ("2", "Murder."),
+        ("3", "An offence against section 75A of the Crimes Act 1958 (armed robbery)."),
+        ("3A", "An offence against section 77 of the Crimes Act 1958 (aggravated burglary)."),
+        ("4", "An offence against any of the following provisions of the Drugs, Poisons and Controlled "
+              "Substances Act 1981—"),
+    ]
+    assert [n["number"] for n in nodes if n["type"] == "paragraph"] == ["a", "b"]
+
+
+def test_a_schedule_the_act_calls_by_item_numbers_items():
+    """Bail Act s 3 speaks of "an item of Part 1 of Schedule 4", and no
+    margin note cites its items: the Act's own word still decides."""
+    from corpus.parsing.rule_parser import _item_schedules
+
+    pages = [page([line("(a) an offence against a provision specified in an item of Part 1 of", x0=241, x1=450),
+                   line("Schedule 4, being a provision of the Act;", x0=260, x1=440),
+                   line("(c) an offence specified in an item of Part 3 or 4 of Schedule 5;", x0=241, x1=450)])]
+
+    assert _item_schedules(pages) == {"4", "5"}

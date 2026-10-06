@@ -934,12 +934,12 @@ def test_asset_urls_stay_inside_a_project_site():
     v = asset_version()
     assert f'<link rel="stylesheet" href="/corpusvic/assets/tokens.css?v={v}">' in page
     assert f'<script src="/corpusvic/assets/reader.js?v={v}"></script>' in page
-    assert '<link rel="preload" href="/corpusvic/assets/fonts/Junicode-Roman.woff2"' in page
-    # Junicode is reached relative to tokens.css, so no prefix belongs in
+    assert '<link rel="preload" href="/corpusvic/assets/fonts/Inter.woff2"' in page
+    # The font is reached relative to tokens.css, so no prefix belongs in
     # the stylesheet itself -- that is what makes one file serve both.
     from corpus.publishing.html_view import template_text
 
-    assert "url('fonts/Junicode-Roman.woff2')" in template_text("tokens.css")
+    assert "url('fonts/Inter.woff2')" in template_text("tokens.css")
 
 
 def test_a_section_page_asks_for_the_reader_layout():

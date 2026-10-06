@@ -188,14 +188,16 @@ def test_both_versions_can_be_re_parsed_from_the_review(tmp_path, monkeypatch):
     assert lineage["slugs"] == {"this": "act-v1", "reference": "act-v2"}
 
 
-def test_history_review_links_to_the_parse_menu_for_either_version():
-    """A change denied as the parser's is put right by re-parsing."""
+def test_history_review_reparses_either_version_in_place():
+    """A change denied as the parser's is put right by re-parsing -- from
+    History review itself now, and still from the dashboard's Parse Menu
+    when another tool asks for it."""
     from corpus import PROJECT_ROOT
 
     history = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
     dashboard = (PROJECT_ROOT / "static" / "dashboard.html").read_text(encoding="utf-8")
 
-    assert 'href="../../?reparse=${encodeURIComponent(slugOf(v))}&mode=keep"' in history
+    assert 'onclick="reparse(${v}, this)"' in history
     assert "loadActs().then(openRequestedReparse);" in dashboard
     assert 'params.get("reparse")' in dashboard
     assert 'openParseMenu(s.work, [slug], params.get("mode"))' in dashboard

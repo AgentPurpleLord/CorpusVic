@@ -18,14 +18,15 @@
     <button class="btn" data-filter="confirmed">Confirmed</button>
     <button class="btn" data-filter="denied">Denied</button>
     <button class="btn" data-filter="all">All</button>
-    <button class="btn" data-filter="unnoted" title="Changes with no margin note in the later version: taken to be the parser reading the two versions differently, and not up for review">No margin note</button>
   </span>
+  <button class="btn" id="held-versions" title="The versions held here: re-parse any of them after a parser update">Versions</button>
   <button class="btn" id="fetch-versions" title="Every version legislation.vic.gov.au holds of this Act, to fetch and parse">Fetch versions&hellip;</button>
   <button class="btn" id="fetch-acts" title="Download the Acts that amended this one between the versions held, and read their instructions">Fetch amending Acts</button>
   <button class="btn" id="slim-all">Keep versions slim</button>
   <small id="slim-state" class="none"></small>
   <a class="btn" id="report" title="Everything flagged in review and every change denied here, with your notes, as a file to hand back">Report</a>
   <a class="btn" href="../../">Dashboard</a>
+  <div id="held-panel" hidden></div>
   <div id="versions-panel" hidden></div>
   <pre id="log"></pre>
 </header>
@@ -87,13 +88,11 @@ async function load() {
 // (corpus/history/changes.py): the Act's own word for it, not "removed".
 const OP_WORDS = { insert: "inserted", delete: "removed", repeal: "repealed" };
 
-// Only a change the Act itself records -- a margin note new in the later
-// version -- is up for review. Anything else is taken to be the parser
-// reading the two versions differently, kept aside under its own filter.
+// Only a change the Act itself records -- a margin note, or an amending
+// Act's instruction -- reaches this page: the server sets the rest aside
+// as the parser's (dashboard.history_items).
 function matches(i) {
   if (step && `${i.from}→${i.to}` !== step) return false;
-  if (filter === "unnoted") return !i.noted;
-  if (!i.noted) return false;
   if (filter === "all") return true;
   if (filter === "undecided") return !i.decision;
   if (filter === "evidence") return i.instructions.length > 0;
@@ -104,11 +103,11 @@ function render(reset) {
   const was = shown[current];
   shown = DATA.items.filter(matches);
   current = reset ? 0 : Math.max(0, Math.min(shown.indexOf(was) >= 0 ? shown.indexOf(was) : current, shown.length - 1));
-  const noted = DATA.items.filter((i) => i.noted);
-  const n = (d) => noted.filter((i) => i.decision === d).length;
+  const n = (d) => DATA.items.filter((i) => i.decision === d).length;
   document.getElementById("counts").textContent =
-    `${noted.length} changes with a margin note: ${n(null) + n(undefined)} undecided, ${n("confirmed")} confirmed, `
-    + `${n("denied")} denied; ${DATA.items.length - noted.length} without one, taken as the parser's`;
+    `${DATA.items.length} changes: ${n(null) + n(undefined)} undecided, ${n("confirmed")} confirmed, `
+    + `${n("denied")} denied`
+    + (DATA.set_aside ? `; ${DATA.set_aside} with no margin note or Act set aside as the parser's` : "");
   document.getElementById("list").innerHTML = shown.map((i, k) => `
     <div class="row${k === current ? " active" : ""}" data-k="${k}">
       <span class="dot ${i.decision || ""}"></span>
@@ -119,19 +118,23 @@ function render(reset) {
   showItem();
 }
 
-// One version: its wording, and under it its printed pages, scrolled to
-// the piece -- the two side by side, earlier on the left.
-function side(key, html, v) {
-  return `<div class="side"><div class="col"><div class="head">Version ${v}</div>`
-    + (html != null ? `<div class="text">${html}</div>` : `<div class="text none">Not in this version</div>`) + `</div>
-    <div class="pdf"><div class="pdf-bar">Version ${v} PDF
+// Each side wears its version's colour -- red for the earlier, green for
+// the later -- on its wording, its pane and every page drawn in it: two
+// grey panes side by side were easy to read the wrong way round.
+function wording(key, html, v) {
+  return `<div class="col ${key}"><div class="head"><span class="tag ${key}">${key === "old" ? "Old" : "New"}</span> Version ${v}</div>`
+    + (html != null ? `<div class="text">${html}</div>` : `<div class="text none">Not in this version</div>`) + `</div>`;
+}
+
+function pdfPane(key, v) {
+  return `<div class="pdf ${key}"><div class="pdf-bar"><span class="tag ${key}">${key === "old" ? "Old" : "New"}</span> Version ${v} PDF
       <button class="btn" onclick="turn('${key}', -1)" title="Earlier page">&larr;</button>
       <span id="${key}-label"></span>
       <button class="btn" onclick="turn('${key}', 1)" title="Later page">&rarr;</button>
       <span style="flex:1"></span>
       <button class="btn" onclick="zoom(-1)" title="Zoom out">&minus;</button>
       <button class="btn" onclick="zoom(1)" title="Zoom in">+</button></div>
-      <div class="pdf-scroll" id="${key}-scroll"></div></div></div>`;
+      <div class="pdf-scroll" id="${key}-scroll"></div></div>`;
 }
 
 function showItem() {
@@ -157,14 +160,14 @@ function showItem() {
       <button class="btn" onclick="decide('denied')">Deny: parsing issue (d)</button>
       ${decided}
     </div>
-    <div class="cols">${side("old", i.old_html, i.from)}${side("new", i.new_html, i.to)}</div>
-    <div class="decide">${[i.from, i.to].map((v) => slugOf(v) ? `<a class="btn" target="_blank" rel="noopener"
-        href="../../?reparse=${encodeURIComponent(slugOf(v))}&mode=keep"
-        title="The dashboard's Parse Menu for this version, keeping what is approved">Re-parse v${v}&hellip;</a>` : "").join(" ")}</div>
+    <div class="cols">${wording("old", i.old_html, i.from)}${wording("new", i.new_html, i.to)}</div>
     <div class="evidence">
-      <h3>Amending Acts</h3>${acts || '<div class="none">No fetched amending Act gives an instruction for this.</div>'}
-      <h3>Margin notes new in Version ${i.to}</h3>${notes || '<div class="none">None.</div>'}
-    </div>`;
+      <div><h3>Amending Acts</h3>${acts || '<div class="none">No fetched amending Act gives an instruction for this.</div>'}</div>
+      <div><h3>Margin notes new in Version ${i.to}</h3>${notes || '<div class="none">None.</div>'}</div>
+    </div>
+    <div class="cols">${pdfPane("old", i.from)}${pdfPane("new", i.to)}</div>
+    <div class="decide">${[i.from, i.to].map((v) => slugOf(v) ? `<button class="btn" onclick="reparse(${v}, this)"
+        title="Parse this version again with the current parser, keeping what is approved">Re-parse v${v}</button>` : "").join(" ")}</div>`;
   showPdf("old", i.from, i.old_at);
   showPdf("new", i.to, i.new_at);
 }
@@ -210,9 +213,10 @@ async function showPdf(key, v, at, page) {
   } catch (e) { scroll.innerHTML = `<div class="none">${esc(e.message)}</div>`; return; }
   if (panes[key] !== pane) return;   // moved on while this loaded
   pane.count = size.page_count;
+  const spot = at && at.absent ? insertionSpot(at) : null;
   // A piece this version hasn't got is shown where it would be: an
   // insertion or a repeal is judged against both printed versions too.
-  label.textContent = (at && at.absent ? `Not in Version ${v}: where it would be, ` : "") + `page ${page} of ${size.page_count}`;
+  label.textContent = (at && at.absent ? `Not in Version ${v}: marked where it would be, ` : "") + `page ${page} of ${size.page_count}`;
   label.classList.toggle("absent", Boolean(at && at.absent));
   const pages = [page - 1, page, page + 1].filter((p) => p >= 1 && p <= size.page_count);
   scroll.innerHTML = pages.map((p) => `<div class="stage" data-page="${p}"
@@ -220,15 +224,40 @@ async function showPdf(key, v, at, page) {
       <img src="${docs(slug)}/pages/${p}.png?zoom=${pdfZoom}" alt="Version ${v}, page ${p}"
         onerror="this.parentElement.insertAdjacentHTML('beforeend', '<div class=&quot;none&quot; style=&quot;position:absolute;top:40%;width:100%;text-align:center&quot;>This page could not be drawn.</div>')">
       <svg preserveAspectRatio="none" viewBox="0 0 ${size.width} ${size.height}">${hl.filter((r) => r.page === p).map((r) =>
-        `<rect class="hl" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("")}</svg>
-      <span class="pno">page ${p}</span></div>`).join("");
+        `<rect class="hl ${key}" x="${r.x0}" y="${r.y0}" width="${r.x1 - r.x0}" height="${r.y1 - r.y0}"></rect>`).join("")}
+        ${spot && spot.page === p ? spotSvg(spot, key, v) : ""}</svg>
+      <span class="pno">page ${p}</span>
+      <span class="ver-badge ${key}">${key === "old" ? "OLD" : "NEW"} &middot; v${v}</span></div>`).join("");
   requestAnimationFrame(() => {
     const target = scroll.querySelector(`.stage[data-page="${page}"]`);
-    const first = hl.find((r) => r.page === page);
+    const first = hl.find((r) => r.page === page) || (spot && spot.page === page ? { x0: spot.x0, y0: spot.y - 30 } : null);
     const y = target.offsetTop + (first ? first.y0 / size.height * target.clientHeight : 0);
     scroll.scrollTop = Math.max(0, y - scroll.clientHeight / 4);
     scroll.scrollLeft = first ? Math.max(0, target.offsetLeft + first.x0 / size.width * target.clientWidth - 20) : 0;
   });
+}
+
+// Where a piece this version hasn't got would go: just after the piece it
+// would follow, or just before the one it would precede, as the server
+// worked out (corpus/history/changes.py, _absent).
+function insertionSpot(at) {
+  const rects = (at.anchor || []).filter((r) => r.page != null);
+  if (!rects.length) return null;
+  if (at.insert === "before") {
+    const page = Math.min(...rects.map((r) => r.page));
+    const on = rects.filter((r) => r.page === page);
+    return { page, y: Math.min(...on.map((r) => r.y0)) - 4, x0: Math.min(...on.map((r) => r.x0)), x1: Math.max(...on.map((r) => r.x1)) };
+  }
+  const page = Math.max(...rects.map((r) => r.page));
+  const on = rects.filter((r) => r.page === page);
+  return { page, y: Math.max(...on.map((r) => r.y1)) + 4, x0: Math.min(...on.map((r) => r.x0)), x1: Math.max(...on.map((r) => r.x1)) };
+}
+
+function spotSvg(spot, key, v) {
+  const word = key === "old" ? `Inserted here in v${shown[current] ? shown[current].to : ""}` : `Removed from here (was in v${shown[current] ? shown[current].from : ""})`;
+  return `<line class="spot" x1="${spot.x0}" y1="${spot.y}" x2="${spot.x1}" y2="${spot.y}"></line>
+    <path class="spot-arrow" d="M ${spot.x0 - 14} ${spot.y - 6} L ${spot.x0 - 4} ${spot.y} L ${spot.x0 - 14} ${spot.y + 6} Z"></path>
+    <text class="spot-text" x="${spot.x0}" y="${spot.y + 13}">${esc(word)}</text>`;
 }
 
 function turn(key, by) {
@@ -313,6 +342,77 @@ document.addEventListener("click", async (e) => {
     await load();
   } catch (err) { toast(err.message, true); btn.disabled = false; }
 });
+
+// Re-parsing a version from here, after the parser has improved, without
+// the round trip to legislation.vic.gov.au that "Fetch versions..." makes.
+// A whole version is parsed again from its PDF; a slim one keeps only some
+// of its PDF's pages (corpus/history/slim.py), so it is fetched again whole
+// and parsed. Either way what is approved is kept, unless `mode` says not.
+const MODE_WORDS = { keep: "keeping what you approved", carry: "carrying your review over", discard: "starting its review again" };
+
+async function reparse(v, btn, mode) {
+  mode = mode || "keep";
+  const slug = slugOf(v);
+  if (!slug) return;
+  if (mode === "discard" && !confirm(`Delete every review decision for v${v} and parse it again?`)) return;
+  const slim = (DATA.slim || []).includes(v);
+  const log = document.getElementById("log");
+  log.style.display = "block";
+  log.textContent = `v${v}: ${slim ? "fetching it again whole and parsing" : "parsing again"}, ${MODE_WORDS[mode]}…`;
+  if (btn) btn.disabled = true;
+  try {
+    let data;
+    if (slim) {
+      let job = await jsonOf(await fetch(`${API}/versions/fetch/${v}?replace=true`, { method: "POST" }));
+      while (job.state === "running") {
+        await new Promise((r) => setTimeout(r, 3000));
+        job = await jsonOf(await fetch(`${API}/versions/fetch`));
+      }
+      if (job.state === "failed") throw new Error(job.error);
+      data = job.result;
+    } else {
+      const form = new FormData();
+      form.set("mode", mode);
+      form.set("confirm", "true");
+      data = await jsonOf(await fetch(`../../api/acts/${encodeURIComponent(slug)}/reparse`, { method: "POST", body: form }));
+    }
+    const s = data.summary;
+    log.textContent = data.ok
+      ? `v${v} parsed again` + (s ? `: ${s.provisions} provisions, ${s.lines.consumed}/${s.lines.total} lines read` : "")
+        + (slim ? ". It is whole now; “Keep versions slim” slims it again." : ".")
+      : `v${v}: the parse failed\n${data.log || data.detail || ""}`;
+    toast(data.ok ? `v${v} parsed again.` : `v${v} did not parse -- see the log.`, !data.ok);
+    await load();
+    paintHeld();
+  } catch (err) {
+    log.textContent = `v${v}: ${err.message}`;
+    toast(err.message, true);
+  } finally { if (btn) btn.disabled = false; }
+}
+
+// The versions held here, from what this page already has: no asking the
+// site again just to get at one.
+function paintHeld() {
+  const panel = document.getElementById("held-panel");
+  if (panel.hidden || !DATA) return;
+  panel.innerHTML = `<div class="held-head">
+      <strong>Versions held</strong>
+      <label>Review work: <select id="reparse-mode">
+        <option value="keep">Keep what I approved</option>
+        <option value="carry">Carry it over, withdrawing changed pieces</option>
+        <option value="discard">Start again</option></select></label></div>
+    <div class="held-list">${DATA.versions.slice().reverse().map(({ version: v }) => `<div class="held-row">
+      <span>v${v}</span>
+      <small>${v === DATA.base ? "base, held whole" : (DATA.slim || []).includes(v) ? "slim" : "whole"}</small>
+      <button class="btn" onclick="reparse(${v}, this, document.getElementById('reparse-mode').value)">Re-parse</button>
+    </div>`).join("")}</div>`;
+}
+
+document.getElementById("held-versions").onclick = () => {
+  const panel = document.getElementById("held-panel");
+  panel.hidden = !panel.hidden;
+  paintHeld();
+};
 
 // The site's list of versions, newest first, those held already ticked.
 // Each ticked one is fetched and parsed in turn, one request apiece, so

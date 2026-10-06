@@ -325,12 +325,28 @@ def _two_versions(tmp_path, monkeypatch, *, noted_s3=False):
 
 def test_only_a_change_with_a_margin_note_is_up_for_review(tmp_path, monkeypatch):
     """The Act prints a note beside every official change of wording; a
-    change without one is taken to be the parser reading the two versions
-    differently."""
+    change without one, and without an amending Act's instruction, is the
+    parser reading the two versions differently -- set aside, not shown."""
     dashboard = _two_versions(tmp_path, monkeypatch)
 
-    items = dashboard.history_items("act")["items"]
-    assert {(i["section"], i["noted"]) for i in items} == {("s 2", True), ("s 3", False)}
+    data = dashboard.history_items("act")
+    assert [(i["section"], i["noted"]) for i in data["items"]] == [("s 2", True)]
+    assert data["set_aside"] == 1
+
+
+def test_a_change_an_amending_act_accounts_for_is_kept_without_a_note(tmp_path, monkeypatch):
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    real = dashboard._history_items
+
+    def with_instruction(work, errors=None):
+        items = [dict(i) for i in real(work, errors)]
+        for i in items:
+            if i["section"] == "s 3":
+                i["instructions"] = [{"act": "7/2026", "provision": "s. 4", "raw": "...", "status": "matched", "here": True}]
+        return items
+    monkeypatch.setattr(dashboard, "_history_items", with_instruction)
+
+    assert {i["section"] for i in dashboard.history_items("act")["items"]} == {"s 2", "s 3"}
 
 
 def test_each_step_is_worked_out_once_until_its_versions_change(tmp_path, monkeypatch):
@@ -511,6 +527,8 @@ def test_every_change_is_set_beside_both_versions_pages():
 
     inserted = changes[("2", "2")]
     assert inserted["old_at"] == {**inserted["old_at"], "page": older[2]["rects"][0]["page"], "absent": True}
+    # The piece it follows, kept, so the page can mark where it goes.
+    assert inserted["old_at"]["anchor"] == older[2]["rects"] and inserted["old_at"]["insert"] == "after"
     assert inserted["old_at"]["rects"] == [] and inserted["new_at"]["page"] == newer[3]["rects"][0]["page"]
     section = changes[("3", WHOLE)]
     assert section["old_at"]["page"] == older[2]["rects"][0]["page"] and section["old_at"]["absent"], \
@@ -582,3 +600,17 @@ def test_the_report_downloads_as_markdown(tmp_path, monkeypatch):
     assert res.status_code == 200 and res.headers["content-type"].startswith("text/markdown")
     assert 'attachment; filename="act-report-' in res.headers["content-disposition"]
     assert res.text.startswith("# Review report: act")
+
+
+def test_history_review_shows_each_side_as_old_or_new_and_reparses_in_place():
+    from corpus import PROJECT_ROOT
+
+    page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
+
+    assert 'class="ver-badge ${key}"' in page and '"OLD"' in page
+    assert "function insertionSpot(" in page and "at.anchor" in page
+    assert 'id="held-versions"' in page and "/reparse`" in page
+    assert 'data-filter="unnoted"' not in page
+    # The evidence sits between the wording and the pages.
+    detail = page[page.index("function showItem()"):page.index("const ZOOMS")]
+    assert detail.index('wording("old"') < detail.index('class="evidence"') < detail.index('pdfPane("old"')

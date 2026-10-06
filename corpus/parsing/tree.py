@@ -5,6 +5,7 @@ the node it belongs to. No AI model is asked to produce a nested tree or
 parent references directly -- that's more error-prone than building the
 tree ourselves from a flat list we already trust.
 """
+import itertools
 import re
 
 from corpus.domain.hierarchy import HIERARCHY_ORDER, make_ranks, schedule_numbers
@@ -243,6 +244,20 @@ def _claim_repealed_section(section_runs: dict, number: str, claimed: set) -> "d
     return None
 
 
+_SCHEDULE_ENTRY_TYPES = {"section", "clause", "item"}
+
+
+def _schedule_entry(within: list[dict], entry: dict) -> list[dict]:
+    """A Schedule entry and what is printed under it, up to the next."""
+    start = next(i for i, n in enumerate(within) if n is entry)
+    run = [entry]
+    for node in within[start + 1:]:
+        if node["type"] in _SCHEDULE_ENTRY_TYPES:
+            break
+        run.append(node)
+    return run
+
+
 def _find_annotation(candidates: list[dict], sub_path: list[str], kind: str, wanted_id) -> tuple:
     """The note or example a citation like "Note to s. 6(1)" is about.
 
@@ -427,7 +442,30 @@ def attach_history(nodes: list[dict], pages, hierarchy_order: list[str] = HIERAR
                     found = _find_by_number(within, note["section"], {"section", "clause", "item", "subclause", "subitem"})
                     if found is not None:
                         target = found
-                        found_specific = True
+                        found_specific = not note["sub_path"] and not note.get("target_kind")
+                        # Narrowed within the item as a section's citation
+                        # is within the section: "Sch. 1 item 6(b)" is
+                        # paragraph (b), "Note to Sch. 2 item 22(d)" its
+                        # note -- all of them landed on the item.
+                        run = _schedule_entry(within, found)
+                        if note.get("target_kind"):
+                            annotation, specific = _find_annotation(
+                                run, note["sub_path"], note["target_kind"], note.get("target_id"))
+                            if annotation is not None:
+                                target, found_specific = annotation, specific
+                        elif note["sub_path"]:
+                            provision = _find_provision(run, note["sub_path"])
+                            if provision is not None:
+                                target, found_specific = provision, True
+                    wanted_specific = True
+                elif note.get("target_kind"):
+                    # "Notes to Sch. 1 inserted ...": the Notes the Schedule
+                    # opens with, before its first entry.
+                    within = in_schedule.get(note["schedule"], [])
+                    head = list(itertools.takewhile(lambda n: n["type"] not in _SCHEDULE_ENTRY_TYPES, within))
+                    annotation, specific = _find_annotation(head, [], note["target_kind"], note.get("target_id"))
+                    if annotation is not None:
+                        target, found_specific = annotation, specific
                     wanted_specific = True
         elif note["section"]:
             candidates = section_runs.get(note["section"], [])

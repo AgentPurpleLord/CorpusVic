@@ -480,8 +480,8 @@ def test_the_published_assets_are_the_template_directory(tmp_path):
 
     assert {"tokens.css", "page.css", "reader.css", "theme.js", "copy.js",
             "reader.js", "preview.js"} <= published
-    assert {"Junicode-Roman.woff2", "Inter.woff2"} <= published
-    assert {"Junicode-OFL.txt", "Inter-OFL.txt"} <= published, \
+    assert {"Inter.woff2", "Inter-Italic.woff2"} <= published
+    assert {"Inter-OFL.txt"} <= published, \
         "each font's licence has to travel with it"
     assert "page.html" not in published
 

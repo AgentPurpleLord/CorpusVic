@@ -497,7 +497,7 @@ def serving_app():
     return outer
 
 # static/site/ is the published site's template -- the page shell, its
-# stylesheets, its browser-side scripts and Junicode (see
+# stylesheets, its browser-side scripts and its font (see
 # corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
 # loads exactly the files public.py's archive publishes. StaticFiles
@@ -2155,7 +2155,12 @@ def _new_notes(item: dict) -> list[str]:
 def history_items(work: str):
     held = _held(work)
     errors: list = []
-    items = [dict(item) for item in _history_items(work, errors)]
+    every = [dict(item) for item in _history_items(work, errors)]
+    # Parliament never changes an Act without a margin note or an amending
+    # Act's instruction to show for it. A change with neither is the parser
+    # reading two versions differently: set aside, never put up for review.
+    items = [item for item in every
+             if item["noted"] or any(a.get("here") for a in item.get("instructions") or [])]
     decisions = db.load_history_decisions(work, BASE_DIR)
     notes = db.load_history_notes(work, BASE_DIR)
     for item in items:
@@ -2173,7 +2178,7 @@ def history_items(work: str):
     return {"work": work, "title": _act_title(held[-1]),
             "versions": [{"version": split_document_slug(s)[1], "slug": s} for s in held
                          if split_document_slug(s)[1] is not None],
-            "items": items, "errors": errors,
+            "items": items, "errors": errors, "set_aside": len(every) - len(items),
             # Which version is held whole, and which are kept as only their
             # changes -- what "Keep versions slim" would act on.
             "base": base,

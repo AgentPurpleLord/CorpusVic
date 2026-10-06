@@ -130,7 +130,22 @@ def name_index(names) -> dict:
         index_of[name] = index
     for index, name in pairs:
         index_of.setdefault(_former_name(name), index)
+        # A Schedule's entries turn from clauses into items when the parser
+        # learns the Act calls them that (Bail Act Sch 4): the same
+        # provisions, and their review should follow them.
+        index_of.setdefault(_other_entry_word(name), index)
     return index_of
+
+
+def _other_entry_word(name: str) -> str:
+    """ "sch4/cl1/a" as "sch4/item1/a", and the other way round."""
+    segments = name.split("/")
+    for i, segment in enumerate(segments):
+        if segment.startswith("sch"):
+            swap = {"cl": "item", "item": "cl"}
+            return "/".join(segments[:i + 1] + [re.sub(r"^(cl|item)(?=[0-9])", lambda m: swap[m.group(1)], segment)
+                                                for segment in segments[i + 1:]])
+    return name
 
 
 def node_ids(nodes: list[dict], hierarchy_order: "list[str] | None" = None) -> list[str]:

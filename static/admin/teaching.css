@@ -26,6 +26,6 @@ main { max-width: 980px; margin: 0 auto; padding: 16px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { font-size: 12px; color: var(--muted); font-weight: 600; }
-td.line { font-family: Georgia, serif; }
+td.line { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
 tr.new td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 h2 { font-size: 15px; margin: 18px 0 6px; }

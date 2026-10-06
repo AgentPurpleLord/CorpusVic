@@ -1615,7 +1615,7 @@ async def refuse_writes_when_read_only(request: Request, call_next):
     return await call_next(request)
 
 # static/site/ is the published site's template -- the page shell, its
-# stylesheets, its browser-side scripts and Junicode (see
+# stylesheets, its browser-side scripts and its font (see
 # corpus/html_view.py's TEMPLATE_DIR). Mounted at the same "/assets"
 # every page's asset URLs are built from, so a browse page served here
 # loads exactly the files public.py's archive publishes. StaticFiles

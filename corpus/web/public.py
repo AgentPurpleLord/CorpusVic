@@ -955,7 +955,7 @@ def _partial_notice_html(checked: int, total: int) -> str:
 
 def _copy_template(out: Path) -> None:
     """The whole template directory -- the stylesheets, the browser-side
-    scripts and Junicode -- published as "assets/", which is where every
+    scripts and the font -- published as "assets/", which is where every
     page's asset URLs point (see html_view.page_shell).
 
     Copied wholesale rather than file by file so that adding a stylesheet

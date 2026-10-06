@@ -247,3 +247,27 @@ def test_parse_note_records_an_example_citation():
 
 def test_parse_note_ordinary_citation_names_no_annotation():
     assert parse_note("S. 3(2)(a) amended by No. 52/2014 s. 11.")["target_kind"] is None
+
+
+def test_a_note_to_a_schedule_is_a_note_of_its_own():
+    """"Notes to Sch. 1 inserted ..." was glued onto "Sch. 1 inserted ..."
+    above it, as "Note to s. 6" never was."""
+    from corpus.parsing.history_notes import merge_note_blocks
+
+    merged = merge_note_blocks([("Sch. 1 inserted by No. 26/2017 s. 13.", None),
+                                ("Notes to Sch. 1 inserted by No. 32/2018 s. 97(2).", None),
+                                ("Note to Sch. 2 item 22(d) substituted by No. 34/2025 s. 21(2).", None)])
+
+    assert [text for text, _rect in merged] == [
+        "Sch. 1 inserted by No. 26/2017 s. 13.",
+        "Notes to Sch. 1 inserted by No. 32/2018 s. 97(2).",
+        "Note to Sch. 2 item 22(d) substituted by No. 34/2025 s. 21(2).",
+    ]
+
+
+def test_a_note_to_a_schedule_item_names_that_items_note():
+    from corpus.parsing.history_notes import parse_note
+
+    note = parse_note("Note to Sch. 2 item 22(d) substituted by No. 34/2025 s. 21(2).")
+
+    assert (note["schedule"], note["section"], note["sub_path"], note["target_kind"]) == ("2", "22", ["(d)"], "note")

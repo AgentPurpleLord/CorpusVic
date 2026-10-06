@@ -291,3 +291,12 @@ def test_a_chart_is_shown_small_and_opens_full_size(figures_dir):
     link = re.search(r'<a class="figure-zoom" href="([^"]+)"', body)
     assert link and link.group(1) == "/figures/0123456789ab.png"
     assert "figure.js" in (figures.PROJECT_ROOT / "static" / "site" / "page.html").read_text(encoding="utf-8")
+
+
+def test_an_enlarged_chart_opens_fitted_and_zooms():
+    """Opened at its own pixel size, the tallest Bail Act chart ran off
+    the screen: it opens fitted, and zooms from there."""
+    script = (figures.PROJECT_ROOT / "static" / "site" / "figure.js").read_text(encoding="utf-8")
+
+    assert 'data-zoom="in"' in script and 'data-zoom="out"' in script and 'data-zoom="fit"' in script
+    assert "fit();" in script.split("dialog.showModal();", 1)[1]
