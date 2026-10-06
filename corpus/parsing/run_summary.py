@@ -53,6 +53,40 @@ def remap_summary(report: "dict | None") -> "dict | None":
     return out
 
 
+# What each kind of finding means to a reviewer, said once for the lot
+# of them rather than in full per note. {n} is how many.
+_ISSUES = {
+    "completeness": ("Lines not read", "The parser lost track of some lines. Treat this parse as unreliable."),
+    "preamble": ("Text before the first provision", "Check the start page if real provisions are in it."),
+    "duplicate-number": ("{n} number(s) appear twice", "Usually a mis-read boundary between provisions."),
+    "history-unattached": ("{n} amendment note(s) not linked to anything",
+                           "Kept for you to attach in review."),
+    "history-low-confidence": ("{n} amendment note(s) put on the nearest provision",
+                               "The note names a subsection or paragraph the parse didn't find, "
+                               "so it went on the provision above. Check them in review."),
+}
+_SEVERITY_ORDER = {"error": 0, "warning": 1}
+
+
+def issue_groups(report) -> list[dict]:
+    """The diagnostics report's errors and warnings, one group per kind,
+    errors first. Info findings are for review, not this summary."""
+    groups: dict = {}
+    for f in report.findings:
+        if f.severity not in _SEVERITY_ORDER:
+            continue
+        g = groups.setdefault(f.category, {"category": f.category, "severity": f.severity, "items": []})
+        if _SEVERITY_ORDER[f.severity] < _SEVERITY_ORDER[g["severity"]]:
+            g["severity"] = f.severity
+        g["items"].append(f.short or f.message)
+    out = []
+    for g in groups.values():
+        title, hint = _ISSUES.get(g["category"], (g["category"].replace("-", " ").capitalize(), ""))
+        out.append({"category": g["category"], "severity": g["severity"], "count": len(g["items"]),
+                    "title": title.format(n=len(g["items"])), "hint": hint, "examples": sample(g["items"])})
+    return sorted(out, key=lambda g: (_SEVERITY_ORDER[g["severity"]], -g["count"]))
+
+
 def emit(summary: dict) -> None:
     print(MARKER + json.dumps(summary, default=str), flush=True)
 

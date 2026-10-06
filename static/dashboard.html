@@ -391,6 +391,18 @@
   </div>
 </div>
 
+<!-- A parse's whole log, opened from its results panel. -->
+<div class="overlay" id="log-modal">
+  <div class="modal wide">
+    <h2>Log &mdash; <span id="log-modal-title"></span></h2>
+    <pre id="log-modal-text" class="log-view"></pre>
+    <div class="footer">
+      <button type="button" class="btn" onclick="copyLog()">Copy log</button>
+      <button type="button" class="btn primary" onclick="closeModal('log-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="name-modal">
   <div class="modal">
     <h2>Name &mdash; <span id="name-work"></span></h2>
@@ -523,6 +535,25 @@ async function loadProfiles() {
   } catch (e) { /* the field still takes a typed name */ }
 }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+// Every dialog closes with an × or Escape, not only its Cancel button. A
+// click on the backdrop does not: a stray one would lose a half-filled
+// form. Added here rather than to each dialog's markup so a new dialog
+// gets it too.
+document.querySelectorAll(".overlay > .modal").forEach((modal) => {
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "modal-close";
+  close.setAttribute("aria-label", "Close");
+  close.innerHTML = "&times;";
+  close.onclick = () => closeModal(modal.parentElement.id);
+  modal.prepend(close);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const open = [...document.querySelectorAll(".overlay.open")];
+  if (open.length) closeModal(open[open.length - 1].id);
+});
 
 async function logout() {
   await fetch("api/logout", { method: "POST" });
@@ -1392,8 +1423,10 @@ function openParseMenu(work, ticked, mode) {
     return `<label class="parse-version"><input type="checkbox" value="${escapeHtml(v.slug)}"
         ${v.has_pdf ? "" : "disabled"} ${start.has(v.slug) && v.has_pdf ? "checked" : ""}
         onchange="paintParseMenu()" style="width:auto; margin-right:6px;">
-      <strong>${escapeHtml(versionName(v))}</strong>${asAt} &middot; ${state}</label>`;
+      <strong>${escapeHtml(versionName(v))}</strong>${asAt} &middot; ${state}
+      <span class="last-parse" data-slug="${escapeHtml(v.slug)}"></span></label>`;
   }).join("");
+  showLastParses(versions.filter((v) => v.parsed).map((v) => v.slug));
   const latest = versions[versions.length - 1] || {};
   if (latest.kind) document.getElementById("parse-kind").value = latest.kind;
   // By name, never the slug: "criminal-procedure-act-v114" is not a
@@ -1406,6 +1439,39 @@ function openParseMenu(work, ticked, mode) {
   onParseKindChange();
   paintParseMenu();
   openModal("parse-modal");
+}
+
+// When each version was last parsed from here, and how it went -- the
+// panel that parse showed, one click away (a record the dashboard keeps,
+// see dashboard._parse_output).
+async function showLastParses(slugs) {
+  if (!slugs.length) return;
+  try {
+    const qs = slugs.map((s) => `slug=${encodeURIComponent(s)}`).join("&");
+    const last = await (await fetch(`api/parses/last?${qs}`)).json();
+    for (const el of document.querySelectorAll("#parse-versions .last-parse")) {
+      const rec = last[el.dataset.slug];
+      if (!rec) continue;
+      el.innerHTML = ` &middot; last parsed ${escapeHtml(prWhen(rec.at))} ${rec.ok ? "&#10003;" : "&#10007;"}
+        <button type="button" class="link-btn" onclick="event.preventDefault(); viewLastParse('${escapeHtml(el.dataset.slug)}')">View</button>`;
+    }
+  } catch (e) { /* the menu works without them */ }
+}
+
+async function viewLastParse(slug) {
+  const wrap = document.getElementById("parse-log-wrap");
+  wrap.style.display = "block";
+  widenFor(wrap);
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/last-parse`);
+    const rec = await res.json();
+    if (!res.ok) throw new Error(rec.detail || "No record of a parse.");
+    wrap.innerHTML = `<div class="pr-section">Last parse</div><div></div>`;
+    renderParseResult(wrap.lastElementChild, rec);
+  } catch (e) {
+    wrap.innerHTML = `<div class="pr-error">${escapeHtml(e.message)}</div>`;
+  }
+  wrap.scrollIntoView({ block: "nearest" });
 }
 
 // What the ticked versions and the chosen mode mean for review work
@@ -1525,10 +1591,36 @@ function prSample(sample) {
     + (more > 0 ? `<li class="pr-more">and ${more} more — see the full log</li>` : "") + "</ul>";
 }
 
+// Logs by panel, for the viewer: a log can be 100KB and has no business
+// in an onclick attribute.
+const PR_LOGS = new Map();
+let prLogSeq = 0;
+
+function openLogModal(id) {
+  const entry = PR_LOGS.get(id) || { title: "", log: "" };
+  document.getElementById("log-modal-title").textContent = entry.title;
+  document.getElementById("log-modal-text").textContent = entry.log || "(no output)";
+  openModal("log-modal");
+}
+
+async function copyLog() {
+  try {
+    await navigator.clipboard.writeText(document.getElementById("log-modal-text").textContent);
+    toast("Log copied.");
+  } catch (e) {
+    toast("Couldn't copy -- select the text instead.", true);
+  }
+}
+
 // A modal is sized for a form; the panel needs the room of the wide one.
 function widenFor(el) {
   const modal = el.closest(".modal");
   if (modal) modal.classList.add("wide");
+}
+
+function prWhen(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? iso : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function renderParseRunning(el, name, step) {
@@ -1591,18 +1683,19 @@ function renderParseResult(el, data) {
         <div>${bits.join(" · ")}</div>${changed}${orphaned}</div>`);
     }
 
-    const d = s.diagnostics || {};
-    const pw = s.parser_warnings || {};
     const mn = s.margin_notes || {};
-    if (d.errors || d.warnings || pw.count || mn.unlinked || !whole) {
-      const counts = [];
-      if (d.errors) counts.push(`${d.errors} error${d.errors === 1 ? "" : "s"}`);
-      if (d.warnings) counts.push(`${d.warnings} warning${d.warnings === 1 ? "" : "s"}`);
-      out.push(`<div class="pr-block ${d.errors || !whole ? "bad" : "warn"}">
-        <div class="pr-blockhead">Worth a look${counts.length ? ` — ${counts.join(", ")}` : ""}</div>
-        ${prSample(d.top)}
-        ${pw.count ? `<div class="pr-subhead">From the parser</div>${prSample(pw)}` : ""}
-        ${mn.unlinked ? `<div class="pr-subhead">${mn.unlinked} amendment note${mn.unlinked === 1 ? "" : "s"} could not be linked to a provision — kept for review</div>` : ""}
+    // Grouped by kind (run_summary.issue_groups); an older summary has
+    // only the diagnostics counts.
+    const issues = s.issues || [];
+    if (issues.length || !whole) {
+      const bad = issues.some((g) => g.severity === "error") || !whole;
+      out.push(`<div class="pr-block ${bad ? "bad" : "warn"}">
+        <div class="pr-blockhead">Worth a look</div>
+        ${issues.map((g) => `<div class="pr-issue">
+          <div class="pr-issue-title">${escapeHtml(g.title)}</div>
+          ${g.hint ? `<div class="pr-issue-hint">${escapeHtml(g.hint)}</div>` : ""}
+          ${g.examples && g.examples.count ? `<details><summary>Show which</summary>${prSample(g.examples)}</details>` : ""}
+        </div>`).join("")}
       </div>`);
     }
 
@@ -1618,10 +1711,18 @@ function renderParseResult(el, data) {
       out.push(`<dl class="pr-facts">${facts.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`).join("")}</dl>`);
     }
   }
-  if (ok) out.push(`<div class="pr-next">Open it from the dashboard's <strong>Review</strong> button.</div>`);
-  // Open by itself when there is nothing else to go on.
-  out.push(`<details class="pr-log"${!s || !ok ? " open" : ""}><summary>Full log</summary>
-    <pre>${escapeHtml(data.log || "(no output)")}</pre></details>`);
+  const logId = `log-${++prLogSeq}`;
+  PR_LOGS.set(logId, { title: slug || "parse", log: data.log || "" });
+  if (!ok) {
+    // Where a failure says what went wrong: the end of the log.
+    const tail = (data.log || "").trimEnd().split("\n").slice(-12).join("\n");
+    if (tail) out.push(`<pre class="pr-tail">${escapeHtml(tail)}</pre>`);
+  }
+  out.push(`<div class="pr-foot">
+    ${data.at ? `<span class="pr-when">Parsed ${escapeHtml(prWhen(data.at))}</span>` : ""}
+    ${ok ? `<span class="pr-next">Open it from the dashboard's <strong>Review</strong> button.</span>` : ""}
+    <button type="button" class="btn small" onclick="openLogModal('${logId}')">View full log</button>
+  </div>`);
   el.innerHTML = `<div class="pr ${ok ? "" : "pr-failed"}">${out.join("")}</div>`;
 }
 

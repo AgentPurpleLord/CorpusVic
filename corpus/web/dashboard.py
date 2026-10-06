@@ -82,10 +82,11 @@ from datetime import datetime, timezone
 import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 
 from corpus.web.admin_page import admin_html, revalidate_static
@@ -2493,12 +2494,59 @@ def _run_parse_subprocess(cmd: list[str]) -> tuple[bool, "int | None", str]:
     return result.returncode == 0, result.returncode, result.stdout + result.stderr
 
 
-def _parse_output(log: str) -> dict:
+def _parse_output(log: str, slug: "str | None" = None, ok: "bool | None" = None) -> dict:
     """{"log", "summary"} from a pipeline's output: the summary line it
     ends with (corpus/parsing/run_summary.py) taken out of the log and
-    handed over as data, for the parse panels to draw."""
+    handed over as data, for the parse panels to draw.
+
+    Kept as this document's last parse too, so its outcome can be looked
+    at again once the dialog that showed it is gone. In data/diagnostics/,
+    which is gitignored: a record of this machine's runs, not data."""
     text, summary = run_summary.split_log(log)
+    if slug:
+        record = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "ok": bool(ok),
+                  "summary": summary, "log": text}
+        try:
+            path = _last_parse_path(slug)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(record), encoding="utf-8")
+        except OSError:
+            traceback.print_exc()
     return {"log": text, "summary": summary}
+
+
+def _last_parse_path(slug: str) -> Path:
+    return BASE_DIR / "data" / "diagnostics" / f"{slug}.last-parse.json"
+
+
+def _last_parse(slug: str) -> "dict | None":
+    try:
+        return json.loads(_last_parse_path(slug).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+@app.get("/api/parses/last")
+def last_parses(slug: list[str] = Query(default=[])):
+    """{slug: {"at", "ok"}} for each document given that the dashboard
+    has parsed, for the Parse menu's rows."""
+    out = {}
+    for one in slug:
+        _validate_slug(one)
+        record = _last_parse(one)
+        if record:
+            out[one] = {"at": record.get("at"), "ok": record.get("ok")}
+    return out
+
+
+@app.get("/api/acts/{slug}/last-parse")
+def last_parse(slug: str):
+    _validate_slug(slug)
+    record = _last_parse(slug)
+    if record is None:
+        raise HTTPException(404, "No parse of this document has been run from the dashboard yet "
+                                 "(one run from the command line is not recorded).")
+    return {"slug": slug, **record}
 
 
 def _find_source_pdf(slug: str) -> "Path | None":
@@ -2551,7 +2599,7 @@ async def new_act(
 
     cmd = _build_parse_command(dest, kind, profile, start_page, end_page)
     ok, returncode, log = _run_parse_subprocess(cmd)
-    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log)}
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log, slug, ok)}
 
 
 def _kill_work_review_processes(work: str) -> None:
@@ -2644,7 +2692,7 @@ def _add_version(work: str, content: bytes, filename: str, version: "int | None"
     _kill_work_review_processes(work)
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", ""))
-    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log), "slimmed": _slim_work(work) if ok else None}
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log, slug, ok), "slimmed": _slim_work(work) if ok else None}
 
 
 def _not_writable(folder: Path) -> HTTPException:
@@ -2688,7 +2736,7 @@ def _replace_version(work: str, version: int, content: bytes, then_slim: bool = 
     _act_title_cache.pop(slug, None)
     profile = _parse_field(slug, "profile") or ""
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", profile, "", "", keep_accepted=True))
-    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log), "replaced": True,
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log, slug, ok), "replaced": True,
             "slimmed": _slim_work(work) if ok and then_slim else None}
 
 
@@ -3044,7 +3092,7 @@ def _import_act(req: VicImportRequest, work: str, job: dict) -> None:
     slug = document_slug(work, int(newest["version"]))
     _act_title_cache.pop(slug, None)
     ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, "act", "", "", ""))
-    job["results"].append({"slug": slug, "ok": ok, **_parse_output(log), "note": note})
+    job["results"].append({"slug": slug, "ok": ok, **_parse_output(log, slug, ok), "note": note})
 
 
 def _import_bill(req: VicImportRequest, targets: list, job: dict) -> None:
@@ -3072,7 +3120,7 @@ def _import_bill(req: VicImportRequest, targets: list, job: dict) -> None:
         job["step"] = f"parsing the {name}"
         _act_title_cache.pop(slug, None)
         ok, returncode, log = _run_parse_subprocess(_build_parse_command(dest, kind, "", "", ""))
-        job["results"].append({"slug": slug, "ok": ok, **_parse_output(log), "note": None})
+        job["results"].append({"slug": slug, "ok": ok, **_parse_output(log, slug, ok), "note": None})
 
 
 @app.post("/api/acts/{slug}/reparse")
@@ -3174,7 +3222,7 @@ def reparse_act(
         # "Review" click rather than let it keep serving the old node
         # list against a database that may no longer line up with it.
         _kill_review_process(slug)
-    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log),
+    return {"ok": ok, "slug": slug, "returncode": returncode, **_parse_output(log, slug, ok),
             "cleared": cleared, "mode": chosen}
 
 

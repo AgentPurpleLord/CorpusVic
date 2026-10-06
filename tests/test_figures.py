@@ -282,3 +282,12 @@ def test_ocr_that_fails_leaves_the_heading_blank_and_the_parse_going():
         raise RuntimeError("model file missing")
 
     assert figures.read_heading(Image.new("RGB", (600, 900), "white"), set(), ocr) is None
+
+
+def test_a_chart_is_shown_small_and_opens_full_size(figures_dir):
+    body = render_section({"nodes": _act_with_chart(), "hierarchy": None},
+                          "Bail Act 1977", "/browse/bail-act", "s3d")
+
+    link = re.search(r'<a class="figure-zoom" href="([^"]+)"', body)
+    assert link and link.group(1) == "/figures/0123456789ab.png"
+    assert "figure.js" in (figures.PROJECT_ROOT / "static" / "site" / "page.html").read_text(encoding="utf-8")

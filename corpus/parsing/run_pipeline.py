@@ -297,8 +297,8 @@ def main():
     summary["complete"] = report.complete
     summary["diagnostics"] = {
         "errors": n_err, "warnings": n_warn, "info": n_info,
-        "top": run_summary.sample([f.message for f in report.by_severity("error") + report.by_severity("warning")]),
     }
+    summary["issues"] = run_summary.issue_groups(report)
     run_summary.emit(summary)
     if not report.complete:
         # Every input line landing in exactly one node is a hard
