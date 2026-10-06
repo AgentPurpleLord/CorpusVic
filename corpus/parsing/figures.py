@@ -169,18 +169,37 @@ def read_heading(image, vocabulary: "set[str] | None" = None, ocr=None) -> "str 
     ocr = ocr or _ocr()
     if ocr is None:
         return None
+    # Never lets a parse fail: the OCR library's output differs between
+    # releases (an older one, all pip offers Python 3.13, scores as
+    # strings and crashed the Bail Act's parse), and a heading is a
+    # nicety where the chart and the parse are not.
+    try:
+        return _read_heading(image, vocabulary or set(), ocr)
+    except Exception as e:
+        print(f"  ! A chart's heading was not read: {e!r}")
+        return None
+
+
+def _score(box) -> float:
+    try:
+        return float(box[2])
+    except (TypeError, ValueError, IndexError):
+        return 0.0
+
+
+def _read_heading(image, vocabulary: set, ocr) -> "str | None":
     import numpy as np
 
     top = image.crop((0, 0, image.width, max(1, image.height // 5))).convert("RGB")
     boxes, _elapsed = ocr(np.array(top))
-    boxes = [b for b in boxes or [] if b[2] >= 0.8]
+    boxes = [b for b in boxes or [] if _score(b) >= 0.8]
     if not boxes:
         return None
     first = min(min(p[1] for p in b[0]) for b in boxes)
     line_height = max(max(p[1] for p in b[0]) - min(p[1] for p in b[0]) for b in boxes)
     line = sorted((b for b in boxes if min(p[1] for p in b[0]) - first < line_height * 0.6),
                   key=lambda b: min(p[0] for p in b[0]))
-    text = tidy_heading(" ".join(b[1] for b in line), vocabulary or set())
+    text = tidy_heading(" ".join(str(b[1]) for b in line), vocabulary)
     return text if _HEADING_RE.match(text) else None
 
 
