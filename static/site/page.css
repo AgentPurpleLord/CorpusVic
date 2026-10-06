@@ -171,7 +171,27 @@ a:hover, a:focus-visible { color: var(--link-hover); text-decoration-color: curr
   border-radius: var(--radius);
   text-align: center;
 }
-.prov-figure img { max-width: 100%; height: auto; }
+/* Small and whole, not a crop: the full chart is a click away
+   (figure.js). */
+.prov-figure img { display: block; margin: 0 auto; max-width: 100%; max-height: 22rem; width: auto; height: auto; }
+.figure-zoom { display: inline-block; cursor: zoom-in; text-decoration: none; color: #4d5b70; }
+.figure-hint { display: block; margin-top: var(--space-2); font-family: var(--sans); font-size: 12px; }
+.figure-zoom:hover .figure-hint, .figure-zoom:focus-visible .figure-hint { text-decoration: underline; }
+
+/* The chart full size, over the page. White under it in either theme,
+   as on the card. */
+.figure-dialog {
+  max-width: 95vw; max-height: 92vh; padding: var(--space-5) var(--space-4) var(--space-4);
+  border: 0; border-radius: var(--radius); background: #fff; overflow: auto;
+}
+.figure-dialog::backdrop { background: rgba(15, 22, 34, 0.7); }
+.figure-dialog img { display: block; max-width: 100%; height: auto; }
+.figure-dialog-close {
+  position: sticky; top: 0; float: right; margin: -16px -8px 0 8px;
+  width: 36px; height: 36px; border: 0; border-radius: var(--radius-sm);
+  background: #fff; color: #13223a; font-size: 24px; line-height: 1; cursor: pointer;
+}
+.figure-dialog-close:hover { background: #eef2f6; }
 
 /* The penalty for an offence. The Act sets it under the provision
    creating the offence, on its own, and it reads as a separate

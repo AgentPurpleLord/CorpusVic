@@ -16,6 +16,7 @@ by hand. Three kinds of check:
 Nothing here is silently dropped or silently fixed -- every finding names
 the exact node and page so review.py can jump straight to it.
 """
+import re
 from dataclasses import dataclass, field
 
 from corpus.domain.hierarchy import heading_levels
@@ -29,6 +30,10 @@ class Finding:
     message: str
     page: int | None = None
     node_index: int | None = None  # index into the nodes list, when the finding is about one specific node
+    # The finding in a few words, for a list of many of them (the parse
+    # panel's grouped warnings, corpus/parsing/run_summary.py), where the
+    # full message repeated per note was a wall nobody read.
+    short: str = ""
 
 
 @dataclass
@@ -61,6 +66,16 @@ _LEAF_TYPES = {
     "section", "clause", "item", "subsection", "subclause", "subitem", "paragraph", "subparagraph", "sub_subparagraph",
     "note", "definition", "repealed", "example", "penalty", "table",
 }
+
+
+# What a margin note says changed it: everything before "amended by",
+# "inserted by" and the rest, which is where the note's length is.
+_CHANGE_RE = re.compile(r"\s+(?:amended|inserted|repealed|substituted|renumbered|re-numbered|omitted|expired)\b.*$",
+                        re.I | re.S)
+
+
+def _cited(raw: str) -> str:
+    return _CHANGE_RE.sub("", " ".join((raw or "").split()))[:60]
 
 
 def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_notes: list[dict]) -> DiagnosticsReport:
@@ -98,6 +113,7 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
                 f"{node['type']} {node['number']!r} appears more than once under the same parent "
                 f"(pages {seen[key]['page_start']} and {node['page_start']}) -- likely a mis-detected boundary.",
                 page=node["page_start"], node_index=idx,
+                short=f"{node['type']} {node['number']} (pp. {seen[key]['page_start']}, {node['page_start']})",
             ))
         else:
             seen[key] = node
@@ -123,6 +139,7 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
                     f"Note {h['raw'][:80]!r} cited a more specific provision than was found; "
                     f"attached to {node['type']} {node['number']!r} (page {node['page_start']}) as the closest match.",
                     page=node["page_start"], node_index=idx,
+                    short=f"{_cited(h['raw'])} → {node['type']} {node['number']} (p. {node['page_start']})",
                 ))
 
     for note in unattached_notes:
@@ -136,6 +153,7 @@ def run_diagnostics(parse_result: ParseResult, nodes: list[dict], unattached_not
             "warning", "history-unattached",
             f"Note {note['raw'][:80]!r} (page {note['page']}) could not be linked to any node.",
             page=note["page"],
+            short=f"{_cited(note['raw'])} (p. {note['page']})",
         ))
 
     return report

@@ -170,6 +170,17 @@ main { padding: 32px 28px; max-width: 1020px; margin: 0 auto; }
    form: an Act can define several hundred words, and a column of them
    440px wide is unreadable. */
 .modal.wide { width: 720px; }
+/* Every dialog's × (added by dashboard.html). Sticky, because a dialog
+   scrolls -- a parse's results run long -- and the way out should not
+   scroll away with it. */
+.modal-close {
+  position: sticky; top: 0; float: right; margin: -14px -18px 0 8px; z-index: 1;
+  width: 32px; height: 32px; border: 0; border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer;
+}
+.modal-close:hover { background: var(--hover-bg); color: var(--fg); }
+.modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; text-decoration: underline; }
 .modal h2 { font-size: 15px; margin: 0 0 14px; }
 .term-list { max-height: 46vh; overflow: auto; border: 1px solid var(--border); margin-top: 10px; }
 .term-row {
@@ -287,13 +298,23 @@ main { padding: 32px 28px; max-width: 1020px; margin: 0 auto; }
 .pr-more { list-style: none; margin-left: -1.2em; opacity: .8; }
 .pr-next { font-size: 13px; }
 .pr-error { color: var(--del-fg); font-size: 13px; }
-.pr-log summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
-.pr-log pre {
+.pr-issue + .pr-issue { margin-top: var(--space-3); }
+.pr-issue-title { font-weight: 600; }
+.pr-issue-hint { margin-top: 2px; }
+.pr-issue details { margin-top: 4px; }
+.pr-issue summary { cursor: pointer; font-size: 12.5px; }
+.pr-foot { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; font-size: 13px; }
+.pr-foot .btn { margin-left: auto; }
+.pr-when { color: var(--muted); }
+.pr-section { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pr-tail, .log-view {
   background: var(--log-bg); color: var(--log-fg);
-  padding: 10px; border-radius: var(--radius-sm); margin: var(--space-2) 0 0;
-  font-size: 12px; max-height: 300px; overflow: auto;
+  padding: 10px 12px; border-radius: var(--radius-sm); margin: 0;
+  font-size: 12px; overflow: auto;
   white-space: pre-wrap; word-break: break-word;
 }
+.pr-tail { max-height: 220px; }
+.log-view { max-height: 70vh; min-height: 40vh; }
 .pr-spinner {
   width: 14px; height: 14px; border-radius: 50%;
   border: 2px solid var(--border); border-top-color: var(--accent);

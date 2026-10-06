@@ -1629,10 +1629,17 @@ def _figure_html(node: dict, depth: int, alt: str, base_url: str, id_attr: str =
     # back from, and a figure stored without Pillow has no WebP.
     webp = (f'<source type="image/webp" srcset="{_esc(src)}.webp">'
             if (figures.FIGURES_DIR / f"{ref['src']}.webp").exists() else "")
+    description = node.get("heading") or alt
+    # Shown small, whole, and opened full size on a click
+    # (static/site/figure.js): at full width the tallest Bail Act chart
+    # ran past 1,000px and made s 3D a long scroll. Without the script
+    # the link opens the image itself.
     return (
         f'<div class="prov prov-figure"{id_attr} style="--depth:{depth}">'
-        f'<figure><picture>{webp}<img src="{_esc(src)}.png" width="{ref["width"]}" height="{ref["height"]}"'
-        f' alt="{_esc(node.get("heading") or alt)}" loading="lazy" decoding="async"></picture></figure></div>'
+        f'<figure><a class="figure-zoom" href="{_esc(src)}.png" aria-label="Enlarge: {_esc(description)}">'
+        f'<picture>{webp}<img src="{_esc(src)}.png" width="{ref["width"]}" height="{ref["height"]}"'
+        f' alt="{_esc(description)}" loading="lazy" decoding="async"></picture>'
+        f'<span class="figure-hint" aria-hidden="true">Enlarge</span></a></figure></div>'
     )
 
 
