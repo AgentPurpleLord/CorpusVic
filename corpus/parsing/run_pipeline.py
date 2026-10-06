@@ -66,6 +66,7 @@ from corpus.parsing.versions import document_slug, read_front_matter, work_direc
 from corpus.parsing.rule_parser import parse_act
 from corpus.parsing.toc import detect_body_start
 from corpus.parsing.identity import annotate_ids
+from corpus.parsing.figures import extract_figures
 from corpus.parsing.tree import attach_history
 
 
@@ -195,6 +196,12 @@ def main():
         print(f"  {unlinked} amendment note(s) could not be auto-linked to a node (kept for manual review)")
     if provenance:
         print(f"  {provenance} provenance note(s) (where a provision came from, not how it changed) -- nothing to link")
+
+    # Charts print as images, which no line carries (corpus/parsing/
+    # figures.py). Placed before naming, so each gets its name in place.
+    nodes, figure_pages = extract_figures(nodes, pdf_path, start + 1, body_end)
+    if figure_pages:
+        print(f"Figures: {len(figure_pages)} found (pp. {', '.join(map(str, figure_pages))})")
 
     # Named after attach_history, which annotates the paths each name is
     # built from.

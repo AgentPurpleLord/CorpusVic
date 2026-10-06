@@ -76,6 +76,8 @@ from pathlib import Path
 
 from corpus.exporters.akn_export import _format_num, build_hierarchy_tree
 from corpus.parsing.extract import BULLETS
+from corpus.parsing import figures
+from corpus.parsing.figures import figure_ref
 from corpus.parsing.tables import split_rows
 from corpus.domain.amendments import anchor_id, describe, linkify_note
 from corpus.domain.diffing import node_diff, normalise, provision_identity, word_diff
@@ -782,10 +784,17 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             out.append("</ul>")
             list_open = False
 
-    def walk(tree_node):
+    def walk(tree_node, within: str = ""):
         nonlocal list_open
         node = tree_node["node"]
         t = node["type"]
+        if t == "figure":
+            # A chart printed under a Chapter or Part heading rather than
+            # in a provision (the Evidence Act's Chapter 3 diagram): this
+            # page is the only one that heading is on.
+            close_list()
+            out.append(_figure_html(node, 0, f"Chart in {within}" if within else "Chart", base_url))
+            return
         pageable_schedule = schedule_is_pageable(tree_node)
         if t in SECTION_LEVEL_TYPES or pageable_schedule:
             href = f"{base_url}/section/{_strip_md(filenames_by_eid[tree_node['eid']])}"
@@ -815,8 +824,9 @@ def render_index(parsed: dict, act_title: str, base_url: str,
             slug = index_slugs.get(tree_node["eid"])
             id_attr = f' id="{_esc(slug)}"' if slug else ""
             out.append(f"<h{level}{id_attr}>{_esc(title)}</h{level}>")
+            within = title
         for child in tree_node["children"]:
-            walk(child)
+            walk(child, within)
 
     for root in tree_roots:
         walk(root)
@@ -1597,6 +1607,36 @@ def _scope_label(node: dict) -> str:
     return f"{kind} {_format_num(node['type'], number)}" if number else kind
 
 
+def _figure_html(node: dict, depth: int, alt: str, base_url: str, id_attr: str = "") -> str:
+    """A chart, as its image: WebP for every current browser, the PNG
+    beside it for any other. Sized up front so the text below does not
+    jump when it arrives, and fetched only as it nears the screen.
+
+    The alt text is the provision's title, as the user decided: the
+    chart restates the provision's own wording, which is on the page.
+    Figures live beside /browse/, at the site's root, wherever the site
+    is published (base_url is "<root>/browse/<slug>")."""
+    ref = figure_ref(node)
+    if ref is None:
+        return ""
+    root = base_url.rsplit("/browse/", 1)[0]
+    src = f"{root}/figures/{ref['src']}"
+    # Only offered when it exists: a <source> that 404s is not fallen
+    # back from, and a figure stored without Pillow has no WebP.
+    webp = (f'<source type="image/webp" srcset="{_esc(src)}.webp">'
+            if (figures.FIGURES_DIR / f"{ref['src']}.webp").exists() else "")
+    return (
+        f'<div class="prov prov-figure"{id_attr} style="--depth:{depth}">'
+        f'<figure><picture>{webp}<img src="{_esc(src)}.png" width="{ref["width"]}" height="{ref["height"]}"'
+        f' alt="{_esc(alt)}" loading="lazy" decoding="async"></picture></figure></div>'
+    )
+
+
+def _figure_alt(page_node: dict) -> str:
+    title = page_title(page_node)
+    return f"Chart in {'section ' if page_node.get('type') == 'section' else ''}{title}"
+
+
 def render_section(
     parsed: dict, act_title: str, base_url: str, section_slug: str,
     crossrefs: list[dict] | None = None, amendment_index: dict | None = None,
@@ -1800,7 +1840,11 @@ def render_section(
             out.append('<div class="prov-notes"></div>')
         out.append(piece_html)
 
-        if unit_node["type"] == "table":
+        if unit_node["type"] == "figure":
+            # Not indented under the paragraph it follows: the Act prints
+            # a chart across the page.
+            out.append(_figure_html(unit_node, 0, _figure_alt(node), base_url, id_attr))
+        elif unit_node["type"] == "table":
             out.append(_table_html(
                 unit_node, unit["depth"], id_attr,
                 lambda cell, scope=scopes[i]: linkify(_esc(cell), target_filename, slug, scope),
@@ -1995,6 +2039,9 @@ def _preview_prov_html(unit: dict, base_depth: int) -> str:
     page's own."""
     node = unit["tree_node"]["node"]
     depth = max(unit["depth"] - base_depth, 0)
+    if node["type"] == "figure":
+        # Too big for a hover card; saying it is there is enough.
+        return _provision_html("figure", None, "[Chart]", depth)
     if node["type"] == "table":
         return _table_html(node, depth)
     return _provision_html(

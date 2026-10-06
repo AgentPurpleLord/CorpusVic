@@ -279,6 +279,8 @@ def _rows_for_document(source, slug: str, html_view):
         where = placement.get(index)
         if where is None:
             continue  # a Part or Division heading -- structure, not text
+        if node.get("type") == "figure":
+            continue  # its text names an image file (corpus/parsing/figures.py)
         body = (node.get("text") or "").strip()
         heading = (node.get("heading") or "").strip()
         if not body and not heading:

@@ -152,6 +152,7 @@ from pydantic import BaseModel
 from corpus.review import inheritance, structure
 from corpus.domain import amendments, diffing, lineage
 from corpus.publishing import html_view
+from corpus.parsing import figures
 from corpus.storage import db
 from corpus.ai.assist import build_suggestion
 from corpus.review.corrections import add_correction, stats
@@ -1732,6 +1733,11 @@ class NodeTypeDeleteRequest(BaseModel):
 @app.get("/")
 def index():
     return admin_html(STATIC_DIR / "review.html")
+
+
+@app.get("/figures/{name}")
+def figure(name: str):
+    return figures.figure_response(name)
 
 def _box_label(label: "str | None", node: dict) -> str:
     """What a box is called on the page. compute_unit_labels calls a unit's

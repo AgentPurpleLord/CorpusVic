@@ -30,6 +30,7 @@ from pydantic import BaseModel
 
 from corpus.web import dashboard
 from corpus.web.page_cache import PageCache
+from corpus.parsing import figures
 from corpus.search import search
 from corpus.search import search_view
 from corpus.publishing import html_view, reader, site_env
@@ -648,6 +649,11 @@ def robots():
     of the law are not something to invite indexing of by default."""
     body = ROBOTS_TXT_ALLOW_ALL if (not gated() and _ALLOW_INDEXING) else ROBOTS_TXT
     return Response(body, media_type="text/plain")
+
+
+@app.get("/figures/{name}")
+def figure(name: str):
+    return figures.figure_response(name)
 
 
 # ---------------------------------------------------------------------------
@@ -1322,6 +1328,28 @@ def robots_txt_for(gated: bool, allow_indexing: bool) -> str:
     return ROBOTS_TXT_ALLOW_ALL if (allow_indexing and not gated) else ROBOTS_TXT
 
 
+def _copy_figures(out: Path, slugs: list[str]) -> int:
+    """The charts the published documents print, into figures/ beside
+    browse/, where html_view._figure_html points. Only those: data/figures
+    also holds every reprint's that this build leaves out. Not encrypted
+    on a gated build -- an image cannot be -- but nothing links to one
+    except a page that is."""
+    names = set()
+    for slug in slugs:
+        for node in dashboard._current_nodes(slug)[0]:
+            ref = figures.figure_ref(node)
+            if ref:
+                names |= {f"{ref['src']}.png", f"{ref['src']}.webp"}
+    copied = 0
+    for name in sorted(names):
+        source = figures.FIGURES_DIR / name
+        if source.is_file():
+            (out / "figures").mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, out / "figures" / name)
+            copied += 1
+    return copied
+
+
 def build_site(out: Path, base_path: str, password: "str | None" = None,
                allow_indexing: bool = False, include_unpublished: bool = False) -> tuple:
     """The whole site. With a passphrase, every page is encrypted behind
@@ -1351,6 +1379,7 @@ def build_site(out: Path, base_path: str, password: "str | None" = None,
         (_build_doc(slug, out, base_path, gate, slugs, will_publish) for slug in candidates)
         if doc
     ]
+    _copy_figures(out, [doc["slug"] for doc in published])
     landing = _landing_page_html(published, base_path)
     _write(out / "index.html", landing, gate)
     # Across the whole site, not per document: the links most worth

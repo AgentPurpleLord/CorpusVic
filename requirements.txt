@@ -2,3 +2,5 @@
 pymupdf>=1.24.3
 rich
 pyyaml
+# Figures are stored as lossless WebP beside their PNG (corpus/parsing/figures.py).
+Pillow

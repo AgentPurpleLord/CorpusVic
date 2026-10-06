@@ -54,6 +54,9 @@ NODE_TYPES = [
     # per line, cells separated by a pipe -- so it is read, reviewed and
     # corrected exactly like any other provision.
     "table",
+    # A chart or diagram, printed as an image (see corpus/parsing/
+    # figures.py). Its text is a reference to the stored image.
+    "figure",
     "repealed",
     # No longer emitted -- an EM's entries are typed "clause" now (see
     # em_parser.py's own docstring). Kept so an EM parsed before that
@@ -81,11 +84,11 @@ TYPES_BY_DOCUMENT = {
     # A consolidated Act: sections, and the "* * * *" markers standing in
     # for provisions since repealed.
     "act": [*_STRUCTURE, "preamble", "section", "clause", "item", "subclause", "subitem", *_SUBLEVELS, "definition", "continuation", "note", "example",
-            "penalty", "table", "repealed"],
+            "penalty", "table", "figure", "repealed"],
     # A Bill numbers its top-level provisions clauses until it is enacted.
     # Nothing in it is repealed yet.
     "bill": [*_STRUCTURE, "preamble", "clause", "item", "subclause", "subitem", *_SUBLEVELS, "definition", "continuation", "note", "example",
-             "penalty", "table"],
+             "penalty", "table", "figure"],
     # An Explanatory Memorandum is a flat sequence of notes on the Bill's
     # own clauses, under organisational headings, with bulleted lists
     # inside an entry parsed as paragraphs (see em_parser.py).

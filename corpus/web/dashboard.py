@@ -105,6 +105,7 @@ from corpus.domain import commentary, diffing, lineage
 from corpus.domain.act_registry import load_act_registry
 from corpus.domain.amendments import build_amendment_index, summarise_by_act
 from corpus.domain.commentary import build_commentary_index
+from corpus.parsing import figures
 from corpus.parsing.extract import slugify
 from corpus.review.link_targets import load_known_acts
 from corpus.domain.profiles import available_profiles, profile_for
@@ -4248,6 +4249,11 @@ def _index() -> "search.Index":
     if _SEARCH.path != search.index_path(BASE_DIR):
         _SEARCH = search.Index(BASE_DIR)
     return _SEARCH
+
+
+@app.get("/figures/{name}")
+def figure(name: str):
+    return figures.figure_response(name)
 
 
 @app.get("/browse/{slug}")

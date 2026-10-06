@@ -55,6 +55,7 @@ from corpus.domain.definitions import (
     split_definition_clauses,
 )
 from corpus.parsing.extract import BULLETS, reflow, reflow_keeping_bullets
+from corpus.parsing.figures import figure_ref
 from corpus.domain.act_scope import scope_by_unit
 from corpus.domain.hierarchy import HIERARCHY_ORDER, SECTION_LEVEL_TYPES, make_ranks, schedule_is_pageable
 
@@ -306,6 +307,14 @@ def _iter_body_units(tree_node: dict, depth: int = 0, in_definitions: bool = Fal
             "text": _markdown_table(node.get("text") or ""),
             "header_text": heading, "level": level, "depth": depth,
         }
+    elif t == "figure":
+        # Its text is a reference to the image, not words to print (see
+        # corpus/parsing/figures.py); html_view sets the image itself.
+        ref = figure_ref(node)
+        if ref:
+            yield {"tree_node": tree_node, "clause_index": 0,
+                   "text": f"![Chart](/figures/{ref['src']}.png)",
+                   "header_text": None, "level": level, "depth": depth}
     elif heading and not is_root:
         header_text = f"{label} {heading}".strip() if label else heading
         yield {"tree_node": tree_node, "clause_index": 0, "text": None, "header_text": header_text, "level": level, "depth": depth}
@@ -528,7 +537,7 @@ def collect_definitions(
         for unit in _iter_body_units(tree_node):
             key = (unit["tree_node"]["eid"], unit["clause_index"])
             node = unit["tree_node"]["node"]
-            if node.get("type") in ("note", "example"):
+            if node.get("type") in ("note", "example", "figure"):
                 # "The Commonwealth Act includes a definition of this
                 # term" is a Note in the Evidence Act's Dictionary, and
                 # reads exactly like "X includes ...".
