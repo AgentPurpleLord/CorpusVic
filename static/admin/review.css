@@ -40,16 +40,6 @@
   --accepted-text: #6fcf97;
   --flagged-text: #e2a857;
 }
-@font-face {
-  font-family: 'Junicode';
-  src: url('../site/fonts/Junicode-Roman.woff2') format('woff2');
-  font-weight: 300 700; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Junicode';
-  src: url('../site/fonts/Junicode-Italic.woff2') format('woff2');
-  font-weight: 300 700; font-style: italic; font-display: swap;
-}
 * { box-sizing: border-box; }
 a:not(.btn) { color: var(--link); }
 a:not(.btn):hover { color: var(--link-hover); }

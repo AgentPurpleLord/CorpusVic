@@ -42,7 +42,9 @@
   --shadow: 0 4px 6px rgba(19, 34, 58, 0.05), 0 10px 24px rgba(19, 34, 58, 0.10);
 
   --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --reading: 'Junicode', Georgia, serif;
+  /* The law itself, in Inter as everything else: easier to read on a
+     screen than the serif it replaced. */
+  --reading: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
   /* Curves: small for controls, larger for panels. */
   --radius-sm: 6px;
@@ -106,15 +108,4 @@
   font-family: 'Inter';
   src: url('fonts/Inter-Italic.woff2') format('woff2');
   font-weight: 400 700; font-style: italic; font-display: swap;
-}
-/* Junicode, self-hosted */
-@font-face {
-  font-family: 'Junicode';
-  src: url('fonts/Junicode-Roman.woff2') format('woff2');
-  font-weight: 300 700; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: 'Junicode';
-  src: url('fonts/Junicode-Italic.woff2') format('woff2');
-  font-weight: 300 700; font-style: italic; font-display: swap;
 }

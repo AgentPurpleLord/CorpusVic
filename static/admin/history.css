@@ -36,7 +36,7 @@ main { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .col { border: 1px solid var(--border); padding: 8px 10px; min-width: 0; }
 .col .head { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.col .text { font-family: Georgia, serif; font-size: 15px; line-height: 1.45; }
+.col .text { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.45; }
 .none { color: var(--muted); font-style: italic; }
 .d-del { background: #fee2e2; color: #7f1d1d; text-decoration: none; }
 .d-ins { background: #dcfce7; color: #14532d; text-decoration: none; }
