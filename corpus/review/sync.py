@@ -553,6 +553,9 @@ def pull(repo: Path) -> dict:
         "pulled": True,
         "message": message,
         "code_changed": any(path.endswith(".py") for path in changed),
+        # What the dashboard's Update now reads to know whether to install
+        # requirements, and to say when a unit file changed.
+        "changed": changed,
         "imported": imported,
         "status": status(repo),
     }

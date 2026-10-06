@@ -107,6 +107,7 @@ from corpus.domain.act_registry import load_act_registry
 from corpus.domain.amendments import build_amendment_index, summarise_by_act
 from corpus.domain.commentary import build_commentary_index
 from corpus.parsing import figures, run_summary
+from corpus.web import github_updates
 from corpus.parsing.extract import slugify
 from corpus.review.link_targets import load_known_acts
 from corpus.domain.profiles import available_profiles, profile_for
@@ -1515,6 +1516,138 @@ def sync_restart():
 
     threading.Thread(target=_exit_once_this_response_is_out, daemon=True).start()
     return {"ok": True, "message": "Restarting -- reload this page in a few seconds."}
+
+
+# ---------------------------------------------------------------------------
+# Updates: merging a pull request and putting it live, from the dashboard
+# rather than a terminal (corpus/web/github_updates.py has the GitHub half).
+# ---------------------------------------------------------------------------
+class MergeRequest(BaseModel):
+    sha: str
+
+
+def _updates_state() -> dict:
+    state = sync.status(BASE_DIR)
+    repo = github_updates.repo_of(state.get("remote") or "")
+    out = {"configured": bool(github_updates.token()), "repo": repo, "branch": state.get("branch"),
+           "behind": state.get("behind") or 0, "checkout_head": sync.head(BASE_DIR),
+           "code_stale": bool(_RUNNING_CODE and (code := sync.code_version(BASE_DIR)) and _RUNNING_CODE != code),
+           "pulls": [], "error": state.get("error")}
+    if out["configured"] and repo and out["branch"]:
+        try:
+            out["pulls"] = github_updates.open_pulls(repo, out["branch"])
+        except github_updates.UpdateError as e:
+            out["error"] = str(e)
+    return out
+
+
+@app.get("/api/updates")
+def updates():
+    return _updates_state()
+
+
+@app.post("/api/updates/merge/{number}")
+def updates_merge(number: int, req: MergeRequest):
+    state = sync.status(BASE_DIR)
+    repo = github_updates.repo_of(state.get("remote") or "")
+    if not repo:
+        raise HTTPException(409, "This checkout's origin is not a GitHub repository.")
+    try:
+        result = github_updates.merge(repo, number, req.sha)
+    except github_updates.UpdateError as e:
+        raise HTTPException(409, str(e)) from e
+    return {**result, "state": _updates_state()}
+
+
+_update_job: dict = {}
+_UPDATE_STEPS = (("pull", "Pull the new code"), ("install", "Install new requirements"),
+                 ("public", "Restart the public site"), ("dashboard", "Restart the dashboard"))
+
+
+@app.post("/api/updates/apply")
+def updates_apply():
+    if _update_job.get("state") == "running":
+        raise HTTPException(409, "An update is already running.")
+    task = _task("update", "Updating this server", cancellable=False)
+    _update_job.clear()
+    _update_job.update(state="running", task=task["id"], notes=[],
+                       steps=[{"key": k, "label": label, "state": "pending", "message": ""} for k, label in _UPDATE_STEPS])
+    _in_background(_apply_update, _update_job, task)
+    return dict(_update_job)
+
+
+@app.get("/api/updates/apply")
+def updates_apply_status():
+    if not _update_job:
+        raise HTTPException(404, "No update has run since the dashboard started.")
+    return dict(_update_job)
+
+
+def _apply_update(job: dict, task: dict) -> None:
+    """Pull, install if the requirements changed, restart the public site,
+    then this. Stops at the first step that fails: restarting onto code
+    whose packages are missing would leave both services down."""
+    steps = {step["key"]: step for step in job["steps"]}
+
+    def run(key, message="", state="done"):
+        steps[key].update(state=state, message=message)
+
+    def fail(key, message):
+        run(key, message, "failed")
+        job["state"] = "failed"
+        _task_finished(task, "failed")
+
+    steps["pull"]["state"] = task["at"] = "running"
+    try:
+        pulled = sync.pull(BASE_DIR)
+    except sync.SyncError as e:
+        return fail("pull", str(e))
+    except (OSError, subprocess.SubprocessError) as e:
+        return fail("pull", f"Couldn't run git: {e}")
+    run("pull", pulled.get("message", ""))
+    changed = pulled.get("changed") or []
+    if any(p.startswith("deploy/") and p.endswith(".service") for p in changed):
+        job["notes"].append("A systemd unit file changed: copy deploy/*.service to /etc/systemd/system/ and run "
+                            "`sudo systemctl daemon-reload` once from a terminal for it to take effect.")
+
+    if any(Path(p).name.startswith("requirements") and p.endswith(".txt") for p in changed):
+        steps["install"]["state"] = "running"
+        task["at"] = "installing requirements"
+        try:
+            result = subprocess.run(_background_command([sys.executable, "-m", "pip", "install", "-q", "-r",
+                                                         "requirements-site.txt"]),
+                                    cwd=str(BASE_DIR), capture_output=True, text=True, timeout=600,
+                                    preexec_fn=_low_priority if os.name == "posix" else None)
+        except subprocess.TimeoutExpired:
+            return fail("install", "pip did not finish within 10 minutes.")
+        if result.returncode != 0:
+            said = (result.stderr or result.stdout or "").strip()
+            hint = ("\n\nThe dashboard can't write to its Python environment. Once, from a terminal: "
+                    "sudo chown -R dashboard:dashboard /opt/corpusvic/.venv"
+                    if "Permission denied" in said or "EACCES" in said else "")
+            return fail("install", said[-1500:] + hint)
+        run("install", "Installed.")
+    else:
+        run("install", "No requirements changed.", "skipped")
+
+    steps["public"]["state"] = "running"
+    task["at"] = "restarting the public site"
+    try:
+        run("public", public_service_restart().get("message", "Restarted."))
+    except HTTPException as e:
+        # Not fatal: the dashboard still restarts onto the new code, and the
+        # message says how to restart the site by hand.
+        run("public", str(e.detail), "failed")
+
+    can, why = _restart_capability()
+    if not can:
+        return fail("dashboard", f"{why} Restart it from a terminal: sudo systemctl restart dashboard")
+    run("dashboard", "Restarting -- the page reloads when it's back.", "running")
+    job["state"] = "restarting"
+    task["at"] = "restarting the dashboard"
+    _task_finished(task, "done")
+    time.sleep(1.0)
+    os._exit(1)
 
 
 # ---------------------------------------------------------------------------

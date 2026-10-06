@@ -1080,11 +1080,32 @@ counts you expect.
 
 ## Updating later
 
-Most of this is now a button on `/admin` -- **Pull**, then **Restart the
-dashboard** if it brought new code (see "After that, git is a row of
-buttons" above). What is left for a terminal is a dependency change and
-restarting the *public* service, neither of which the dashboard has any
-business doing as itself.
+All of it is now the dashboard's **Updates** button: the open pull
+requests with **Merge**, and **Update now**, which pulls, installs new
+requirements if there are any, restarts the public site and then the
+dashboard. Three things to set up once:
+
+1. **A GitHub token**, for merging. On GitHub: Settings → Developer
+   settings → Fine-grained tokens. Repository access: this repository
+   only. Permissions: *Pull requests* and *Contents* read and write,
+   *Commit statuses* and *Checks* read. Then put it in the dashboard's
+   environment file and restart:
+
+   ```bash
+   sudo nano /opt/corpusvic/deploy/dashboard.env     # add: GITHUB_TOKEN=github_pat_...
+   sudo systemctl restart dashboard
+   ```
+
+   Without it Update now still works; only merging needs it.
+2. **The Python environment owned by the service**, so it can install a
+   changed requirement itself: `sudo chown -R dashboard:dashboard /opt/corpusvic/.venv`.
+3. **The unit files**, whenever a pull changes them (the panel says so):
+   `sudo cp deploy/dashboard.service /etc/systemd/system/dashboard.service`,
+   `sudo cp deploy/public.service /etc/systemd/system/corpusvic-public.service`,
+   `sudo systemctl daemon-reload`, then restart both. A restart alone
+   keeps running the old unit.
+
+The terminal way, for when the dashboard itself is down:
 
 **A `git pull` from a terminal is only half of a pull here.** It brings
 the review work as text and leaves the database exactly as it was -- so
