@@ -267,3 +267,18 @@ def test_the_heading_is_the_charts_first_line_when_it_reads_as_one():
         "Flow Chart 2 – Which tests apply?"
     # The Evidence Act's diagram has no title: its first box is not one.
     assert figures.read_heading(image, set(), _fake_ocr("Is the evidence relevant?")) is None
+
+
+def test_a_score_given_as_text_is_read_as_a_number():
+    """The release pip installs on Python 3.13 gives "0.98", not 0.98."""
+    def ocr(_array):
+        return [[[[10, 12], [400, 12], [400, 40], [10, 40]], "Flow Chart 1 - Terrorism", "0.98"]], 0.1
+
+    assert figures.read_heading(Image.new("RGB", (600, 900), "white"), set(), ocr) == "Flow Chart 1 – Terrorism"
+
+
+def test_ocr_that_fails_leaves_the_heading_blank_and_the_parse_going():
+    def ocr(_array):
+        raise RuntimeError("model file missing")
+
+    assert figures.read_heading(Image.new("RGB", (600, 900), "white"), set(), ocr) is None
