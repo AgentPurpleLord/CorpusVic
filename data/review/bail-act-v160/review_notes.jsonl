@@ -1,0 +1,16 @@
+{"act": "bail-act-v160", "node_id": "pt1/s3d", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.641801+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/1", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643866+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/2", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643886+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/2/a", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643893+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/2/b", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643899+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/4", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643905+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/5", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643909+00:00"}
+{"act": "bail-act-v160", "node_id": "pt1/s3d/6", "note": "Needs to detect and parse the chart, potentially as a JPEG", "noted_at": "2026-10-05T19:06:10.643915+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s10/5/note~6f4811", "note": "bullet point issue", "noted_at": "2026-10-06T01:48:52.881350+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s10a/5/note~6f4811", "note": "dot point issue", "noted_at": "2026-10-06T01:50:57.983295+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s4e/1/b/a", "note": "is part of example", "noted_at": "2026-10-05T19:08:24.769362+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s4e/1/b~493591", "note": "is part of example", "noted_at": "2026-10-05T19:08:27.923685+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s4e/1/c", "note": "is part of example", "noted_at": "2026-10-05T19:08:30.336529+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s4e/1/d", "note": "is part of example", "noted_at": "2026-10-05T19:08:32.524731+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s4e/1/e", "note": "is part of example", "noted_at": "2026-10-05T19:08:34.605760+00:00"}
+{"act": "bail-act-v160", "node_id": "pt2/s4e/1/f", "note": "is part of example", "noted_at": "2026-10-05T19:08:37.886709+00:00"}
