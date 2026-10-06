@@ -107,12 +107,18 @@ def _located(units: list[dict], k: int) -> "dict | None":
     return None
 
 
-def _absent(at: "dict | None") -> "dict | None":
+def _absent(at: "dict | None", insert: str = "after") -> "dict | None":
     """Where a piece a version hasn't got would be: the page of what it
     would follow, marked so, and nothing on it outlined. A change can only
     be judged with both versions' pages beside it -- an insertion and a
-    repeal included."""
-    return {**at, "rects": [], "text": "", "absent": True} if at else None
+    repeal included.
+
+    "anchor" keeps that neighbour's boxes, and "insert" says whether the
+    piece goes "after" or "before" it, so the page can mark the spot: the
+    page alone left a reviewer hunting for where an insertion went."""
+    if not at:
+        return None
+    return {**at, "rects": [], "text": "", "absent": True, "anchor": at.get("rects") or [], "insert": insert}
 
 
 def _would_follow(here: list[dict], there: list[dict], unit: dict) -> "dict | None":
@@ -123,8 +129,8 @@ def _would_follow(here: list[dict], there: list[dict], unit: dict) -> "dict | No
     for j in range(_index(there, unit) - 1, -1, -1):
         k = paths.get(there[j].get("path"))
         if k is not None:
-            return _absent(_located(here, k))
-    return _absent(_located(here, 0)) if here else None
+            return _absent(_located(here, k), "after")
+    return _absent(_located(here, 0), "before") if here else None
 
 
 def step_changes(key: tuple, older: list[dict], newer: list[dict]) -> list[dict]:
@@ -159,7 +165,7 @@ def _provision_would_follow(key: tuple, nodes: list[dict], order, prov: dict, ot
         if near in prov:
             units = _units(nodes, prov[near], order)
             if units:
-                return _absent(_located(units, len(units) - 1 if last else 0))
+                return _absent(_located(units, len(units) - 1 if last else 0), "after" if last else "before")
     return None
 
 
