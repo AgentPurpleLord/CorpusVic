@@ -10,6 +10,7 @@
 <header>
   <h1>History review &mdash; <span id="work"></span></h1>
   <span class="counts" id="counts"></span>
+  <span class="working" id="working" hidden></span>
   <span style="flex:1"></span>
   <select id="step-filter" class="btn"></select>
   <span id="filters">
@@ -67,7 +68,10 @@ async function jsonOf(res) {
 }
 const slugOf = (v) => (DATA.versions.find((x) => x.version === v) || {}).slug;
 
-async function load() {
+// `keepPlace`: a refresh while steps are still being worked out, which
+// must not move the reviewer off the change they are reading.
+let workingTimer = null;
+async function load(keepPlace) {
   try { DATA = await jsonOf(await fetch(API + "/history")); }
   catch (e) { document.getElementById("detail").textContent = e.message; return; }
   document.getElementById("work").textContent = DATA.title || WORK;
@@ -79,9 +83,23 @@ async function load() {
       (e.from != null ? `v${e.from} → v${e.to} could not be compared: ` : "") + e.error).join("\n");
   }
   const steps = [...new Set(DATA.items.map((i) => `${i.from}→${i.to}`))];
+  const working = (DATA.pending || []).map(([a, b]) => `${a}→${b}`);
   document.getElementById("step-filter").innerHTML = `<option value="">All steps</option>`
-    + steps.map((s) => `<option value="${s}">v${s.replace("→", " → v")}</option>`).join("");
-  render(true);
+    + steps.map((s) => `<option value="${s}">v${s.replace("→", " → v")}</option>`).join("")
+    + working.map((s) => `<option value="${s}" disabled>v${s.replace("→", " → v")} (working\u2026)</option>`).join("");
+  document.getElementById("step-filter").value = step;
+  // Steps not yet worked out are done in the background (the dashboard's
+  // Running tasks shows it too); the page shows what is ready and looks
+  // again until nothing is left.
+  const status = document.getElementById("working");
+  clearTimeout(workingTimer);
+  if (working.length) {
+    status.textContent = `Working out ${working.length} step${working.length === 1 ? "" : "s"} between versions`
+      + (DATA.working ? ` (${DATA.working})` : "") + "\u2026 the rest is ready below.";
+    status.hidden = false;
+    workingTimer = setTimeout(() => load(true), 4000);
+  } else status.hidden = true;
+  render(!keepPlace);
 }
 
 // "repeal" is a section gone with its row of stars printed in its place
@@ -363,7 +381,7 @@ async function reparse(v, btn, mode) {
   try {
     let data;
     if (slim) {
-      let job = await jsonOf(await fetch(`${API}/versions/fetch/${v}?replace=true`, { method: "POST" }));
+      let job = await jsonOf(await fetch(`${API}/versions/fetch/${v}?replace=true&slim=false`, { method: "POST" }));
       while (job.state === "running") {
         await new Promise((r) => setTimeout(r, 3000));
         job = await jsonOf(await fetch(`${API}/versions/fetch`));
@@ -382,8 +400,15 @@ async function reparse(v, btn, mode) {
         + (slim ? ". It is whole now; “Keep versions slim” slims it again." : ".")
       : `v${v}: the parse failed\n${data.log || data.detail || ""}`;
     toast(data.ok ? `v${v} parsed again.` : `v${v} did not parse -- see the log.`, !data.ok);
-    await load();
+    if (data.ok && slim) {
+      // Whole now: "Keep versions slim" has something to do, said at once
+      // rather than after the changes are worked out again.
+      DATA.slim = DATA.slim.filter((x) => x !== v);
+      paintSlim();
+    }
     paintHeld();
+    log.textContent += "\nUpdating the list of changes\u2026";
+    await load(true);
   } catch (err) {
     log.textContent = `v${v}: ${err.message}`;
     toast(err.message, true);

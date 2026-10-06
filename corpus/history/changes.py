@@ -58,6 +58,24 @@ def _repealed_rows(nodes: list[dict]) -> dict:
             for node in nodes for number in [stands_for_section(node)] if number}
 
 
+def _wording(nodes: list[dict], provision: dict) -> list[tuple]:
+    end = diffing.unit_end(nodes, provision["node_index"])
+    # A row of stars reads the same whichever section it stands for, and a
+    # row standing for another section is a repeal (s 133 repealed, its
+    # row where s 132A's old one was), so that is part of the wording too.
+    return [(n.get("type"), n.get("number"), diffing.normalise(n.get("heading") or ""),
+             diffing.normalise(n.get("text") or ""), stands_for_section(n), n.get("_node_id") or n.get("id"))
+            for n in nodes[provision["node_index"]:end]]
+
+
+def _same_wording(a_nodes: list[dict], a: dict, b_nodes: list[dict], b: dict) -> bool:
+    """Whether a provision reads exactly the same in both versions, piece
+    for piece -- most of them, from one reprint to the next. Then there is
+    nothing to compare, and building both sides' pieces to find that out
+    was most of the time a work's History review took."""
+    return _wording(a_nodes, a) == _wording(b_nodes, b)
+
+
 def _units(nodes: list[dict], provision: dict, hierarchy) -> list[dict]:
     end = diffing.unit_end(nodes, provision["node_index"])
     units = html_view._wording_units(nodes[provision["node_index"]:end], hierarchy or html_view.HIERARCHY_ORDER)
@@ -216,6 +234,8 @@ def work_changes(versions: list[tuple]) -> list[dict]:
                             "old_at": missing_at if key in b_prov else present_at,
                             "new_at": present_at if key in b_prov else missing_at,
                             "_older": [] if key in b_prov else units, "_newer": units if key in b_prov else []})
+                continue
+            if _same_wording(a_nodes, a_prov[key], b_nodes, b_prov[key]):
                 continue
             older, newer = _units(a_nodes, a_prov[key], a_order), _units(b_nodes, b_prov[key], b_order)
             for change in step_changes(key, older, newer):

@@ -58,7 +58,9 @@ def test_only_a_running_stoppable_task_can_be_stopped(tasks):
     assert [t["state"] for t in listed] == ["running", "cancelled"]
 
 
-def test_a_background_parse_runs_at_low_priority(monkeypatch):
+def test_every_parse_runs_at_low_priority(monkeypatch):
+    """A parse started from a dialog stalled the public site as much as a
+    background job's."""
     seen = {}
 
     class Done:
@@ -74,9 +76,8 @@ def test_a_background_parse_runs_at_low_priority(monkeypatch):
     thread = dashboard._in_background(dashboard._run_parse_subprocess, ["python", "-m", "corpus.parsing.run_pipeline", "x.pdf"])
     thread.join()
 
-    (fore_cmd, fore_pre), (back_cmd, back_pre) = seen["calls"]
-    assert fore_cmd[0] == "python" and fore_pre is None
-    assert back_cmd[:3] == ["/usr/bin/ionice", "-c", "3"] and back_pre is dashboard._low_priority
+    for cmd, pre in seen["calls"]:
+        assert cmd[:3] == ["/usr/bin/ionice", "-c", "3"] and pre is dashboard._low_priority
 
 
 def test_the_dashboard_lists_running_tasks():

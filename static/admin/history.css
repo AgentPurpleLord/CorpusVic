@@ -108,3 +108,8 @@ main { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
 #versions-panel small.missing { color: var(--flagged); font-weight: 600; }
 #toast { position: fixed; bottom: 16px; right: 16px; background: var(--fg); color: var(--bg); padding: 8px 12px; display: none; }
 @media (max-width: 900px) { main { grid-template-columns: 1fr; } #list { max-height: 35vh; } .cols, .evidence { grid-template-columns: 1fr; } }
+.working { color: var(--flagged); font-size: 13px; }
+.working::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%;
+                   background: currentColor; animation: working-pulse 1.4s ease-in-out infinite; }
+@keyframes working-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .working::before { animation: none; } }

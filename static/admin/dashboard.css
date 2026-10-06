@@ -332,3 +332,25 @@ main { padding: 32px 28px; max-width: 1020px; margin: 0 auto; }
 .task-main { flex: 1; min-width: 0; }
 .task-row.failed strong { color: var(--del-fg); }
 .task-row.cancelled strong, .task-row.done strong { color: var(--muted); }
+
+/* Updates: pull requests to merge, and putting the new code live. */
+#updates-btn .dot { display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; background: var(--success); }
+#updates-btn .dot[hidden] { display: none; }
+.upd-head { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: var(--space-4) 0 var(--space-2); }
+.upd-pr, .upd-server { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.upd-main { flex: 1; min-width: 0; }
+.upd-checks { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.upd-checks.ok { background: var(--verify-full-bg); color: var(--success); }
+.upd-checks.bad { background: var(--del-bg); color: var(--del-fg); }
+.upd-checks.wait { background: var(--panel); color: var(--muted); }
+.upd-server > div { flex: 1; }
+.upd-setup ol { padding-left: 1.2em; margin: var(--space-2) 0; }
+.upd-setup li { margin: 4px 0; }
+.upd-setup code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.upd-steps { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.upd-step { display: flex; gap: var(--space-3); align-items: flex-start; }
+.upd-step .mark { width: 1.2em; text-align: center; font-weight: 700; }
+.upd-step.done .mark { color: var(--success); }
+.upd-step.failed .mark, .upd-step.failed strong { color: var(--del-fg); }
+.upd-step.pending, .upd-step.skipped { color: var(--muted); }
+.upd-step .hint { white-space: pre-wrap; }

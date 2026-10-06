@@ -19,6 +19,15 @@ ExecStart=/opt/corpusvic/.venv/bin/python3 -m corpus.web.dashboard --host 127.0.
 Restart=on-failure
 RestartSec=5
 
+# The public site comes first on a shared machine. This service and every
+# parse it starts (they run in its cgroup) get a fifth of the default share
+# of CPU and disk while the site wants them, and all of it while the site
+# is idle -- a parse running made the site stop answering. See also
+# CPUWeight in public.service. Takes effect once the unit is copied to
+# /etc/systemd/system and `systemctl daemon-reload` run.
+CPUWeight=20
+IOWeight=20
+
 # Bound to loopback only (see --host above) -- Caddy is the only thing
 # facing the internet; see deploy/Caddyfile.example.
 NoNewPrivileges=yes

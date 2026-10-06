@@ -24,6 +24,7 @@
   <h1>Legislation pipeline dashboard</h1>
   <div class="stat" id="summary"></div>
   <div class="spacer"></div>
+  <button class="btn" id="updates-btn" onclick="openUpdates()" title="Merge a pull request and put it live">Updates <span class="dot" id="updates-dot" hidden></span></button>
   <button class="btn" id="tasks-btn" onclick="openTasks()" title="Background jobs: fetching versions, slimming, retrieving">Running tasks <span class="count" id="tasks-count" hidden></span></button>
   <button class="btn" onclick="loadActs()">Refresh</button>
   <button class="btn primary" onclick="openModal('add-modal'); showAddTab('vic')">+ Add Act / Bill / EM</button>
@@ -392,6 +393,19 @@
   </div>
 </div>
 
+<!-- Merging a pull request and putting the new code live, without a
+     terminal (corpus/web/github_updates.py, dashboard /api/updates). -->
+<div class="overlay" id="updates-modal">
+  <div class="modal wide">
+    <h2>Updates</h2>
+    <h3 class="upd-head">Pull requests waiting</h3>
+    <div id="updates-pulls"><p class="hint">Loading&hellip;</p></div>
+    <h3 class="upd-head">This server</h3>
+    <div id="updates-server"></div>
+    <div id="updates-steps"></div>
+  </div>
+</div>
+
 <!-- Background jobs, and a way to stop one between its steps. -->
 <div class="overlay" id="tasks-modal">
   <div class="modal wide">
@@ -546,6 +560,134 @@ async function loadProfiles() {
   } catch (e) { /* the field still takes a typed name */ }
 }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+// Updates: open pull requests with Merge, and Update now (pull, install if
+// the requirements changed, restart the public site, restart this).
+let UPD = null;
+async function loadUpdates(paint) {
+  try {
+    const res = await fetch("api/updates");
+    UPD = await res.json();
+    if (!res.ok) throw new Error(UPD.detail || `The server answered ${res.status}.`);
+  } catch (e) {
+    if (paint) document.getElementById("updates-pulls").innerHTML = `<p class="pr-error">${escapeHtml(e.message)}</p>`;
+    return;
+  }
+  document.getElementById("updates-dot").hidden = !(UPD.behind || (UPD.pulls || []).length);
+  if (paint) paintUpdates();
+}
+
+function paintUpdates() {
+  const pulls = document.getElementById("updates-pulls");
+  if (!UPD.configured) {
+    pulls.innerHTML = `<div class="upd-setup">
+      <p>To merge pull requests from here, the server needs a GitHub token. Once:</p>
+      <ol>
+        <li>On GitHub: Settings &rarr; Developer settings &rarr; Fine-grained tokens &rarr; Generate new token.
+          Repository access: only <strong>${escapeHtml(UPD.repo || "this repository")}</strong>. Permissions:
+          <em>Pull requests</em> and <em>Contents</em> read and write; <em>Commit statuses</em> and <em>Checks</em> read.</li>
+        <li>On the server: <code>sudo nano /opt/corpusvic/deploy/dashboard.env</code> and add a line
+          <code>GITHUB_TOKEN=</code> followed by the token.</li>
+        <li>Restart the dashboard (<code>sudo systemctl restart dashboard</code>).</li>
+      </ol>
+      <p class="hint">Update now, below, works without it.</p></div>`;
+  } else if (UPD.error && !(UPD.pulls || []).length) {
+    pulls.innerHTML = `<p class="pr-error">${escapeHtml(UPD.error)}</p>`;
+  } else if (!(UPD.pulls || []).length) {
+    pulls.innerHTML = `<p class="hint">No open pull requests into ${escapeHtml(UPD.branch || "main")}.</p>`;
+  } else {
+    const checks = { passing: ["ok", "Checks passing"], failing: ["bad", "Checks failing"],
+                     pending: ["wait", "Checks running"], none: ["wait", "No checks"] };
+    pulls.innerHTML = UPD.pulls.map((p) => {
+      const [cls, word] = checks[p.checks] || checks.none;
+      const blocked = p.draft ? "It's a draft." : p.mergeable === false ? `GitHub says it can't be merged (${p.mergeable_state}).` : "";
+      return `<div class="upd-pr">
+        <div class="upd-main"><strong>#${p.number} ${escapeHtml(p.title)}</strong>
+          <div class="hint">${escapeHtml(p.head || "")} &middot; ${escapeHtml(p.author || "")} &middot; updated ${escapeHtml(prWhen(p.updated))}
+            ${p.mergeable === null ? " &middot; GitHub is still checking it can merge" : ""}</div>
+          ${blocked ? `<div class="pr-error">${escapeHtml(blocked)}</div>` : ""}</div>
+        <span class="upd-checks ${cls}">${word}</span>
+        <a class="btn small" href="${escapeHtml(p.url)}" target="_blank" rel="noopener">View</a>
+        <button class="btn small primary" ${blocked ? "disabled" : ""}
+          onclick="mergePull(${p.number}, '${escapeHtml(p.sha)}', '${p.checks}', this)">Merge</button>
+      </div>`;
+    }).join("");
+  }
+  document.getElementById("updates-server").innerHTML = `<div class="upd-server">
+      <div><strong>${escapeHtml(UPD.branch || "?")}</strong> at ${escapeHtml((UPD.checkout_head || "?").slice(0, 7))} &middot;
+        ${UPD.behind ? `<strong>${UPD.behind} new commit${UPD.behind === 1 ? "" : "s"}</strong> on GitHub` : "up to date with GitHub"}
+        ${UPD.code_stale ? " &middot; pulled, not yet restarted" : ""}</div>
+      <button class="btn primary" id="update-now" ${UPD.behind || UPD.code_stale ? "" : "disabled"} onclick="applyUpdate(this)">Update now</button>
+    </div>
+    <p class="hint">Pulls the new code, installs new requirements if there are any, restarts the public site, then
+      restarts the dashboard. Your review work is kept: a pull refuses if there are unpushed changes.</p>`;
+}
+
+async function openUpdates() {
+  openModal("updates-modal");
+  document.getElementById("updates-pulls").innerHTML = `<p class="hint">Asking GitHub&hellip;</p>`;
+  document.getElementById("updates-server").innerHTML = "";
+  await loadUpdates(true);
+  try {   // a run in progress, e.g. reopened during one
+    const res = await fetch("api/updates/apply");
+    if (res.ok) paintSteps(await res.json());
+  } catch (e) {}
+}
+
+async function mergePull(number, sha, checks, btn) {
+  const warn = checks === "failing" ? "\n\nIts checks are FAILING." : checks === "pending" ? "\n\nIts checks are still running." : "";
+  if (!confirm(`Merge pull request #${number} into ${UPD.branch}?${warn}`)) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`api/updates/merge/${number}`, { method: "POST", headers: { "Content-Type": "application/json" },
+                                                              body: JSON.stringify({ sha }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't merge it.");
+    toast(`Merged #${number}. Update now puts it live.`);
+    UPD = data.state;
+    document.getElementById("updates-dot").hidden = !(UPD.behind || (UPD.pulls || []).length);
+    paintUpdates();
+  } catch (e) { toast(e.message, true); btn.disabled = false; }
+}
+
+function paintSteps(job) {
+  const marks = { pending: "&#9675;", running: "&#9719;", done: "&#10003;", skipped: "&ndash;", failed: "&#10007;" };
+  document.getElementById("updates-steps").innerHTML = `<div class="upd-steps">${job.steps.map((st) => `
+      <div class="upd-step ${st.state}"><span class="mark">${marks[st.state] || ""}</span>
+        <div><strong>${escapeHtml(st.label)}</strong>${st.message ? `<div class="hint">${escapeHtml(st.message)}</div>` : ""}</div></div>`).join("")}
+    ${(job.notes || []).map((n) => `<div class="pr-block warn">${escapeHtml(n)}</div>`).join("")}</div>`;
+}
+
+async function applyUpdate(btn) {
+  if (!confirm("Pull the new code and restart both services now? The dashboard is away for a few seconds.")) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch("api/updates/apply", { method: "POST" });
+    const job = await res.json();
+    if (!res.ok) throw new Error(job.detail || "Couldn't start the update.");
+    paintSteps(job);
+    pollUpdate();
+  } catch (e) { toast(e.message, true); btn.disabled = false; }
+}
+
+// Through the dashboard's own restart: while it is away the requests fail,
+// and once it is back it has no update of its own to report (a fresh
+// process) -- that, or the job saying restarting, is the moment to reload.
+async function pollUpdate() {
+  let job = null, away = false;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      const res = await fetch("api/updates/apply", { cache: "no-store" });
+      if (res.status === 404 || (away && res.ok)) { location.reload(); return; }
+      if (!res.ok) { away = true; continue; }
+      job = await res.json();
+      paintSteps(job);
+      if (job.state === "failed") { toast("The update stopped -- see its steps.", true); loadUpdates(true); return; }
+    } catch (e) { away = true; }
+  }
+}
+loadUpdates(false);
 
 // Background jobs (dashboard /api/tasks): polled lightly for the count in
 // the header, and drawn in full while the list is open.

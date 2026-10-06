@@ -229,3 +229,18 @@ def test_a_held_version_without_its_pdf_is_fetched_into_its_folder(held, monkeyp
 def _fetch_again(client, version):
     client.post(f"/api/works/cpa/versions/fetch/{version}?replace=true")
     return client.get("/api/works/cpa/versions/fetch").json()
+
+
+def test_reparsing_a_slim_version_from_history_review_does_not_slim_the_work(monkeypatch):
+    """Slimming the whole work after one re-parse -- fetching again every
+    slim version it wanted pages of -- made History review's Re-parse look
+    hung for an hour."""
+    seen = {}
+    monkeypatch.setattr(dashboard, "_fetch_version",
+                        lambda work, v, replace=False, then_slim=True: seen.update(then_slim=then_slim) or {"ok": True})
+    job = {"version": 3, "state": "running", "result": None, "error": None}
+
+    dashboard._fetch_version_job("cpa", 3, job, True, None, False)
+    assert seen["then_slim"] is False and job["state"] == "done"
+    dashboard._fetch_version_job("cpa", 3, dict(job), True)
+    assert seen["then_slim"] is True
