@@ -1963,7 +1963,8 @@ def lesson_withdraw(rid: str):
     return {"withdrawn": rid}
 
 
-def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
+def _history_items(work: str, errors: "list | None" = None, pending: "list | None" = None,
+                   progress=None) -> list[dict]:
     """Every change across the work's versions with its evidence -- the
     amending Acts' instructions and the margin notes new in the later
     version -- one step between consecutive versions at a time, each
@@ -1971,7 +1972,12 @@ def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
 
     A step that fails is left out and put in `errors`, the rest still
     shown: one unreadable version must not take the whole work's review
-    down with it."""
+    down with it.
+
+    Given `pending`, nothing is worked out: the stale steps are put in it
+    as [from, to] and only the steps already worked out are returned --
+    what the page is served while _history_worker does the rest.
+    `progress(done, total)` is told as each step is worked out."""
     # Parsed ones only: a version whose parse failed has nothing to compare.
     held = [s for s in _held(work) if split_document_slug(s)[1] is not None
             and (BASE_DIR / "data" / "parsed" / f"{s}.json").exists()]
@@ -1992,6 +1998,10 @@ def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
     stamp_of = {pair: json.dumps([common, stamps[pair[0]], stamps[pair[1]]]) for pair in pairs}
     stale = [pair for pair in pairs
              if not cache.get(keys[pair]) or cache[keys[pair]]["stamp"] != stamp_of[pair]]
+    if pending is not None:
+        pending.extend([split_document_slug(a)[1], split_document_slug(b)[1]] for a, b in stale)
+        return [item for pair in pairs if keys[pair] in cache and cache[keys[pair]]["stamp"] == stamp_of[pair]
+                for item in cache[keys[pair]]["items"]]
     # Nearest the base first, so each slim version's neighbour is still
     # loaded (corpus/storage/parsed.py), and each version let go once no
     # step left needs it: a work of a hundred versions, each a whole Act
@@ -2013,7 +2023,9 @@ def _history_items(work: str, errors: "list | None" = None) -> list[dict]:
         return loaded[slug]
 
     changed = False
-    for older, newer in stale:
+    for done, (older, newer) in enumerate(stale):
+        if progress is not None:
+            progress(done, len(stale))
         try:
             if acts is None:
                 acts = _work_instructions(held[-1], held)
@@ -2151,11 +2163,53 @@ def _new_notes(item: dict) -> list[str]:
     return [n for n in notes(new) if n and n not in was]
 
 
+# {work: the task working out its stale steps}. One at a time per work.
+_history_workers: dict[str, dict] = {}
+_history_workers_lock = threading.Lock()
+
+
+def _start_history_worker(work: str) -> dict:
+    """Works out a work's stale steps in the background, at low priority,
+    so History review opens at once on what is ready -- a step to work out
+    is a second or two, and a work of thirty versions after a deploy was
+    minutes of a page that showed nothing."""
+    with _history_workers_lock:
+        task = _history_workers.get(work)
+        if task is not None and task["state"] == "running":
+            return task
+        task = _history_workers[work] = _task("history", f"Working out changes between versions of {work}", work,
+                                              cancellable=False)
+        task["errors"] = []
+
+    def run():
+        try:
+            _history_items(work, task["errors"],
+                           progress=lambda done, total: task.update(at=f"{done} of {total} steps"))
+            _task_finished(task, "done")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            task["errors"].append({"error": f"{type(e).__name__}: {e}"})
+            _task_finished(task, "failed")
+    _in_background(run)
+    return task
+
+
 @app.get("/api/works/{work}/history")
-def history_items(work: str):
+def history_items(work: str, wait: bool = False):
+    """The changes worked out so far, at once, and "pending": the steps
+    still being worked out in the background (_start_history_worker).
+    `wait` works everything out first, as this used to -- for the report
+    and for tests."""
     held = _held(work)
     errors: list = []
-    every = [dict(item) for item in _history_items(work, errors)]
+    pending: list = []
+    every = [dict(item) for item in (_history_items(work, errors) if wait else _history_items(work, errors, pending))]
+    worker = _history_workers.get(work)
+    if pending:
+        worker = _start_history_worker(work)
+    if worker is not None and worker.get("errors"):
+        errors.extend(worker["errors"])
     # Parliament never changes an Act without a margin note or an amending
     # Act's instruction to show for it. A change with neither is the parser
     # reading two versions differently: set aside, never put up for review.
@@ -2179,6 +2233,7 @@ def history_items(work: str):
             "versions": [{"version": split_document_slug(s)[1], "slug": s} for s in held
                          if split_document_slug(s)[1] is not None],
             "items": items, "errors": errors, "set_aside": len(every) - len(items),
+            "pending": pending, "working": worker.get("at") if pending and worker else None,
             # Which version is held whole, and which are kept as only their
             # changes -- what "Keep versions slim" would act on.
             "base": base,
@@ -2193,7 +2248,7 @@ def work_report(work: str):
     from corpus.review import report
 
     held = _held(work)
-    data = history_items(work)
+    data = history_items(work, wait=True)
     md = report.build(work, held, BASE_DIR, data["items"], db.load_history_decisions(work, BASE_DIR),
                       db.load_history_notes(work, BASE_DIR), code_version=_RUNNING_CODE, base=data.get("base"))
     name = f"{work}-report-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
@@ -2957,10 +3012,13 @@ _version_fetch_lock = threading.Lock()
 
 
 @app.post("/api/works/{work}/versions/fetch/{version}")
-def fetch_work_version(work: str, version: int, replace: bool = False):
+def fetch_work_version(work: str, version: int, replace: bool = False, slim: bool = True):
     """Starts fetching one version; GET .../versions/fetch says how it
     went. One a request, so the page can say how far a long list has got.
-    `replace` fetches a held one again (_replace_version)."""
+    `replace` fetches a held one again (_replace_version). `slim=false`
+    leaves the work as it is afterwards: History review's Re-parse, where
+    slimming the whole work (and fetching again every slim version it
+    wanted pages of) turned one re-parse into an hour that looked hung."""
     _held(work)
     with _version_fetch_lock:
         job = _version_fetches.get(work)
@@ -2969,7 +3027,7 @@ def fetch_work_version(work: str, version: int, replace: bool = False):
         task = _task("fetch", f"{'Fetching again' if replace else 'Fetching'} v{version} of {work}", work, cancellable=False)
         job = {"version": version, "state": "running", "result": None, "error": None, "task": task["id"]}
         _version_fetches[work] = job
-    _in_background(_fetch_version_job, work, version, job, replace, task)
+    _in_background(_fetch_version_job, work, version, job, replace, task, slim)
     return job
 
 
@@ -3035,11 +3093,13 @@ def fetch_work_version_status(work: str):
 
 
 def _fetch_version_job(work: str, version: int, job: dict, replace: bool = False,
-                       task: "dict | None" = None) -> None:
+                       task: "dict | None" = None, slim: bool = True) -> None:
     # Whatever goes wrong is the job's answer, in words: an unexpected
     # error would otherwise reach the page only as a failed request.
     try:
-        job["result"] = _fetch_version(work, version, replace)
+        if task is not None:
+            task["at"] = f"downloading and parsing v{version}"
+        job["result"] = _fetch_version(work, version, replace, then_slim=slim)
         job["state"] = "done"
     except HTTPException as e:
         job.update(state="failed", error=str(e.detail))
@@ -3590,14 +3650,23 @@ def _borrow_reviewed(slug: str, state: tuple) -> tuple:
                     history=(mine or {}).get("history", theirs_node.get("history")))
         return node
 
+    # A piece is this version's own if its name is one of `own`, sits
+    # under one, or has one under it -- looked up, not compared pair by
+    # pair: every piece against every own name was most of a CPA load.
+    own_names = set(own)
+    under_own = {o[:k] for o in own for k, ch in enumerate(o) if ch == "/"}
+
+    def is_own(nm: str) -> bool:
+        return nm in own_names or nm in under_own or any(
+            nm[:k] in own_names for k, ch in enumerate(nm) if ch == "/")
+
     out, i = [], 0
     starts = {p["node_index"]: (key, diffing.unit_end(nodes, p["node_index"]))
               for key, p in diffing.provisions(nodes).items()}
     while i < len(nodes):
         if i in starts:
             key, end = starts[i]
-            mine = any(name(n) == o or name(n).startswith(o + "/") or o.startswith(name(n) + "/")
-                       for n in nodes[i:end] for o in own)
+            mine = any(is_own(name(n)) for n in nodes[i:end])
             if not mine and key in their_units:
                 a, b = their_units[key]
                 here = {name(n): n for n in nodes[i:end] if name(n)}

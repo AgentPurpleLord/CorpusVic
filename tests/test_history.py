@@ -153,14 +153,14 @@ def test_history_review_lists_each_change_with_its_evidence_and_records_decision
         "path": ["1"], "heading": False, "definition": None, "action": "insert_after", "old": "appeal",
         "new": "within 28 days", "number": None, "raw": 'In section 2(1), after "appeal" insert "within 28 days".'}]))
 
-    [item] = history_items("act")["items"]
+    [item] = history_items("act", wait=True)["items"]
     assert (item["section"], item["label"], item["from"], item["to"], item["decision"]) == ("s 2", "(1)", 1, 2, None)
     assert [(a["act"], a["status"], a["here"]) for a in item["instructions"]] == [("7/2026", "matched", True)]
     assert item["notes"] == ["S. 2(1) amended by No. 7/2026 s. 3."]
 
     history_decide("act", HistoryDecision(provision=item["provision"], from_version=1, to_version=2,
                                           piece=item["piece"], decision="denied"))
-    assert history_items("act")["items"][0]["decision"] == "denied"
+    assert history_items("act", wait=True)["items"][0]["decision"] == "denied"
 
 
 def test_history_review_fetches_the_ticked_versions_one_at_a_time():
@@ -199,7 +199,7 @@ def test_an_instruction_found_under_another_piece_offers_to_put_it_right(tmp_pat
         "path": ["2"], "heading": False, "definition": None, "action": "insert_after", "old": "appeal",
         "new": "within 28 days", "number": None, "raw": 'In section 2(2), after "appeal" insert "within 28 days".'}]))
 
-    [item] = dashboard.history_items("act")["items"]
+    [item] = dashboard.history_items("act", wait=True)["items"]
     [ins] = item["instructions"]
     assert (ins["status"], ins["place_as"]) == ("elsewhere", "(2)")
     assert ins["node_id"] == _nodes({"2": [("1", "x")]})[-1]["id"], "v2's (1), where the parse has the change"
@@ -289,7 +289,7 @@ def test_every_act_can_fetch_versions_and_accepted_repeals_are_not_grey(tmp_path
     (tmp_path / "data" / "parsed").mkdir(parents=True)
     (tmp_path / "data" / "parsed" / "appeals-act.json").write_text(json.dumps({
         "nodes": _nodes({"2": [("1", "x")]}), "hierarchy": HIERARCHY, "fingerprint": "fp"}))
-    assert dashboard.history_items("appeals-act")["items"] == []
+    assert dashboard.history_items("appeals-act", wait=True)["items"] == []
 
     review = (PROJECT_ROOT / "static" / "admin" / "review.css").read_text(encoding="utf-8")
     assert '.piece[data-type="repealed"]:not(.piece-accepted):not(.piece-flagged) { background: var(--repealed-bg); }' in review
@@ -329,7 +329,7 @@ def test_only_a_change_with_a_margin_note_is_up_for_review(tmp_path, monkeypatch
     parser reading the two versions differently -- set aside, not shown."""
     dashboard = _two_versions(tmp_path, monkeypatch)
 
-    data = dashboard.history_items("act")
+    data = dashboard.history_items("act", wait=True)
     assert [(i["section"], i["noted"]) for i in data["items"]] == [("s 2", True)]
     assert data["set_aside"] == 1
 
@@ -346,7 +346,7 @@ def test_a_change_an_amending_act_accounts_for_is_kept_without_a_note(tmp_path, 
         return items
     monkeypatch.setattr(dashboard, "_history_items", with_instruction)
 
-    assert {i["section"] for i in dashboard.history_items("act")["items"]} == {"s 2", "s 3"}
+    assert {i["section"] for i in dashboard.history_items("act", wait=True)["items"]} == {"s 2", "s 3"}
 
 
 def test_each_step_is_worked_out_once_until_its_versions_change(tmp_path, monkeypatch):
@@ -359,15 +359,15 @@ def test_each_step_is_worked_out_once_until_its_versions_change(tmp_path, monkey
     real = history_changes.work_changes
     monkeypatch.setattr(history_changes, "work_changes", lambda versions: calls.append(1) or real(versions))
 
-    dashboard.history_items("act")
+    dashboard.history_items("act", wait=True)
     monkeypatch.setattr(dashboard, "_history_steps", {})   # a restart: only the file on disk is left
-    dashboard.history_items("act")
+    dashboard.history_items("act", wait=True)
     assert len(calls) == 1 and (tmp_path / "data" / ".cache" / "history-act.json").exists()
 
     _two_versions(tmp_path, monkeypatch, noted_s3=True)   # a re-parse of version 2
     import os
     os.utime(tmp_path / "data" / "parsed" / "act-v2.json", ns=(1, 10**18))
-    assert all(i["noted"] for i in dashboard.history_items("act")["items"]) and len(calls) == 2
+    assert all(i["noted"] for i in dashboard.history_items("act", wait=True)["items"]) and len(calls) == 2
 
 
 def test_every_version_not_held_is_fetched_in_one_job(tmp_path, monkeypatch):
@@ -415,7 +415,7 @@ def test_history_says_which_version_is_the_base_and_which_are_slim(tmp_path, mon
     path = tmp_path / "data" / "parsed" / "act-v1.json"
     path.write_text(json.dumps({**json.loads(path.read_text()), "slim": {"toward": "act-v2", "pieces": [], "notes": {}}}))
 
-    body = dashboard.history_items("act")
+    body = dashboard.history_items("act", wait=True)
     assert body["slim"] == [1] and body["base"] in (1, 2)
 
 
@@ -436,7 +436,7 @@ def test_a_step_that_fails_is_named_and_the_rest_still_load(tmp_path, monkeypatc
         return real(older, newer, acts)
 
     monkeypatch.setattr(dashboard, "_history_step", step)
-    data = dashboard.history_items("act")
+    data = dashboard.history_items("act", wait=True)
     assert {(i["from"], i["to"]) for i in data["items"]} == {(1, 2)}
     assert data["errors"] == [{"from": 2, "to": 3, "error": "KeyError: 'nodes'"}]
     page = (PROJECT_ROOT / "static" / "history.html").read_text(encoding="utf-8")
@@ -447,7 +447,7 @@ def test_an_unexpected_error_says_what_it_was(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
     dashboard = _two_versions(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard, "_history_items", lambda work, errors=None: 1 / 0)
+    monkeypatch.setattr(dashboard, "_history_items", lambda work, errors=None, pending=None, progress=None: 1 / 0)
     res = TestClient(dashboard.app, raise_server_exceptions=False).get("/api/works/act/history")
     assert res.status_code == 500
     assert res.json() == {"detail": "ZeroDivisionError: division by zero"}
@@ -492,7 +492,7 @@ def test_every_version_is_put_back_together_about_once(tmp_path, monkeypatch):
     real = delta.assemble
     monkeypatch.setattr(delta, "assemble", lambda *a: built.append(1) or real(*a))
 
-    items = dashboard.history_items("act")["items"]
+    items = dashboard.history_items("act", wait=True)["items"]
     assert {(i["from"], i["to"]) for i in items} == {(v, v + 1) for v in range(1, 6)}
     assert len(built) <= 10, f"{len(built)} rebuilds of 5 slim versions"
 
@@ -507,7 +507,7 @@ def test_every_version_is_put_back_together_about_once(tmp_path, monkeypatch):
     steps = []
     real_step = dashboard._history_step
     monkeypatch.setattr(dashboard, "_history_step", lambda o, n, a: steps.append((o[0], n[0])) or real_step(o, n, a))
-    dashboard.history_items("act")
+    dashboard.history_items("act", wait=True)
     assert steps == [(5, 6)] and not scoped
 
 
@@ -617,3 +617,44 @@ def test_history_review_shows_each_side_as_old_or_new_and_reparses_in_place():
     # The evidence sits between the wording and the pages.
     detail = page[page.index("function showItem()"):page.index("const ZOOMS")]
     assert detail.index('wording("old"') < detail.index('class="evidence"') < detail.index('pdfPane("old"')
+
+
+def test_history_review_opens_at_once_and_works_out_the_rest_behind(tmp_path, monkeypatch):
+    """A step to work out is a second or two, and a work of thirty versions
+    after a deploy kept the page blank for minutes: what is ready is served
+    at once, and the rest is worked out in the background."""
+    dashboard = _two_versions(tmp_path, monkeypatch)
+    monkeypatch.setattr(dashboard, "_tasks", {})
+    monkeypatch.setattr(dashboard, "_history_workers", {})
+    started = []
+    monkeypatch.setattr(dashboard, "_in_background", lambda target, *args: started.append(target))
+
+    first = dashboard.history_items("act")
+    assert first["items"] == [] and first["pending"] == [[1, 2]] and len(started) == 1
+    dashboard.history_items("act")
+    assert len(started) == 1, "one worker per work"
+
+    started[0]()   # the worker, run here
+    done = dashboard.history_items("act")
+    assert done["pending"] == [] and [i["section"] for i in done["items"]] == ["s 2"]
+
+
+def test_an_unchanged_provision_is_skipped_but_a_row_for_another_section_is_not():
+    """Provisions that read the same in both versions are not compared
+    piece by piece -- most of them, and most of a load -- but a row of
+    stars that now stands for another section is a repeal, though it
+    reads the same."""
+    same = work_changes([(1, _nodes({"2": [("1", "the same")]}), HIERARCHY),
+                         (2, _nodes({"2": [("1", "the same")]}), HIERARCHY)])
+    assert same == []
+
+    def with_row(stands_for):
+        nodes = _nodes({"132A": [("1", "the same")]})
+        row = {"type": "repealed", "number": stands_for, "heading": None, "text": "* * * * *",
+               "history": [{"raw": f"S. {stands_for} repealed by No. 5/2025 s. 15.", "section": stands_for}] if stands_for else []}
+        nodes.append(row)
+        annotate_ids(nodes, HIERARCHY)
+        return nodes
+
+    changes = work_changes([(1, with_row(None), HIERARCHY), (2, with_row("133"), HIERARCHY)])
+    assert changes, "the row now stands for s 133: a repeal, though its words are the same"

@@ -13,6 +13,7 @@ and every other keeps only its changed pieces, its notes and the pages
 they print on: its text elsewhere is its neighbour's toward that base
 (see assemble).
 """
+import functools
 import re
 from pathlib import Path
 
@@ -32,8 +33,11 @@ _KIND = {"inserted": "inserted", "repealed": "repealed", "expired": "repealed"}
 _SCHEDULE_ENTRY = re.compile(r"^(sch[^/]*/(?:(?:ch|pt|div|subdiv)[^/]*/)*)(?:s|cl|item)(?=\d)")
 
 
+@functools.lru_cache(maxsize=500_000)
 def canonical(name: str) -> str:
-    """A provision's name as two parses of it are compared."""
+    """A provision's name as two parses of it are compared. Remembered: the
+    same names are asked for millions of times when History review puts a
+    work's versions together, and the regex was a fifth of the time."""
     return _SCHEDULE_ENTRY.sub(r"\1cl", name or "")
 
 

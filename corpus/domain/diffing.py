@@ -44,6 +44,7 @@ heuristic, and hiding it completely would make a genuine case of
 reordered text invisible.
 """
 import difflib
+import functools
 import re
 from collections import Counter
 
@@ -97,6 +98,11 @@ def word_diff(old: str, new: str) -> list[dict]:
     next to its replacement matches how the Act's own amending words
     describe it.
     """
+    if old == new:
+        # Most pieces of most versions are unchanged: the same one segment
+        # difflib would give, without running it (a fifth of a CPA load).
+        words = _tokenise(old)
+        return [{"op": "equal", "text": " ".join(words)}] if words else []
     old_words, new_words = _tokenise(old), _tokenise(new)
     segments: list[dict] = []
 
@@ -131,6 +137,11 @@ def unit_text(nodes: list[dict], root: int) -> str:
     return _unit_text(nodes, root)
 
 
+# Remembered: History review compares every version with the next, and a
+# version's wording is mostly the same strings as its neighbours' (a slim
+# one borrows them outright), so the same text was cleaned over and over.
+# Bounded, because a long provision's text is kilobytes.
+@functools.lru_cache(maxsize=20_000)
 def normalise(text: str) -> str:
     """Text as two versions are compared on: no line wraps, no printer's
     whitespace, no stray symbol-font code points."""
@@ -180,7 +191,7 @@ def _unit_text(nodes: list[dict], root: int) -> str:
     # reflow removes the line wraps; _SPACES removes the rest of the
     # printer's whitespace quirks, which are no more part of the
     # provision's actual wording than the wraps are.
-    return _SPACES.sub(" ", _unmap_pua(reflow(" ".join(p for p in parts if p)))).strip()
+    return normalise(" ".join(p for p in parts if p))
 
 
 def _unit_history(nodes: list[dict], root: int) -> list[str]:
