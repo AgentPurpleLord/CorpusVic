@@ -132,6 +132,9 @@
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:49:25.648379+00:00", "decision": "confirmed", "from_version": 106, "piece": "4/c", "provision": "[\"provision\", null, \"198a\"]", "to_version": 107}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:49:27.037834+00:00", "decision": "confirmed", "from_version": 106, "piece": "5", "provision": "[\"provision\", null, \"198a\"]", "to_version": 107}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:48:58.572848+00:00", "decision": "confirmed", "from_version": 106, "piece": "heading", "provision": "[\"provision\", null, \"198a\"]", "to_version": 107}
+{"act": "criminal-procedure-act", "decided_at": "2026-10-06T23:59:40.573011+00:00", "decision": "confirmed", "from_version": 103, "piece": "1", "provision": "[\"provision\", null, \"204\"]", "to_version": 104}
+{"act": "criminal-procedure-act", "decided_at": "2026-10-06T23:59:41.695232+00:00", "decision": "confirmed", "from_version": 103, "piece": "2", "provision": "[\"provision\", null, \"204\"]", "to_version": 104}
+{"act": "criminal-procedure-act", "decided_at": "2026-10-06T23:59:36.340002+00:00", "decision": "denied", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"204\"]", "to_version": 104}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:30.759615+00:00", "decision": "confirmed", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"206a\"]", "to_version": 104}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:27.039803+00:00", "decision": "confirmed", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"206b\"]", "to_version": 104}
 {"act": "criminal-procedure-act", "decided_at": "2026-09-24T09:43:21.627942+00:00", "decision": "confirmed", "from_version": 103, "piece": "whole", "provision": "[\"provision\", null, \"206c\"]", "to_version": 104}
