@@ -51,6 +51,7 @@ import re
 import shutil
 import hashlib
 import subprocess
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -325,10 +326,73 @@ def refresh_review_files(repo: Path) -> None:
     from corpus.review import review_sync
 
     try:
-        checkpoint_database(repo)
-        review_sync.export(repo)
+        with _FILES_LOCK:
+            checkpoint_database(repo)
+            review_sync.export(repo)
     except Exception as e:  # noqa: BLE001 -- a status page must still render
         raise SyncError(f"Couldn't write the review files: {e}") from e
+
+
+# Held while the review files are written from the database or put back
+# from git: a status poll's export landing between a restore and its
+# import wrote the database's state -- the very thing being rolled back --
+# over the restored files.
+_FILES_LOCK = threading.RLock()
+
+
+def document_paths(slug: str) -> list[str]:
+    """What a document is in git: its parse and its review files."""
+    return [f"data/review/{slug}", f"data/parsed/{slug}.json"]
+
+
+def document_history(repo: Path, slug: str, limit: int = 20) -> list[dict]:
+    """The commits that changed this document, newest first, each with
+    how many approved pieces it left -- the number that shows at a glance
+    which commit wiped a review."""
+    repo = Path(repo)
+    log = _git(repo, "log", f"-n{limit}", "--format=%H\x1f%cI\x1f%s", "--", *document_paths(slug))
+    if log.returncode != 0:
+        raise SyncError(explain((log.stderr or "").strip()) or "git log failed")
+    out = []
+    for line in log.stdout.splitlines():
+        sha, when, subject = line.split("\x1f", 2)
+        shown = _git(repo, "show", f"{sha}:data/review/{slug}/verified.jsonl")
+        approved = (sum(1 for row in shown.stdout.splitlines() if row.strip())
+                    if shown.returncode == 0 else 0)
+        out.append({"sha": sha, "when": when, "subject": subject, "approved": approved})
+    return out
+
+
+def restore_document(repo: Path, slug: str, sha: str) -> dict:
+    """Puts one document's parse and review files back as they were at
+    `sha`, and rebuilds the database from them. Nothing else is touched;
+    the restore is left as changes for Push to commit.
+
+    The order is the point. Everything is exported first, so no other
+    document's unexported work is lost when the database is rebuilt; then
+    the files are put back and the database rebuilt from them, with
+    exports held off throughout."""
+    from corpus.review import review_sync
+
+    repo = Path(repo)
+    if not re.fullmatch(r"[0-9a-f]{7,40}", sha or ""):
+        raise SyncError("That is not a commit.")
+    paths = document_paths(slug)
+    known = _git(repo, "cat-file", "-e", f"{sha}^{{commit}}")
+    if known.returncode != 0:
+        raise SyncError(f"No commit {sha[:7]} in this checkout.")
+    with _FILES_LOCK:
+        checkpoint_database(repo)
+        review_sync.export(repo)
+        # --source restores exactly that commit's state of the paths,
+        # removing files it did not have.
+        restored = _git(repo, "restore", f"--source={sha}", "--staged", "--worktree", "--", *paths)
+        if restored.returncode != 0:
+            raise SyncError(explain((restored.stderr or "").strip()) or "git restore failed")
+        # Unstaged again: Push stages and commits what is pending.
+        _git(repo, "reset", "-q", "--", *paths)
+        imported = review_sync.import_(repo)
+    return {"restored": slug, "sha": sha, "imported": imported.get("total") if isinstance(imported, dict) else None}
 
 
 def checkpoint_database(repo: Path) -> None:
