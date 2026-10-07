@@ -460,6 +460,11 @@ def import_(base_dir=None, backup: bool = True) -> dict:
     counts: dict = {}
     try:
         fresh.executescript(db._SCHEMA)
+        # And the columns added since (db._ADDED_COLUMNS), as every other
+        # open of the database gets them: without, a History decision with
+        # its reason ("note") could not be loaded, and the import that
+        # clears "the review files have changed" refused instead.
+        db._add_missing_columns(fresh)
         counts = load_into(fresh, out)
         fresh.commit()
     except sqlite3.Error as e:

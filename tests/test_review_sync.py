@@ -449,3 +449,21 @@ def test_review_work_with_no_export_still_shows_up_as_pending(tmp_path):
 def _run(repo, *args):
     return subprocess.run(["git", *args], cwd=str(repo), capture_output=True,
                           text=True, check=True)
+
+
+def test_a_column_added_since_the_schema_is_imported_too(tmp_path):
+    """A History decision's reason ("note") is a column added after the
+    table was first written (db._ADDED_COLUMNS). The import built its fresh
+    database from the base schema alone and refused the row, so the import
+    meant to clear "the review files have changed" could not run."""
+    act = tmp_path / "data" / "review" / "criminal-procedure-act"
+    act.mkdir(parents=True)
+    (act / "history_decisions.jsonl").write_text(json.dumps({
+        "act": "criminal-procedure-act", "decided_at": "2026-10-06T20:58:24+00:00", "decision": "denied",
+        "from_version": 106, "note": "as previous issue", "piece": "1",
+        "provision": "[\"provision\", null, \"110\"]", "to_version": 107}) + "\n")
+
+    review_sync.import_(tmp_path)
+
+    conn = db._connect(tmp_path)
+    assert conn.execute("SELECT note FROM history_decisions").fetchone()[0] == "as previous issue"
