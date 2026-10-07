@@ -1592,7 +1592,8 @@ def updates_merge(number: int, req: MergeRequest):
 
 
 _update_job: dict = {}
-_UPDATE_STEPS = (("pull", "Pull the new code"), ("install", "Install new requirements"),
+_UPDATE_STEPS = (("save", "Save your review work"), ("pull", "Pull the new code"),
+                 ("send", "Send your review work to GitHub"), ("install", "Install new requirements"),
                  ("public", "Restart the public site"), ("dashboard", "Restart the dashboard"))
 
 
@@ -1629,6 +1630,20 @@ def _apply_update(job: dict, task: dict) -> None:
         job["state"] = "failed"
         _task_finished(task, "failed")
 
+    # Unpushed review work used to stop the update at the pull, and the way
+    # round it was a push and a `git pull` in a terminal -- which loads
+    # nothing into the database. Committed here first, it is merged with
+    # what arrives (line by line: different provisions never collide), the
+    # database is rebuilt from the merge, and it is pushed after.
+    steps["save"]["state"] = task["at"] = "running"
+    try:
+        saved = sync.commit(BASE_DIR, f"Review progress before updating, {datetime.now(timezone.utc):%Y-%m-%d}")
+    except sync.SyncError as e:
+        return fail("save", str(e))
+    except (OSError, subprocess.SubprocessError) as e:
+        return fail("save", f"Couldn't run git: {e}")
+    run("save", saved.get("message", ""), "done" if saved.get("committed") else "skipped")
+
     steps["pull"]["state"] = task["at"] = "running"
     try:
         pulled = sync.pull(BASE_DIR)
@@ -1638,6 +1653,15 @@ def _apply_update(job: dict, task: dict) -> None:
         return fail("pull", f"Couldn't run git: {e}")
     run("pull", pulled.get("message", ""))
     changed = pulled.get("changed") or []
+
+    steps["send"]["state"] = task["at"] = "running"
+    try:
+        sent = sync.push(BASE_DIR, f"Review progress, {datetime.now(timezone.utc):%Y-%m-%d}")
+        run("send", sent.get("message", ""), "done" if sent.get("pushed") else "skipped")
+    except (sync.SyncError, OSError, subprocess.SubprocessError) as e:
+        # Not fatal: the work is committed here and Push sends it later;
+        # the update itself does not depend on it.
+        run("send", f"Saved here but not sent: {e}. Press Push once the update is done.", "failed")
     if any(p.startswith("deploy/") and p.endswith(".service") for p in changed):
         job["notes"].append("A systemd unit file changed: copy deploy/*.service to /etc/systemd/system/ and run "
                             "`sudo systemctl daemon-reload` once from a terminal for it to take effect.")

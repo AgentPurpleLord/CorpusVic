@@ -177,18 +177,28 @@ def fingerprint(base_dir=None) -> str:
     return digest.hexdigest()
 
 
-def _record_state(base: Path) -> None:
+def _record_state(base: Path) -> "str | None":
     """Remembers that the database and the files agree, because they were
-    just made to."""
+    just made to. Returns why it couldn't, or None."""
     try:
         path = _state_path(base)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"fingerprint": fingerprint(base)}), encoding="utf-8")
-    except OSError:
+        return None
+    except OSError as e:
         # A checkout that cannot write this can still export. Losing the
         # guard is worse than nothing, but refusing to work at all is
-        # worse than that.
-        pass
+        # worse than that -- so said, not raised.
+        return f"{e} -- {_ownership_hint(base)}"
+
+
+def _ownership_hint(base: Path) -> str:
+    # A `git pull` or `git commit` run as root in a terminal leaves files
+    # here that the dashboard's user cannot write, and an import that could
+    # not record itself left the "files have changed" refusal standing.
+    return ("a file under data/ is not writable by this user, usually because a git command ran as root. "
+            "From a terminal: sudo chown -R dashboard:dashboard /opt/corpusvic, then import again "
+            "as the dashboard user.")
 
 
 def files_are_ahead(base_dir=None) -> "str | None":
@@ -231,6 +241,9 @@ def files_are_ahead(base_dir=None) -> "str | None":
         "written from them -- a `git pull` or a checkout, most likely. Exporting now would "
         "write this database back over them and delete the work that arrived.\n\n"
         "Load it first:\n\n    python3 -m corpus.review.review_sync import\n\n"
+        + (f"(The record of the last import can't be written here, so importing will not clear this: "
+           f"{_ownership_hint(base)})\n\n" if _state_path(base).exists() and not os.access(_state_path(base), os.W_OK) else "")
+        + 
         "If you are certain this database is the newer of the two, take the files as they are "
         "with `python3 -m corpus.review.review_sync adopt`, which records them as seen without "
         "changing either side."
@@ -480,8 +493,8 @@ def import_(base_dir=None, backup: bool = True) -> dict:
         target.with_name(target.name + sidecar).unlink(missing_ok=True)
     os.replace(scratch, target)
     # The other moment the two are known to agree.
-    _record_state(base)
-    return {"rows": counts, "total": sum(counts.values()),
+    state_error = _record_state(base)
+    return {"rows": counts, "total": sum(counts.values()), "state_error": state_error,
             "backup": str(kept) if kept else None, "path": str(target)}
 
 
@@ -518,6 +531,10 @@ def _run(args):
             print(f"   {name:20} {n:>6}")
         if stats["backup"]:
             print(f"previous database kept at {stats['backup']}")
+        if stats.get("state_error"):
+            print(f"\nWARNING: loaded, but the record that it was couldn't be written, so the dashboard will "
+                  f"still say the files have changed: {stats['state_error']}", file=sys.stderr)
+            return 1
     elif args.direction == "adopt":
         print(adopt(args.base_dir))
     else:
@@ -562,4 +579,4 @@ def check(base_dir=None) -> str:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
