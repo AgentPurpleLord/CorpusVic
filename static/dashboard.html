@@ -631,8 +631,9 @@ function paintUpdates() {
         ${UPD.code_stale ? " &middot; pulled, not yet restarted" : ""}</div>
       <button class="btn primary" id="update-now" ${UPD.behind || UPD.code_stale ? "" : "disabled"} onclick="applyUpdate(this)">Update now</button>
     </div>
-    <p class="hint">Pulls the new code, installs new requirements if there are any, restarts the public site, then
-      restarts the dashboard. Your review work is kept: a pull refuses if there are unpushed changes.</p>`;
+    <p class="hint">Saves your review work, pulls the new code and merges it in (the database is rebuilt from the
+      result), sends your work to GitHub, installs new requirements if there are any, then restarts the public site
+      and the dashboard. If the same provision was reviewed both here and on GitHub, it stops and says which.</p>`;
 }
 
 async function openUpdates() {

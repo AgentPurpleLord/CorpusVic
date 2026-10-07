@@ -80,7 +80,9 @@ def test_without_a_token_the_server_half_still_answers(monkeypatch):
 def _run_update(monkeypatch, pulled):
     calls = []
     monkeypatch.setattr(dashboard, "_tasks", {})
+    monkeypatch.setattr(sync, "commit", lambda repo, message: calls.append("save") or {"committed": True, "message": "Committed 3 change(s)."})
     monkeypatch.setattr(sync, "pull", lambda repo: calls.append("pull") or pulled)
+    monkeypatch.setattr(sync, "push", lambda repo, message: calls.append("send") or {"pushed": True, "message": "Pushed."})
 
     class Done:
         returncode, stdout, stderr = 0, "", ""
@@ -97,11 +99,13 @@ def _run_update(monkeypatch, pulled):
 
 def test_an_update_pulls_installs_only_what_changed_and_restarts_both(monkeypatch):
     calls, job = _run_update(monkeypatch, {"message": "Pulled 2 commits.", "changed": ["corpus/x.py"]})
-    assert calls == ["pull", "public", "exit"]
-    assert [s["state"] for s in job["steps"]] == ["done", "skipped", "done", "running"]
+    # Unpushed review work is saved, merged with what arrives, and sent --
+    # it used to stop the update, and a terminal pull loaded none of it.
+    assert calls == ["save", "pull", "send", "public", "exit"]
+    assert [s["state"] for s in job["steps"]] == ["done", "done", "done", "skipped", "done", "running"]
 
     calls, job = _run_update(monkeypatch, {"message": "Pulled.", "changed": ["requirements.txt", "deploy/public.service"]})
-    assert calls == ["pull", "install", "public", "exit"]
+    assert calls == ["save", "pull", "send", "install", "public", "exit"]
     assert any("daemon-reload" in n for n in job["notes"])
 
 
@@ -111,6 +115,7 @@ def test_an_update_stops_at_a_refused_pull(monkeypatch):
 
     def refuse(repo):
         raise sync.SyncError("There are 2 uncommitted change(s) under data/ that a pull would overwrite.")
+    monkeypatch.setattr(sync, "commit", lambda repo, message: {"committed": False, "message": "Nothing to commit."})
     monkeypatch.setattr(sync, "pull", refuse)
     monkeypatch.setattr(dashboard, "public_service_restart", lambda: calls.append("public"))
     monkeypatch.setattr(dashboard.os, "_exit", lambda code: calls.append("exit"))
@@ -119,7 +124,7 @@ def test_an_update_stops_at_a_refused_pull(monkeypatch):
 
     dashboard._apply_update(job, dashboard._task("update", "Updating", cancellable=False))
 
-    assert calls == [] and job["state"] == "failed" and "uncommitted" in job["steps"][0]["message"]
+    assert calls == [] and job["state"] == "failed" and "uncommitted" in job["steps"][1]["message"]
 
 
 def test_the_dashboard_has_the_updates_panel():
@@ -144,3 +149,18 @@ def test_the_dashboard_does_not_ask_github_on_every_load():
     assert "\nloadUpdates(false);" not in page
     sync = page[page.index("function renderSync(s)"):]
     assert 'getElementById("updates-dot").hidden' in sync[:600]
+
+
+def test_an_import_that_cannot_record_itself_says_so(tmp_path, monkeypatch):
+    """After a `git pull` run as root, the record of the last import was
+    root's, an import could not overwrite it, and said nothing -- so the
+    "files have changed" refusal stayed after the fix that should clear it."""
+    from corpus.review import review_sync
+
+    (tmp_path / "data" / "review" / "act").mkdir(parents=True)
+    (tmp_path / "data" / "review" / "act" / "verified.jsonl").write_text("")
+    monkeypatch.setattr(review_sync.Path, "write_text", lambda self, *a, **k: (_ for _ in ()).throw(PermissionError("denied")))
+
+    said = review_sync._record_state(tmp_path)
+
+    assert "denied" in said and "chown -R dashboard:dashboard" in said
