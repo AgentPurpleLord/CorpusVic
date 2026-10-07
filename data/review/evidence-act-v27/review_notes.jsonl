@@ -1,0 +1,20 @@
+{"act": "evidence-act-v27", "node_id": "ch1/pt1.1/s3/3", "note": "Not capturing the entirity", "noted_at": "2026-09-29T11:06:14.390508+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch2/note~21c663", "note": "Should be a note assigned to Chapter 2", "noted_at": "2026-09-29T11:07:15.822799+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3", "note": "Introductory note is its own node. Subsequently after this there is a chart that should be parsed.", "noted_at": "2026-09-29T11:10:22.447008+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/a", "note": "client (a)", "noted_at": "2026-09-29T11:18:52.604520+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/b", "note": "client (b)", "noted_at": "2026-09-29T11:18:58.106032+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/c", "note": "client (c)", "noted_at": "2026-09-29T11:19:02.422256+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/c/i", "note": "client (c)(i)", "noted_at": "2026-09-29T11:19:08.719013+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/c/ii", "note": "client (c)(ii)", "noted_at": "2026-09-29T11:19:15.752725+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/d", "note": "client (d)", "noted_at": "2026-09-29T11:19:20.064159+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/e", "note": "client (e)", "noted_at": "2026-09-29T11:19:24.855319+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-client/f", "note": "client (f)", "noted_at": "2026-09-29T11:19:29.661712+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-confidential-communication/a", "note": "confidential communication (a)", "noted_at": "2026-09-29T11:19:41.400207+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-confidential-communication/b", "note": "confidential communication (b)", "noted_at": "2026-09-29T11:19:45.174189+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-confidential-communication/continuation~0f7e63", "note": "confidential communication continutation", "noted_at": "2026-09-29T11:19:58.085723+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-confidential-document/a", "note": "confidential document (a)", "noted_at": "2026-09-29T11:20:07.011133+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-confidential-document/b", "note": "confidential document (b)", "noted_at": "2026-09-29T11:20:10.581887+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.10/div1/s117/1/definition-confidential-document/continuation~0f7e63", "note": "confidential document continuation", "noted_at": "2026-09-29T11:20:17.777173+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.6/note~174097", "note": "should be linked to Part 3.6 as a note", "noted_at": "2026-09-29T11:17:04.884449+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.7/div2/s108/2", "note": "Missing the whole row of *", "noted_at": "2026-09-29T11:17:58.247720+00:00"}
+{"act": "evidence-act-v27", "node_id": "ch3/pt3.7/div2/s108/2/repealed~a2b389", "note": "see previous", "noted_at": "2026-09-29T11:18:02.522232+00:00"}

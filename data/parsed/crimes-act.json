@@ -24,8 +24,8 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "80693772ca1169c2",
-  "parser_version": "304808f13f5c267a",
+  "fingerprint": "278b9013424561b7",
+  "parser_version": "9be1ddf12a38ebff",
   "nodes": [
     {
       "type": "section",
@@ -34605,21 +34605,21 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A tattoos B's neck at the request of B. 2 A gives B a neck piercing at the request of B.",
+      "text": "A tattoos B's neck at the request of B.",
       "page_start": 86,
       "page_end": 86,
       "char_start": 56269,
-      "char_end": 56359,
+      "char_end": 56310,
       "source": "rules",
       "rects": [
         {
           "page": 86,
           "x0": 209.8,
           "y0": 396.5,
-          "x1": 414.6,
-          "y1": 425.1
+          "x1": 383.7,
+          "y1": 407.6
         }
       ],
       "seen": {
@@ -34661,7 +34661,67 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv4a/s34ad/3/example~097845"
+      "id": "pti/div1/subdiv4a/s34ad/3/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "A gives B a neck piercing at the request of B.",
+      "page_start": 86,
+      "page_end": 86,
+      "char_start": 56311,
+      "char_end": 56359,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 86,
+          "x0": 209.8,
+          "y0": 414.1,
+          "x1": 414.6,
+          "y1": 425.1
+        }
+      ],
+      "seen": {
+        "page": 86,
+        "y0": 414.1,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "A tattoos B's neck at the request of B.",
+          "x1": 383.7,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subsection",
+          "x0": 190.1
+        },
+        "open": {
+          "type": "subsection",
+          "x0": 190.1
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "4A",
+        "section": "34AD",
+        "subsection": "3",
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv4a/s34ad/3/example-2"
     },
     {
       "type": "section",
@@ -108477,13 +108537,13 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A manages membership of a website. A intends that the website be used by other persons to view child abuse material. 2 A monitors traffic through a website and ensures that the web server hardware and software are running correctly. A is aware that the website is being used by other persons to download child abuse material.",
+      "text": "A manages membership of a website. A intends that the website be used by other persons to view child abuse material.",
       "page_start": 181,
       "page_end": 181,
       "char_start": 156174,
-      "char_end": 156501,
+      "char_end": 156292,
       "source": "rules",
       "rects": [
         {
@@ -108491,7 +108551,7 @@
           "x0": 209.8,
           "y0": 291.1,
           "x1": 455.8,
-          "y1": 377.1
+          "y1": 325.1
         }
       ],
       "seen": {
@@ -108533,7 +108593,67 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8d/s51e/1/c/ii/example~208081"
+      "id": "pti/div1/subdiv8d/s51e/1/c/ii/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "A monitors traffic through a website and ensures that the web server hardware and software are running correctly. A is aware that the website is being used by other persons to download child abuse material.",
+      "page_start": 181,
+      "page_end": 181,
+      "char_start": 156293,
+      "char_end": 156501,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 181,
+          "x0": 209.8,
+          "y0": 331.6,
+          "x1": 448.3,
+          "y1": 377.1
+        }
+      ],
+      "seen": {
+        "page": 181,
+        "y0": 331.6,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "material.",
+          "x1": 268.0,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subparagraph",
+          "x0": 240.5
+        },
+        "open": {
+          "type": "subparagraph",
+          "x0": 240.5
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8D",
+        "section": "51E",
+        "subsection": "1",
+        "paragraph": "c",
+        "subparagraph": "ii",
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8d/s51e/1/c/ii/example-2"
     },
     {
       "type": "subsection",
@@ -110625,21 +110745,21 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A has an online storage account for electronic material accessible with a username and password. A has control of what is stored in the account and can move material around within the account or delete material from the account. A has an electronic folder in the account that A has titled 'personal' in which A puts some electronic child abuse material. A knowingly has possession of child abuse material. 2 In an online chat A is given a password for a joint email account that is shared with multiple users that A doesn't know. A logs into the email account and views emails that contain child abuse material images. While logged in A has the ability to view, move or delete emails that contain child abuse material. A continues to access the email account to view images. A knowingly has possession of child abuse material.",
+      "text": "A has an online storage account for electronic material accessible with a username and password. A has control of what is stored in the account and can move material around within the account or delete material from the account. A has an electronic folder in the account that A has titled 'personal' in which A puts some electronic child abuse material. A knowingly has possession of child abuse material.",
       "page_start": 184,
       "page_end": 184,
       "char_start": 160691,
-      "char_end": 161519,
+      "char_end": 161098,
       "source": "rules",
       "rects": [
         {
           "page": 184,
           "x0": 184.3,
           "y0": 387.7,
-          "x1": 445.2,
-          "y1": 577.3
+          "x1": 439.6,
+          "y1": 479.2
         }
       ],
       "seen": {
@@ -110681,7 +110801,67 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8d/s51g/5/example~11d6fa"
+      "id": "pti/div1/subdiv8d/s51g/5/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "In an online chat A is given a password for a joint email account that is shared with multiple users that A doesn't know. A logs into the email account and views emails that contain child abuse material images. While logged in A has the ability to view, move or delete emails that contain child abuse material. A continues to access the email account to view images. A knowingly has possession of child abuse material.",
+      "page_start": 184,
+      "page_end": 184,
+      "char_start": 161099,
+      "char_end": 161519,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 184,
+          "x0": 184.3,
+          "y0": 485.7,
+          "x1": 445.2,
+          "y1": 577.3
+        }
+      ],
+      "seen": {
+        "page": 184,
+        "y0": 485.7,
+        "x0": 184.3,
+        "x1": 191.9,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "abuse material.",
+          "x1": 267.7,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subsection",
+          "x0": 190.1
+        },
+        "open": {
+          "type": "subsection",
+          "x0": 190.1
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8D",
+        "section": "51G",
+        "subsection": "5",
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8d/s51g/5/example-2"
     },
     {
       "type": "note",
@@ -111873,13 +112053,13 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A provides information to B about how to use a website to deal with child abuse material anonymously or how to encrypt electronic material containing child abuse material. 2 A provides information to B about how to delete electronic material that records information about B's identity.",
+      "text": "A provides information to B about how to use a website to deal with child abuse material anonymously or how to encrypt electronic material containing child abuse material.",
       "page_start": 186,
       "page_end": 186,
       "char_start": 163129,
-      "char_end": 163417,
+      "char_end": 163302,
       "source": "rules",
       "rects": [
         {
@@ -111887,7 +112067,7 @@
           "x0": 209.8,
           "y0": 176.4,
           "x1": 452.3,
-          "y1": 262.5
+          "y1": 222.0
         }
       ],
       "seen": {
@@ -111929,7 +112109,67 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8d/s51i/1/b/example~f60632"
+      "id": "pti/div1/subdiv8d/s51i/1/b/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "A provides information to B about how to delete electronic material that records information about B's identity.",
+      "page_start": 186,
+      "page_end": 186,
+      "char_start": 163303,
+      "char_end": 163417,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 186,
+          "x0": 209.8,
+          "y0": 228.5,
+          "x1": 431.2,
+          "y1": 262.5
+        }
+      ],
+      "seen": {
+        "page": 186,
+        "y0": 228.5,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "abuse material.",
+          "x1": 293.2,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "open": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8D",
+        "section": "51I",
+        "subsection": "1",
+        "paragraph": "b",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8d/s51i/1/b/example-2"
     },
     {
       "type": "subsection",
@@ -113325,21 +113565,21 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A is a university lecturer in psychology. During a lecture on abnormal psychology, A shows a lecture slide with examples of textual child abuse material to illustrate the type of material associated with an abnormal psychological profile. The lecture slide is of public benefit. 2 A is a photojournalist in a war zone. A takes a photo of a child victim of torture and submits it to a news organisation for publication. The photo is of public benefit.",
+      "text": "A is a university lecturer in psychology. During a lecture on abnormal psychology, A shows a lecture slide with examples of textual child abuse material to illustrate the type of material associated with an abnormal psychological profile. The lecture slide is of public benefit.",
       "page_start": 188,
       "page_end": 188,
       "char_start": 166303,
-      "char_end": 166755,
+      "char_end": 166583,
       "source": "rules",
       "rects": [
         {
           "page": 188,
           "x0": 209.8,
           "y0": 425.5,
-          "x1": 442.5,
-          "y1": 546.1
+          "x1": 438.3,
+          "y1": 494.0
         }
       ],
       "seen": {
@@ -113381,7 +113621,67 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8d/s51l/2/example~163e2c"
+      "id": "pti/div1/subdiv8d/s51l/2/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "A is a photojournalist in a war zone. A takes a photo of a child victim of torture and submits it to a news organisation for publication. The photo is of public benefit.",
+      "page_start": 188,
+      "page_end": 188,
+      "char_start": 166584,
+      "char_end": 166755,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 188,
+          "x0": 209.8,
+          "y0": 500.5,
+          "x1": 442.5,
+          "y1": 546.1
+        }
+      ],
+      "seen": {
+        "page": 188,
+        "y0": 500.5,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "of public benefit.",
+          "x1": 301.3,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subsection",
+          "x0": 190.1
+        },
+        "open": {
+          "type": "subsection",
+          "x0": 190.1
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8D",
+        "section": "51L",
+        "subsection": "2",
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8d/s51l/2/example-2"
     },
     {
       "type": "subsection",
@@ -115113,9 +115413,9 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 The image depicts A taking part in an act of sexual penetration with another child who is not more than",
+      "text": "The image depicts A taking part in an act of sexual penetration with another child who is not more than",
       "page_start": 190,
       "page_end": 190,
       "char_start": 169099,
@@ -115169,28 +115469,27 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8d/s51n/1/e/ii/example~b5217f"
+      "id": "pti/div1/subdiv8d/s51n/1/e/ii/example-1"
     },
     {
-      "type": "continuation",
-      "number": null,
+      "type": "example",
+      "number": "2",
       "heading": null,
-      "text": "2 years younger. Both are consenting to the act. A is not guilty of an offence against section 51B(1), 51C(1), 51D(1), 51G(1) or 51H(1) in respect of the image.",
+      "text": "years younger. Both are consenting to the act. A is not guilty of an offence against section 51B(1), 51C(1), 51D(1), 51G(1) or 51H(1) in respect of the image. 2 The image depicts a child being sexually penetrated. A is a child and A reasonably believes that the image depicts a consensual sexual relationship between two 16 year olds and is therefore not a criminal offence. A also reasonably believes that A is not more than",
       "page_start": 190,
       "page_end": 190,
       "char_start": 169205,
-      "char_end": 169365,
+      "char_end": 169632,
       "source": "rules",
       "rects": [
         {
           "page": 190,
-          "x0": 230.2,
+          "x0": 209.8,
           "y0": 582.9,
           "x1": 454.6,
-          "y1": 617.0
+          "y1": 680.5
         }
       ],
-      "depth_rank": 8,
       "seen": {
         "page": 190,
         "y0": 582.9,
@@ -115203,6 +115502,74 @@
         "above": {
           "text": " with another child who is not more than",
           "x1": 440.0,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "subparagraph",
+          "x0": 240.5
+        },
+        "open": {
+          "type": "subparagraph",
+          "x0": 240.5
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8D",
+        "section": "51N",
+        "subsection": "1",
+        "paragraph": "e",
+        "subparagraph": "ii",
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8d/s51n/1/e/ii/example-2"
+    },
+    {
+      "type": "continuation",
+      "number": null,
+      "heading": null,
+      "text": "2 years older than the youngest child depicted in the image. A is not guilty of an offence against section 51B(1), 51C(1), 51D(1), 51G(1) or 51H(1) in respect of the image.",
+      "page_start": 190,
+      "page_end": 191,
+      "char_start": 169633,
+      "char_end": 169805,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 190,
+          "x0": 230.2,
+          "y0": 681.0,
+          "x1": 426.6,
+          "y1": 692.0
+        },
+        {
+          "page": 191,
+          "x0": 230.2,
+          "y0": 159.0,
+          "x1": 435.0,
+          "y1": 193.0
+        }
+      ],
+      "depth_rank": 8,
+      "seen": {
+        "page": 190,
+        "y0": 681.0,
+        "x0": 230.2,
+        "x1": 426.6,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2 years older than the youngest child depicted in",
+        "above": {
+          "text": "sonably believes that A is not more than",
+          "x1": 434.0,
           "bold": false,
           "size": 10.0
         },
@@ -115230,75 +115597,7 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8d/s51n/1/continuation~0306f2"
-    },
-    {
-      "type": "continuation",
-      "number": null,
-      "heading": null,
-      "text": "2 The image depicts a child being sexually penetrated. A is a child and A reasonably believes that the image depicts a consensual sexual relationship between two 16 year olds and is therefore not a criminal offence. A also reasonably believes that A is not more than 2 years older than the youngest child depicted in the image. A is not guilty of an offence against section 51B(1), 51C(1), 51D(1), 51G(1) or 51H(1) in respect of the image.",
-      "page_start": 190,
-      "page_end": 191,
-      "char_start": 169366,
-      "char_end": 169805,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 190,
-          "x0": 209.8,
-          "y0": 623.4,
-          "x1": 445.4,
-          "y1": 692.0
-        },
-        {
-          "page": 191,
-          "x0": 230.2,
-          "y0": 159.0,
-          "x1": 435.0,
-          "y1": 193.0
-        }
-      ],
-      "depth_rank": 7,
-      "seen": {
-        "page": 190,
-        "y0": 623.4,
-        "x0": 209.8,
-        "x1": 217.3,
-        "size": 10.0,
-        "bold": false,
-        "lbi": null,
-        "text": "2",
-        "above": {
-          "text": "1G(1) or 51H(1) in respect of the image.",
-          "x1": 433.7,
-          "bold": false,
-          "size": 10.0
-        },
-        "parent": {
-          "type": "subsection",
-          "x0": 190.1
-        },
-        "open": {
-          "type": "continuation",
-          "x0": 230.2
-        },
-        "margin": 454.1,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": null,
-        "chapter": null,
-        "part": "I",
-        "division": "1",
-        "subdivision": "8D",
-        "section": "51N",
-        "subsection": "1",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "pti/div1/subdiv8d/s51n/1/continuation~f2e4ff"
+      "id": "pti/div1/subdiv8d/s51n/1/continuation~82e7c0"
     },
     {
       "type": "subsection",
@@ -115340,7 +115639,7 @@
         },
         "open": {
           "type": "continuation",
-          "x0": 209.8
+          "x0": 230.2
         },
         "margin": 454.1,
         "body": 12.0
@@ -146400,13 +146699,13 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A person (A) live streams footage from a hidden camera placed in the bedroom of another person (B) to A's laptop and that footage depicts B engaging in sexual activity with another person. 2 A person (A) digitally superimposes another person's face (B) onto a photograph of a naked person taken from an online magazine. 3 A doctor taking a photo of an unconscious patient, which depicts the patient's genital region, during an operation to assist the doctor to perform a medical procedure may not be an offence against this section because of subsection (1)(d).",
+      "text": "A person (A) live streams footage from a hidden camera placed in the bedroom of another person (B) to A's laptop and that footage depicts B engaging in sexual activity with another person.",
       "page_start": 234,
       "page_end": 234,
       "char_start": 217505,
-      "char_end": 218068,
+      "char_end": 217695,
       "source": "rules",
       "rects": [
         {
@@ -146414,7 +146713,7 @@
           "x0": 209.8,
           "y0": 531.0,
           "x1": 451.8,
-          "y1": 680.5
+          "y1": 576.4
         }
       ],
       "seen": {
@@ -146456,7 +146755,127 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8faab/s53r/1/d/example~7f5213"
+      "id": "pti/div1/subdiv8faab/s53r/1/d/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "A person (A) digitally superimposes another person's face (B) onto a photograph of a naked person taken from an online magazine.",
+      "page_start": 234,
+      "page_end": 234,
+      "char_start": 217696,
+      "char_end": 217826,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 234,
+          "x0": 209.8,
+          "y0": 582.9,
+          "x1": 445.3,
+          "y1": 617.0
+        }
+      ],
+      "seen": {
+        "page": 234,
+        "y0": 582.9,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "sexual activity with another person.",
+          "x1": 375.2,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "open": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8FAAB",
+        "section": "53R",
+        "subsection": "1",
+        "paragraph": "d",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8faab/s53r/1/d/example-2"
+    },
+    {
+      "type": "example",
+      "number": "3",
+      "heading": null,
+      "text": "A doctor taking a photo of an unconscious patient, which depicts the patient's genital region, during an operation to assist the doctor to perform a medical procedure may not be an offence against this section because of subsection (1)(d).",
+      "page_start": 234,
+      "page_end": 234,
+      "char_start": 217827,
+      "char_end": 218068,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 234,
+          "x0": 209.8,
+          "y0": 623.4,
+          "x1": 442.3,
+          "y1": 680.5
+        }
+      ],
+      "seen": {
+        "page": 234,
+        "y0": 623.4,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "3",
+        "above": {
+          "text": "from an online magazine.",
+          "x1": 334.9,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "open": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8FAAB",
+        "section": "53R",
+        "subsection": "1",
+        "paragraph": "d",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8faab/s53r/1/d/example-3"
     },
     {
       "type": "subsection",
@@ -147264,13 +147683,13 @@
     },
     {
       "type": "example",
-      "number": null,
+      "number": "1",
       "heading": null,
-      "text": "1 A person (A) intentionally posts a photograph of another person (B) on a social media website without B's consent and the photograph depicts B engaged in a sexual activity. 2 A person (A) sends a photograph of a person (B) to another person (C) using an instant messaging service without B's consent and the photograph depicts B's genital or anal region. 3 A parent emailing a photo of their naked newborn child to a family member or a friend may not be an offence against this section because of subsection (1)(d).",
+      "text": "A person (A) intentionally posts a photograph of another person (B) on a social media website without B's consent and the photograph depicts B engaged in a sexual activity.",
       "page_start": 235,
-      "page_end": 236,
+      "page_end": 235,
       "char_start": 218958,
-      "char_end": 219475,
+      "char_end": 219132,
       "source": "rules",
       "rects": [
         {
@@ -147278,14 +147697,7 @@
           "x0": 209.8,
           "y0": 568.8,
           "x1": 450.7,
-          "y1": 666.2
-        },
-        {
-          "page": 236,
-          "x0": 209.8,
-          "y0": 159.0,
-          "x1": 454.9,
-          "y1": 193.0
+          "y1": 614.2
         }
       ],
       "seen": {
@@ -147327,7 +147739,127 @@
         "sub_subparagraph": null,
         "definition": null
       },
-      "id": "pti/div1/subdiv8faab/s53s/1/d/example~c0b79b"
+      "id": "pti/div1/subdiv8faab/s53s/1/d/example-1"
+    },
+    {
+      "type": "example",
+      "number": "2",
+      "heading": null,
+      "text": "A person (A) sends a photograph of a person (B) to another person (C) using an instant messaging service without B's consent and the photograph depicts B's genital or anal region.",
+      "page_start": 235,
+      "page_end": 235,
+      "char_start": 219133,
+      "char_end": 219314,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 235,
+          "x0": 209.8,
+          "y0": 620.7,
+          "x1": 448.2,
+          "y1": 666.2
+        }
+      ],
+      "seen": {
+        "page": 235,
+        "y0": 620.7,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "2",
+        "above": {
+          "text": "sexual activity.",
+          "x1": 293.3,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "open": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8FAAB",
+        "section": "53S",
+        "subsection": "1",
+        "paragraph": "d",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8faab/s53s/1/d/example-2"
+    },
+    {
+      "type": "example",
+      "number": "3",
+      "heading": null,
+      "text": "A parent emailing a photo of their naked newborn child to a family member or a friend may not be an offence against this section because of subsection (1)(d).",
+      "page_start": 236,
+      "page_end": 236,
+      "char_start": 219315,
+      "char_end": 219475,
+      "source": "rules",
+      "rects": [
+        {
+          "page": 236,
+          "x0": 209.8,
+          "y0": 159.0,
+          "x1": 454.9,
+          "y1": 193.0
+        }
+      ],
+      "seen": {
+        "page": 236,
+        "y0": 159.0,
+        "x0": 209.8,
+        "x1": 217.3,
+        "size": 10.0,
+        "bold": false,
+        "lbi": null,
+        "text": "3",
+        "above": {
+          "text": "genital or anal region.",
+          "x1": 320.4,
+          "bold": false,
+          "size": 10.0
+        },
+        "parent": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "open": {
+          "type": "paragraph",
+          "x0": 215.6
+        },
+        "margin": 454.1,
+        "body": 12.0
+      },
+      "path": {
+        "schedule": null,
+        "chapter": null,
+        "part": "I",
+        "division": "1",
+        "subdivision": "8FAAB",
+        "section": "53S",
+        "subsection": "1",
+        "paragraph": "d",
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "pti/div1/subdiv8faab/s53s/1/d/example-3"
     },
     {
       "type": "subsection",
