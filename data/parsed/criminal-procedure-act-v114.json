@@ -24,8 +24,8 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "3da75262dce762d4",
-  "parser_version": "5a6bb11136a7e8c5",
+  "fingerprint": "68b68d9a16a21425",
+  "parser_version": "304808f13f5c267a",
   "nodes": [
     {
       "type": "chapter",
@@ -87155,11 +87155,11 @@
       "type": "subparagraph",
       "number": "iv",
       "heading": null,
-      "text": "why the accused is of the view that the reasons referred to in subparagraph (iii) are substantial reasons;",
+      "text": "why the accused is of the view that the reasons referred to in subparagraph (iii) are substantial reasons; 1A Except as provided by section 125(1A), at a committal mention hearing, the Magistrates' Court may grant leave to cross-examine a witness on one or more issues. If the Magistrates' Court grants leave to cross-examine a witness, the court must identify each issue on which the witness may be cross-examined. See section 124A(b). 2 If leave to cross-examine a witness is granted under section 124, the Magistrates' Court may grant leave, during the committal hearing, for the accused to cross-examine the witness on other issues. See section 132A.",
       "page_start": 152,
-      "page_end": 152,
+      "page_end": 153,
       "char_start": 147025,
-      "char_end": 147136,
+      "char_end": 148020,
       "source": "rules",
       "rects": [
         {
@@ -87168,6 +87168,13 @@
           "y0": 508.8,
           "x1": 454.0,
           "y1": 552.6
+        },
+        {
+          "page": 153,
+          "x0": 235.3,
+          "y0": 157.5,
+          "x1": 455.2,
+          "y1": 315.0
         }
       ],
       "seen": {
@@ -87242,19 +87249,19 @@
       "type": "note",
       "number": "1",
       "heading": null,
-      "text": "See section 123(1) for certain proceedings in which the Magistrates' Court must not grant leave to cross-examine any witness.",
+      "text": "See section 123(1) for certain proceedings in which the Magistrates' Court must not grant leave to cross-examine any witness. 1AA If Part 4.6A requires the Magistrates' Court to commit the accused for trial in the Supreme Court, there is to be no committal hearing at which cross-examination could occur\u2014see section 100(1A)(b).",
       "page_start": 152,
       "page_end": 152,
       "char_start": 147143,
-      "char_end": 147270,
+      "char_end": 147472,
       "source": "rules",
       "rects": [
         {
           "page": 152,
-          "x0": 235.3,
+          "x0": 219.7,
           "y0": 573.9,
-          "x1": 437.7,
-          "y1": 610.4
+          "x1": 441.6,
+          "y1": 693.7
         }
       ],
       "seen": {
@@ -87373,74 +87380,6 @@
       "id": "ch4/pt4.5/s119/c/iv/note-1"
     },
     {
-      "type": "continuation",
-      "number": null,
-      "heading": null,
-      "text": "1AA If Part 4.6A requires the Magistrates' Court to commit the accused for trial in the Supreme Court, there is to be no committal hearing at which cross-examination could occur\u2014see section 100(1A)(b). 1A Except as provided by section 125(1A), at a committal mention hearing, the Magistrates' Court may grant leave to cross-examine a witness on one or more issues. If the Magistrates' Court grants leave to cross-examine a witness, the court must identify each issue on which the witness may be cross-examined. See section 124A(b). 2 If leave to cross-examine a witness is granted under section 124, the Magistrates' Court may grant leave, during the committal hearing, for the accused to cross-examine the witness on other issues. See section 132A.",
-      "page_start": 152,
-      "page_end": 153,
-      "char_start": 147271,
-      "char_end": 148020,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 152,
-          "x0": 219.7,
-          "y0": 634.3,
-          "x1": 441.6,
-          "y1": 693.7
-        },
-        {
-          "page": 153,
-          "x0": 235.3,
-          "y0": 157.5,
-          "x1": 455.2,
-          "y1": 315.0
-        }
-      ],
-      "depth_rank": 8,
-      "seen": {
-        "page": 152,
-        "y0": 634.3,
-        "x0": 219.7,
-        "x1": 241.7,
-        "size": 10.0,
-        "bold": false,
-        "lbi": null,
-        "text": "1AA",
-        "above": {
-          "text": "leave to cross-examine any witness.",
-          "x1": 401.8,
-          "bold": false,
-          "size": 10.0
-        },
-        "parent": {
-          "type": "paragraph",
-          "x0": 216.2
-        },
-        "open": {
-          "type": "subparagraph",
-          "x0": 237.8
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": null,
-        "chapter": "4",
-        "part": "4.5",
-        "division": null,
-        "subdivision": null,
-        "section": "119",
-        "subsection": null,
-        "paragraph": "c",
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null
-      },
-      "id": "ch4/pt4.5/s119/continuation~647b97"
-    },
-    {
       "type": "paragraph",
       "number": "d",
       "heading": null,
@@ -87479,8 +87418,8 @@
           "x0": 160.6
         },
         "open": {
-          "type": "continuation",
-          "x0": 219.7
+          "type": "subparagraph",
+          "x0": 237.8
         },
         "margin": 454.2,
         "body": 12.0
@@ -245408,19 +245347,19 @@
       "type": "subsection",
       "number": "2",
       "heading": null,
-      "text": "In subsection (1)\u2014",
+      "text": "In subsection (1)\u2014 the best available record of the evidence, or any part of the evidence, means an audiovisual recording of the evidence.",
       "page_start": 388,
       "page_end": 388,
       "char_start": 426828,
-      "char_end": 426850,
+      "char_end": 426970,
       "source": "rules",
       "rects": [
         {
           "page": 388,
           "x0": 190.1,
           "y0": 346.8,
-          "x1": 305.4,
-          "y1": 363.0
+          "x1": 445.7,
+          "y1": 410.4
         }
       ],
       "seen": {
@@ -245465,67 +245404,6 @@
       "id": "ch8/pt8.2/div6/s373/2"
     },
     {
-      "type": "definition",
-      "number": null,
-      "heading": "the best available record",
-      "text": "of the evidence, or any part of the evidence, means an audiovisual recording of the evidence.",
-      "page_start": 388,
-      "page_end": 388,
-      "char_start": 426851,
-      "char_end": 426970,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 388,
-          "x0": 209.8,
-          "y0": 366.6,
-          "x1": 445.7,
-          "y1": 410.4
-        }
-      ],
-      "depth_rank": 7,
-      "seen": {
-        "page": 388,
-        "y0": 366.6,
-        "x0": 209.8,
-        "x1": 445.7,
-        "size": 12.0,
-        "bold": true,
-        "lbi": "the best available record",
-        "text": "the best available record of the evidence, or any",
-        "above": {
-          "text": "(2) In subsection (1)\u2014",
-          "x1": 305.4,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "subsection",
-          "x0": 190.1
-        },
-        "open": {
-          "type": "subsection",
-          "x0": 190.1
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.2",
-        "division": "6",
-        "subdivision": null,
-        "section": "373",
-        "subsection": "2",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": "the best available record"
-      },
-      "id": "ch8/pt8.2/div6/s373/2/definition-the-best-available-record"
-    },
-    {
       "type": "subsection",
       "number": "3",
       "heading": null,
@@ -245564,8 +245442,8 @@
           "x0": 157.7
         },
         "open": {
-          "type": "definition",
-          "x0": 209.8
+          "type": "subsection",
+          "x0": 190.1
         },
         "margin": 454.2,
         "body": 12.0
@@ -250486,19 +250364,19 @@
       "type": "subsection",
       "number": "2",
       "heading": null,
-      "text": "In subsection (1)\u2014",
+      "text": "In subsection (1)\u2014 the best available record of the evidence, or any part of the evidence, means an audiovisual recording of the evidence.",
       "page_start": 395,
       "page_end": 395,
       "char_start": 435101,
-      "char_end": 435123,
+      "char_end": 435243,
       "source": "rules",
       "rects": [
         {
           "page": 395,
           "x0": 190.1,
           "y0": 421.8,
-          "x1": 305.4,
-          "y1": 438.0
+          "x1": 445.7,
+          "y1": 485.4
         }
       ],
       "seen": {
@@ -250543,67 +250421,6 @@
       "id": "ch8/pt8.2/div7/s386/2"
     },
     {
-      "type": "definition",
-      "number": null,
-      "heading": "the best available record",
-      "text": "of the evidence, or any part of the evidence, means an audiovisual recording of the evidence.",
-      "page_start": 395,
-      "page_end": 395,
-      "char_start": 435124,
-      "char_end": 435243,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 395,
-          "x0": 209.8,
-          "y0": 441.6,
-          "x1": 445.7,
-          "y1": 485.4
-        }
-      ],
-      "depth_rank": 7,
-      "seen": {
-        "page": 395,
-        "y0": 441.6,
-        "x0": 209.8,
-        "x1": 445.7,
-        "size": 12.0,
-        "bold": true,
-        "lbi": "the best available record",
-        "text": "the best available record of the evidence, or any",
-        "above": {
-          "text": "(2) In subsection (1)\u2014",
-          "x1": 305.4,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "subsection",
-          "x0": 190.1
-        },
-        "open": {
-          "type": "subsection",
-          "x0": 190.1
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": null,
-        "chapter": "8",
-        "part": "8.2",
-        "division": "7",
-        "subdivision": null,
-        "section": "386",
-        "subsection": "2",
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": "the best available record"
-      },
-      "id": "ch8/pt8.2/div7/s386/2/definition-the-best-available-record"
-    },
-    {
       "type": "subsection",
       "number": "3",
       "heading": null,
@@ -250642,8 +250459,8 @@
           "x0": 157.7
         },
         "open": {
-          "type": "definition",
-          "x0": 209.8
+          "type": "subsection",
+          "x0": 190.1
         },
         "margin": 454.2,
         "body": 12.0
@@ -298724,6 +298541,30 @@
           "confidence": "high"
         },
         {
+          "raw": "Sch. 1 cl. 4A(1) def. of relevant offence amended by Nos 21/2020 s. 80, 35/2025 s. 73.",
+          "kind": "amendment",
+          "section": "4A",
+          "sub_path": [
+            "(1)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": "relevant offence",
+          "page": 476,
+          "rect": {
+            "page": 476,
+            "x0": 79.3,
+            "y0": 479.8,
+            "x1": 125.7,
+            "y1": 555.6
+          },
+          "confidence": "high"
+        },
+        {
           "raw": "Sch. 1 cl. 4A(4) repealed by No. 47/2016 s. 37(12).",
           "kind": "amendment",
           "section": "4A",
@@ -298745,7 +298586,7 @@
             "x1": 509.0,
             "y1": 634.8
           },
-          "confidence": "low"
+          "confidence": "high"
         }
       ],
       "id": "sch1/cl4a"
@@ -298809,32 +298650,6 @@
         "definition": null,
         "clause": "4A"
       },
-      "history": [
-        {
-          "raw": "Sch. 1 cl. 4A(1) def. of relevant offence amended by Nos 21/2020 s. 80, 35/2025 s. 73.",
-          "kind": "amendment",
-          "section": "4A",
-          "sub_path": [
-            "(1)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "1",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": "relevant offence",
-          "page": 476,
-          "rect": {
-            "page": 476,
-            "x0": 79.3,
-            "y0": 479.8,
-            "x1": 125.7,
-            "y1": 555.6
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch1/cl4a/1"
     },
     {
@@ -299384,32 +299199,6 @@
         "definition": null,
         "clause": "4A"
       },
-      "history": [
-        {
-          "raw": "Note to Sch. 1 cl. 4A(1) amended by No. 47/2016 s. 37(11), substituted by No. 5/2018 s. 17.",
-          "kind": "amendment",
-          "section": "4A",
-          "sub_path": [
-            "(1)"
-          ],
-          "target_kind": "note",
-          "target_id": null,
-          "schedule": "1",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 477,
-          "rect": {
-            "page": 477,
-            "x0": 467.8,
-            "y0": 191.2,
-            "x1": 517.8,
-            "y1": 267.1
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch1/cl4a/1/b/v/note~0b59d7"
     },
     {
@@ -301118,6 +300907,104 @@
         "definition": null,
         "clause": "5"
       },
+      "history": [
+        {
+          "raw": "Sch. 1 cl. 5(3) inserted by No. 74/2014 s. 14.",
+          "kind": "amendment",
+          "section": "5",
+          "sub_path": [
+            "(3)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 479,
+          "rect": {
+            "page": 479,
+            "x0": 467.8,
+            "y0": 643.6,
+            "x1": 513.7,
+            "y1": 682.7
+          },
+          "confidence": "high"
+        },
+        {
+          "raw": "Sch. 1 cl. 5(4) inserted by No. 74/2014 s. 14.",
+          "kind": "amendment",
+          "section": "5",
+          "sub_path": [
+            "(4)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 480,
+          "rect": {
+            "page": 480,
+            "x0": 79.3,
+            "y0": 191.2,
+            "x1": 125.2,
+            "y1": 230.3
+          },
+          "confidence": "high"
+        },
+        {
+          "raw": "Sch. 1 cl. 5(5) inserted by No. 74/2014 s. 14, amended by No. 38/2022 s. 81.",
+          "kind": "amendment",
+          "section": "5",
+          "sub_path": [
+            "(5)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 480,
+          "rect": {
+            "page": 480,
+            "x0": 79.3,
+            "y0": 266.2,
+            "x1": 125.2,
+            "y1": 332.9
+          },
+          "confidence": "high"
+        },
+        {
+          "raw": "Sch. 1 cl. 5(6) inserted by No. 74/2014 s. 14.",
+          "kind": "amendment",
+          "section": "5",
+          "sub_path": [
+            "(6)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "1",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 480,
+          "rect": {
+            "page": 480,
+            "x0": 79.3,
+            "y0": 347.2,
+            "x1": 125.2,
+            "y1": 386.3
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "sch1/cl5"
     },
     {
@@ -301308,32 +301195,6 @@
         "definition": null,
         "clause": "5"
       },
-      "history": [
-        {
-          "raw": "Sch. 1 cl. 5(3) inserted by No. 74/2014 s. 14.",
-          "kind": "amendment",
-          "section": "5",
-          "sub_path": [
-            "(3)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "1",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 479,
-          "rect": {
-            "page": 479,
-            "x0": 467.8,
-            "y0": 643.6,
-            "x1": 513.7,
-            "y1": 682.7
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch1/cl5/3"
     },
     {
@@ -301395,32 +301256,6 @@
         "definition": null,
         "clause": "5"
       },
-      "history": [
-        {
-          "raw": "Sch. 1 cl. 5(4) inserted by No. 74/2014 s. 14.",
-          "kind": "amendment",
-          "section": "5",
-          "sub_path": [
-            "(4)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "1",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 480,
-          "rect": {
-            "page": 480,
-            "x0": 79.3,
-            "y0": 191.2,
-            "x1": 125.2,
-            "y1": 230.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch1/cl5/4"
     },
     {
@@ -301482,32 +301317,6 @@
         "definition": null,
         "clause": "5"
       },
-      "history": [
-        {
-          "raw": "Sch. 1 cl. 5(5) inserted by No. 74/2014 s. 14, amended by No. 38/2022 s. 81.",
-          "kind": "amendment",
-          "section": "5",
-          "sub_path": [
-            "(5)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "1",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 480,
-          "rect": {
-            "page": 480,
-            "x0": 79.3,
-            "y0": 266.2,
-            "x1": 125.2,
-            "y1": 332.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch1/cl5/5"
     },
     {
@@ -301569,32 +301378,6 @@
         "definition": null,
         "clause": "5"
       },
-      "history": [
-        {
-          "raw": "Sch. 1 cl. 5(6) inserted by No. 74/2014 s. 14.",
-          "kind": "amendment",
-          "section": "5",
-          "sub_path": [
-            "(6)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "1",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 480,
-          "rect": {
-            "page": 480,
-            "x0": 79.3,
-            "y0": 347.2,
-            "x1": 125.2,
-            "y1": 386.3
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch1/cl5/6"
     },
     {
@@ -313688,19 +313471,117 @@
       "type": "schedule",
       "number": "3",
       "heading": "Persons who may witness statements in preliminary brief, full brief or hand-up brief (Sections 38, 47, 112)",
-      "text": "",
+      "text": "1 A police officer or a member of a police force or police service of any other State or of the Northern Territory. 2 A member of the Australian Federal Police. 3 An Immigration and Border Protection worker, within the meaning of the Australian Border Force Act 2015 of the Commonwealth, at Australian Public Service level 5 or higher who is performing work for that part of the Department of Immigration and Border Protection of the Commonwealth known as the Australian Border Force. 4 A staff member, within the meaning of the Australian Securities and Investments Commission Act 2001 of the Commonwealth, at ASIC level 4 or higher (or an equivalent classification) in the Enforcement and Compliance area or the Markets Enforcement area of the Australian Securities and Investments Commission. 5 A person employed at Victorian Public Service Grade 4 or higher classification under Part 3 of the Public Administration Act 2004 in the IBAC within the meaning of the Independent Broad-based Anti-corruption Commission Act 2011. 6 An officer at Australian Public Service level 5 or higher who is an Investigator in, or a member of, the Investigations Branch of the Department of Education, Employment and Workplace Relations of the Commonwealth. 7 An officer at Australian Public Service level 5 or higher who is a member of the Investigations Branch of the Inspector General Division in the Department of Defence of the Commonwealth. 8 A person who is an authorised officer within the meaning of section 7 of the National Anti-Corruption Commission Act 2022 of the Commonwealth. 9 A person who is an inspector appointed under section 267(1)(a) or (b) of the Radiocommunications Act 1992 of the Commonwealth. 10 A person appointed under regulation 42 of the Radiocommunications Regulations 1993 of the Commonwealth as an authorised person for those Regulations. 11 A person who is an inspector for the purposes of a provision of the Telecommunications Act 1997 of the Commonwealth by force of section 533(1)(a) or (b) of that Act. 12 An Investigations Officer at Australian Public Service level 5 or higher in the Department of Agriculture, Fisheries and Forestry of the Commonwealth. 13 An officer at Australian Public Service level 5 or higher who is an authorised person in relation to a provision of Part 6-2 of the Therapeutic Goods Act 1989 of the Commonwealth and employed in the Surveillance Unit, Therapeutic Goods Administration of the Department of Health and Ageing of the Commonwealth. 14 A member of the staff of the National Offshore Petroleum Safety and Environmental Management Authority who is appointed as an OHS inspector under section 680 of the Offshore Petroleum and Greenhouse Gas Storage Act 2006 of the Commonwealth. 15 A member of the staff of the Australian Crime Commission who is an Investigator. 16 An Investigation Officer or a Senior Investigation Officer or the Manager, Investigations in Medicare Australia. 17 An officer at Australian Public Service level 5 or higher or an equivalent level who is a Fraud Investigator or Fraud Investigator Manager in the Commonwealth Services Delivery Agency (Centrelink). 18 An officer at Australian Public Service level 5 or higher who is an Investigator or Senior Investigator in the Passport Fraud Section of the Department of Foreign Affairs and Trade of the Commonwealth. 19 An officer at Australian Public Service level 5 or higher who is an investigator in the Australian Taxation Office. 21 A person authorised by or under section 241 of the Building Act 1993. 22 An authorised officer within the meaning of the Conservation, Forests and Lands Act 1987. 22A An authorised officer within the meaning of the Electricity Safety Act 1998. 22B An authorised officer within the meaning of the Gas Safety Act 1997. 23 An inspector within the meaning of the Dangerous Goods Act 1985, Equipment (Public Safety) Act 1994 or Occupational Health and Safety Act 2004. 24 A general inspector within the meaning of the Prevention of Cruelty to Animals Act 1986. 24A A specialist inspector within the meaning of the Prevention of Cruelty to Animals Act 1986. 25 An employee of the Australian Postal Corporation who is appointed by the Corporation to act as a Corporate Investigator. 27 An officer at Australian Public Service level 5 or higher who is an Investigator or Investigation Manager in the Insolvency and Trustee Service Australia. 29 A transport safety officer within the meaning of the Transport (Compliance and Miscellaneous) Act 1983. 30 Any person, or a member of a class of persons, prescribed by the rules of court. 31 An authorised affidavit taker within the meaning of the Oaths and Affirmations Act 2018. 32 The Chief Municipal Inspector appointed under section 182 of the Local Government Act 2020. 33 An authorised officer appointed by a municipal council under section 224 of the Local Government Act 1989. 34 An officer at Australian Public Service level 5 or higher who is a member of the Investigations and Intelligence Branch of the Department of Climate Change and Energy Efficiency of the Commonwealth. 35 A person authorised under section 608 of the Workplace Injury Rehabilitation and Compensation Act 2013 to file charge-sheets on behalf of the Victorian WorkCover Authority. 36 An employee in the Department of Transport and Planning authorised under section 77(2)(c) of the Road Safety Act 1986 to prosecute any offence against that Act or the regulations made under that Act. 37 An employee in the Department of Transport and Planning authorised under section 112 of the Road Safety Act 1986. 38 A person authorised by or under section 229 of the Transport (Compliance and Miscellaneous) Act 1983 to bring a proceeding for an offence against that Act or the regulations made under that Act. 39 A person authorised under section 31(1) of the Heavy Vehicle National Law Application Act 2013 to commence a proceeding for an offence against the Heavy Vehicle National Law (Victoria). 40 An authorised officer within the meaning of the Dairy and Food Innovation Act 2000. 41 A person, or a member of a class of persons, authorised to be an inspector under section 70 of the Meat Industry Act 1993. 42 An authorised water officer within the meaning of the Water Act 1989.",
       "page_start": 498,
-      "page_end": 498,
+      "page_end": 503,
       "char_start": 554238,
-      "char_end": 554355,
+      "char_end": 560648,
       "source": "rules",
       "rects": [
         {
           "page": 498,
-          "x0": 166.6,
+          "x0": 156.7,
           "y0": 156.5,
           "x1": 456.1,
-          "y1": 232.1
+          "y1": 694.2
+        },
+        {
+          "page": 499,
+          "x0": 156.7,
+          "y0": 157.2,
+          "x1": 456.5,
+          "y1": 649.2
+        },
+        {
+          "page": 500,
+          "x0": 156.7,
+          "y0": 157.2,
+          "x1": 448.4,
+          "y1": 309.6
+        },
+        {
+          "page": 500,
+          "x0": 155.9,
+          "y0": 372.6,
+          "x1": 421.1,
+          "y1": 509.6
+        },
+        {
+          "page": 500,
+          "x0": 155.9,
+          "y0": 572.2,
+          "x1": 439.3,
+          "y1": 602.6
+        },
+        {
+          "page": 501,
+          "x0": 156.7,
+          "y0": 157.0,
+          "x1": 448.3,
+          "y1": 234.8
+        },
+        {
+          "page": 501,
+          "x0": 148.8,
+          "y0": 297.6,
+          "x1": 453.5,
+          "y1": 394.8
+        },
+        {
+          "page": 501,
+          "x0": 156.7,
+          "y0": 477.6,
+          "x1": 446.4,
+          "y1": 521.4
+        },
+        {
+          "page": 501,
+          "x0": 156.7,
+          "y0": 584.2,
+          "x1": 450.8,
+          "y1": 614.6
+        },
+        {
+          "page": 502,
+          "x0": 156.7,
+          "y0": 157.2,
+          "x1": 456.1,
+          "y1": 240.8
+        },
+        {
+          "page": 502,
+          "x0": 156.7,
+          "y0": 303.6,
+          "x1": 413.6,
+          "y1": 333.8
+        },
+        {
+          "page": 502,
+          "x0": 156.7,
+          "y0": 396.6,
+          "x1": 456.5,
+          "y1": 649.8
+        },
+        {
+          "page": 503,
+          "x0": 156.7,
+          "y0": 177.0,
+          "x1": 422.6,
+          "y1": 221.0
+        },
+        {
+          "page": 503,
+          "x0": 156.7,
+          "y0": 303.6,
+          "x1": 453.4,
+          "y1": 456.2
+        },
+        {
+          "page": 503,
+          "x0": 156.7,
+          "y0": 499.2,
+          "x1": 456.5,
+          "y1": 576.8
         }
       ],
       "seen": {
@@ -313744,6 +313625,270 @@
       },
       "history": [
         {
+          "raw": "Sch. 3 item 1 substituted by No. 37/2014 s. 10(Sch. item 41.10).",
+          "kind": "amendment",
+          "section": "1",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 498,
+          "rect": {
+            "page": 498,
+            "x0": 79.3,
+            "y0": 236.3,
+            "x1": 129.3,
+            "y1": 284.5
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 3 substituted by No. 27/2016 s. 45(a).",
+          "kind": "amendment",
+          "section": "3",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 498,
+          "rect": {
+            "page": 498,
+            "x0": 79.3,
+            "y0": 309.5,
+            "x1": 129.3,
+            "y1": 348.6
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 4 substituted by No. 38/2022 s. 74, amended by No. 5/2025 s. 37(1).",
+          "kind": "amendment",
+          "section": "4",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 498,
+          "rect": {
+            "page": 498,
+            "x0": 79.3,
+            "y0": 398.3,
+            "x1": 129.3,
+            "y1": 465.0
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 5 amended by No. 82/2012 s. 160.",
+          "kind": "amendment",
+          "section": "5",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 498,
+          "rect": {
+            "page": 498,
+            "x0": 79.3,
+            "y0": 487.1,
+            "x1": 124.0,
+            "y1": 526.2
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 6 amended by No. 68/2009 s. 57(a).",
+          "kind": "amendment",
+          "section": "6",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 498,
+          "rect": {
+            "page": 498,
+            "x0": 79.3,
+            "y0": 562.0,
+            "x1": 124.0,
+            "y1": 601.1
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 7 amended by No. 68/2009 s. 57(b).",
+          "kind": "amendment",
+          "section": "7",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 498,
+          "rect": {
+            "page": 498,
+            "x0": 79.3,
+            "y0": 637.0,
+            "x1": 124.0,
+            "y1": 676.1
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 8 substituted by No. 31/2024 s. 26.",
+          "kind": "amendment",
+          "section": "8",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 499,
+          "rect": {
+            "page": 499,
+            "x0": 467.8,
+            "y0": 163.6,
+            "x1": 517.8,
+            "y1": 202.7
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 12 amended by No. 68/2009 s. 57(c).",
+          "kind": "amendment",
+          "section": "12",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 499,
+          "rect": {
+            "page": 499,
+            "x0": 467.8,
+            "y0": 374.8,
+            "x1": 516.4,
+            "y1": 413.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 13 amended by No. 68/2009 s. 57(d).",
+          "kind": "amendment",
+          "section": "13",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 499,
+          "rect": {
+            "page": 499,
+            "x0": 467.8,
+            "y0": 422.2,
+            "x1": 516.4,
+            "y1": 461.3
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 14 amended by No. 68/2009 s. 57(e), substituted by No. 74/2012 s. 55.",
+          "kind": "amendment",
+          "section": "14",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 499,
+          "rect": {
+            "page": 499,
+            "x0": 467.8,
+            "y0": 511.0,
+            "x1": 517.8,
+            "y1": 577.7
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 16 amended by No. 68/2009 s. 57(f).",
+          "kind": "amendment",
+          "section": "16",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 499,
+          "rect": {
+            "page": 499,
+            "x0": 467.8,
+            "y0": 619.6,
+            "x1": 516.4,
+            "y1": 658.7
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 18 amended by No. 68/2009 s. 57(g).",
+          "kind": "amendment",
+          "section": "18",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 500,
+          "rect": {
+            "page": 500,
+            "x0": 79.3,
+            "y0": 218.8,
+            "x1": 128.0,
+            "y1": 257.9
+          },
+          "confidence": "low"
+        },
+        {
           "raw": "Sch. 3 item 20 repealed by No. 48/2012 s. 30(1).",
           "kind": "amendment",
           "section": "20",
@@ -313762,6 +313907,138 @@
             "y0": 313.6,
             "x1": 128.0,
             "y1": 352.7
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 21 substituted by No. 68/2009 s. 57(h).",
+          "kind": "amendment",
+          "section": "21",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 500,
+          "rect": {
+            "page": 500,
+            "x0": 79.3,
+            "y0": 373.0,
+            "x1": 129.3,
+            "y1": 412.1
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 22 substituted by No. 30/2010 s. 74.",
+          "kind": "amendment",
+          "section": "22",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 500,
+          "rect": {
+            "page": 500,
+            "x0": 79.3,
+            "y0": 426.4,
+            "x1": 129.3,
+            "y1": 465.5
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 22A inserted by No. 30/2010 s. 74, amended by No. 13/2025 s. 96(Sch. 3 item 2.1).",
+          "kind": "amendment",
+          "section": "22A",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 500,
+          "rect": {
+            "page": 500,
+            "x0": 79.3,
+            "y0": 479.8,
+            "x1": 123.3,
+            "y1": 564.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 22B inserted by No. 30/2010 s. 74, amended by No. 13/2025 s. 96(Sch. 3 item 2.2).",
+          "kind": "amendment",
+          "section": "22B",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 500,
+          "rect": {
+            "page": 500,
+            "x0": 79.3,
+            "y0": 572.8,
+            "x1": 123.3,
+            "y1": 657.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 24 repealed by No. 48/2012 s. 30(1), new Sch. 3 item 24 inserted by No. 55/2014 s. 171.",
+          "kind": "amendment",
+          "section": "24",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 501,
+          "rect": {
+            "page": 501,
+            "x0": 467.8,
+            "y0": 205.0,
+            "x1": 516.4,
+            "y1": 280.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 24A inserted by No. 55/2014 s. 171.",
+          "kind": "amendment",
+          "section": "24A",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 501,
+          "rect": {
+            "page": 501,
+            "x0": 467.8,
+            "y0": 298.0,
+            "x1": 508.5,
+            "y1": 346.2
           },
           "confidence": "low"
         },
@@ -313808,1494 +314085,317 @@
             "y1": 564.5
           },
           "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 29 amended by No. 6/2010 s. 203(1) (Sch. 6 item 11) (as amended by No. 45/2010 s. 22).",
+          "kind": "amendment",
+          "section": "29",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 501,
+          "rect": {
+            "page": 501,
+            "x0": 467.8,
+            "y0": 584.8,
+            "x1": 516.4,
+            "y1": 669.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 30 amended by No. 48/2012 s. 30(2).",
+          "kind": "amendment",
+          "section": "30",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 128.0,
+            "y1": 202.7
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 31 inserted by No. 48/2012 s. 30(3), substituted by No. 6/2018 s. 68(Sch. 2 item 38.7).",
+          "kind": "amendment",
+          "section": "31",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 211.0,
+            "x1": 129.3,
+            "y1": 286.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 32 inserted by No. 48/2012 s. 30(3), substituted by No. 9/2020 s. 390(Sch. 1 item 20.2).",
+          "kind": "amendment",
+          "section": "32",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 304.0,
+            "x1": 129.3,
+            "y1": 379.8
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 33 inserted by No. 48/2012 s. 30(3).",
+          "kind": "amendment",
+          "section": "33",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 397.0,
+            "x1": 128.0,
+            "y1": 436.1
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 34 inserted by No. 48/2012 s. 30(3).",
+          "kind": "amendment",
+          "section": "34",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 450.4,
+            "x1": 128.0,
+            "y1": 489.5
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 35 inserted by No. 48/2012 s. 30(3), amended by No. 67/2013 s. 649(Sch. 9 item 10).",
+          "kind": "amendment",
+          "section": "35",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 511.6,
+            "x1": 128.0,
+            "y1": 587.4
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 36 inserted by No. 48/2012 s. 30(3), amended by Nos 49/2019 s. 186(Sch. 4 item 9.1(a)), 25/2025 s. 106(Sch. 1 item 9).",
+          "kind": "amendment",
+          "section": "36",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 502,
+          "rect": {
+            "page": 502,
+            "x0": 79.3,
+            "y0": 592.6,
+            "x1": 128.0,
+            "y1": 696.0
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 37 inserted by No. 48/2012 s. 30(3), amended by Nos 49/2019 s. 186(Sch. 4 item 9.1(b)), 25/2025 s. 106(Sch. 1 item 9).",
+          "kind": "amendment",
+          "section": "37",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 503,
+          "rect": {
+            "page": 503,
+            "x0": 467.8,
+            "y0": 177.4,
+            "x1": 516.4,
+            "y1": 280.9
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 38 inserted by No. 48/2012 s. 30(3).",
+          "kind": "amendment",
+          "section": "38",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 503,
+          "rect": {
+            "page": 503,
+            "x0": 467.8,
+            "y0": 304.0,
+            "x1": 516.4,
+            "y1": 343.1
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 39 inserted by No. 20/2015 s. 42.",
+          "kind": "amendment",
+          "section": "39",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 503,
+          "rect": {
+            "page": 503,
+            "x0": 467.8,
+            "y0": 365.2,
+            "x1": 516.4,
+            "y1": 404.3
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 40 inserted by No. 26/2023 s. 63, amended by No. 16/2026 s. 264.",
+          "kind": "amendment",
+          "section": "40",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 503,
+          "rect": {
+            "page": 503,
+            "x0": 467.8,
+            "y0": 426.4,
+            "x1": 516.4,
+            "y1": 493.1
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 41 inserted by No. 26/2023 s. 63.",
+          "kind": "amendment",
+          "section": "41",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 503,
+          "rect": {
+            "page": 503,
+            "x0": 467.8,
+            "y0": 499.6,
+            "x1": 516.4,
+            "y1": 538.7
+          },
+          "confidence": "low"
+        },
+        {
+          "raw": "Sch. 3 item 42 inserted by No. 5/2025 s. 37(2).",
+          "kind": "amendment",
+          "section": "42",
+          "sub_path": [],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "3",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 503,
+          "rect": {
+            "page": 503,
+            "x0": 467.8,
+            "y0": 547.0,
+            "x1": 516.4,
+            "y1": 586.1
+          },
+          "confidence": "low"
         }
       ],
       "id": "sch3"
-    },
-    {
-      "type": "item",
-      "number": "1",
-      "heading": null,
-      "text": "A police officer or a member of a police force or police service of any other State or of the Northern Territory.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 554356,
-      "char_end": 554471,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 235.9,
-          "x1": 443.8,
-          "y1": 265.9
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 235.9,
-        "x0": 156.7,
-        "x1": 443.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "1 A police officer or a member of a police force or police",
-        "above": {
-          "text": "Sections 38, 47, 112",
-          "x1": 456.1,
-          "bold": false,
-          "size": 10.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "1",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 1 substituted by No. 37/2014 s. 10(Sch. item 41.10).",
-          "kind": "amendment",
-          "section": "1",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 498,
-          "rect": {
-            "page": 498,
-            "x0": 79.3,
-            "y0": 236.3,
-            "x1": 129.3,
-            "y1": 284.5
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item1"
-    },
-    {
-      "type": "item",
-      "number": "2",
-      "heading": null,
-      "text": "A member of the Australian Federal Police.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 554472,
-      "char_end": 554516,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 289.3,
-          "x1": 387.2,
-          "y1": 305.5
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 289.3,
-        "x0": 156.7,
-        "x1": 387.2,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "2 A member of the Australian Federal Police.",
-        "above": {
-          "text": "ther State or of the Northern Territory.",
-          "x1": 438.7,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "2",
-        "subitem": null
-      },
-      "id": "sch3/item2"
-    },
-    {
-      "type": "item",
-      "number": "3",
-      "heading": null,
-      "text": "An Immigration and Border Protection worker, within the meaning of the Australian Border Force Act 2015 of the Commonwealth, at Australian Public Service level 5 or higher who is performing work for that part of the Department of Immigration and Border Protection of the Commonwealth known as the Australian Border Force.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 554517,
-      "char_end": 554840,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 309.1,
-          "x1": 455.6,
-          "y1": 394.3
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 309.1,
-        "x0": 156.7,
-        "x1": 455.6,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "3 An Immigration and Border Protection worker, within the",
-        "above": {
-          "text": "member of the Australian Federal Police.",
-          "x1": 387.2,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "3",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 3 substituted by No. 27/2016 s. 45(a).",
-          "kind": "amendment",
-          "section": "3",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 498,
-          "rect": {
-            "page": 498,
-            "x0": 79.3,
-            "y0": 309.5,
-            "x1": 129.3,
-            "y1": 348.6
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item3"
-    },
-    {
-      "type": "item",
-      "number": "4",
-      "heading": null,
-      "text": "A staff member, within the meaning of the Australian Securities and Investments Commission Act 2001 of the Commonwealth, at ASIC level 4 or higher (or an equivalent classification) in the Enforcement and Compliance area or the Markets Enforcement area of the Australian Securities and Investments Commission.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 554841,
-      "char_end": 555151,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 397.9,
-          "x1": 450.0,
-          "y1": 483.0
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 397.9,
-        "x0": 156.7,
-        "x1": 435.2,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "4 A staff member, within the meaning of the Australian",
-        "above": {
-          "text": "th known as the Australian Border Force.",
-          "x1": 443.2,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "4",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 4 substituted by No. 38/2022 s. 74, amended by No. 5/2025 s. 37(1).",
-          "kind": "amendment",
-          "section": "4",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 498,
-          "rect": {
-            "page": 498,
-            "x0": 79.3,
-            "y0": 398.3,
-            "x1": 129.3,
-            "y1": 465.0
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item4"
-    },
-    {
-      "type": "item",
-      "number": "5",
-      "heading": null,
-      "text": "A person employed at Victorian Public Service Grade 4 or higher classification under Part 3 of the Public Administration Act 2004 in the IBAC within the meaning of the Independent Broad-based Anti-corruption Commission Act 2011.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 555152,
-      "char_end": 555383,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 486.6,
-          "x1": 445.4,
-          "y1": 558.2
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 486.6,
-        "x0": 156.7,
-        "x1": 445.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "5 A person employed at Victorian Public Service Grade 4",
-        "above": {
-          "text": "n Securities and Investments Commission.",
-          "x1": 425.9,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "5",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 5 amended by No. 82/2012 s. 160.",
-          "kind": "amendment",
-          "section": "5",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 498,
-          "rect": {
-            "page": 498,
-            "x0": 79.3,
-            "y0": 487.1,
-            "x1": 124.0,
-            "y1": 526.2
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item5"
-    },
-    {
-      "type": "item",
-      "number": "6",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is an Investigator in, or a member of, the Investigations Branch of the Department of Education, Employment and Workplace Relations of the Commonwealth.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 555384,
-      "char_end": 555600,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 561.6,
-          "x1": 446.4,
-          "y1": 633.0
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 561.6,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "6 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "corruption Commission Act 2011.",
-          "x1": 350.3,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "6",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 6 amended by No. 68/2009 s. 57(a).",
-          "kind": "amendment",
-          "section": "6",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 498,
-          "rect": {
-            "page": 498,
-            "x0": 79.3,
-            "y0": 562.0,
-            "x1": 124.0,
-            "y1": 601.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item6"
-    },
-    {
-      "type": "item",
-      "number": "7",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is a member of the Investigations Branch of the Inspector General Division in the Department of Defence of the Commonwealth.",
-      "page_start": 498,
-      "page_end": 498,
-      "char_start": 555601,
-      "char_end": 555789,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 498,
-          "x0": 156.7,
-          "y0": 636.6,
-          "x1": 453.0,
-          "y1": 694.2
-        }
-      ],
-      "seen": {
-        "page": 498,
-        "y0": 636.6,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "7 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "Commonwealth.",
-          "x1": 257.3,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "7",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 7 amended by No. 68/2009 s. 57(b).",
-          "kind": "amendment",
-          "section": "7",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 498,
-          "rect": {
-            "page": 498,
-            "x0": 79.3,
-            "y0": 637.0,
-            "x1": 124.0,
-            "y1": 676.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item7"
-    },
-    {
-      "type": "item",
-      "number": "8",
-      "heading": null,
-      "text": "A person who is an authorised officer within the meaning of section 7 of the National Anti-Corruption Commission Act 2022 of the Commonwealth.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 555790,
-      "char_end": 555934,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 157.2,
-          "x1": 453.8,
-          "y1": 201.0
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 157.2,
-        "x0": 156.7,
-        "x1": 453.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "8 A person who is an authorised officer within the meaning",
-        "above": {
-          "text": "of the Commonwealth.",
-          "x1": 287.9,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "8",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 8 substituted by No. 31/2024 s. 26.",
-          "kind": "amendment",
-          "section": "8",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 499,
-          "rect": {
-            "page": 499,
-            "x0": 467.8,
-            "y0": 163.6,
-            "x1": 517.8,
-            "y1": 202.7
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item8"
-    },
-    {
-      "type": "item",
-      "number": "9",
-      "heading": null,
-      "text": "A person who is an inspector appointed under section 267(1)(a) or (b) of the Radiocommunications Act 1992 of the Commonwealth.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 555935,
-      "char_end": 556063,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 204.6,
-          "x1": 431.5,
-          "y1": 248.4
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 204.6,
-        "x0": 156.7,
-        "x1": 397.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "9 A person who is an inspector appointed under",
-        "above": {
-          "text": "Act 2022 of the Commonwealth.",
-          "x1": 335.3,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "9",
-        "subitem": null
-      },
-      "id": "sch3/item9"
-    },
-    {
-      "type": "item",
-      "number": "10",
-      "heading": null,
-      "text": "A person appointed under regulation 42 of the Radiocommunications Regulations 1993 of the Commonwealth as an authorised person for those Regulations.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 556064,
-      "char_end": 556216,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 252.0,
-          "x1": 414.8,
-          "y1": 309.6
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 252.0,
-        "x0": 156.7,
-        "x1": 399.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "10 A person appointed under regulation 42 of the",
-        "above": {
-          "text": "Act 1992 of the Commonwealth.",
-          "x1": 335.3,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "10",
-        "subitem": null
-      },
-      "id": "sch3/item10"
-    },
-    {
-      "type": "item",
-      "number": "11",
-      "heading": null,
-      "text": "A person who is an inspector for the purposes of a provision of the Telecommunications Act 1997 of the Commonwealth by force of section 533(1)(a) or (b) of that Act.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 556217,
-      "char_end": 556385,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 313.2,
-          "x1": 438.1,
-          "y1": 370.8
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 313.2,
-        "x0": 156.7,
-        "x1": 418.9,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "11 A person who is an inspector for the purposes of a",
-        "above": {
-          "text": "Regulations.",
-          "x1": 238.0,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "11",
-        "subitem": null
-      },
-      "id": "sch3/item11"
-    },
-    {
-      "type": "item",
-      "number": "12",
-      "heading": null,
-      "text": "An Investigations Officer at Australian Public Service level 5 or higher in the Department of Agriculture, Fisheries and Forestry of the Commonwealth.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 556386,
-      "char_end": 556539,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 374.4,
-          "x1": 437.5,
-          "y1": 418.2
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 374.4,
-        "x0": 156.7,
-        "x1": 437.5,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "12 An Investigations Officer at Australian Public Service",
-        "above": {
-          "text": "that Act.",
-          "x1": 218.9,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "12",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 12 amended by No. 68/2009 s. 57(c).",
-          "kind": "amendment",
-          "section": "12",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 499,
-          "rect": {
-            "page": 499,
-            "x0": 467.8,
-            "y0": 374.8,
-            "x1": 516.4,
-            "y1": 413.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item12"
-    },
-    {
-      "type": "item",
-      "number": "13",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is an authorised person in relation to a provision of Part 6-2 of the Therapeutic Goods Act 1989 of the Commonwealth and employed in the Surveillance Unit, Therapeutic Goods Administration of the Department of Health and Ageing of the Commonwealth.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 556540,
-      "char_end": 556853,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 421.8,
-          "x1": 448.1,
-          "y1": 507.0
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 421.8,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "13 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "heries and Forestry of the Commonwealth.",
-          "x1": 397.6,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "13",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 13 amended by No. 68/2009 s. 57(d).",
-          "kind": "amendment",
-          "section": "13",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 499,
-          "rect": {
-            "page": 499,
-            "x0": 467.8,
-            "y0": 422.2,
-            "x1": 516.4,
-            "y1": 461.3
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item13"
-    },
-    {
-      "type": "item",
-      "number": "14",
-      "heading": null,
-      "text": "A member of the staff of the National Offshore Petroleum Safety and Environmental Management Authority who is appointed as an OHS inspector under section 680 of the Offshore Petroleum and Greenhouse Gas Storage Act 2006 of the Commonwealth.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 556854,
-      "char_end": 557097,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 510.6,
-          "x1": 456.5,
-          "y1": 582.0
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 510.6,
-        "x0": 156.7,
-        "x1": 456.5,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "14 A member of the staff of the National Offshore Petroleum",
-        "above": {
-          "text": "Health and Ageing of the Commonwealth.",
-          "x1": 381.6,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "14",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 14 amended by No. 68/2009 s. 57(e), substituted by No. 74/2012 s. 55.",
-          "kind": "amendment",
-          "section": "14",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 499,
-          "rect": {
-            "page": 499,
-            "x0": 467.8,
-            "y0": 511.0,
-            "x1": 517.8,
-            "y1": 577.7
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item14"
-    },
-    {
-      "type": "item",
-      "number": "15",
-      "heading": null,
-      "text": "A member of the staff of the Australian Crime Commission who is an Investigator.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 557098,
-      "char_end": 557181,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 585.6,
-          "x1": 400.1,
-          "y1": 615.6
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 585.6,
-        "x0": 156.7,
-        "x1": 400.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "15 A member of the staff of the Australian Crime",
-        "above": {
-          "text": "2006 of the Commonwealth.",
-          "x1": 315.0,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "15",
-        "subitem": null
-      },
-      "id": "sch3/item15"
-    },
-    {
-      "type": "item",
-      "number": "16",
-      "heading": null,
-      "text": "An Investigation Officer or a Senior Investigation Officer or the Manager, Investigations in Medicare Australia.",
-      "page_start": 499,
-      "page_end": 499,
-      "char_start": 557182,
-      "char_end": 557297,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 499,
-          "x0": 156.7,
-          "y0": 619.2,
-          "x1": 454.4,
-          "y1": 649.2
-        }
-      ],
-      "seen": {
-        "page": 499,
-        "y0": 619.2,
-        "x0": 156.7,
-        "x1": 454.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "16 An Investigation Officer or a Senior Investigation Officer",
-        "above": {
-          "text": "Commission who is an Investigator.",
-          "x1": 350.5,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "16",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 16 amended by No. 68/2009 s. 57(f).",
-          "kind": "amendment",
-          "section": "16",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 499,
-          "rect": {
-            "page": 499,
-            "x0": 467.8,
-            "y0": 619.6,
-            "x1": 516.4,
-            "y1": 658.7
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item16"
-    },
-    {
-      "type": "item",
-      "number": "17",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher or an equivalent level who is a Fraud Investigator or Fraud Investigator Manager in the Commonwealth Services Delivery Agency (Centrelink).",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 557298,
-      "char_end": 557498,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 156.7,
-          "y0": 157.2,
-          "x1": 446.4,
-          "y1": 214.8
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 157.2,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "17 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "r, Investigations in Medicare Australia.",
-          "x1": 434.8,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "17",
-        "subitem": null
-      },
-      "id": "sch3/item17"
-    },
-    {
-      "type": "item",
-      "number": "18",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is an Investigator or Senior Investigator in the Passport Fraud Section of the Department of Foreign Affairs and Trade of the Commonwealth.",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 557499,
-      "char_end": 557703,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 156.7,
-          "y0": 218.4,
-          "x1": 446.4,
-          "y1": 276.0
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 218.4,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "18 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "Services Delivery Agency (Centrelink).",
-          "x1": 368.3,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "18",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 18 amended by No. 68/2009 s. 57(g).",
-          "kind": "amendment",
-          "section": "18",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 500,
-          "rect": {
-            "page": 500,
-            "x0": 79.3,
-            "y0": 218.8,
-            "x1": 128.0,
-            "y1": 257.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item18"
-    },
-    {
-      "type": "item",
-      "number": "19",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is an investigator in the Australian Taxation Office.",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 557704,
-      "char_end": 557822,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 156.7,
-          "y0": 279.6,
-          "x1": 448.4,
-          "y1": 309.6
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 279.6,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "19 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "Affairs and Trade of the Commonwealth.",
-          "x1": 376.2,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "19",
-        "subitem": null
-      },
-      "id": "sch3/item19"
     },
     {
       "type": "repealed",
@@ -315332,74 +314432,11 @@
           "size": 12.0
         },
         "parent": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "19",
-        "subitem": null
-      },
-      "id": "sch3/item19/repealed~ff6469"
-    },
-    {
-      "type": "item",
-      "number": "21",
-      "heading": null,
-      "text": "A person authorised by or under section 241 of the Building Act 1993.",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 557833,
-      "char_end": 557905,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 156.7,
-          "y0": 372.6,
-          "x1": 421.1,
-          "y1": 402.8
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 372.6,
-        "x0": 156.7,
-        "x1": 421.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "21 A person authorised by or under section 241 of the",
-        "above": {
-          "text": "*",
-          "x1": 442.4,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
           "type": "schedule",
-          "x0": 166.6
+          "x0": 156.7
         },
         "open": {
-          "type": "item",
+          "type": "schedule",
           "x0": 156.7
         },
         "margin": 454.2,
@@ -315418,595 +314455,10 @@
         "sub_subparagraph": null,
         "definition": null,
         "clause": null,
-        "item": "21",
+        "item": null,
         "subitem": null
       },
-      "history": [
-        {
-          "raw": "Sch. 3 item 21 substituted by No. 68/2009 s. 57(h).",
-          "kind": "amendment",
-          "section": "21",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 500,
-          "rect": {
-            "page": 500,
-            "x0": 79.3,
-            "y0": 373.0,
-            "x1": 129.3,
-            "y1": 412.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item21"
-    },
-    {
-      "type": "item",
-      "number": "22",
-      "heading": null,
-      "text": "An authorised officer within the meaning of the Conservation, Forests and Lands Act 1987.",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 557906,
-      "char_end": 557998,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 156.7,
-          "y0": 426.0,
-          "x1": 406.4,
-          "y1": 456.2
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 426.0,
-        "x0": 156.7,
-        "x1": 406.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "22 An authorised officer within the meaning of the",
-        "above": {
-          "text": "Building Act 1993.",
-          "x1": 272.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "22",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 22 substituted by No. 30/2010 s. 74.",
-          "kind": "amendment",
-          "section": "22",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 500,
-          "rect": {
-            "page": 500,
-            "x0": 79.3,
-            "y0": 426.4,
-            "x1": 129.3,
-            "y1": 465.5
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item22"
-    },
-    {
-      "type": "item",
-      "number": "22A",
-      "heading": null,
-      "text": "An authorised officer within the meaning of the Electricity Safety Act 1998.",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 557999,
-      "char_end": 558079,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 155.9,
-          "y0": 479.4,
-          "x1": 416.2,
-          "y1": 509.6
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 479.4,
-        "x0": 155.9,
-        "x1": 416.2,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "22A An authorised officer within the meaning of the",
-        "above": {
-          "text": "onservation, Forests and Lands Act 1987.",
-          "x1": 397.9,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "22A",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 22A inserted by No. 30/2010 s. 74, amended by No. 13/2025 s. 96(Sch. 3 item 2.1).",
-          "kind": "amendment",
-          "section": "22A",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 500,
-          "rect": {
-            "page": 500,
-            "x0": 79.3,
-            "y0": 479.8,
-            "x1": 123.3,
-            "y1": 564.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item22a"
-    },
-    {
-      "type": "item",
-      "number": "22B",
-      "heading": null,
-      "text": "An authorised officer within the meaning of the Gas Safety Act 1997.",
-      "page_start": 500,
-      "page_end": 500,
-      "char_start": 558080,
-      "char_end": 558152,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 500,
-          "x0": 155.9,
-          "y0": 572.2,
-          "x1": 439.3,
-          "y1": 602.6
-        }
-      ],
-      "seen": {
-        "page": 500,
-        "y0": 572.2,
-        "x0": 155.9,
-        "x1": 439.3,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "22B An authorised officer within the meaning of the Gas",
-        "above": {
-          "text": "Electricity Safety Act 1998.",
-          "x1": 326.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 155.9
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "22B",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 22B inserted by No. 30/2010 s. 74, amended by No. 13/2025 s. 96(Sch. 3 item 2.2).",
-          "kind": "amendment",
-          "section": "22B",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 500,
-          "rect": {
-            "page": 500,
-            "x0": 79.3,
-            "y0": 572.8,
-            "x1": 123.3,
-            "y1": 657.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item22b"
-    },
-    {
-      "type": "item",
-      "number": "23",
-      "heading": null,
-      "text": "An inspector within the meaning of the Dangerous Goods Act 1985, Equipment (Public Safety) Act 1994 or Occupational Health and Safety Act 2004.",
-      "page_start": 501,
-      "page_end": 501,
-      "char_start": 558153,
-      "char_end": 558299,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 501,
-          "x0": 156.7,
-          "y0": 157.0,
-          "x1": 448.3,
-          "y1": 201.2
-        }
-      ],
-      "seen": {
-        "page": 501,
-        "y0": 157.0,
-        "x0": 156.7,
-        "x1": 424.0,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "23 An inspector within the meaning of the Dangerous",
-        "above": {
-          "text": "Safety Act 1997.",
-          "x1": 270.4,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 155.9
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "23",
-        "subitem": null
-      },
-      "id": "sch3/item23"
-    },
-    {
-      "type": "item",
-      "number": "24",
-      "heading": null,
-      "text": "A general inspector within the meaning of the Prevention of Cruelty to Animals Act 1986.",
-      "page_start": 501,
-      "page_end": 501,
-      "char_start": 558300,
-      "char_end": 558391,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 501,
-          "x0": 156.7,
-          "y0": 204.6,
-          "x1": 398.6,
-          "y1": 234.8
-        }
-      ],
-      "seen": {
-        "page": 501,
-        "y0": 204.6,
-        "x0": 156.7,
-        "x1": 397.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "24 A general inspector within the meaning of the",
-        "above": {
-          "text": "Occupational Health and Safety Act 2004.",
-          "x1": 405.4,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "24",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 24 repealed by No. 48/2012 s. 30(1), new Sch. 3 item 24 inserted by No. 55/2014 s. 171.",
-          "kind": "amendment",
-          "section": "24",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 501,
-          "rect": {
-            "page": 501,
-            "x0": 467.8,
-            "y0": 205.0,
-            "x1": 516.4,
-            "y1": 280.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item24"
-    },
-    {
-      "type": "item",
-      "number": "24A",
-      "heading": null,
-      "text": "A specialist inspector within the meaning of the Prevention of Cruelty to Animals Act 1986.",
-      "page_start": 501,
-      "page_end": 501,
-      "char_start": 558392,
-      "char_end": 558487,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 501,
-          "x0": 148.8,
-          "y0": 297.6,
-          "x1": 409.7,
-          "y1": 327.8
-        }
-      ],
-      "seen": {
-        "page": 501,
-        "y0": 297.6,
-        "x0": 148.8,
-        "x1": 409.7,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "24A A specialist inspector within the meaning of the",
-        "above": {
-          "text": "evention of Cruelty to Animals Act 1986.",
-          "x1": 398.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "24A",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 24A inserted by No. 55/2014 s. 171.",
-          "kind": "amendment",
-          "section": "24A",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 501,
-          "rect": {
-            "page": 501,
-            "x0": 467.8,
-            "y0": 298.0,
-            "x1": 508.5,
-            "y1": 346.2
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item24a"
-    },
-    {
-      "type": "item",
-      "number": "25",
-      "heading": null,
-      "text": "An employee of the Australian Postal Corporation who is appointed by the Corporation to act as a Corporate Investigator.",
-      "page_start": 501,
-      "page_end": 501,
-      "char_start": 558488,
-      "char_end": 558611,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 501,
-          "x0": 156.7,
-          "y0": 351.0,
-          "x1": 453.5,
-          "y1": 394.8
-        }
-      ],
-      "seen": {
-        "page": 501,
-        "y0": 351.0,
-        "x0": 156.7,
-        "x1": 453.5,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "25 An employee of the Australian Postal Corporation who is",
-        "above": {
-          "text": "evention of Cruelty to Animals Act 1986.",
-          "x1": 401.2,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 148.8
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "25",
-        "subitem": null
-      },
-      "id": "sch3/item25"
+      "id": "sch3/repealed~ff6469"
     },
     {
       "type": "repealed",
@@ -316043,74 +314495,11 @@
           "size": 12.0
         },
         "parent": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "25",
-        "subitem": null
-      },
-      "id": "sch3/item25/repealed~ff6469"
-    },
-    {
-      "type": "item",
-      "number": "27",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is an Investigator or Investigation Manager in the Insolvency and Trustee Service Australia.",
-      "page_start": 501,
-      "page_end": 501,
-      "char_start": 558622,
-      "char_end": 558779,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 501,
-          "x0": 156.7,
-          "y0": 477.6,
-          "x1": 446.4,
-          "y1": 521.4
-        }
-      ],
-      "seen": {
-        "page": 501,
-        "y0": 477.6,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "27 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "*",
-          "x1": 442.4,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
           "type": "schedule",
-          "x0": 166.6
+          "x0": 156.7
         },
         "open": {
-          "type": "item",
+          "type": "schedule",
           "x0": 156.7
         },
         "margin": 454.2,
@@ -316129,10 +314518,10 @@
         "sub_subparagraph": null,
         "definition": null,
         "clause": null,
-        "item": "27",
+        "item": null,
         "subitem": null
       },
-      "id": "sch3/item27"
+      "id": "sch3/repealed~ff6469-2"
     },
     {
       "type": "repealed",
@@ -316169,161 +314558,11 @@
           "size": 12.0
         },
         "parent": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "27",
-        "subitem": null
-      },
-      "id": "sch3/item27/repealed~ff6469"
-    },
-    {
-      "type": "item",
-      "number": "29",
-      "heading": null,
-      "text": "A transport safety officer within the meaning of the Transport (Compliance and Miscellaneous) Act 1983.",
-      "page_start": 501,
-      "page_end": 501,
-      "char_start": 558790,
-      "char_end": 558896,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 501,
-          "x0": 156.7,
-          "y0": 584.2,
-          "x1": 450.8,
-          "y1": 614.6
-        }
-      ],
-      "seen": {
-        "page": 501,
-        "y0": 584.2,
-        "x0": 156.7,
-        "x1": 424.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "29 A transport safety officer within the meaning of the",
-        "above": {
-          "text": "*",
-          "x1": 442.4,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
           "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
           "x0": 156.7
         },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "29",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 29 amended by No. 6/2010 s. 203(1) (Sch. 6 item 11) (as amended by No. 45/2010 s. 22).",
-          "kind": "amendment",
-          "section": "29",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 501,
-          "rect": {
-            "page": 501,
-            "x0": 467.8,
-            "y0": 584.8,
-            "x1": 516.4,
-            "y1": 669.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item29"
-    },
-    {
-      "type": "item",
-      "number": "30",
-      "heading": null,
-      "text": "Any person, or a member of a class of persons, prescribed by the rules of court.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 558897,
-      "char_end": 558980,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 157.2,
-          "x1": 456.1,
-          "y1": 187.2
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 157.2,
-        "x0": 156.7,
-        "x1": 456.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "30 Any person, or a member of a class of persons, prescribed",
-        "above": {
-          "text": "(Compliance and Miscellaneous) Act 1983.",
-          "x1": 450.8,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
+        "open": {
           "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
           "x0": 156.7
         },
         "margin": 454.2,
@@ -316342,1078 +314581,10 @@
         "sub_subparagraph": null,
         "definition": null,
         "clause": null,
-        "item": "30",
+        "item": null,
         "subitem": null
       },
-      "history": [
-        {
-          "raw": "Sch. 3 item 30 amended by No. 48/2012 s. 30(2).",
-          "kind": "amendment",
-          "section": "30",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 128.0,
-            "y1": 202.7
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item30"
-    },
-    {
-      "type": "item",
-      "number": "31",
-      "heading": null,
-      "text": "An authorised affidavit taker within the meaning of the Oaths and Affirmations Act 2018.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 558981,
-      "char_end": 559072,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 210.6,
-          "x1": 442.1,
-          "y1": 240.8
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 210.6,
-        "x0": 156.7,
-        "x1": 442.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "31 An authorised affidavit taker within the meaning of the",
-        "above": {
-          "text": "by the rules of court.",
-          "x1": 277.2,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "31",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 31 inserted by No. 48/2012 s. 30(3), substituted by No. 6/2018 s. 68(Sch. 2 item 38.7).",
-          "kind": "amendment",
-          "section": "31",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 211.0,
-            "x1": 129.3,
-            "y1": 286.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item31"
-    },
-    {
-      "type": "item",
-      "number": "32",
-      "heading": null,
-      "text": "The Chief Municipal Inspector appointed under section 182 of the Local Government Act 2020.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 559073,
-      "char_end": 559167,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 303.6,
-          "x1": 413.6,
-          "y1": 333.8
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 303.6,
-        "x0": 156.7,
-        "x1": 406.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "32 The Chief Municipal Inspector appointed under",
-        "above": {
-          "text": "Oaths and Affirmations Act 2018.",
-          "x1": 350.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "32",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 32 inserted by No. 48/2012 s. 30(3), substituted by No. 9/2020 s. 390(Sch. 1 item 20.2).",
-          "kind": "amendment",
-          "section": "32",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 304.0,
-            "x1": 129.3,
-            "y1": 379.8
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item32"
-    },
-    {
-      "type": "item",
-      "number": "33",
-      "heading": null,
-      "text": "An authorised officer appointed by a municipal council under section 224 of the Local Government Act 1989.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 559168,
-      "char_end": 559277,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 396.6,
-          "x1": 443.9,
-          "y1": 426.8
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 396.6,
-        "x0": 156.7,
-        "x1": 443.3,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "33 An authorised officer appointed by a municipal council",
-        "above": {
-          "text": "on 182 of the Local Government Act 2020.",
-          "x1": 413.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "33",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 33 inserted by No. 48/2012 s. 30(3).",
-          "kind": "amendment",
-          "section": "33",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 397.0,
-            "x1": 128.0,
-            "y1": 436.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item33"
-    },
-    {
-      "type": "item",
-      "number": "34",
-      "heading": null,
-      "text": "An officer at Australian Public Service level 5 or higher who is a member of the Investigations and Intelligence Branch of the Department of Climate Change and Energy Efficiency of the Commonwealth.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 559278,
-      "char_end": 559479,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 450.0,
-          "x1": 454.2,
-          "y1": 507.6
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 450.0,
-        "x0": 156.7,
-        "x1": 446.4,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "34 An officer at Australian Public Service level 5 or higher",
-        "above": {
-          "text": "on 224 of the Local Government Act 1989.",
-          "x1": 443.9,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "34",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 34 inserted by No. 48/2012 s. 30(3).",
-          "kind": "amendment",
-          "section": "34",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 450.4,
-            "x1": 128.0,
-            "y1": 489.5
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item34"
-    },
-    {
-      "type": "item",
-      "number": "35",
-      "heading": null,
-      "text": "A person authorised under section 608 of the Workplace Injury Rehabilitation and Compensation Act 2013 to file charge-sheets on behalf of the Victorian WorkCover Authority.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 559480,
-      "char_end": 559655,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 511.0,
-          "x1": 452.8,
-          "y1": 568.8
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 511.0,
-        "x0": 156.7,
-        "x1": 452.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "35 A person authorised under section 608 of the Workplace",
-        "above": {
-          "text": "Efficiency of the Commonwealth.",
-          "x1": 340.9,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "35",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 35 inserted by No. 48/2012 s. 30(3), amended by No. 67/2013 s. 649(Sch. 9 item 10).",
-          "kind": "amendment",
-          "section": "35",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 511.6,
-            "x1": 128.0,
-            "y1": 587.4
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item35"
-    },
-    {
-      "type": "item",
-      "number": "36",
-      "heading": null,
-      "text": "An employee in the Department of Transport and Planning authorised under section 77(2)(c) of the Road Safety Act 1986 to prosecute any offence against that Act or the regulations made under that Act.",
-      "page_start": 502,
-      "page_end": 502,
-      "char_start": 559656,
-      "char_end": 559858,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 502,
-          "x0": 156.7,
-          "y0": 592.2,
-          "x1": 456.5,
-          "y1": 649.8
-        }
-      ],
-      "seen": {
-        "page": 502,
-        "y0": 592.2,
-        "x0": 156.7,
-        "x1": 414.5,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "36 An employee in the Department of Transport and",
-        "above": {
-          "text": "Authority.",
-          "x1": 227.3,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "36",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 36 inserted by No. 48/2012 s. 30(3), amended by Nos 49/2019 s. 186(Sch. 4 item 9.1(a)), 25/2025 s. 106(Sch. 1 item 9).",
-          "kind": "amendment",
-          "section": "36",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 502,
-          "rect": {
-            "page": 502,
-            "x0": 79.3,
-            "y0": 592.6,
-            "x1": 128.0,
-            "y1": 696.0
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item36"
-    },
-    {
-      "type": "item",
-      "number": "37",
-      "heading": null,
-      "text": "An employee in the Department of Transport and Planning authorised under section 112 of the Road Safety Act 1986.",
-      "page_start": 503,
-      "page_end": 503,
-      "char_start": 559859,
-      "char_end": 559975,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 503,
-          "x0": 156.7,
-          "y0": 177.0,
-          "x1": 422.6,
-          "y1": 221.0
-        }
-      ],
-      "seen": {
-        "page": 503,
-        "y0": 177.0,
-        "x0": 156.7,
-        "x1": 414.5,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "37 An employee in the Department of Transport and",
-        "above": {
-          "text": "or the regulations made under that Act.",
-          "x1": 365.2,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "37",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 37 inserted by No. 48/2012 s. 30(3), amended by Nos 49/2019 s. 186(Sch. 4 item 9.1(b)), 25/2025 s. 106(Sch. 1 item 9).",
-          "kind": "amendment",
-          "section": "37",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 503,
-          "rect": {
-            "page": 503,
-            "x0": 467.8,
-            "y0": 177.4,
-            "x1": 516.4,
-            "y1": 280.9
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item37"
-    },
-    {
-      "type": "item",
-      "number": "38",
-      "heading": null,
-      "text": "A person authorised by or under section 229 of the Transport (Compliance and Miscellaneous) Act 1983 to bring a proceeding for an offence against that Act or the regulations made under that Act.",
-      "page_start": 503,
-      "page_end": 503,
-      "char_start": 559976,
-      "char_end": 560173,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 503,
-          "x0": 156.7,
-          "y0": 303.6,
-          "x1": 447.8,
-          "y1": 361.2
-        }
-      ],
-      "seen": {
-        "page": 503,
-        "y0": 303.6,
-        "x0": 156.7,
-        "x1": 421.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "38 A person authorised by or under section 229 of the",
-        "above": {
-          "text": "Safety Act 1986.",
-          "x1": 260.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "38",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 38 inserted by No. 48/2012 s. 30(3).",
-          "kind": "amendment",
-          "section": "38",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 503,
-          "rect": {
-            "page": 503,
-            "x0": 467.8,
-            "y0": 304.0,
-            "x1": 516.4,
-            "y1": 343.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item38"
-    },
-    {
-      "type": "item",
-      "number": "39",
-      "heading": null,
-      "text": "A person authorised under section 31(1) of the Heavy Vehicle National Law Application Act 2013 to commence a proceeding for an offence against the Heavy Vehicle National Law (Victoria).",
-      "page_start": 503,
-      "page_end": 503,
-      "char_start": 560174,
-      "char_end": 560362,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 503,
-          "x0": 156.7,
-          "y0": 364.6,
-          "x1": 453.4,
-          "y1": 422.4
-        }
-      ],
-      "seen": {
-        "page": 503,
-        "y0": 364.6,
-        "x0": 156.7,
-        "x1": 436.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "39 A person authorised under section 31(1) of the Heavy",
-        "above": {
-          "text": "the regulations made under that Act.",
-          "x1": 352.2,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "39",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 39 inserted by No. 20/2015 s. 42.",
-          "kind": "amendment",
-          "section": "39",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 503,
-          "rect": {
-            "page": 503,
-            "x0": 467.8,
-            "y0": 365.2,
-            "x1": 516.4,
-            "y1": 404.3
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item39"
-    },
-    {
-      "type": "item",
-      "number": "40",
-      "heading": null,
-      "text": "An authorised officer within the meaning of the Dairy and Food Innovation Act 2000.",
-      "page_start": 503,
-      "page_end": 503,
-      "char_start": 560363,
-      "char_end": 560449,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 503,
-          "x0": 156.7,
-          "y0": 425.8,
-          "x1": 438.8,
-          "y1": 456.2
-        }
-      ],
-      "seen": {
-        "page": 503,
-        "y0": 425.8,
-        "x0": 156.7,
-        "x1": 438.8,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "40 An authorised officer within the meaning of the Dairy",
-        "above": {
-          "text": "Vehicle National Law (Victoria).",
-          "x1": 337.0,
-          "bold": false,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "40",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 40 inserted by No. 26/2023 s. 63, amended by No. 16/2026 s. 264.",
-          "kind": "amendment",
-          "section": "40",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 503,
-          "rect": {
-            "page": 503,
-            "x0": 467.8,
-            "y0": 426.4,
-            "x1": 516.4,
-            "y1": 493.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item40"
-    },
-    {
-      "type": "item",
-      "number": "41",
-      "heading": null,
-      "text": "A person, or a member of a class of persons, authorised to be an inspector under section 70 of the Meat Industry Act 1993.",
-      "page_start": 503,
-      "page_end": 503,
-      "char_start": 560450,
-      "char_end": 560575,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 503,
-          "x0": 156.7,
-          "y0": 499.2,
-          "x1": 456.5,
-          "y1": 543.2
-        }
-      ],
-      "seen": {
-        "page": 503,
-        "y0": 499.2,
-        "x0": 156.7,
-        "x1": 456.5,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "41 A person, or a member of a class of persons, authorised to",
-        "above": {
-          "text": "and Food Innovation Act 2000.",
-          "x1": 336.0,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "41",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 41 inserted by No. 26/2023 s. 63.",
-          "kind": "amendment",
-          "section": "41",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 503,
-          "rect": {
-            "page": 503,
-            "x0": 467.8,
-            "y0": 499.6,
-            "x1": 516.4,
-            "y1": 538.7
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item41"
-    },
-    {
-      "type": "item",
-      "number": "42",
-      "heading": null,
-      "text": "An authorised water officer within the meaning of the Water Act 1989.",
-      "page_start": 503,
-      "page_end": 503,
-      "char_start": 560576,
-      "char_end": 560648,
-      "source": "rules",
-      "rects": [
-        {
-          "page": 503,
-          "x0": 156.7,
-          "y0": 546.6,
-          "x1": 436.1,
-          "y1": 576.8
-        }
-      ],
-      "seen": {
-        "page": 503,
-        "y0": 546.6,
-        "x0": 156.7,
-        "x1": 436.1,
-        "size": 12.0,
-        "bold": false,
-        "lbi": null,
-        "text": "42 An authorised water officer within the meaning of the",
-        "above": {
-          "text": "Act 1993.",
-          "x1": 225.6,
-          "bold": true,
-          "size": 12.0
-        },
-        "parent": {
-          "type": "schedule",
-          "x0": 166.6
-        },
-        "open": {
-          "type": "item",
-          "x0": 156.7
-        },
-        "margin": 454.2,
-        "body": 12.0
-      },
-      "path": {
-        "schedule": "3",
-        "chapter": null,
-        "part": null,
-        "division": null,
-        "subdivision": null,
-        "section": null,
-        "subsection": null,
-        "paragraph": null,
-        "subparagraph": null,
-        "sub_subparagraph": null,
-        "definition": null,
-        "clause": null,
-        "item": "42",
-        "subitem": null
-      },
-      "history": [
-        {
-          "raw": "Sch. 3 item 42 inserted by No. 5/2025 s. 37(2).",
-          "kind": "amendment",
-          "section": "42",
-          "sub_path": [],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "3",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 503,
-          "rect": {
-            "page": 503,
-            "x0": 467.8,
-            "y0": 547.0,
-            "x1": 516.4,
-            "y1": 586.1
-          },
-          "confidence": "high"
-        }
-      ],
-      "id": "sch3/item42"
+      "id": "sch3/repealed~ff6469-3"
     },
     {
       "type": "schedule",
@@ -317451,7 +314622,7 @@
         },
         "parent": null,
         "open": {
-          "type": "item",
+          "type": "schedule",
           "x0": 156.7
         },
         "margin": 454.2,
@@ -319072,6 +316243,80 @@
         "item": null,
         "subitem": null
       },
+      "history": [
+        {
+          "raw": "Sch. 4 cl. 8(3A) inserted by No. 30/2010 s. 75.",
+          "kind": "amendment",
+          "section": "8",
+          "sub_path": [
+            "(3A)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "4",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 507,
+          "rect": {
+            "page": 507,
+            "x0": 467.8,
+            "y0": 501.4,
+            "x1": 508.5,
+            "y1": 549.6
+          },
+          "confidence": "high"
+        },
+        {
+          "raw": "Sch. 4 cl. 8(3B) inserted by No. 30/2010 s. 75.",
+          "kind": "amendment",
+          "section": "8",
+          "sub_path": [
+            "(3B)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "4",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 508,
+          "rect": {
+            "page": 508,
+            "x0": 79.3,
+            "y0": 163.6,
+            "x1": 120.1,
+            "y1": 211.9
+          },
+          "confidence": "high"
+        },
+        {
+          "raw": "Sch. 4 cl. 8(3C) inserted by No. 30/2010 s. 75.",
+          "kind": "amendment",
+          "section": "8",
+          "sub_path": [
+            "(3C)"
+          ],
+          "target_kind": null,
+          "target_id": null,
+          "schedule": "4",
+          "chapter": null,
+          "division": null,
+          "part": null,
+          "def_name": null,
+          "page": 508,
+          "rect": {
+            "page": 508,
+            "x0": 79.3,
+            "y0": 319.6,
+            "x1": 120.1,
+            "y1": 367.8
+          },
+          "confidence": "high"
+        }
+      ],
       "id": "sch4/cl8"
     },
     {
@@ -319640,32 +316885,6 @@
         "item": null,
         "subitem": null
       },
-      "history": [
-        {
-          "raw": "Sch. 4 cl. 8(3A) inserted by No. 30/2010 s. 75.",
-          "kind": "amendment",
-          "section": "8",
-          "sub_path": [
-            "(3A)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "4",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 507,
-          "rect": {
-            "page": 507,
-            "x0": 467.8,
-            "y0": 501.4,
-            "x1": 508.5,
-            "y1": 549.6
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch4/cl8/3a"
     },
     {
@@ -319919,32 +317138,6 @@
         "item": null,
         "subitem": null
       },
-      "history": [
-        {
-          "raw": "Sch. 4 cl. 8(3B) inserted by No. 30/2010 s. 75.",
-          "kind": "amendment",
-          "section": "8",
-          "sub_path": [
-            "(3B)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "4",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 508,
-          "rect": {
-            "page": 508,
-            "x0": 79.3,
-            "y0": 163.6,
-            "x1": 120.1,
-            "y1": 211.9
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch4/cl8/3b"
     },
     {
@@ -320198,32 +317391,6 @@
         "item": null,
         "subitem": null
       },
-      "history": [
-        {
-          "raw": "Sch. 4 cl. 8(3C) inserted by No. 30/2010 s. 75.",
-          "kind": "amendment",
-          "section": "8",
-          "sub_path": [
-            "(3C)"
-          ],
-          "target_kind": null,
-          "target_id": null,
-          "schedule": "4",
-          "chapter": null,
-          "division": null,
-          "part": null,
-          "def_name": null,
-          "page": 508,
-          "rect": {
-            "page": 508,
-            "x0": 79.3,
-            "y0": 319.6,
-            "x1": 120.1,
-            "y1": 367.8
-          },
-          "confidence": "high"
-        }
-      ],
       "id": "sch4/cl8/3c"
     },
     {
@@ -323506,6 +320673,27 @@
         "y0": 163.6,
         "x1": 127.6,
         "y1": 524.7
+      }
+    },
+    {
+      "raw": "Note to Sch. 1 cl. 4A(1) amended by No. 47/2016 s. 37(11), substituted by No. 5/2018 s. 17.",
+      "kind": "amendment",
+      "section": null,
+      "sub_path": [],
+      "target_kind": null,
+      "target_id": null,
+      "schedule": null,
+      "chapter": null,
+      "division": null,
+      "part": null,
+      "def_name": null,
+      "page": 477,
+      "rect": {
+        "page": 477,
+        "x0": 467.8,
+        "y0": 191.2,
+        "x1": 517.8,
+        "y1": 267.1
       }
     }
   ],
