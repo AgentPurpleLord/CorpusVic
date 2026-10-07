@@ -406,6 +406,18 @@
   </div>
 </div>
 
+<!-- One document's parse and review work put back as an earlier commit
+     had them (corpus/review/sync.py restore_document). -->
+<div class="overlay" id="restore-modal">
+  <div class="modal wide">
+    <h2>Restore &mdash; <span id="restore-slug"></span></h2>
+    <p class="hint">Each time this document's parse or review work was committed. Restoring puts its parse and its
+      review work back exactly as they were at that commit; no other document changes. It is then waiting to be
+      pushed, like any review work &mdash; Discard undoes it until you push.</p>
+    <div id="restore-list"></div>
+  </div>
+</div>
+
 <!-- Background jobs, and a way to stop one between its steps. -->
 <div class="overlay" id="tasks-modal">
   <div class="modal wide">
@@ -691,6 +703,46 @@ async function pollUpdate() {
 // checks, and fetches again what the sync panel just fetched. The dot is
 // set from the sync status instead (renderSync); the panel asks GitHub
 // when it is opened.
+
+// Rolling a document back. The approved count beside each commit is what
+// shows which one wiped a review (CPA v114: 4,921 lines, then 8).
+async function openRestore(slug) {
+  document.getElementById("restore-slug").textContent = slug;
+  const list = document.getElementById("restore-list");
+  list.innerHTML = `<p class="hint">Reading the history&hellip;</p>`;
+  openModal("restore-modal");
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/saved`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't read its history.");
+    list.innerHTML = data.commits.length ? data.commits.map((c, k) => {
+      const next = data.commits[k + 1];
+      const drop = next && next.approved - c.approved > 20 ? ` <span class="pr-error">(${next.approved - c.approved} fewer than before)</span>` : "";
+      return `<div class="task-row">
+        <div class="task-main"><strong>${escapeHtml(prWhen(c.when))}</strong> &middot; ${escapeHtml(c.subject)}
+          <div class="hint">${c.sha.slice(0, 7)} &middot; ${c.approved.toLocaleString()} approved line${c.approved === 1 ? "" : "s"}${drop}</div></div>
+        ${k === 0 ? `<span class="hint">current</span>`
+          : `<button class="btn small" onclick="restoreTo('${escapeHtml(slug)}', '${c.sha}', this)">Restore to this</button>`}
+      </div>`;
+    }).join("") : `<p class="hint">Nothing committed for this document yet.</p>`;
+  } catch (e) { list.innerHTML = `<p class="pr-error">${escapeHtml(e.message)}</p>`; }
+}
+
+async function restoreTo(slug, sha, btn) {
+  if (!confirm(`Put ${slug}'s parse and review work back as they were at ${sha.slice(0, 7)}? `
+               + "Anything since, for this document only, is replaced (Discard undoes it until you push).")) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/restore`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sha }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Couldn't restore it.");
+    toast(data.message);
+    closeModal("restore-modal");
+    loadSync();
+    loadActs();
+  } catch (e) { toast(e.message, true); btn.disabled = false; }
+}
 
 // Background jobs (dashboard /api/tasks): polled lightly for the count in
 // the header, and drawn in full while the list is open.
@@ -1629,7 +1681,8 @@ function openParseMenu(work, ticked, mode) {
         ${v.has_pdf ? "" : "disabled"} ${start.has(v.slug) && v.has_pdf ? "checked" : ""}
         onchange="paintParseMenu()" style="width:auto; margin-right:6px;">
       <strong>${escapeHtml(versionName(v))}</strong>${asAt} &middot; ${state}
-      <span class="last-parse" data-slug="${escapeHtml(v.slug)}"></span></label>`;
+      <span class="last-parse" data-slug="${escapeHtml(v.slug)}"></span>
+      ${v.parsed ? `<button type="button" class="link-btn" onclick="event.preventDefault(); openRestore('${escapeHtml(v.slug)}')">Restore&hellip;</button>` : ""}</label>`;
   }).join("");
   showLastParses(versions.filter((v) => v.parsed).map((v) => v.slug));
   const latest = versions[versions.length - 1] || {};

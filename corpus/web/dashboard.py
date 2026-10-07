@@ -1519,6 +1519,38 @@ def sync_restart():
 
 
 # ---------------------------------------------------------------------------
+# Rolling one document back to an earlier commit -- a re-parse with "Start
+# again" pushed over the CPA's v114 and took its review work with it.
+# ---------------------------------------------------------------------------
+class RestoreRequest(BaseModel):
+    sha: str
+
+
+@app.get("/api/acts/{slug}/saved")
+def document_saved_states(slug: str):
+    _validate_slug(slug)
+    try:
+        return {"slug": slug, "commits": sync.document_history(BASE_DIR, slug)}
+    except sync.SyncError as e:
+        raise HTTPException(409, str(e)) from e
+
+
+@app.post("/api/acts/{slug}/restore")
+def restore_document(slug: str, req: RestoreRequest):
+    """This document's parse and review files as they were at a commit,
+    and the database rebuilt from them. Left as changes for Push, so it
+    is undone by Discard until then."""
+    _validate_slug(slug)
+    _kill_review_process(slug)
+    _act_title_cache.pop(slug, None)
+    try:
+        result = sync.restore_document(BASE_DIR, slug, req.sha)
+    except sync.SyncError as e:
+        raise HTTPException(409, str(e)) from e
+    return {**result, "message": f"{slug} is back as it was at {req.sha[:7]}. Push to keep it."}
+
+
+# ---------------------------------------------------------------------------
 # Updates: merging a pull request and putting it live, from the dashboard
 # rather than a terminal (corpus/web/github_updates.py has the GitHub half).
 # ---------------------------------------------------------------------------

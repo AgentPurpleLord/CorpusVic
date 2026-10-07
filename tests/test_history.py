@@ -658,3 +658,46 @@ def test_an_unchanged_provision_is_skipped_but_a_row_for_another_section_is_not(
 
     changes = work_changes([(1, with_row(None), HIERARCHY), (2, with_row("133"), HIERARCHY)])
     assert changes, "the row now stands for s 133: a repeal, though its words are the same"
+
+
+def _section(text: str = "", subsections=()) -> list[dict]:
+    nodes = [{"type": "part", "number": "1", "heading": "Preliminary", "text": ""},
+             {"type": "section", "number": "204", "heading": "Pre-trial orders", "text": text}]
+    nodes += [{"type": "subsection", "number": n, "heading": None, "text": t} for n, t in subsections]
+    annotate_ids(nodes, HIERARCHY)
+    return nodes
+
+
+BINDING = "An order made at a pre-trial hearing is binding on the trial judge."
+
+
+def test_a_sections_words_becoming_its_1_is_not_a_deletion_and_an_insertion():
+    """CPA s 204, v103 to v104: inserting (2) made the section's words its
+    (1). Only (2) was inserted; the same words read as deleted and
+    inserted beside it."""
+    changes = work_changes([(1, _section(BINDING), HIERARCHY),
+                            (2, _section(subsections=[("1", BINDING), ("2", "This section does not apply to ...")]), HIERARCHY)])
+
+    assert [(c["op"], c["label"]) for c in changes] == [("insert", "(2)")]
+
+
+def test_words_amended_while_becoming_the_1_are_one_change():
+    changes = work_changes([(1, _section(BINDING), HIERARCHY),
+                            (2, _section(subsections=[("1", BINDING.replace("binding", "binding, subject to (2),")),
+                                                      ("2", "This section does not apply to ...")]), HIERARCHY)])
+
+    assert [(c["op"], c["label"]) for c in changes] == [("changed", "(1)"), ("insert", "(2)")]
+
+
+def test_a_1_going_back_to_a_sections_words_is_only_the_repeal():
+    changes = work_changes([(1, _section(subsections=[("1", BINDING), ("2", "This section does not apply to ...")]), HIERARCHY),
+                            (2, _section(BINDING), HIERARCHY)])
+
+    assert [(c["op"], c["label"]) for c in changes] == [("delete", "(2)")]
+
+
+def test_different_words_are_not_paired_as_a_renumbering():
+    changes = work_changes([(1, _section("A person may apply for bail."), HIERARCHY),
+                            (2, _section(subsections=[("1", BINDING), ("2", "This section does not apply to ...")]), HIERARCHY)])
+
+    assert sorted(c["op"] for c in changes) == ["delete", "insert", "insert"]

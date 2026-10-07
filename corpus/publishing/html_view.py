@@ -68,6 +68,7 @@ guarantee -- an unmatched or ambiguous mention is left as plain text
 rather than linked to the wrong place.
 """
 from corpus import PROJECT_ROOT
+import difflib
 import hashlib
 import html
 import json
@@ -1028,6 +1029,40 @@ def _piece_label(unit: dict, numbers: dict) -> str:
     return "".join(out).strip()
 
 
+def _renumbered_opening(older: list[dict], newer: list[dict]) -> tuple[list, list]:
+    """Each side's align keys, with a section's unnumbered words and its
+    new (1) given the same key when they are the same words.
+
+    Inserting a (2) turns the words a section had into its (1) (CPA s 204,
+    v103 to v104), and repealing all but (1) turns them back. Keyed by
+    label, "Opening words" and "(1)" never met, and the same words read as
+    deleted and inserted beside the one real change. Words amended in
+    passing still pair, as a changed (1)."""
+    old_keys = [u["align"] for u in older]
+    new_keys = [u["align"] for u in newer]
+
+    def opening(units):
+        return next((k for k, u in enumerate(units) if not u.get("path")), None)
+
+    def first(units):
+        return next((k for k, u in enumerate(units)
+                     if (u.get("path") or "") and "/" not in u["path"]
+                     and str(u["tree_node"]["node"].get("number") or "").lower() == "1"), None)
+
+    def alike(a: str, b: str) -> bool:
+        a, b = normalise(a or ""), normalise(b or "")
+        return bool(a) and (a == b or difflib.SequenceMatcher(None, a.split(), b.split()).ratio() >= 0.75)
+
+    o_open, n_open, o_one, n_one = opening(older), opening(newer), first(older), first(newer)
+    if o_open is not None and n_open is None and n_one is not None and o_one is None \
+            and alike(older[o_open]["text"], newer[n_one]["text"]):
+        old_keys[o_open] = new_keys[n_one]
+    elif n_open is not None and o_open is None and o_one is not None and n_one is None \
+            and alike(older[o_one]["text"], newer[n_open]["text"]):
+        new_keys[n_open] = old_keys[o_one]
+    return old_keys, new_keys
+
+
 def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
     """Only the pieces that differ, each on its own -- what a reviewer of
     an older version has to check, without the rest of the provision to
@@ -1036,8 +1071,9 @@ def _compare_pieces(older: list[dict], newer: list[dict]) -> list[dict]:
     and new_html each side's own words (None for the side that lacks the
     piece). A changed heading comes first, labelled "Heading", since it is
     amended in its own right."""
-    ops = node_diff([(u["align"], u["text"] or "") for u in older],
-                    [(u["align"], u["text"] or "") for u in newer])
+    old_keys, new_keys = _renumbered_opening(older, newer)
+    ops = node_diff([(k, u["text"] or "") for k, u in zip(old_keys, older)],
+                    [(k, u["text"] or "") for k, u in zip(new_keys, newer)])
     numbers = {u["name"]: u["tree_node"]["node"].get("number") for u in (*older, *newer) if u.get("name")}
     out = []
     old_heading, new_heading = (units[0]["root_heading"] if units else "" for units in (older, newer))
