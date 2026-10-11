@@ -24,8 +24,8 @@
     "subparagraph",
     "sub_subparagraph"
   ],
-  "fingerprint": "92594c6c293850cf",
-  "parser_version": "73a62a26e1071d95",
+  "fingerprint": "ec35481ea9d59d9f",
+  "parser_version": "5a6bb11136a7e8c5",
   "nodes": [
     {
       "type": "chapter",
@@ -23557,6 +23557,37 @@
         "definition": null
       },
       "id": "ch3"
+    },
+    {
+      "type": "figure",
+      "number": null,
+      "heading": null,
+      "text": "5bca8b23caca 1385x2014",
+      "page_start": 48,
+      "page_end": 48,
+      "rects": [
+        {
+          "page": 48,
+          "x0": 144.2,
+          "y0": 188.4,
+          "x1": 452.8,
+          "y1": 645.7
+        }
+      ],
+      "path": {
+        "schedule": null,
+        "chapter": "3",
+        "part": null,
+        "division": null,
+        "subdivision": null,
+        "section": null,
+        "subsection": null,
+        "paragraph": null,
+        "subparagraph": null,
+        "sub_subparagraph": null,
+        "definition": null
+      },
+      "id": "ch3/figure~05fe9d"
     },
     {
       "type": "part",
