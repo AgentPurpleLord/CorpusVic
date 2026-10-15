@@ -1312,9 +1312,16 @@ document.getElementById("jump-input").addEventListener("keydown", (e) => {
 // panel exactly where the reviewer had it. Re-jumping to the unit's first
 // page there threw away their place on every single accept, which for a
 // Section running over three or four pages meant scrolling back each time.
+// An Explanatory Memorandum's notes each explain a provision of the Act
+// its Bill became: what a note can be linked to, fetched once.
+let EM_SECTIONS = null;
+
 async function loadUnit(n, pdfPage) {
   const arrivingAtANewUnit = n !== currentUnitNo;
   currentUnit = await api(`api/units/${n}`);
+  if (!EM_SECTIONS && Object.keys(currentUnit.em_links || {}).length) {
+    try { EM_SECTIONS = await api("api/em-link/sections"); } catch (e) { EM_SECTIONS = { sections: [] }; }
+  }
   currentUnitNo = n;
   const notice = document.getElementById("reparse-notice");
   if (notice.dataset.unit !== String(n)) notice.hidden = true;
@@ -1639,6 +1646,7 @@ function buildPiece(piece, idx) {
     // are the rare actions next to Edit and Accept, and spreading them
     // across the toolbar would put a Delete beside the button a reviewer
     // presses hundreds of times an hour.
+    const emLinkHtml = emLinkRowHtml((currentUnit.em_links || {})[piece.node_index]);
     const structureHtml = currentUnit.structure_editable
       ? `<button class="btn small structure-btn" title="Add, move or remove pieces">Structure &#9662;</button>` : "";
     div.innerHTML = `
@@ -1657,6 +1665,7 @@ function buildPiece(piece, idx) {
       ${headingLine}
       <div class="piece-text" data-node-index="${piece.node_index}">${renderPieceText(piece)}</div>
       ${tableHtml}
+      ${emLinkHtml}
       ${blindFormHtml}
       ${blindResultHtml}
       ${aiSuggestHtml}
@@ -1703,9 +1712,87 @@ function buildPiece(piece, idx) {
       grip.title = "Drag onto another piece to merge this one into it";
       div.appendChild(grip);
     }
+    attachEmLinkRow(div, piece.node_index);
     attachPieceDragAndDrop(div, piece.node_index);
     return div;
   }
+}
+
+function emProvisionLabel(link) {
+  if (!link || !link.section) return null;
+  const where = link.schedule ? `Sch ${link.schedule} cl ${link.section}` : `s ${link.section}`;
+  const found = ((EM_SECTIONS && EM_SECTIONS.sections) || [])
+    .find((s) => s.section === link.section && (s.schedule || "") === (link.schedule || ""));
+  return found && found.heading ? `${where} — ${found.heading}` : where;
+}
+
+// The provision a clause note explains: run_bill_linking's guess until a
+// reviewer confirms or changes it. The guess is right most of the time,
+// so confirming is one click; changing it is a list of the Act's sections.
+function emLinkRowHtml(link) {
+  if (!link) return "";
+  const settled = link.settled;
+  const suggested = link.suggested;
+  let value, state;
+  if (settled) {
+    value = emProvisionLabel(settled) || "No provision";
+    state = settled.section ? "confirmed" : "settled";
+  } else if (suggested && suggested.section) {
+    value = emProvisionLabel(suggested);
+    state = "suggested";
+  } else {
+    value = suggested && suggested.act_title ? `Not linked (the note names ${suggested.act_title})` : "Not linked";
+    state = "none";
+  }
+  const actTitle = (EM_SECTIONS && EM_SECTIONS.target_title) || "the Act";
+  const options = ((EM_SECTIONS && EM_SECTIONS.sections) || []).map((s) => {
+    const key = `${s.schedule || ""}|${s.section}`;
+    const label = s.schedule ? `Sch ${s.schedule} cl ${s.section}` : `s ${s.section}`;
+    return `<option value="${escapeHtml(key)}">${escapeHtml(label)}${s.heading ? ` — ${escapeHtml(s.heading)}` : ""}</option>`;
+  }).join("");
+  const stateText = { confirmed: "&#10003; confirmed", settled: "&#10003; confirmed", suggested: "suggested", none: "" }[state];
+  return `
+    <div class="em-link em-link-${state}">
+      <span class="em-link-label">Explains</span>
+      <span class="em-link-value">${escapeHtml(value)}</span>
+      ${stateText ? `<span class="em-link-state">${stateText}</span>` : ""}
+      ${state === "suggested" ? `<button class="btn small em-link-confirm" title="This note explains that provision">&#10003; Confirm</button>` : ""}
+      <select class="em-link-select" title="Link this note to a provision of ${escapeHtml(actTitle)}">
+        <option value="" selected disabled>${state === "none" ? "Link&hellip;" : "Change&hellip;"}</option>
+        <option value="none">No provision</option>
+        ${options}
+      </select>
+      ${settled ? `<button class="btn small em-link-undo" title="Forget this and go back to the parser's guess">Undo</button>` : ""}
+    </div>`;
+}
+
+function attachEmLinkRow(div, nodeIndex) {
+  const row = div.querySelector(".em-link");
+  if (!row) return;
+  const save = async (body, method) => {
+    try {
+      const updated = await api(`api/nodes/${nodeIndex}/em-link`, method === "DELETE" ? { method } : {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      currentUnit.em_links[nodeIndex] = updated;
+      row.outerHTML = emLinkRowHtml(updated);
+      attachEmLinkRow(div, nodeIndex);
+      toast(method === "DELETE" ? "Back to the parser's guess." : "Link saved.");
+    } catch (e) { toast(e.message, true); }
+  };
+  const confirmBtn = row.querySelector(".em-link-confirm");
+  if (confirmBtn) confirmBtn.onclick = () => {
+    const s = currentUnit.em_links[nodeIndex].suggested;
+    save({ schedule: s.schedule, section: s.section });
+  };
+  row.querySelector(".em-link-select").onchange = (e) => {
+    const value = e.target.value;
+    if (value === "none") return save({ section: "" });
+    const [schedule, section] = value.split("|");
+    save({ schedule: schedule || null, section });
+  };
+  const undoBtn = row.querySelector(".em-link-undo");
+  if (undoBtn) undoBtn.onclick = () => save(null, "DELETE");
 }
 
 // The parts of the unit header that depend on what has been decided in

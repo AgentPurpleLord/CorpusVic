@@ -374,6 +374,22 @@ CREATE TABLE IF NOT EXISTS review_notes (
     PRIMARY KEY (act, node_id)
 );
 
+-- Which Act provision an Explanatory Memorandum's clause note explains,
+-- as a reviewer settled it. run_bill_linking guesses these into
+-- data/bill_links/, keyed by position and confirmed by nobody; a row
+-- here overrides the guess for its note. `target` is the Act's work
+-- slug, so the link holds across its reprints. An empty `section` is a
+-- reviewer saying the note explains no provision.
+CREATE TABLE IF NOT EXISTS em_links (
+    act TEXT NOT NULL,
+    node_id TEXT NOT NULL,
+    target TEXT NOT NULL,
+    schedule TEXT NOT NULL DEFAULT '',
+    section TEXT NOT NULL DEFAULT '',
+    linked_at TEXT NOT NULL,
+    PRIMARY KEY (act, node_id)
+);
+
 CREATE TABLE IF NOT EXISTS history_decisions (
     act TEXT NOT NULL,
     provision TEXT NOT NULL,
@@ -1235,6 +1251,30 @@ def save_review_notes(act: str, notes: dict, base_dir: "str | Path | None" = Non
 def load_review_notes(act: str, base_dir: "str | Path | None" = None) -> dict[str, str]:
     rows = _connect(base_dir).execute("SELECT node_id, note FROM review_notes WHERE act = ?", (act,)).fetchall()
     return {r[0]: r[1] for r in rows}
+
+
+def save_em_link(act: str, node_id: str, target: str, schedule: str, section: str,
+                 base_dir: "str | Path | None" = None) -> None:
+    conn = _connect(base_dir)
+    with conn:
+        conn.execute("INSERT INTO em_links (act, node_id, target, schedule, section, linked_at) VALUES (?, ?, ?, ?, ?, ?) "
+                     "ON CONFLICT(act, node_id) DO UPDATE SET target = excluded.target, schedule = excluded.schedule, "
+                     "section = excluded.section, linked_at = excluded.linked_at",
+                     (act, node_id, target, schedule or "", section or "", _now_iso()))
+
+
+def clear_em_link(act: str, node_id: str, base_dir: "str | Path | None" = None) -> None:
+    """Back to run_bill_linking's guess."""
+    conn = _connect(base_dir)
+    with conn:
+        conn.execute("DELETE FROM em_links WHERE act = ? AND node_id = ?", (act, node_id))
+
+
+def load_em_links(act: str, base_dir: "str | Path | None" = None) -> dict[str, dict]:
+    """{node_id: {target, schedule, section, linked_at}} for one EM."""
+    rows = _connect(base_dir).execute(
+        "SELECT node_id, target, schedule, section, linked_at FROM em_links WHERE act = ?", (act,)).fetchall()
+    return {r[0]: {"target": r[1], "schedule": r[2] or None, "section": r[3] or None, "linked_at": r[4]} for r in rows}
 
 
 # ---------------------------------------------------------------------

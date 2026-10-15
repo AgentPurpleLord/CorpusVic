@@ -3890,24 +3890,34 @@ def _bill_links_signature() -> tuple:
     return tuple(stamp)
 
 
+_link_docs_cache: dict = {}
+
+
 def _load_bill_link_docs() -> tuple[list[dict], list[dict]]:
-    """(bill->act documents, EM documents) from data/bill_links/. An
-    unreadable or malformed file is skipped rather than failing the page:
-    these are an optional enrichment of a browse view, not something it
-    depends on to render."""
-    bill_docs, em_docs = [], []
-    links_dir = BASE_DIR / "data" / "bill_links"
-    if not links_dir.is_dir():
-        return bill_docs, em_docs
-    for path in sorted(links_dir.glob("*.json")):
-        try:
-            doc = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    """(bill->act documents, EM documents) from data/bill_links/, read
+    again only when a file there changes: every Act page asks."""
+    signature = (str(BASE_DIR), _bill_links_signature())
+    if _link_docs_cache.get("signature") != signature:
+        _link_docs_cache.update(signature=signature, docs=commentary.load_link_docs(BASE_DIR))
+    return _link_docs_cache["docs"]
+
+
+def _reviewed_em_links(em_docs: list[dict]) -> dict[str, dict[int, dict]]:
+    """{EM slug: {position in its current nodes: settled link}} -- what
+    reviewers have said each note explains, placed where the page index
+    looks notes up."""
+    from corpus.parsing.identity import node_ids
+
+    out: dict[str, dict[int, dict]] = {}
+    for slug in dict.fromkeys(d.get("em_slug") for d in em_docs if d.get("em_slug")):
+        rows = db.load_em_links(slug, BASE_DIR)
+        if not rows or not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
             continue
-        if not isinstance(doc, dict) or "links" not in doc:
-            continue  # pre-header format (a bare list) -- nothing to relate it by
-        (em_docs if doc.get("em_slug") else bill_docs).append(doc)
-    return bill_docs, em_docs
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        names = node_ids([dict(n) for n in nodes], hierarchy)
+        out[slug] = {i: {**rows[name], "clause_number": node.get("number"), "clause_schedule": node.get("schedule")}
+                     for i, (node, name) in enumerate(zip(nodes, names)) if name in rows}
+    return out
 
 
 def related_documents(act_slug: str) -> list[dict]:
@@ -3973,12 +3983,15 @@ def related_links(act_slug: str, href_of) -> list[dict]:
 
 
 def _commentary_index(act_slug: str) -> dict:
-    signature = _bill_links_signature()
+    bill_docs, em_docs = _load_bill_link_docs()
+    # A reviewer settling a link is a database write, not a change to
+    # data/bill_links/, so the EMs' own state is part of the answer.
+    signature = (_bill_links_signature(),
+                 tuple(_browse_state_signature(d["em_slug"]) for d in em_docs if d.get("em_slug")))
     cached = _commentary_cache.get(act_slug)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    bill_docs, em_docs = _load_bill_link_docs()
-    index = build_commentary_index(act_slug, bill_docs, em_docs)
+    index = build_commentary_index(act_slug, bill_docs, commentary.with_reviewed_links(em_docs, _reviewed_em_links(em_docs)))
     _commentary_cache[act_slug] = (signature, index)
     return index
 

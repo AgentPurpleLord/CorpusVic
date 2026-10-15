@@ -150,7 +150,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from corpus.review import inheritance, structure
-from corpus.domain import amendments, diffing, lineage
+from corpus.domain import amendments, commentary, diffing, lineage
+from corpus.parsing.versions import split_document_slug
 from corpus.publishing import html_view
 from corpus.parsing import figures
 from corpus.storage import db
@@ -1548,6 +1549,58 @@ def _deleted_in_unit(unit_no: int) -> list[int]:
     return found
 
 
+_em_link_context: dict = {}
+
+
+def _em_links() -> "dict | None":
+    """For an Explanatory Memorandum, the Act its notes explain, that Act's
+    sections (what a note can be linked to) and run_bill_linking's guess
+    for each note. None for any other document."""
+    if _document_type != "em":
+        return None
+    if _em_link_context.get("act") == _act:
+        return _em_link_context
+    bill_docs, em_docs = commentary.load_link_docs(BASE_DIR)
+    em_doc = next((d for d in em_docs if d.get("em_slug") == _act), {})
+    bill_doc = next((d for d in bill_docs if d.get("bill_slug") == em_doc.get("bill_slug")), {})
+    act_slug = bill_doc.get("act_slug")
+    sections, title = [], None
+    parsed_path = BASE_DIR / "data" / "parsed" / f"{act_slug}.json"
+    if act_slug and parsed_path.exists():
+        parsed = json.loads(parsed_path.read_text(encoding="utf-8"))
+        title = (parsed.get("version") or {}).get("title")
+        schedule = None
+        for node in parsed.get("nodes") or []:
+            if node["type"] == "schedule":
+                schedule = node.get("number")
+            elif node.get("number") and (node["type"] == "section" or (schedule and node["type"] in ("clause", "item"))):
+                sections.append({"schedule": schedule if node["type"] != "section" else None,
+                                 "section": node["number"], "heading": node.get("heading") or ""})
+    _em_link_context.clear()
+    _em_link_context.update(
+        act=_act, target=split_document_slug(act_slug)[0] if act_slug else None,
+        target_title=title or (split_document_slug(act_slug)[0].replace("-", " ").title() if act_slug else None),
+        sections=sections,
+        suggestions=commentary.em_link_suggestions(_act, bill_docs, em_docs))
+    return _em_link_context
+
+
+def _em_link_payload(indices: list[int]) -> dict:
+    """{node index: {"suggested", "settled"}} for the clause notes among
+    these pieces. "settled" is None until a reviewer says; a settled link
+    with no section is "explains no provision"."""
+    context = _em_links()
+    if context is None:
+        return {}
+    settled = db.load_em_links(_act)
+    out = {}
+    for i in indices:
+        if _current_node(i).get("type") != "clause":
+            continue
+        out[i] = {"suggested": context["suggestions"].get(i), "settled": settled.get(_node_id(i) or "")}
+    return out
+
+
 def _unit_payload(unit_no: int) -> dict:
     indices = [i for i in _units[unit_no] if i not in _merged_away]
     unit_nodes = [_current_node(i) for i in indices]
@@ -1584,6 +1637,7 @@ def _unit_payload(unit_no: int) -> dict:
         # so this is None (not an error) after a restart. See merge_endpoint.
         "merged_into_unit": _merged_into_unit.get(unit_no) if not indices else None,
         "lineage": _unit_lineage_payload(unit_no, unit_nodes, indices),
+        "em_links": _em_link_payload(indices),
     }
 
 
@@ -3632,6 +3686,41 @@ def post_link(req: LinkRequest):
                         node_text, target=target, node_index=req.node_index)
     except LinkError as e:
         raise HTTPException(400, str(e)) from e
+
+
+class EmLinkRequest(BaseModel):
+    schedule: str | None = None
+    # Empty: the note explains no provision.
+    section: str = ""
+
+
+@app.get("/api/em-link/sections")
+def em_link_sections():
+    context = _em_links()
+    if context is None:
+        raise HTTPException(404, "Only an Explanatory Memorandum links its notes to provisions")
+    return {"target": context["target"], "target_title": context["target_title"], "sections": context["sections"]}
+
+
+@app.post("/api/nodes/{node_index}/em-link")
+def settle_em_link(node_index: int, req: EmLinkRequest):
+    _require_live(node_index)
+    context = _em_links()
+    if context is None or not context["target"]:
+        raise HTTPException(400, "No Act is linked to this Explanatory Memorandum's Bill -- run the Bill linking first")
+    section = req.section.strip()
+    schedule = (req.schedule or "").strip() if section else ""
+    if section and not any(s["section"] == section and (s["schedule"] or "") == schedule for s in context["sections"]):
+        raise HTTPException(400, f"{context['target_title'] or context['target']} has no such provision")
+    db.save_em_link(_act, _node_id(node_index), context["target"], schedule, section)
+    return _em_link_payload([node_index]).get(node_index)
+
+
+@app.delete("/api/nodes/{node_index}/em-link")
+def clear_em_link(node_index: int):
+    _require_live(node_index)
+    db.clear_em_link(_act, _node_id(node_index))
+    return _em_link_payload([node_index]).get(node_index)
 
 
 @app.delete("/api/links/{link_id}")
