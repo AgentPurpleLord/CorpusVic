@@ -711,6 +711,7 @@ class _LineParser:
         # Schedule's list reached (see _try_schedule_item).
         self.heading_x0: "float | None" = None
         self._term_line: "BodyLine | None" = None   # the line a defined term was last read from
+        self.next_line: "BodyLine | None" = None
         self.schedule_last_number: "str | None" = None
         self.schedule_gap = False
         # Where a Notes block's numbers stand; a line opening with digits
@@ -1011,6 +1012,7 @@ class _LineParser:
                 consumed_through = table.end - 1
                 continue
             next_text = lines[idx + 1].text.strip() if idx + 1 < len(lines) else ""
+            self.next_line = lines[idx + 1] if idx + 1 < len(lines) else None
 
             if _RULE_RE.match(text):
                 continue   # the rule printed under an Act's last provision
@@ -1112,9 +1114,15 @@ class _LineParser:
                 or any(self.patterns[key].match(text) for key in _BRACKETED_LEVELS if key in self.patterns)
                 or bool(self._in_definitions_section and line.leading_bold_italic)
             )
+        # A note's own text, right of its number, can open with a defined
+        # term (Evidence Act s 150 note 2, "Australian law is defined in
+        # the Dictionary."): that is the note, not the next definition.
+        in_note_text = (self.marked_block_type == "note" and self._note_number_x0 is not None
+                        and self.current_marked_block is not None and self.current_marked_block.get("number")
+                        and line.x0 > self._note_number_x0 + _INDENT_TOLERANCE)
         return (
             _looks_like_boundary(text, self.patterns)
-            or bool(self._in_definitions_section and line.leading_bold_italic)
+            or bool(self._in_definitions_section and line.leading_bold_italic and not in_note_text)
             # A bold line set at body size or larger, which in these Acts
             # is what a heading looks like -- and a bare topical caption
             # ("Offences relating to Horse-drawn Vehicles, Public
@@ -1331,7 +1339,7 @@ class _LineParser:
     def _try_bold_heading(self, line: BodyLine, text: str, char_start: int, was_heading_group: bool) -> bool:
         """Chapter, Part, Division and Section headings, then the two
         bare-number wrap cases (Subdivision, Section) -- all bold-only."""
-        if not line.bold:
+        if not line.bold or self._term_wraps(line, text):
             return False
 
         if text == "Dictionary" and round(line.size, 1) > self.body_size and "schedule" in self.rank:
@@ -1522,6 +1530,18 @@ class _LineParser:
             top["char_end"] = char_end
         return True
 
+    def _term_wraps(self, line: BodyLine, text: str) -> bool:
+        """A defined term filling its whole line and carried onto the next
+        at the hanging indent (Road Safety Act s 3, "Chief Executive
+        Officer of the Victorian Institute" / "of Forensic Medicine
+        means..."). All bold, the first line read as a topical heading,
+        or as emphasis in the definition above."""
+        nxt = self.next_line
+        return bool(self._in_definitions_section and line.leading_bold_italic
+                    and line.leading_bold_italic.strip() == text.strip()
+                    and nxt is not None and nxt.leading_bold_italic
+                    and nxt.x0 > line.x0 + _INDENT_TOLERANCE)
+
     def _try_definition_start(self, line: BodyLine, text: str, char_start: int, char_end: int,
                               next_text: str = "") -> bool:
         """Inside a Definitions/Interpretation section, a defined term is
@@ -1549,7 +1569,11 @@ class _LineParser:
         if not (self._in_definitions_section and line.leading_bold_italic):
             return False
         in_dictionary = any(n["type"] == "dictionary" for n in self.stack)
-        if round(line.size, 1) > self.body_size or (not in_dictionary and _looks_like_group_heading(
+        # A topical heading is set bold. A term opening a plain line --
+        # "ADS permit holder, in relation to an automated" -- has a
+        # heading's shape and is not one.
+        could_be_heading = line.bold and not in_dictionary and not self._term_wraps(line, text)
+        if round(line.size, 1) > self.body_size or (could_be_heading and _looks_like_group_heading(
             text, self.prev_text, _prev_line_was_heading(self.stack, self.heading_levels), next_text
         )):
             # A topical heading between two sections ("Theft, robbery,
@@ -1563,11 +1587,6 @@ class _LineParser:
             # Dictionary has no topical headings among its terms, and its
             # first term can stand alone on its line under the Part
             # heading ("ACT court", defined only by a Note).
-            return False
-        if _ENDS_MID_SENTENCE_RE.search(self.prev_text or ""):
-            # "...of the definition of" / "document in the Dictionary—"
-            # (Evidence Act s166(e)): a defined term cited in a sentence
-            # still running, set in its defining style, not a new one.
             return False
         term = line.leading_bold_italic
         if not text.startswith(term):
@@ -1604,6 +1623,20 @@ class _LineParser:
             self._term_line = line
             return True
 
+        if top is not None and (top.get("text") or "").strip() and re.search(r"[\w),]$", (self.prev_text or "").rstrip()) \
+                and not (remainder.startswith((",", "(")) or _DEF_CONTINUATION_RE.match(remainder)):
+            # The sentence above is still running, and carried a term it
+            # cites onto this line: Road Safety Act s 3(7), "For the
+            # purposes of the definition of domestic" / "partner in
+            # subsection (1)--". Unless the line goes on to define it: a
+            # lead-in can lack its dash ("In sections 103V ... and 103Z" /
+            # "2009 Act means...", s 103U).
+            return False
+        if _ENDS_MID_SENTENCE_RE.search(self.prev_text or ""):
+            # "...of the definition of" / "document in the Dictionary—"
+            # (Evidence Act s166(e)): a defined term cited in a sentence
+            # still running, set in its defining style, not a new one.
+            return False
         self._open_node("definition", None, term, line, char_start, rank=self._definition_rank)
         self._term_line = line
         if remainder:
