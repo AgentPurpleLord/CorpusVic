@@ -1843,6 +1843,59 @@ def test_an_example_that_opens_with_its_own_words_keeps_its_list():
     assert example["number"] is None and "demand dowry" in example["text"] and "threaten 2 people" in example["text"]
 
 
+def test_an_examples_own_lettered_list_is_the_examples():
+    """Bail Act s 4E: "Example", "...would—", then (a)-(c) at the
+    example's own column. They closed the example and became paragraphs
+    of the section."""
+    from corpus.parsing.identity import annotate_ids
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("4E Unacceptable risk test", bold=True, x1=330),
+        line("(1) A bail decision maker must refuse bail if—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) there is a risk; and", x0=PARA_X0, x1=400),
+        line("(b) the risk is an unacceptable risk.", x0=PARA_X0, x1=400),
+        line("Example", bold=True, size=10.0, x0=WRAP_X0, x1=260),
+        line("An unacceptable risk that the accused, if released on bail,", size=10.0, x0=WRAP_X0, x1=440),
+        line("would—", size=10.0, x0=WRAP_X0, x1=250),
+        line("(a) drive dangerously; or", size=10.0, x0=WRAP_X0, x1=400),
+        line("(b) commit a family violence offence; or", size=10.0, x0=WRAP_X0, x1=420),
+        line("(c) commit a home invasion.", size=10.0, x0=WRAP_X0, x1=400),
+        line("(2) The prosecutor bears the burden of satisfying the", x0=HEAD_X0, x1=MARGIN),
+        line("bail decision maker.", x0=WRAP_X0, x1=300),
+    ])
+    examples = [n for n in result.nodes if n["type"] == "example"]
+    assert [(e["number"], e["text"]) for e in examples] == [
+        (None, "An unacceptable risk that the accused, if released on bail, would—"),
+        ("a", "drive dangerously; or"), ("b", "commit a family violence offence; or"),
+        ("c", "commit a home invasion.")]
+    assert [n["number"] for n in result.nodes if n["type"] in ("paragraph", "subparagraph")] == ["a", "b"]
+    assert find(result.nodes, "subsection", "2")
+
+    annotate_ids(result.nodes, result.hierarchy)
+    page_html = html_view.render_section({"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"},
+                                         "An Act 2008", "", "s4e")
+    assert '<span class="prov-num">(a)</span>' in page_html.split("drive dangerously")[0].rsplit("prov-example", 1)[1]
+    assert page_html.count('<span class="prov-text">Example</span>') == 1
+    assert '<span class="prov-text">Examples</span>' not in page_html
+
+
+def test_a_sections_paragraph_after_an_example_still_closes_it():
+    """Bail Act s 5(3): an Example under paragraph (d), then "(e)" further
+    left -- the section's next paragraph, not the example's."""
+    result = _parse([
+        line("5 Conditions of bail", bold=True, x1=330),
+        line("(3) Conditions may include—", x0=HEAD_X0, x1=MARGIN),
+        line("(d) not contacting specified persons;", x0=PARA_X0, x1=400),
+        line("Example", bold=True, size=10.0, x0=PARA_WRAP_X0, x1=280),
+        line("Witnesses, alleged victims or co-accused:", size=10.0, x0=PARA_WRAP_X0, x1=440),
+        line("(e) surrender of the accused's passport;", x0=PARA_X0, x1=400),
+    ])
+    [example] = [n for n in result.nodes if n["type"] == "example"]
+    assert example["number"] is None
+    assert find(result.nodes, "paragraph", "e")["text"] == "surrender of the accused's passport;"
+
+
 def test_a_schedules_numbered_list_is_one_clause_per_item():
     """Family Violence Protection Act Sch 1: a hanging list, in plain type
     but for the Act names, which made some lines bold -- and only those

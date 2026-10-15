@@ -57,6 +57,7 @@ import re
 from dataclasses import dataclass, field
 
 from corpus.parsing.extract import BodyLine, PageText, join_printed_line
+from corpus.parsing.rule_parser import add_rect
 
 _CHAPTER_RE = re.compile(r"^Chapter\s+(\d+[A-Za-z]*)\s*[—–-]\s*(.+)$", re.IGNORECASE)
 _PART_RE = re.compile(r"^Part\s+([\dA-Za-z.]+)\s*[—–-]\s*(.+)$", re.IGNORECASE)
@@ -240,6 +241,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             "page_start": line.page_no, "page_end": line.page_no,
             "char_start": char_start, "char_end": char_end, "source": "rules",
         }
+        add_rect(node, line)
         item_stack.append((line.x0, node))
         nodes.append(node)
         return node
@@ -269,6 +271,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             node["text"] = join_printed_line(node["text"], text)
         node["page_end"] = line.page_no
         node["char_end"] = char_end
+        add_rect(node, line)
 
     for idx, line in enumerate(lines):
         text = line.text.strip()
@@ -314,6 +317,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             }
             if open_schedule:
                 open_heading["schedule"] = open_schedule
+            add_rect(open_heading, line)
             nodes.append(open_heading)
         elif clause_m:
             close_current()
@@ -329,6 +333,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             }
             if open_schedule:
                 current["schedule"] = open_schedule
+            add_rect(current, line)
             nodes.append(current)
             sink = current
         elif line.bold and open_heading is not None and current is None:
@@ -342,6 +347,7 @@ def parse_em(pages: list[PageText]) -> EMParseResult:
             open_heading["heading"] = f"{open_heading['heading']} {text}"
             open_heading["text"] = open_heading["heading"]
             open_heading["char_end"] = char_end
+            add_rect(open_heading, line)
         elif _BULLET_RE.match(text):
             # The marker alone. Which level the item belongs to depends
             # on its *text's* indent, which is on the next line -- so

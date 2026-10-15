@@ -612,6 +612,7 @@ _BARE_SCHEDULE_RE = re.compile(r"^Schedule\s+(\d+[A-Za-z]*)$", re.IGNORECASE)
 # An example's own number, as printed: "1 The following...", "1. Intentional
 # misuse...", or "1" alone with its words set beside it.
 _EXAMPLE_NUMBER_RE = re.compile(r"^(\d{1,2})\.?(?:\s+(.*))?$")
+_EXAMPLE_LETTER_RE = re.compile(r"^\(([a-z])\)\s+(.*)$")
 
 
 # The levels _try_bracket_item recognises by shape alone, with no font
@@ -686,8 +687,12 @@ class _LineParser:
         self.current_marked_block: dict | None = None
         self.marked_block_type: str | None = None
         # How the Examples block open now counts its examples: "numbered"
-        # as printed, "bullets" one to a dot point, None until its first.
+        # as printed, "bullets" one to a dot point, "lettered" for an
+        # example's own (a), (b) list, None until its first.
         self.example_style: "str | None" = None
+        # Where the open example's first line starts: its lettered items
+        # are set at this column, a section's own paragraphs are not.
+        self._example_x0: "float | None" = None
         self.asterisk_run: list[BodyLine] = []
         self.asterisk_start = 0
 
@@ -1033,6 +1038,7 @@ class _LineParser:
                 self._close_marked_block()
                 self.marked_block_type = "example"
                 self.example_style = None
+                self._example_x0 = None
                 continue
 
             if self.patterns["penalty_marker"].match(text):
@@ -1207,6 +1213,19 @@ class _LineParser:
         if text.startswith(BULLETS) and (block is None or self.example_style == "bullets"):
             self.example_style = "bullets"
             return str(last + 1), text.lstrip("".join(BULLETS)).strip()
+        # Bail Act s 4E: "...would—" then (a)-(f) at the example's own
+        # column. Read as provisions, they closed the example and became
+        # paragraphs of the section. Gated on the column and on order so a
+        # section's next paragraph, set further in, still closes it.
+        m = _EXAMPLE_LETTER_RE.match(text)
+        if m and block is not None and self.example_style in (None, "lettered") \
+                and self._example_x0 is not None and abs(line.x0 - self._example_x0) <= _INDENT_TOLERANCE:
+            letter, held = m.group(1), str(block.get("number") or "")
+            opens_list = letter == "a" and not held and (block.get("text") or "").rstrip().endswith(("—", "–", ":"))
+            follows = len(held) == 1 and held.isalpha() and len(letter) == 1 and ord(letter) == ord(held) + 1
+            if opens_list or (self.example_style == "lettered" and follows):
+                self.example_style = "lettered"
+                return letter, m.group(2).strip()
         return None
 
     def _handle_marked_block(self, line: BodyLine, text: str, char_start: int, char_end: int) -> bool:
@@ -1302,6 +1321,8 @@ class _LineParser:
             }
             add_rect(self.current_marked_block, line)
             self.nodes.append(self.current_marked_block)
+            if kind == "example":
+                self._example_x0 = line.x0
             return True
         self._close_marked_block()
         self.marked_block_type = None

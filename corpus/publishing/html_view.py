@@ -565,7 +565,9 @@ def _caption_html(units: list[dict], i: int, base_depth: int = 0) -> str:
     for unit in units[i:]:
         if kind(unit) != here or unit["depth"] != depth:
             break
-        run += 1
+        # An example's own (a), (b) items are one example, headed singly.
+        number = str(unit["tree_node"]["node"].get("number") or "")
+        run += not (here == "example" and number.isalpha())
     singular, plural = _CAPTIONED_TYPES[here]
     # One example that is a list of them is "Examples" too, as printed.
     bullets = sum(l.lstrip().startswith(tuple(BULLETS)) for l in (units[i]["text"] or "").split("\n"))
