@@ -418,6 +418,19 @@
   </div>
 </div>
 
+<!-- A Bill's second reading speeches, for the Act's page on the site. -->
+<div class="overlay" id="speeches-modal">
+  <div class="modal wide">
+    <h2>Speeches &mdash; <span id="speeches-slug"></span></h2>
+    <p class="hint">The second reading speeches and Statements of Compatibility for the Bill this Act was enacted
+      from. Once one is held, the Act's contents on the site link to it at the top. Hansard's firewall refuses most
+      requests that don't come from a person's browser: where fetching fails, open the Hansard link, save the page
+      (<em>Save page as&hellip;</em>, &ldquo;Webpage, HTML only&rdquo;) and add it here.</p>
+    <div id="speeches-list"></div>
+    <div class="modal-actions"><button class="btn" id="speeches-fetch">Fetch from Hansard</button></div>
+  </div>
+</div>
+
 <!-- Background jobs, and a way to stop one between its steps. -->
 <div class="overlay" id="tasks-modal">
   <div class="modal wide">
@@ -933,6 +946,9 @@ function actCardHtml(s) {
         ${s.kind === "act" && s.parsed
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
+        ${s.kind === "act" && s.parsed
+          ? `<button class="btn small" onclick="openSpeeches('${escapeHtml(s.slug)}')"
+               title="The second reading speeches and Statements of Compatibility for the Bill this Act was enacted from, from Hansard -- linked at the top of the Act's contents on the site">Speeches</button>` : ""}
         ${s.parsed ? `<a class="btn small" href="api/works/${encodeURIComponent(s.work)}/report.md"
                title="Everything flagged in review, in any version, and every change denied in History review -- with your notes and the printed lines each came from -- as a file to hand back">Report</a>` : ""}
         ${s.parsed ? `<a class="btn small" href="teaching/${encodeURIComponent(s.slug)}/" target="_blank"
@@ -1640,6 +1656,64 @@ async function runExport(slug, kind, btn) {
     btn.textContent = original;
     loadActs();
   }
+}
+
+const SPEECH_KINDS = { second_reading: "Second reading speech", statement_of_compatibility: "Statement of Compatibility" };
+
+async function openSpeeches(slug) {
+  document.getElementById("speeches-slug").textContent = slug;
+  document.getElementById("speeches-fetch").onclick = (e) => fetchSpeeches(slug, e.target);
+  openModal("speeches-modal");
+  await paintSpeeches(slug);
+}
+
+async function paintSpeeches(slug) {
+  const list = document.getElementById("speeches-list");
+  list.innerHTML = `<p class="hint">Reading&hellip;</p>`;
+  const res = await fetch(`api/acts/${encodeURIComponent(slug)}/speeches`);
+  if (res.status === 404) { list.innerHTML = `<p class="hint">None fetched yet.</p>`; return; }
+  const data = await res.json();
+  list.innerHTML = `<p class="hint">${escapeHtml(data.bill_title || data.bill_slug)}</p>` + data.speeches.map((r) => `
+    <div class="task-row">
+      <div class="task-main"><strong>${escapeHtml(SPEECH_KINDS[r.kind] || r.kind)}</strong> &middot; ${escapeHtml(r.house)}
+        <div class="hint">${escapeHtml([r.date, r.member].filter(Boolean).join(" \u00b7 "))} &middot;
+          ${r.paragraphs ? `${r.paragraphs} paragraphs held` : `<span class="pr-error">not held${r.error ? ` (${escapeHtml(r.error)})` : ""}</span>`}
+          ${r.source_url ? ` &middot; <a href="${escapeHtml(r.source_url)}" target="_blank" rel="noopener">Hansard</a>` : ""}</div></div>
+      <label class="btn small" title="A Hansard page saved from your browser">Add saved page&hellip;
+        <input type="file" accept=".html,.htm,text/html" hidden onchange="addSavedSpeech('${escapeHtml(slug)}', ${r.index}, this)"></label>
+    </div>`).join("");
+}
+
+async function fetchSpeeches(slug, btn) {
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Fetching\u2026";
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/speeches`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${res.status} ${res.statusText}`);
+    toast(data.ok ? `${data.fetched} of ${data.total} fetched.` : "Hansard didn't give any of them -- add saved pages instead.", !data.ok);
+  } catch (e) {
+    toast(String(e.message || e), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+    paintSpeeches(slug);
+  }
+}
+
+async function addSavedSpeech(slug, index, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("page", file);
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/speeches/${index}/page`, { method: "POST", body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${res.status} ${res.statusText}`);
+    toast(`${data.paragraphs} paragraphs read from the saved page.`);
+  } catch (e) { toast(String(e.message || e), true); }
+  paintSpeeches(slug);
 }
 
 let parseMenuWork = null;

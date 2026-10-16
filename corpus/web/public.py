@@ -377,8 +377,10 @@ def _site_stamp() -> str:
             parts.append((st.st_mtime_ns, st.st_size))
         except OSError:
             parts.append(None)
-    parsed = sorted((p.name, p.stat().st_mtime_ns) for p in (BASE_DIR / "data" / "parsed").glob("*.json"))
-    parts.append(parsed)
+    # Speeches and link records change pages too: a fetched speech adds a
+    # link to its Act's contents, a link record an EM chip.
+    for folder in ("parsed", "speeches", "bill_links"):
+        parts.append(sorted((p.name, p.stat().st_mtime_ns) for p in (BASE_DIR / "data" / folder).glob("*.json")))
     stamp = f"{code}|{hashlib.sha1(repr(parts).encode()).hexdigest()[:16]}"
     _stamp_memo.update(at=now, base=BASE_DIR, stamp=stamp)
     return stamp
@@ -420,6 +422,8 @@ def _warm_pages():
         if address != (addresses_of().get(work) or work):
             continue   # an older reprint, at its dated address
         yield f"/browse/{address}/endnotes", (lambda a=address: _endnotes_html(a))
+        if dashboard.speeches_for(slug):
+            yield f"/browse/{address}/speeches", (lambda a=address: _speeches_html(a))
         pages = dict.fromkeys(dashboard._page_index(slug)["by_node_index"].values())
         for page in pages:
             yield f"/browse/{address}/section/{page}", (lambda a=address, p=page: _section_html(a, p))
@@ -429,6 +433,7 @@ _PAGE_URLS = [
     (re.compile(r"^/$"), lambda m, q: _landing_html()),
     (re.compile(r"^/browse/([^/]+)/$"), lambda m, q: _contents_html(m[1])),
     (re.compile(r"^/browse/([^/]+)/endnotes$"), lambda m, q: _endnotes_html(m[1])),
+    (re.compile(r"^/browse/([^/]+)/speeches$"), lambda m, q: _speeches_html(m[1])),
     (re.compile(r"^/browse/([^/]+)/section/([^/]+)$"), lambda m, q: _section_html(m[1], m[2])),
     (re.compile(r"^/api/browse/([^/]+)/preview$"),
      lambda m, q: _preview_json(m[1], (q.get("section") or [None])[0], (q.get("fragment") or [None])[0])),
@@ -572,6 +577,21 @@ def _endnotes_html(site_slug: str) -> str:
     if body is None:
         raise HTTPException(404, f"{site_slug!r} has no endnotes.")
     return _page(f"{dashboard._act_title(slug)} — Endnotes", body, f"/browse/{site_slug}").body.decode()
+
+
+@app.get("/browse/{site_slug}/speeches", response_class=HTMLResponse)
+def speeches(site_slug: str, request: Request):
+    _resolve(site_slug)
+    return _served(request, lambda: _speeches_html(site_slug))
+
+
+def _speeches_html(site_slug: str) -> str:
+    slug = _resolve(site_slug)
+    body = reader.speeches_page(dashboard, slug, f"/browse/{site_slug}")
+    if body is None:
+        raise HTTPException(404, f"No second reading speeches are held for {site_slug!r}.")
+    return _page(f"{dashboard._act_title(slug)} — Second reading speeches", body,
+                 f"/browse/{site_slug}").body.decode()
 
 
 @app.get("/api/browse/{site_slug}/preview")
@@ -1099,6 +1119,12 @@ def _build_doc(slug: str, out_dir: Path, base_path: str, gate: "SiteGate | None"
         links |= _link_targets(endnotes_body, base_path)
         _write(doc_dir / "endnotes" / "index.html",
                _finished_page(f"{title} — Endnotes", endnotes_body, base_url, gate=gate), gate)
+
+    speeches_body = reader.speeches_page(dashboard, slug, base_url)
+    if speeches_body is not None:
+        links |= _link_targets(speeches_body, base_path)
+        _write(doc_dir / "speeches" / "index.html",
+               _finished_page(f"{title} — Second reading speeches", speeches_body, base_url, gate=gate), gate)
 
     status = dashboard.act_status(slug)
     return {

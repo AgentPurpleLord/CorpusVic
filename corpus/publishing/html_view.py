@@ -699,7 +699,7 @@ def _related_item_html(doc: dict) -> str:
 def render_index(parsed: dict, act_title: str, base_url: str,
                  superseded: dict | None = None,
                  show_review_badge: bool = True, related: "list[dict] | None" = None,
-                 ghosts: "list[dict] | None" = None) -> str:
+                 ghosts: "list[dict] | None" = None, speeches_href: "str | None" = None) -> str:
     """base_url is this Act's own root, e.g. "/browse/crimes-act" (no
     trailing slash) -- every link rendered here and in render_section
     is built from it, so the caller controls the URL scheme entirely.
@@ -745,6 +745,11 @@ def render_index(parsed: dict, act_title: str, base_url: str,
     verification = _collect_verification(tree_roots)
 
     out = [f"<h1>{_esc(act_title)}</h1>"]
+    if speeches_href:
+        # At the top, before the outline: what the Act is for is the first
+        # thing a reader new to it wants, and the Minister's speech says.
+        out.append(f'<div class="index-nav speeches-link"><a href="{_esc(speeches_href)}">Second reading speech</a> '
+                   "&mdash; what the Bill was for, as the Minister told Parliament</div>")
     if show_review_badge:
         out.append(_verification_badge(verification))
     if superseded:
@@ -2374,3 +2379,47 @@ def page_shell(title: str, body_html: str, previewbar_html: str = "",
     for placeholder, value in replacements.items():
         page = page.replace(placeholder, value)
     return page
+
+
+_SPEECH_KINDS = {"second_reading": "Second reading speech",
+                 "statement_of_compatibility": "Statement of Compatibility"}
+
+
+def render_speeches(doc: dict, act_title: str, base_url: str) -> str:
+    """A Bill's speeches as Hansard printed them (corpus/hansard/), second
+    reading first in each House. Their HTML was reduced to a fixed safe
+    subset when fetched (speech.sanitise), so it is set as it stands. One
+    that couldn't be fetched is still listed, linking out to Hansard."""
+    from datetime import date
+
+    def when(iso):
+        try:
+            d = date.fromisoformat(iso or "")
+        except ValueError:
+            return ""
+        return f"{d.day} {d.strftime('%B %Y')}"
+
+    order = {"second_reading": 0, "statement_of_compatibility": 1}
+    houses = list(dict.fromkeys(s.get("house") for s in doc.get("speeches") or []))
+    out = [f'<div class="breadcrumb"><a href="{_esc(base_url)}/">{_esc(act_title)}</a></div>',
+           f"<h1>{_esc(act_title)} \u2014 Second reading speeches</h1>",
+           f'<p class="text-muted">From Hansard, for the {_esc(doc.get("bill_title") or "Bill")} '
+           "this Act was enacted from. In Victoria a Bill's first reading has no speech: the Statement "
+           "of Compatibility with the Charter of Human Rights is tabled with it.</p>"]
+    for house in houses:
+        speeches = sorted((s for s in doc["speeches"] if s.get("house") == house),
+                          key=lambda s: order.get(s.get("kind"), 9))
+        for s in speeches:
+            byline = " \u2014 ".join(x for x in (_esc(house or ""), when(s.get("date")), _esc(s.get("member") or "")) if x)
+            out.append('<section class="speech">')
+            out.append(f'<h2>{_esc(_SPEECH_KINDS.get(s.get("kind"), "Speech"))}</h2>'
+                       f'<div class="speech-byline text-muted">{byline}</div>')
+            if s.get("html"):
+                out.append(f'<div class="speech-text">{s["html"]}</div>')
+            else:
+                out.append('<p class="text-muted">Not held here.</p>')
+            if s.get("source_url"):
+                out.append(f'<div class="speech-source"><a class="external" href="{_esc(s["source_url"])}" '
+                           'rel="noopener">Hansard</a></div>')
+            out.append("</section>")
+    return "\n".join(out)

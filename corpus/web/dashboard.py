@@ -1896,6 +1896,70 @@ def fetch_amending_acts(work: str):
     return {"ok": True, "acts": len(manifest), "log": "\n".join(lines) or "No amending Acts are needed."}
 
 
+def _held_speeches(slug: str) -> "tuple[str, dict]":
+    from corpus.hansard import fetch as hansard_fetch
+
+    _validate_slug(slug)
+    found = hansard_fetch.bill_for(slug, BASE_DIR)
+    doc = hansard_fetch.load(found[0], BASE_DIR) if found else speeches_for(slug)
+    if doc is None:
+        raise HTTPException(404, "No speeches have been fetched for this Act.")
+    return doc["bill_slug"], doc
+
+
+@app.get("/api/acts/{slug}/speeches")
+def list_speeches(slug: str):
+    from corpus.hansard import speech
+
+    _bill, doc = _held_speeches(slug)
+    return {"bill_slug": doc["bill_slug"], "bill_title": doc.get("bill_title"), "speeches": [
+        {"index": i, **{k: r.get(k) for k in ("kind", "house", "date", "member", "source_url", "error")},
+         "paragraphs": speech.paragraph_count(r.get("html") or "")}
+        for i, r in enumerate(doc.get("speeches") or [])]}
+
+
+@app.post("/api/acts/{slug}/speeches/{index}/page")
+async def add_saved_speech(slug: str, index: int, page: UploadFile = File(...)):
+    """One record read from a Hansard page saved in the reviewer's own
+    browser -- the way past Hansard's firewall, which refuses this server."""
+    from corpus.hansard import fetch as hansard_fetch, speech
+
+    bill_slug, _doc = _held_speeches(slug)
+    raw = await page.read()
+    if len(raw) > 20_000_000:
+        raise HTTPException(413, "That page is too big to be a Hansard record.")
+    try:
+        record = hansard_fetch.from_saved_page(bill_slug, index, raw.decode("utf-8", errors="replace"), BASE_DIR)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"paragraphs": speech.paragraph_count(record["html"])}
+
+
+@app.post("/api/acts/{slug}/speeches")
+def fetch_speeches(slug: str):
+    """Fetches the second reading speeches and Statements of Compatibility
+    for the Bill this Act was enacted from (corpus/hansard/). A Bill no
+    link record names is looked for by the Act's title."""
+    from corpus.hansard import fetch as hansard_fetch, speech
+
+    _validate_slug(slug)
+    work = split_document_slug(slug)[0]
+    found = hansard_fetch.bill_for(slug, BASE_DIR, title=_act_title(slug))
+    if found is None:
+        raise HTTPException(404, f"No Bill page was found for {_act_title(slug)} on legislation.vic.gov.au.")
+    bill_slug, entry = found
+    try:
+        doc = hansard_fetch.fetch_bill(bill_slug, entry, BASE_DIR, act_work=work)
+    except Exception as e:   # the Bill page itself unreadable
+        raise HTTPException(502, f"The Bill page could not be read: {e}") from e
+    lines = [f"{entry.get('title') or bill_slug}: {entry['url']}"]
+    for r in doc["speeches"]:
+        what = f"error: {r['error']}" if r.get("error") else f"{speech.paragraph_count(r['html'])} paragraphs"
+        lines.append(f"{r['house']} -- {r['kind'].replace('_', ' ')} ({r.get('date') or 'no date'}): {what}")
+    fetched = sum(1 for r in doc["speeches"] if not r.get("error"))
+    return {"ok": fetched > 0, "fetched": fetched, "total": len(doc["speeches"]), "log": "\n".join(lines)}
+
+
 @app.post("/api/acts/{work}/amending/verify")
 def verify_amending_acts(work: str):
     """Every fetched instruction checked against the versions it first
@@ -3950,6 +4014,31 @@ def related_documents(act_slug: str) -> list[dict]:
     return unique
 
 
+_speeches_cache: dict = {}
+
+
+def speeches_for(act_slug: str) -> "dict | None":
+    """The second reading speeches held for the Bill this Act was enacted
+    from (corpus/hansard/), or None. A Bill is this Act's through a link
+    record (related_documents) or because it was fetched for it."""
+    from corpus.hansard import fetch as hansard_fetch
+
+    speeches_dir = BASE_DIR / hansard_fetch.SPEECHES_DIR
+    stamp = (str(BASE_DIR), tuple((p.name, p.stat().st_mtime_ns) for p in sorted(speeches_dir.glob("*.json")))
+             if speeches_dir.is_dir() else ())
+    if _speeches_cache.get("stamp") != stamp:
+        _speeches_cache.update(stamp=stamp, docs=hansard_fetch.held(BASE_DIR))
+    work = split_document_slug(act_slug)[0]
+    bills = {d["slug"] for d in related_documents(act_slug) if d["kind"] == "bill"}
+    for doc in _speeches_cache["docs"]:
+        # Only once some text is held: a page of links out to Hansard is
+        # not worth a link at the top of an Act.
+        if (doc.get("bill_slug") in bills or doc.get("act_work") == work) \
+                and any(s.get("html") for s in doc.get("speeches") or []):
+            return doc
+    return None
+
+
 def _bill_sources() -> dict:
     """{bill slug -> {"title", "url"}} from data/bill_links/bills.yaml:
     where each Bill is on legislation.vic.gov.au. Recorded rather than
@@ -4766,6 +4855,19 @@ def browse_endnotes(slug: str):
     return HTMLResponse(html_view.page_shell(
         f"{title} \u2014 Endnotes", body, _preview_bar(slug),
         base_url=_url(f"/browse/{slug}")))
+
+
+@app.get("/browse/{slug}/speeches", response_class=HTMLResponse)
+def browse_speeches(slug: str):
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    body = reader.speeches_page(_SOURCE, slug, _url(f"/browse/{slug}"))
+    if body is None:
+        raise HTTPException(404, f"No second reading speeches are held for {slug!r}.")
+    return HTMLResponse(html_view.page_shell(
+        f"{_act_title(slug)} \u2014 Second reading speeches", body, _preview_bar(slug),
+        base_url=_url(f"/browse/{slug}"), reader=True))
 
 
 @app.get("/api/browse/{slug}/preview")

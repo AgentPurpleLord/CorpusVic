@@ -64,8 +64,22 @@ def contents_page(source, slug: str, base_url: str, *, rewrite=None,
         show_review_badge=show_review_badge,
         related=related,
         ghosts=_ghosts(source, slug),
+        speeches_href=f"{base_url}/speeches" if _speeches(source, slug) else None,
     )
     return (notice or "") + body
+
+
+def _speeches(source, slug: str) -> "dict | None":
+    find = getattr(source, "speeches_for", None)
+    return find(slug) if find else None
+
+
+def speeches_page(source, slug: str, base_url: str) -> "str | None":
+    """The second reading speeches and Statements of Compatibility for the
+    Bill this Act was enacted from, as Hansard printed them. None where
+    none are held."""
+    doc = _speeches(source, slug)
+    return html_view.render_speeches(doc, document_title(source, slug), base_url) if doc else None
 
 
 def _ghosts(source, slug: str) -> list[dict]:

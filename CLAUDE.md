@@ -25,6 +25,12 @@ so a fresh session doesn't have to go looking, plus how to work here.
   reads their instructions into `data/amending/`; `-m corpus.amending.verify
   <slug>` checks them against the reprints. See `corpus/amending/`.
 
+- Second reading speeches: `python -m corpus.hansard.fetch <act>` reads
+  the Bill's page and writes `data/speeches/<bill>.json` (committed).
+  Hansard's firewall refuses most automated requests, so a page saved in a
+  browser can be added from the dashboard's Speeches button. See
+  `corpus/hansard/`.
+
 ## Conventions
 
 - Any project file goes through `corpus.PROJECT_ROOT`. Never count
