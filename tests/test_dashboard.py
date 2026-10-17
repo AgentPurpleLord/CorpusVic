@@ -1959,22 +1959,36 @@ def test_an_import_is_refused_for_a_bad_slug_a_held_work_or_while_one_runs(tmp_p
 
 
 def test_an_act_is_filed_as_a_versioned_work_and_parsed(tmp_path, monkeypatch):
+    """The newest reprint, or the one before where the site can't serve
+    its file -- a broken file shouldn't keep the Act out altogether."""
     _vic(tmp_path, monkeypatch)
-    monkeypatch.setattr(dashboard.history_versions, "available", lambda title, no, year: [
-        {"version": 140, "pdf_url": "https://x/140.pdf"}, {"version": 141, "pdf_url": None}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF-1.4 " + url.encode())
+    asked = {}
+    monkeypatch.setattr(dashboard.history_versions, "available",
+                        lambda title, no, year, path=None: asked.update(path=path) or [
+                            {"version": 140, "pdf_url": "https://x/140.pdf"},
+                            {"version": 141, "pdf_url": "https://x/141.pdf"},
+                            {"version": 142, "pdf_url": None}])
+
+    def get(url, timeout=60):
+        if "141" in url:
+            raise dashboard.urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        return b"%PDF-1.4 " + url.encode()
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", get)
     ran = []
     monkeypatch.setattr(dashboard, "_run_parse_subprocess", lambda cmd: ran.append(cmd) or (True, 0, "parsed"))
     job = {"results": []}
 
-    req = dashboard.VicImportRequest(kind="act", slug="bail-act", title="Bail Act 1977", act_no="9008", year=1977)
+    req = dashboard.VicImportRequest(kind="act", slug="bail-act", title="Bail Act 1977", act_no="9008", year=1977,
+                                     path="/in-force/acts/bail-act-1977")
     dashboard._vic_import_job(req, [("act", "bail-act")], job)
 
+    assert asked["path"] == "/in-force/acts/bail-act-1977", "the search's own address, not one rebuilt from the title"
     pdf = tmp_path / "acts" / "bail-act" / "bail-act-v140.pdf"
     assert pdf.read_bytes().startswith(b"%PDF") and job["state"] == "done"
     assert ran[0][2:5] == ["corpus.parsing.run_pipeline", "acts/bail-act/bail-act-v140.pdf", "--document-type"]
     [result] = job["results"]
-    assert result["slug"] == "bail-act-v140" and "in volumes" in result["note"]
+    assert result["slug"] == "bail-act-v140"
+    assert "Version 141 could not be downloaded" in result["note"] and "404" in result["note"]
 
 
 def test_a_bill_brings_its_em_each_parsed_as_its_kind(tmp_path, monkeypatch):
@@ -1982,7 +1996,7 @@ def test_a_bill_brings_its_em_each_parsed_as_its_kind(tmp_path, monkeypatch):
     monkeypatch.setattr(dashboard.catalogue, "bill_documents", lambda bill_id: [
         {"title": "Introduction print – Bill", "kind": "bill", "pdf_url": "https://x/bi1.pdf"},
         {"title": "Introduction print – Explanatory Memorandum", "kind": "em", "pdf_url": "https://x/exi1.pdf"}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF-1.4")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"%PDF-1.4")
     ran = []
     monkeypatch.setattr(dashboard, "_run_parse_subprocess", lambda cmd: ran.append(cmd) or (True, 0, ""))
     job = {"results": []}
@@ -2000,7 +2014,7 @@ def test_a_page_that_is_not_a_pdf_is_not_kept(tmp_path, monkeypatch):
     _vic(tmp_path, monkeypatch)
     monkeypatch.setattr(dashboard.catalogue, "bill_documents", lambda bill_id: [
         {"title": "Introduction print – Bill", "kind": "bill", "pdf_url": "https://x/bi1.pdf"}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"<html>error</html>")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"<html>error</html>")
     job = {"results": []}
 
     dashboard._vic_import_job(dashboard.VicImportRequest(kind="bill", slug="b", bill_id="x"), [("bill", "b")], job)

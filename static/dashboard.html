@@ -2131,7 +2131,7 @@ async function retrieveVic() {
         documents: [["bill", "vic-doc-bill"], ["em", "vic-doc-em"]]
           .filter(([, id]) => document.getElementById(id).checked).map(([k]) => k) }
     : { kind: "act", slug: document.getElementById("vic-slug").value, title: vicPicked.title,
-        act_no: String(vicPicked.act_no || ""), year: vicPicked.year };
+        act_no: String(vicPicked.act_no || ""), year: vicPicked.year, path: vicPicked.path || "" };
   const btn = document.getElementById("vic-retrieve");
   btn.disabled = true;
   try {

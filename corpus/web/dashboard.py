@@ -82,6 +82,7 @@ from datetime import datetime, timezone
 import sys
 import threading
 import time
+import urllib.error
 import traceback
 from pathlib import Path
 
@@ -3191,11 +3192,12 @@ def _site_versions(work: str) -> list[dict]:
     held = _held(work)
     info = _act_version(held[-1])
     try:
-        return history_versions.available(_act_title(held[-1]), info.get("act_no"), info.get("year"))
+        versions = history_versions.available(_act_title(held[-1]), info.get("act_no"), info.get("year"))
     except amending_fetch.NotFound as e:
         raise HTTPException(404, str(e))
     except OSError as e:
         raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+    return [{**v, "fetchable": history_versions.fetchable(v)} for v in versions]
 
 
 @app.get("/api/works/{work}/versions/available")
@@ -3292,7 +3294,7 @@ def fetch_all_work_versions(work: str):
     does not hold yet, oldest first, as one background job: forty reprints
     at a few minutes' parse apiece outlasts any page kept open for it."""
     held = {split_document_slug(s)[1] for s in _held(work)}
-    wanted = sorted(v["version"] for v in _site_versions(work) if v.get("pdf_url") and v["version"] not in held)
+    wanted = sorted(v["version"] for v in _site_versions(work) if v["fetchable"] and v["version"] not in held)
     if not wanted:
         raise HTTPException(400, "Every version the site has a PDF of is held here already.")
     with _version_fetch_lock:
@@ -3370,14 +3372,9 @@ def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bo
     """Downloads one version from the site and adds it as an uploaded one
     is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
-    if not wanted or not wanted["pdf_url"]:
-        raise HTTPException(404, f"The site has no single PDF of version {version}.")
-    try:
-        content = amending_fetch._get(wanted["pdf_url"])
-    except OSError as e:
-        raise HTTPException(502, f"Could not download version {version}: {e}")
-    if not content.startswith(b"%PDF"):
-        raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
+    if not wanted or not wanted["fetchable"]:
+        raise HTTPException(404, f"The site has no PDF of version {version}.")
+    content = _download_reprint(wanted)
     if replace:
         return _replace_version(work, version, content, then_slim)
     return _add_version(work, content, f"{work}-v{version:03d}.pdf", version, then_slim)
@@ -3433,6 +3430,9 @@ class VicImportRequest(BaseModel):
     year: "int | None" = None
     bill_id: str = ""
     documents: list[str] = ["bill", "em"]
+    # The address the site's search gave: it can't be rebuilt from the
+    # title (see history.versions.locate).
+    path: str = ""
 
 
 # One at a time, in the background: a parse takes minutes, longer than a
@@ -3479,14 +3479,46 @@ def vic_import_status():
     return dict(_vic_import)
 
 
+_DOWNLOAD_TIMEOUT = 180   # a 5 MB reprint over a slow link outlasts a minute
+_DOWNLOAD_TRIES = 3
+
+
+def _retrying(fetch, what: str) -> bytes:
+    """`fetch(get)` with a patient `get`, tried again on a dropped
+    connection or a server error -- the failures that a second attempt
+    gets past. What is said on giving up names the reprint and why."""
+    get = lambda url: amending_fetch._get(url, timeout=_DOWNLOAD_TIMEOUT)
+    last = None
+    for attempt in range(_DOWNLOAD_TRIES):
+        try:
+            return fetch(get)
+        except urllib.error.HTTPError as e:
+            last = f"the site answered {e.code} {e.reason} for {e.url}"
+            if e.code < 500:
+                break   # 404 and its kind won't change on asking again
+        except ValueError as e:   # not a PDF: an answer, not a dropped line
+            last = str(e)
+            break
+        except OSError as e:
+            last = str(e)
+        if attempt + 1 < _DOWNLOAD_TRIES:
+            time.sleep(2 * (attempt + 1))
+    raise HTTPException(502, f"Could not download {what}: {last}")
+
+
 def _download_pdf(url: str) -> bytes:
-    try:
-        content = amending_fetch._get(url)
-    except OSError as e:
-        raise HTTPException(502, f"Could not download {url}: {e}")
-    if not content.startswith(b"%PDF"):
-        raise HTTPException(502, f"{url} is not a PDF.")
-    return content
+    def fetch(get):
+        content = get(url)
+        if not content.startswith(b"%PDF"):
+            raise ValueError(f"{url} is not a PDF")
+        return content
+    return _retrying(fetch, url)
+
+
+def _download_reprint(entry: dict) -> bytes:
+    """One reprint's PDF -- its volumes joined, where it is published in
+    volumes with no single file."""
+    return _retrying(lambda get: history_versions.download(entry, get), f"version {entry['version']}")
 
 
 def _vic_import_job(req: VicImportRequest, targets: list, job: dict, task: "dict | None" = None) -> None:
@@ -3512,17 +3544,29 @@ def _import_act(req: VicImportRequest, work: str, job: dict) -> None:
     fetched from its card."""
     job["step"] = "finding the newest reprint"
     try:
-        versions = history_versions.available(req.title, req.act_no, req.year)
+        versions = history_versions.available(req.title, req.act_no, req.year, path=req.path or None)
     except amending_fetch.NotFound as e:
         raise HTTPException(404, str(e))
-    newest = next((v for v in reversed(versions) if v.get("pdf_url")), None)
+    except OSError as e:
+        raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+    candidates = [v for v in reversed(versions) if isinstance(v["version"], int) and history_versions.fetchable(v)]
+    if not candidates:
+        raise HTTPException(404, f"The site has no PDF of any reprint of {req.title}.")
+    # The newest, or failing that the one before: a reprint whose file the
+    # site can't serve shouldn't keep the Act out altogether.
+    newest, content, failures = None, None, []
+    for entry in candidates[:3]:
+        job["step"] = f"downloading version {entry['version']}" + (" (in volumes)" if entry.get("note") else "")
+        try:
+            content = _download_reprint(entry)
+            newest = entry
+            break
+        except HTTPException as e:
+            failures.append(str(e.detail))
     if newest is None:
-        raise HTTPException(404, f"The site has no single PDF of any reprint of {req.title}.")
-    latest = versions[-1]["version"] if versions else None
-    note = (f"Version {latest} is published in volumes, which cannot be read as one PDF; "
-            f"version {newest['version']} was retrieved instead." if latest != newest["version"] else None)
-    job["step"] = f"downloading version {newest['version']}"
-    content = _download_pdf(newest["pdf_url"])
+        raise HTTPException(502, " ".join(failures))
+    note = (f"Version {candidates[0]['version']} could not be downloaded ({failures[0]}); "
+            f"version {newest['version']} was retrieved instead." if failures else None)
     dest = BASE_DIR / "acts" / work / f"{work}-v{int(newest['version']):03d}.pdf"
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
