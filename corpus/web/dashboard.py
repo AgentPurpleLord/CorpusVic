@@ -3294,7 +3294,7 @@ def fetch_all_work_versions(work: str):
     does not hold yet, oldest first, as one background job: forty reprints
     at a few minutes' parse apiece outlasts any page kept open for it."""
     held = {split_document_slug(s)[1] for s in _held(work)}
-    wanted = sorted(v["version"] for v in _site_versions(work) if v["fetchable"] and v["version"] not in held)
+    wanted = sorted(v["version"] for v in _site_versions(work) if history_versions.fetchable(v) and v["version"] not in held)
     if not wanted:
         raise HTTPException(400, "Every version the site has a PDF of is held here already.")
     with _version_fetch_lock:
@@ -3372,7 +3372,7 @@ def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bo
     """Downloads one version from the site and adds it as an uploaded one
     is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
-    if not wanted or not wanted["fetchable"]:
+    if not wanted or not history_versions.fetchable(wanted):
         raise HTTPException(404, f"The site has no PDF of version {version}.")
     content = _download_reprint(wanted)
     if replace:
