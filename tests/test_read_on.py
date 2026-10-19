@@ -156,6 +156,17 @@ def test_nothing_is_loaded_above_a_reader_who_has_not_moved_yet():
     assert 'if (where === "prev" && !scrolled) return false;' in js
 
 
+def test_reaching_up_from_the_top_counts_as_moving():
+    """A provision opened from the contents sits at the top of the page,
+    where scrolling up fires no scroll event -- so nothing above it came
+    until the reader had scrolled down first."""
+    js = READON_JS.read_text(encoding="utf-8")
+    body = js.split("function reachingUp() {", 1)[1].split("}", 1)[0]
+    assert "window.scrollY > 0" in body and "scrolled = true" in body and "check()" in body
+    for signal in ('"wheel"', '"touchmove"', '"keydown"'):
+        assert f"addEventListener({signal}" in js, signal
+
+
 def test_it_keeps_a_buffer_rather_than_fetching_one_at_a_time():
     """The pop-in was a provision being asked for only once the reader had
     arrived at the end of the one before it."""

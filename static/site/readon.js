@@ -248,6 +248,25 @@
     check();
   }, { passive: true });
   window.addEventListener("resize", check, { passive: true });
+
+  // A provision opened from the contents lands at the top of the page,
+  // where scrolling up moves nothing -- so no scroll event fires, and the
+  // provisions above waited for the reader to scroll down first. Reaching
+  // for what is above, by wheel, swipe or key, is the same signal.
+  function reachingUp() {
+    if (window.scrollY > 0) return;
+    scrolled = true;
+    check();
+  }
+  window.addEventListener("wheel", function (e) { if (e.deltaY < 0) reachingUp(); }, { passive: true });
+  var touchY = null;
+  window.addEventListener("touchstart", function (e) { touchY = e.touches[0].clientY; }, { passive: true });
+  window.addEventListener("touchmove", function (e) {
+    if (touchY !== null && e.touches[0].clientY > touchY + 10) reachingUp();   // a finger pulling down
+  }, { passive: true });
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowUp" || e.key === "PageUp" || e.key === "Home" || (e.key === " " && e.shiftKey)) reachingUp();
+  });
   // A provision opened part-way through an Act has nothing under it, and
   // the reader who came from the contents wanted to land inside the Act
   // rather than at the end of an excerpt. What comes before it waits for
