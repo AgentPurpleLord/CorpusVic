@@ -111,6 +111,23 @@
 /* The first provision already has the page's breadcrumb above it; on the
    ones that follow it is the only thing saying where they sit. */
 .reader-section + .reader-section .breadcrumb { margin-bottom: 10px; }
+
+/* Where you are, kept in view: a long Act read down the page lost its
+   Part and Division as soon as a provision's first lines scrolled off.
+   Sticky inside its own article, so it holds while its provision is on
+   screen and the next provision's pushes it off -- one bar that stays
+   put through a Division and changes as the reader crosses into the
+   next, with no script. Under the site header (z 30), over the text. */
+.reader-section > .breadcrumb {
+  position: sticky; top: var(--header-h); z-index: 20;
+  background: var(--bg);
+  padding: 8px 0 7px;
+  box-shadow: 0 1px 0 var(--border);
+}
+/* On a phone a four-level trail would take a quarter of the screen. */
+@media (max-width: 560px) {
+  .reader-section > .breadcrumb { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 /* "End of Part III" belongs to the Part that has just ended, so it sits
    with it, above the rule. The rule used to be drawn over these words,
    which put a line between a Part's last provision and the words saying

@@ -1,3 +1,15 @@
+// The site header's real height, as --header-h. A fixed guess (58px)
+// put what sticks under the header -- the breadcrumb, the outline -- and
+// every in-page link's landing point partly behind it wherever the header
+// wraps: a phone, or text set larger.
+(function () {
+  var header = document.querySelector(".siteheader");
+  if (!header || !window.ResizeObserver) return;
+  new ResizeObserver(function () {
+    document.documentElement.style.setProperty("--header-h", header.offsetHeight + "px");
+  }).observe(header);
+})();
+
 // The reading controls on a section page: how large the legislative text
 // is set, and whether the amendment-history notes are shown beside it.
 //
