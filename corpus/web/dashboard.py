@@ -1780,6 +1780,18 @@ def do_logout(request: Request):
 def index():
     return admin_html(STATIC_DIR / "dashboard.html")
 
+def _review_slug(work: str, newest: str) -> str:
+    """The version of `work` held whole (history.slim.base_version), or
+    `newest` where the work is held in one version or isn't versioned."""
+    from corpus.history import slim
+
+    held = slim.versions(work, BASE_DIR)
+    if len(held) < 2:
+        return newest
+    base = slim.base_version(work, BASE_DIR)
+    return held.get(base, newest)
+
+
 @app.get("/api/acts")
 def list_acts():
     started = time.monotonic()
@@ -1797,8 +1809,12 @@ def list_acts():
             if held is None or (status["version"] or 0) >= (held["version"] or 0):
                 newest[status["work"]] = status
     for status in newest.values():
+        # Review opens the version held whole, which is where the review
+        # is: the newest of several is cut down to what it changed, and
+        # sending Review there made a whole review look trimmed away.
+        status["review_slug"] = _review_slug(status["work"], status["slug"])
         t = time.monotonic()
-        progress = _review_progress(status["slug"])
+        progress = _review_progress(status["review_slug"])
         progress_took[status["slug"]] = time.monotonic() - t
         status["provisions_checked"], status["provisions_total"] = progress["checked"], progress["total"]
         status["review_status"] = ("reviewed" if progress["checked"] >= progress["total"]
@@ -2978,8 +2994,10 @@ def work_versions(work: str):
              "as_at_printed": _act_version(slug).get("as_at_printed"), "to_review": None}
             for slug in slugs or ([work] if (BASE_DIR / "data" / "parsed" / f"{work}.json").exists() else [])]}
     state = inheritance.work_review(slugs[-1], BASE_DIR)
+    base_slug = _review_slug(work, slugs[-1])
     return {"work": work, "versions": [
-        {k: v[k] for k in ("version", "slug", "as_at_printed", "to_review", "current")}
+        {**{k: v[k] for k in ("version", "slug", "as_at_printed", "to_review", "current")},
+         "base": v["slug"] == base_slug, "slim": _is_slim(v["slug"])}
         for v in state["versions"]]}
 
 
@@ -3170,7 +3188,11 @@ def _slim_work(work: str, job: "dict | None" = None) -> dict:
     fetched again, and History review cannot judge a change without both
     versions' pages."""
     from corpus.history import slim
-    wanting = [v for v, entry in slim.apply(work, BASE_DIR, dry_run=True)["versions"].items() if entry["missing"]]
+    try:
+        wanting = [v for v, entry in slim.apply(work, BASE_DIR, dry_run=True)["versions"].items() if entry["missing"]]
+    except slim.Refused as e:
+        # Added, not cut down: the review it would have deleted matters more.
+        return {"work": work, "refused": str(e), "versions": {}}
     again, failed = [], []
     for n, version in enumerate(wanting, 1):
         if job is not None:

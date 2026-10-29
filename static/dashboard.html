@@ -877,7 +877,10 @@ function actCardHtml(s) {
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
   const reviewBtn = s.parsed
-    ? `<a class="btn small" href="review/${s.slug}/" target="_blank">Review</a>`
+    // The version held whole, where the review is -- not the newest, which
+    // beside others keeps only what it changed.
+    ? `<a class="btn small" href="review/${s.review_slug || s.slug}/" target="_blank"
+         ${s.review_slug && s.review_slug !== s.slug ? `title="Opens ${escapeHtml(s.review_slug)}, the version held in full; newer versions keep only what changed -- each has its own Review under Versions"` : ""}>Review</a>`
     : `<button class="btn small" disabled title="Parse it first">Review</button>`;
   const browseBtn = s.parsed
     ? `<a class="btn small" href="browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
@@ -989,10 +992,11 @@ async function loadVersions(work, details) {
     if (!res.ok) throw new Error(data.detail || "Couldn't load the versions.");
     const rows = data.versions.slice().reverse().map((v) => `
       <tr>
-        <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}</td>
+        <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}
+          ${v.base ? `<span class="badge done" title="Your review is here">held in full</span>` : v.slim ? `<span class="badge" title="Keeps only what changed in its step from its neighbour; the rest is read from the version held in full">only what changed</span>` : ""}</td>
         <td>${escapeHtml(v.as_at_printed ? "as at " + v.as_at_printed : "")}</td>
         <td>${!v.current || v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
-        <td>${v.current ? `<a href="review/${v.slug}/" target="_blank">Review</a> &middot; ` : ""}<a href="browse/${v.slug}/" target="_blank">Browse</a></td>
+        <td><a href="review/${v.slug}/" target="_blank">Review</a> &middot; <a href="browse/${v.slug}/" target="_blank">Browse</a></td>
       </tr>`).join("");
     body.innerHTML = `<table>${rows}</table>`;
   } catch (e) {

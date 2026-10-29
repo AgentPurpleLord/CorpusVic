@@ -193,6 +193,31 @@ def _own_rows(slug: str, text: list, base_dir=None) -> int:
     return len(rows) - len(keep)
 
 
+class Refused(Exception):
+    pass
+
+
+def _refuse_cutting_review(work: str, held: dict, base: int, base_dir=None) -> None:
+    """Slimming a version deletes its review of everything but its own
+    changes (_own_rows), since the base holds that. A whole version with
+    more review than the base is the one reviewed, and cutting it would
+    lose the review -- so nothing is slimmed until the base is set right."""
+    base_rows = len(db.load_verified(held[base], base_dir))
+    for v, slug in held.items():
+        if v == base:
+            continue
+        try:
+            if "slim" in json.loads((_base_dir(base_dir) / "data" / "parsed" / f"{slug}.json").read_text(encoding="utf-8")):
+                continue
+        except (OSError, ValueError):
+            continue
+        rows = len(db.load_verified(slug, base_dir))
+        if rows > base_rows:
+            raise Refused(f"v{v} holds {rows} reviewed rows and v{base}, the version to be held whole, {base_rows}: "
+                          f"slimming v{v} would delete its review. If v{v} is the one reviewed, make it the base: "
+                          f"python -m corpus.history.slim {work} --base {v}")
+
+
 def apply(work: str, base_dir=None, pdf_for=None, dry_run: bool = False, base: "int | None" = None) -> dict:
     """Slims every version but the base. `pdf_for(slug)` is where a
     version's PDF is, to blank its other pages; None leaves PDFs alone."""
@@ -200,6 +225,8 @@ def apply(work: str, base_dir=None, pdf_for=None, dry_run: bool = False, base: "
 
     held = versions(work, base_dir)
     base = base if base in held else base_version(work, base_dir)
+    if base is not None:
+        _refuse_cutting_review(work, held, base, base_dir)
     if base is not None and not dry_run and not _base_path(work, base_dir).exists():
         # Remembered, so adding a version can never move it: a version
         # slimmed toward one base cannot be read from another without
@@ -244,6 +271,18 @@ def main():
                     help="parse each version not yet slim again from its PDF first, with the current parser -- "
                          "an older parse attaches notes and names pieces differently from the base's")
     args = ap.parse_args()
+    try:
+        held = versions(args.work)
+        if args.base is not None and args.base not in held:
+            print(f"v{args.base} of {args.work} is not held.", file=sys.stderr)
+            return 1
+        if args.base is not None:
+            # Checked before it is remembered: a base refused here must not
+            # stay set for the next version added to slim toward.
+            _refuse_cutting_review(args.work, held, args.base)
+    except Refused as e:
+        print(f"Refused: {e}", file=sys.stderr)
+        return 1
     if args.base is not None and not args.dry_run:
         set_base(args.work, args.base)
     from corpus.web import dashboard
@@ -262,7 +301,11 @@ def main():
                 dashboard._build_parse_command(pdf, "act", profile, "", "", keep_accepted=True))
             print(f"v{v}: {'parsed again' if ok else 'the parse failed'}", file=sys.stderr)
 
-    print(json.dumps(apply(args.work, pdf_for=pdf_for, dry_run=args.dry_run, base=args.base), indent=1))
+    try:
+        print(json.dumps(apply(args.work, pdf_for=pdf_for, dry_run=args.dry_run, base=args.base), indent=1))
+    except Refused as e:
+        print(f"Refused: {e}", file=sys.stderr)
+        return 1
     return 0
 
 

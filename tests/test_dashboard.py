@@ -2061,3 +2061,25 @@ def test_the_pipelines_no_longer_advise_python_review_py():
         text = (corpus.PROJECT_ROOT / "corpus" / "parsing" / name).read_text(encoding="utf-8")
         assert "python review.py" not in text, name
         assert 'print(f"Done: ' in text, name
+
+
+def test_review_opens_the_version_held_whole_not_the_newest(tmp_path, monkeypatch):
+    """Beside other versions the newest keeps only what it changed. Review
+    sent there, after a new version came out, made a whole review look
+    trimmed away: it opens the version held whole, where the review is."""
+    import json
+    from corpus.history import slim
+
+    monkeypatch.setattr(dashboard, "BASE_DIR", tmp_path)
+    parsed = tmp_path / "data" / "parsed"
+    parsed.mkdir(parents=True)
+    (parsed / "act-v1.json").write_text(json.dumps({"nodes": []}))
+    assert dashboard._review_slug("act", "act-v1") == "act-v1", "one version: itself"
+
+    (parsed / "act-v2.json").write_text(json.dumps({"slim": {}}))
+    slim.set_base("act", 1, tmp_path)
+    assert dashboard._review_slug("act", "act-v2") == "act-v1"
+
+    page = (Path(__file__).parent.parent / "static" / "dashboard.html").read_text()
+    assert 'href="review/${s.review_slug || s.slug}/"' in page
+    assert '<td><a href="review/${v.slug}/" target="_blank">Review</a>' in page, "every version has its own Review"
