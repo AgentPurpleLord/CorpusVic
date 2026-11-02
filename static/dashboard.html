@@ -872,8 +872,6 @@ function actCardHtml(s) {
   // has to say which one it is -- the slug alone doesn't always.
   const kindBadge = s.parsed && s.kind !== "act"
     ? `<span class="badge">${KIND_LABELS[s.kind] || s.kind}</span>` : "";
-  const nodesBadge = s.parsed && s.provisions_total != null
-    ? `<span class="badge">${s.provisions_total} provisions</span>` : "";
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
   const reviewBtn = s.parsed
@@ -925,13 +923,11 @@ function actCardHtml(s) {
   return `
     <div class="act-card">
       <div class="head">
-        <span class="slug">${s.work}</span>
-        ${s.title ? `<span class="work-title">${escapeHtml(s.title)}</span>` : ""}
+        <span class="slug">${escapeHtml(s.title || s.work)}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
         ${publishBadge}
         ${kindBadge}
         ${asAt}
-        ${nodesBadge}
         ${aknBadge}
         ${mdBadge}
       </div>
@@ -941,11 +937,8 @@ function actCardHtml(s) {
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openNameModal('${s.work}')"
                 title="The title and link this work has on the public site">Name</button>
         ${browseBtn}
-        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
-        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
                 title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
-        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
         ${s.kind === "act" && s.parsed
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
