@@ -883,10 +883,6 @@ function actCardHtml(s) {
   const browseBtn = s.parsed
     ? `<a class="btn small" href="browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
     : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
-  const dlAkn = s.akn_exported
-    ? `<a class="btn small" href="api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
-  const dlMd = s.markdown_exported
-    ? `<a class="btn small" href="api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
 
   // One menu per Act, over all its versions: the card shows only the
   // newest, and an older reprint had no way to be re-parsed at all.
@@ -949,8 +945,6 @@ function actCardHtml(s) {
                title="Everything flagged in review, in any version, and every change denied in History review -- with your notes and the printed lines each came from -- as a file to hand back">Report</a>` : ""}
         ${s.parsed ? `<a class="btn small" href="teaching/${encodeURIComponent(s.slug)}/" target="_blank"
                title="Your review decisions, kept as examples the parser is checked against">Teaching</a>` : ""}
-        ${dlAkn}
-        ${dlMd}
       </div>
       ${s.kind === "act" && s.parsed ? versionsHtml(s) : ""}
     </div>`;
