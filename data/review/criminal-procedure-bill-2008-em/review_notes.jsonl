@@ -1,0 +1,15 @@
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl11/heading_group-part-2.3-notifying-accused-of-court-appe", "note": "Should be marked as a 'Part' as per the Act", "noted_at": "2026-11-02T05:11:45.354531+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl26/heading_group-chapter-3-summary-procedure", "note": "Should be marked as a 'Chapter'", "noted_at": "2026-11-02T05:11:57.426907+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl26/heading_group-part-3.1-when-a-summary-hearing-may-be-h", "note": "Should be marked as a PArt", "noted_at": "2026-11-02T05:12:06.343324+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl30/heading_group-part-3.2-procedure-before-summary-hearin", "note": "Should be marked as a Part, also missing the 'Division' title", "noted_at": "2026-11-02T05:12:17.288616+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl31", "note": "Gets cut off because 'Clause 31' is in the body text", "noted_at": "2026-11-02T05:12:34.380131+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl31~eaba0b", "note": "Run on from 'Clause 31' because of the body-text", "noted_at": "2026-11-02T05:12:43.227659+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl4/heading_group-chapter-2-commencing-a-criminal-proceedi", "note": "Should be marked as a chapter in line with the Act", "noted_at": "2026-11-02T05:09:50.742036+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl4/heading_group-part-2.1-ways-in-which-a-criminal-procee", "note": "Should be marked as a Part in line with the Act", "noted_at": "2026-11-02T05:10:00.420325+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl5/heading_group-part-2.2-charge-sheet-and-listing-of-mat", "note": "Should be marked as a part as per the Act", "noted_at": "2026-11-02T05:10:19.301797+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl55/heading_group-part-3.3-summary-hearing-division-1-join", "note": "Should be marked as a Part", "noted_at": "2026-11-02T05:12:51.918463+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl6", "note": "Gets cut off at Clause 6(4) because the parser is detecting body text that says that", "noted_at": "2026-11-02T05:10:49.016989+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl6-4", "note": "As at Clause 6", "noted_at": "2026-11-02T05:10:56.431650+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl87/heading_group-part-3.4-rehearing", "note": "Should be marked as a part", "noted_at": "2026-11-02T05:13:00.089912+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl94/heading_group-chapter-4-committal-proceeding", "note": "Should be marked as a Chapter", "noted_at": "2026-11-02T05:13:25.010607+00:00"}
+{"act": "criminal-procedure-bill-2008-em", "node_id": "cl94/heading_group-part-4.1-preliminary", "note": "Should be marked as a Part", "noted_at": "2026-11-02T05:13:32.124055+00:00"}
