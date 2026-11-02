@@ -160,7 +160,7 @@ from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
 from corpus.parsing import identity
 from corpus.parsing.identity import annotate_ids, name_index
-from corpus.parsing.extract import BodyLine, join_printed_line, lines_in_rects
+from corpus.parsing.extract import BULLETS, BodyLine, join_printed_line, lines_in_rects
 from corpus.parsing.history_notes import parse_note
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from corpus.domain.profiles import load_profile, profile_for
@@ -550,14 +550,16 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
 
 
 _WRAP_RE = re.compile(r"\s*\n\s*")
+_PRINTED_LINE_MAX = 120   # characters; the widest a printed line runs in these documents
 
 
 def reflow_with_map(text: str) -> tuple[str, list[int]]:
-    """The stored text's "\\n"s are just the source PDF's own line-wrap
-    points, not paragraph breaks -- displaying them raw makes every piece
-    look like a jagged list of half-sentences. Collapses each wrap into a
-    single space for display -- the same transform every renderer and
-    exporter applies (corpus.extract.reflow) -- but also returns the
+    """The stored text's "\\n"s are where the parse kept a break: between
+    an Explanatory Memorandum's paragraphs, before a dot point, between a
+    table's rows (join_printed_line says which; the PDF's own line wraps
+    are already gone). Shown as what they are -- a blank line between
+    paragraphs, a line of its own for a dot point -- and not collapsed
+    into one run, which hid the paragraph structure being reviewed. Also returns the
     raw-offset each reflowed character came from (one longer than the
     reflowed text, for the position just past its last character) -- callers use this to translate a browser
     text selection made against the *displayed* string back into an
@@ -565,6 +567,12 @@ def reflow_with_map(text: str) -> tuple[str, list[int]]:
     into), and to place an already-saved link's raw-offset span back onto
     the reflowed text for highlighting."""
     text = text or ""
+    # Text parsed before paragraph breaks were kept still has its line
+    # wraps as "\n", each at most a printed line long. A break between
+    # paragraphs is told by a stretch longer than any line prints, so
+    # older text -- an accepted row from before -- is not chopped into
+    # lines, and Reset to parse brings the paragraphs.
+    paragraphed = any(len(part) > _PRINTED_LINE_MAX for part in text.split("\n"))
     chars: list[str] = []
     offsets: list[int] = []
     pos = 0
@@ -572,8 +580,17 @@ def reflow_with_map(text: str) -> tuple[str, list[int]]:
         for j in range(pos, m.start()):
             chars.append(text[j])
             offsets.append(j)
-        chars.append(" ")
-        offsets.append(m.start())
+        if m.group(0).count("\n") and m.start() > 0 and m.end() < len(text) \
+                and (text[m.end()] in BULLETS or paragraphed):
+            # A blank line between paragraphs; a dot point just a new line.
+            # Both characters point at the break, so a selection across it
+            # still maps back to the stored text.
+            breaks = "\n" if text[m.end()] in BULLETS else "\n\n"
+        else:
+            breaks = " "
+        for ch in breaks:
+            chars.append(ch)
+            offsets.append(m.start())
         pos = m.end()
     for j in range(pos, len(text)):
         chars.append(text[j])
@@ -2044,7 +2061,7 @@ def get_page_boxes(page_no: int):
                 "label": _box_label(labels.get(i), node),
                 "type": node["type"],
                 "status": _piece_status(i),
-                "preview": reflow_with_map(node.get("text") or node.get("heading") or "")[0][:140],
+                "preview": " ".join(reflow_with_map(node.get("text") or node.get("heading") or "")[0].split())[:140],
                 "rects": rects,
                 # Its boxes on other pages. A section running over a page
                 # break has one box on each, and without these the page
