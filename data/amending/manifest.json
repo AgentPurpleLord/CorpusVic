@@ -1,4 +1,12 @@
 {
+ "1/2016": {
+  "citation": "1/2016",
+  "fetched_at": "2026-10-06T23:59:43+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/bail-amendment-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/3803bce3-f1e4-357c-93d5-79c750e39701_16-001aa%20authorised.pdf",
+  "sha256": "78fb083a37171ec99e19e5c603259c01c0e8142ed8fff9d49c158f11f90fc9b5",
+  "title": "Bail Amendment Act 2016"
+ },
  "1/2022": {
   "citation": "1/2022",
   "fetched_at": "2026-09-24T09:55:42+00:00",
@@ -23,6 +31,14 @@
   "sha256": "3e331cf42344976841c6896228b6eb7d635ee2a74c2f5f77d4d440903cfecc07",
   "title": "COVID-19 Omnibus (Emergency Measures) Act 2020"
  },
+ "11/2021": {
+  "citation": "11/2021",
+  "fetched_at": "2026-10-07T00:00:18+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-system-enhancements-and-other-matters-act-2021",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2021-03/21-011aa%20authorised.pdf",
+  "sha256": "6a58b4c5306a864955f85d7835753e3ac2b1d137e5451449a8808f06aef1aa01",
+  "title": "Justice Legislation Amendment (System Enhancements and Other Matters) Act 2021"
+ },
  "11/2022": {
   "citation": "11/2022",
   "fetched_at": "2026-09-25T01:00:15+00:00",
@@ -39,6 +55,22 @@
   "sha256": "7913e4b2168450ca52f494904cc2ad332fe5a4b6233ba76bef21d9633d972c01",
   "title": "Justice Legislation Amendment (Anti\u2010vilification and Social Cohesion) Act 2025"
  },
+ "12/2013": {
+  "citation": "12/2013",
+  "fetched_at": "2026-10-06T23:59:23+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/jury-directions-act-2013",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/bfb4fd7b-a3ad-348c-adce-528ee6ad4c7f_13-012a%20authorised.pdf",
+  "sha256": "02818ada674dd088d60895736d05bca49a5ba2a6897e383627920242a5e6b425",
+  "title": "Jury Directions Act 2013"
+ },
+ "13/2018": {
+  "citation": "13/2018",
+  "fetched_at": "2026-10-06T23:59:59+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/major-events-legislation-amendment-ticket-scalping-and-other-matters-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/bfae0f06-d660-326d-b207-d0caeca104c6_18-013aa%20authorised.pdf",
+  "sha256": "7880f11900ebfa3adda751496a0ddeb9c9a6f6d19316f1da3749e5cd09d5f9d4",
+  "title": "Major Events Legislation Amendment (Ticket Scalping and Other Matters) Act 2018"
+ },
  "13/2025": {
   "citation": "13/2025",
   "fetched_at": "2026-09-23T10:15:36+00:00",
@@ -46,6 +78,22 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2025-05/25-013aa-authorised.pdf",
   "sha256": "e044ac9d2e6c2ea17d705a6d8c7c5c673269b1b443746481eff47df17528e6ab",
   "title": "Energy and Land Legislation Amendment (Energy Safety) Act 2025"
+ },
+ "14/2015": {
+  "citation": "14/2015",
+  "fetched_at": "2026-10-06T23:59:41+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/jury-directions-act-2015",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/f757295a-a1e1-324c-ae75-7dc39c721907_15-014aa%20authorised.pdf",
+  "sha256": "7cda65a50c68eba8a58a51b47d60d44352acb9870cfa95aa1fc290631997133b",
+  "title": "Jury Directions Act 2015"
+ },
+ "16/2020": {
+  "citation": "16/2020",
+  "fetched_at": "2026-10-07T00:00:14+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-amendment-manslaughter-and-related-offences-act-2020",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-06/20-016aa%20authorised.pdf",
+  "sha256": "2ddb0598c12cca9e531edcb82626ceea5a2cbee61186d97c4def8c0be7e19385",
+  "title": "Crimes Amendment (Manslaughter and Related Offences) Act 2020"
  },
  "16/2026": {
   "citation": "16/2026",
@@ -55,6 +103,38 @@
   "sha256": "6a66b1494ff7b91ef38dfef6a3765422b677c5462fc9dc52263ffab49db6a569",
   "title": "Safe Food Victoria Act 2026"
  },
+ "17/2014": {
+  "citation": "17/2014",
+  "fetched_at": "2026-10-06T23:59:31+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/legal-profession-uniform-law-application-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/6616d279-cc77-3bec-b85c-44248dc99816_14-017a%20authorised.pdf",
+  "sha256": "ef188d2884b7eb38fbe93fdcb248fa5f20cdf19a6efa81c1685632154e3143a3",
+  "title": "Legal Profession Uniform Law Application Act 2014"
+ },
+ "18/2020": {
+  "citation": "18/2020",
+  "fetched_at": "2026-10-07T00:00:16+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/north-east-link-act-2020",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-06/20-018aa%20authorised.pdf",
+  "sha256": "850f34e0fa0a148a8da0cb4670551cc0f0eca000a2294adc8020f8d28a45a0fc",
+  "title": "North East Link Act 2020"
+ },
+ "19/2017": {
+  "citation": "19/2017",
+  "fetched_at": "2026-10-06T23:59:51+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/family-violence-protection-amendment-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/1d0c9d69-7ceb-317b-9560-16f341913704_17-019aa%20authorised.pdf",
+  "sha256": "27d8e4f96d42ecadb7d08aacbaaa40eff9487afac7c89859fd411da0c4e1424c",
+  "title": "Family Violence Protection Amendment Act 2017"
+ },
+ "19/2019": {
+  "citation": "19/2019",
+  "fetched_at": "2026-10-07T00:00:07+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/disability-national-disability-insurance-scheme-transition-amendment-act-2019",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/f46802d6-b69b-3d12-adcb-3fdfe1aba0c7_19-019aa%20authorised.pdf",
+  "sha256": "253632f75d4c112ed61ae244c5a83e943eeafc04a33d4e0ba4e69b1ca7ce432a",
+  "title": "Disability (National Disability Insurance Scheme Transition) Amendment Act 2019"
+ },
  "19/2025": {
   "citation": "19/2025",
   "fetched_at": "2026-09-23T10:15:37+00:00",
@@ -62,6 +142,22 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2025-06/25-019aa-authorised.pdf",
   "sha256": "11b4c67734139e9369499b2a9a4c0546e71540db0f59b0d5b5d554a351e49375",
   "title": "Retirement Villages Amendment Act 2025"
+ },
+ "20/2012": {
+  "citation": "20/2012",
+  "fetched_at": "2026-10-06T23:59:18+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/associations-incorporation-reform-act-2012",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/f7a16dfa-cb28-3bcf-abc0-7c19412bd157_12-020a%20authorised.pdf",
+  "sha256": "d7f713145915c89ad87c016aa40c0bdfadc0c21232ccbd9105951639392473b8",
+  "title": "Associations Incorporation Reform Act 2012"
+ },
+ "20/2015": {
+  "citation": "20/2015",
+  "fetched_at": "2026-10-06T23:59:41+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-act-2015",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/dac64c41-5cec-3961-95ca-6264b1d3eb10_15-020aa%20authorised.pdf",
+  "sha256": "9d1a4de65e2627736eb02d36c96569e0e4eaff3b764d996bf79c00b3af96a452",
+  "title": "Justice Legislation Amendment Act 2015"
  },
  "20/2025": {
   "citation": "20/2025",
@@ -71,6 +167,14 @@
   "sha256": "e2fe78c44df5acce6ab77deb7832fffeb0f35d6f77367e2e10d0a37875497b0b",
   "title": "Justice Legislation Amendment (Miscellaneous) Act 2025"
  },
+ "21/2017": {
+  "citation": "21/2017",
+  "fetched_at": "2026-10-06T23:59:52+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/building-amendment-enforcement-and-other-measures-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/42eaa76b-49a5-3cd0-bd85-efde07e9073a_17-021aa%20authorised.pdf",
+  "sha256": "dbca5a7e9397c51644913264c7e555d69d8b23e1e0f10f249a675f35f1a8199c",
+  "title": "Building Amendment (Enforcement and Other Measures) Act 2017"
+ },
  "21/2020": {
   "citation": "21/2020",
   "fetched_at": "2026-09-24T09:55:36+00:00",
@@ -79,6 +183,14 @@
   "sha256": "9679ac0c5f3b88deee156492e91c999294401a5facc1d0705fd31883b388e382",
   "title": "Wage Theft Act 2020"
  },
+ "22/2013": {
+  "citation": "22/2013",
+  "fetched_at": "2026-10-06T23:59:24+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/rail-safety-national-law-application-act-2013",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/95364b55-3e68-31c4-b7bc-b19f843f7363_13-022a%20authorised.pdf",
+  "sha256": "ee48e24444f66639d5f08fbab3b8fe38fb4b3d7bdcc7370df7e3c55edc35aec4",
+  "title": "Rail Safety National Law Application Act 2013"
+ },
  "22/2020": {
   "citation": "22/2020",
   "fetched_at": "2026-09-25T01:00:13+00:00",
@@ -86,6 +198,22 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-06/20-022aa%20authorised.pdf",
   "sha256": "ca1b3f23c6f1d383992c4ad8375044eb14a7bc9cc6c027f1b892b63a61aadccc",
   "title": "Justice Legislation Miscellaneous Amendments Act 2020"
+ },
+ "23/2020": {
+  "citation": "23/2020",
+  "fetched_at": "2026-10-07T00:00:18+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/sentencing-amendment-emergency-worker-harm-act-2020",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-06/20-023aa%20authorised.pdf",
+  "sha256": "b87e78349ed46fd104a32adbd880cdacb22206777e415702243c26159c33b3bb",
+  "title": "Sentencing Amendment (Emergency Worker Harm) Act 2020"
+ },
+ "25/2017": {
+  "citation": "25/2017",
+  "fetched_at": "2026-10-06T23:59:53+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/sex-offenders-registration-amendment-miscellaneous-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/3706eb1f-6a69-37c0-a242-032a9d56e922_17-025aa%20authorised.pdf",
+  "sha256": "1ec65f493fc17338187caa5a4fcca1a9cfd0138229747897a1a5a2a6ef530f8d",
+  "title": "Sex Offenders Registration Amendment (Miscellaneous) Act 2017"
  },
  "25/2023": {
   "citation": "25/2023",
@@ -103,6 +231,30 @@
   "sha256": "3490b3530d0b6ebb56cefc3446b51c6ccf2f0de03a53c8a66b454cf5089c0934",
   "title": "Roads and Ports Legislation Amendment (Road Safety and Other Matters) Act 2025"
  },
+ "26/2012": {
+  "citation": "26/2012",
+  "fetched_at": "2026-10-06T23:59:19+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/courts-and-sentencing-legislation-amendment-act-2012",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/a20ae146-d5ee-3bc8-aa65-5f2233cf68c5_12-026aa%20authorised.pdf",
+  "sha256": "a909ae3ef085b68d071531a5c40c309b073a77c0a3891f8dfb8eaba55e60922d",
+  "title": "Courts and Sentencing Legislation Amendment Act 2012"
+ },
+ "26/2014": {
+  "citation": "26/2014",
+  "fetched_at": "2026-10-06T23:59:33+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/mental-health-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/01a3bd2b-50d7-3358-a8f6-c9cdd0c1c923_14-026aa%20authorised.pdf",
+  "sha256": "fd140601a3388308e441f2772e48def95a6c5e820bffc6020259b6650fbe92f8",
+  "title": "Mental Health Act 2014"
+ },
+ "26/2017": {
+  "citation": "26/2017",
+  "fetched_at": "2026-10-06T23:59:53+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/bail-amendment-stage-one-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/11086584-5011-30b6-88f4-e492fef41473_17-026aa%20authorised.pdf",
+  "sha256": "61f7f9f1a511e7a87ebdecb2fa5f861b906d8cabf2cb3e33400e00df46f6d1bc",
+  "title": "Bail Amendment (Stage One) Act 2017"
+ },
  "26/2023": {
   "citation": "26/2023",
   "fetched_at": "2026-09-24T09:55:47+00:00",
@@ -111,6 +263,22 @@
   "sha256": "a3d361e4af780d21e095ad93f65eed6358c9b3bc198ddbd11c163cca4e704943",
   "title": "Justice Legislation Amendment Act 2023"
  },
+ "27/2016": {
+  "citation": "27/2016",
+  "fetched_at": "2026-10-06T23:59:44+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/confiscation-and-other-matters-amendment-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/d18fdb99-5b7f-38c1-8a8c-b25ec21be511_16-027aa%20authorised.pdf",
+  "sha256": "363d14b3c90d21191e2a76389a15b815aff5f8c3c01b2acbaa3c9d60523e5477",
+  "title": "Confiscation and Other Matters Amendment Act 2016"
+ },
+ "27/2018": {
+  "citation": "27/2018",
+  "fetched_at": "2026-10-07T00:00:00+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/serious-offenders-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/482d6529-dc7d-388d-9890-786ba92a44e7_18-027aa%20authorised.pdf",
+  "sha256": "0d429262f7548bd6011057315730d851082759569cb21fa660acf7ed3128c449",
+  "title": "Serious Offenders Act 2018"
+ },
  "27/2020": {
   "citation": "27/2020",
   "fetched_at": "2026-09-24T09:55:37+00:00",
@@ -118,6 +286,14 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-10/20-027aa%20authorised.PDF",
   "sha256": "4b3d78dd6de6730a01bd3dba28d1fcae6c25b66d5327626798ba09d4c620ddd4",
   "title": "COVID-19 Omnibus (Emergency Measures) and Other Acts Amendment Act 2020"
+ },
+ "28/2016": {
+  "citation": "28/2016",
+  "fetched_at": "2026-10-06T23:59:45+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-legislation-amendment-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/ba5a9fae-563d-3726-b2dd-47323e64a5c1_16-028aa%20authorised.pdf",
+  "sha256": "c4edafcc2df8264b25ef1dc6846c393ee7ca5b429d02528084f9e298ab1c9537",
+  "title": "Crimes Legislation Amendment Act 2016"
  },
  "28/2021": {
   "citation": "28/2021",
@@ -135,6 +311,30 @@
   "sha256": "39e0a8f4f257c50cb55eabfa976fe72fe6f0a35cc1a8ea9ffb2b5e4a787065ee",
   "title": "Bail Amendment Act 2023"
  },
+ "29/2011": {
+  "citation": "29/2011",
+  "fetched_at": "2026-10-06T23:59:15+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/statute-law-revision-act-2011",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/df4ba364-8cbc-3bcc-9e68-5f801759e012_11-029a%20authorised.pdf",
+  "sha256": "92dd9d1808448d7a99b86def63547ff7a9a650046cc56ec23cd471c49f41951a",
+  "title": "Statute Law Revision Act 2011"
+ },
+ "3/2016": {
+  "citation": "3/2016",
+  "fetched_at": "2026-10-06T23:59:44+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-further-amendment-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/988479df-b2f1-38ab-b57a-a9070cda4428_16-003aa%20authorised.pdf",
+  "sha256": "105118fe9466258c96b3d77d33ea4b2b909785723b3a2de4dc44354809ea46e5",
+  "title": "Justice Legislation Further Amendment Act 2016"
+ },
+ "3/2018": {
+  "citation": "3/2018",
+  "fetched_at": "2026-10-06T23:59:57+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/bail-amendment-stage-two-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/e374890b-60e3-388a-bf29-d6d3b6a553de_18-003aa%20authorised.pdf",
+  "sha256": "fc061e5dbbb66fafff4c7bfc50c39cb8fcffa65eca1f326e780fe7d2460661ed",
+  "title": "Bail Amendment (Stage Two) Act 2018"
+ },
  "30/2021": {
   "citation": "30/2021",
   "fetched_at": "2026-09-24T09:55:39+00:00",
@@ -151,6 +351,30 @@
   "sha256": "df45b8c01cf9854c55bcc97b4870cda91bbb7d0d37eb2317d578e222f330acbd",
   "title": "Justice Legislation Amendment (Integrity, Defamation and Other Matters) Act 2024"
  },
+ "32/2013": {
+  "citation": "32/2013",
+  "fetched_at": "2026-10-06T23:59:25+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/sentencing-amendment-abolition-suspended-sentences-and-other-matters-act-2013",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/13c69bbf-da9b-3bde-95f7-5b5478c7fd25_13-032aa%20authorised.pdf",
+  "sha256": "c45fdd33efcfbc57739b3250435a28e3fca7badaae8bc01a9cbc426b062ac389",
+  "title": "Sentencing Amendment (Abolition of Suspended Sentences and Other Matters) Act 2013"
+ },
+ "32/2018": {
+  "citation": "32/2018",
+  "fetched_at": "2026-10-07T00:00:02+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-terrorism-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/7d74041a-f1b7-3c3e-9acb-a518cac81aea_18-032aa%20authorised.pdf",
+  "sha256": "e65eb9afd0ab9f3d415692f964141599289d7e42b1951d504f0514319a317a72",
+  "title": "Justice Legislation Amendment (Terrorism) Act 2018"
+ },
+ "32/2019": {
+  "citation": "32/2019",
+  "fetched_at": "2026-10-07T00:00:09+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/mineral-resources-sustainable-development-amendment-act-2019",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/83e45e19-e4ea-3988-8203-91a55d155050_19-032aa%20authorised.pdf",
+  "sha256": "6e4b94a9b4071149dad56684d521567a6fea6383674184aad8d5140522903005",
+  "title": "Mineral Resources (Sustainable Development) Amendment Act 2019"
+ },
  "32/2024": {
   "citation": "32/2024",
   "fetched_at": "2026-09-24T09:55:50+00:00",
@@ -158,6 +382,14 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2024-09/24-032aa-authorised.pdf",
   "sha256": "82db85d453a6b52a0a2471e7dac06a523516874ddf2cf7902ece3c51ad3257b1",
   "title": "Youth Justice Act 2024"
+ },
+ "33/2018": {
+  "citation": "33/2018",
+  "fetched_at": "2026-10-07T00:00:04+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-family-violence-protection-and-other-matters-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/1e67984c-052e-3544-83c8-b62aa2efb898_18-033aa%20authorised.pdf",
+  "sha256": "1056db9d6be58f0036616ad905c7d1cff4271671c74be95433321f7836f8e275",
+  "title": "Justice Legislation Amendment (Family Violence Protection and Other Matters) Act 2018"
  },
  "35/2025": {
   "citation": "35/2025",
@@ -174,6 +406,30 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/b48c4d80-9959-313f-b894-21a1c5e027d5_14-037aa%20authorised.pdf",
   "sha256": "97b15e3840d286ecc44ed9fd5d1c4c931b6c165ae8c15ade1c302ac70b770c4f",
   "title": "Victoria Police Amendment (Consequential and Other Matters) Act 2014"
+ },
+ "37/2017": {
+  "citation": "37/2017",
+  "fetched_at": "2026-10-06T23:59:54+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/jury-directions-and-other-acts-amendment-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/b85c9bfb-4c5e-3b62-b02f-3951b8af91ff_17-037aa%20authorised.pdf",
+  "sha256": "6a9d2e79aaf970d17de87a6006ffcbcf8e09c1cd9fd64da88f19a88273655fa5",
+  "title": "Jury Directions and Other Acts Amendment Act 2017"
+ },
+ "38/2016": {
+  "citation": "38/2016",
+  "fetched_at": "2026-10-06T23:59:46+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-evidence-and-other-acts-amendment-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/cfd437d3-a8d9-3869-9f3d-1b8260d72eb9_16-038aa%20authorised.pdf",
+  "sha256": "16e4db93ccc62ec5c6abaaaff9efdbfdb98160ae72561ad41fc6dcab0e7e876c",
+  "title": "Justice Legislation (Evidence and Other Acts) Amendment Act 2016"
+ },
+ "38/2017": {
+  "citation": "38/2017",
+  "fetched_at": "2026-10-06T23:59:55+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-court-security-juries-and-other-matters-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/56d6c15f-2493-3f1d-b9f5-0825b8a626c1_17-038aa%20authorised.pdf",
+  "sha256": "4afa6d4b701dd1af8eb7c765875378cf22ffe8bbcece840457a3365329f24fd5",
+  "title": "Justice Legislation Amendment (Court Security, Juries and Other Matters) Act 2017"
  },
  "38/2022": {
   "citation": "38/2022",
@@ -199,6 +455,30 @@
   "sha256": "a1d69e5552e19aa2e7b1df234cb520af3b1d72578c1a2820ec1a3f06d60b5b84",
   "title": "Mental Health and Wellbeing Act 2022"
  },
+ "42/2015": {
+  "citation": "42/2015",
+  "fetched_at": "2026-10-06T23:59:42+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-amendment-child-pornography-and-other-matters-act-2015",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/b9f8bfb7-8852-38f0-ba67-c8254694beb9_15-042aa%20authorised.pdf",
+  "sha256": "532ee3ffba728caf91162f38bd9e2dafbbd68278cfa79b120caecc1bb12bf6fe",
+  "title": "Crimes Amendment (Child Pornography and Other Matters) Act 2015"
+ },
+ "43/2017": {
+  "citation": "43/2017",
+  "fetched_at": "2026-10-06T23:59:55+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/children-and-justice-legislation-amendment-youth-justice-reform-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/4cb278ee-60f3-3a49-8e12-2773c2c7d6e9_17-043aa%20authorised.pdf",
+  "sha256": "188d0f6d88913556cf46285cd5cb5d70babcfe6c1b15d45f5b708902297b32bb",
+  "title": "Children and Justice Legislation Amendment (Youth Justice Reform) Act 2017"
+ },
+ "44/2019": {
+  "citation": "44/2019",
+  "fetched_at": "2026-10-07T00:00:10+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-criminal-appeals-act-2019",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/4e8edcb8-07ca-30ff-b5ec-2e01ab59b084_19-044aa%20authorised.pdf",
+  "sha256": "18a2d64fa06b0c736e01f3973aa704ca8161233ea27df07a0f6e6f772b230fbd",
+  "title": "Justice Legislation Amendment (Criminal Appeals) Act 2019"
+ },
  "44/2021": {
   "citation": "44/2021",
   "fetched_at": "2026-09-24T09:55:41+00:00",
@@ -207,6 +487,30 @@
   "sha256": "fb52ce25141bff02eee9a443d404786a60e838b771dfa31f0c28dd7f86424984",
   "title": "Firearms and Other Acts Amendment Act 2021"
  },
+ "47/2014": {
+  "citation": "47/2014",
+  "fetched_at": "2026-10-06T23:59:35+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/fines-reform-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/08246942-fa16-3493-a76b-6bd254ce289d_14-047aa%20authorised.pdf",
+  "sha256": "cb78891b3453438fa55085221c02b3e3ef3d896dd79fec967ed0d7fe38e54c66",
+  "title": "Fines Reform Act 2014"
+ },
+ "47/2016": {
+  "citation": "47/2016",
+  "fetched_at": "2026-10-06T23:59:47+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-amendment-sexual-offences-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/43d02190-1eb1-387b-b080-4dab51a575fe_16-047aa%20authorised.pdf",
+  "sha256": "8ddd4911d7d47cde615ba23c3ed84b90e86fe51f62bf74ed39d76dc0cf718084",
+  "title": "Crimes Amendment (Sexual Offences) Act 2016"
+ },
+ "48/2012": {
+  "citation": "48/2012",
+  "fetched_at": "2026-10-06T23:59:20+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/criminal-procedure-amendment-act-2012",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/a0e6108b-14a2-3634-a09f-cbe5a7d01d7f_12-048aa%20authorised.pdf",
+  "sha256": "42893c8d438266a38fa95c5f311cd0febe5c3dad2f07b401298a815275b26fa4",
+  "title": "Criminal Procedure Amendment Act 2012"
+ },
  "48/2018": {
   "citation": "48/2018",
   "fetched_at": "2026-09-25T01:00:11+00:00",
@@ -214,6 +518,22 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/c467ce51-2e5a-37a2-923b-7132d6cdb125_18-048aa%20authorised.pdf",
   "sha256": "64973565d0920f0cb6ef8348d644ba16fd12dc016984fa01212e44a94697d0ae",
   "title": "Justice Legislation Miscellaneous Amendment Act 2018"
+ },
+ "49/2012": {
+  "citation": "49/2012",
+  "fetched_at": "2026-10-06T23:59:21+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/criminal-procedure-and-sentencing-acts-amendment-victims-crime-act-2012",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/ba19d2a5-89b9-348e-bd66-2906710e03a7_12-049aa%20authorised.pdf",
+  "sha256": "f042f1e0e0aba17362d4f5e8384edcd2f9581afae240713aff2e70958dfd3f18",
+  "title": "Criminal Procedure and Sentencing Acts Amendment (Victims of Crime) Act 2012"
+ },
+ "49/2019": {
+  "citation": "49/2019",
+  "fetched_at": "2026-10-07T00:00:11+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/transport-legislation-amendment-act-2019",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/73ce67b6-7a2e-3112-af9b-2aa1f2de35d3_19-049aa%20authorised.pdf",
+  "sha256": "59146542640e856529758038470254f1c5a0de490cbf8f880d9190441ba9af28",
+  "title": "Transport Legislation Amendment Act 2019"
  },
  "5/2018": {
   "citation": "5/2018",
@@ -231,6 +551,22 @@
   "sha256": "9668a96135706f621dc3e5ffa9ac6f6722a9d4e8085337c50c249e57865f0b67",
   "title": "Justice Legislation Amendment (Committals) Act 2025"
  },
+ "50/2016": {
+  "citation": "50/2016",
+  "fetched_at": "2026-10-06T23:59:48+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-amendment-carjacking-and-home-invasion-act-2016",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/77b0b0f8-c3fe-3d31-8c15-136c3c973e3e_16-050aa%20authorised.pdf",
+  "sha256": "fae5a4318af398097402bb5809ef55fd7b6fb916451ade0c63117f8346902ab7",
+  "title": "Crimes Amendment (Carjacking and Home Invasion) Act 2016"
+ },
+ "54/2014": {
+  "citation": "54/2014",
+  "fetched_at": "2026-10-06T23:59:36+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crime-statistics-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/fabd5a9c-c15f-333d-a1f5-9c0733aa19f0_14-054aa%20authorised.pdf",
+  "sha256": "9295763b61e71f99f5009791839b62485ddcbfb5d4bd6a4d7692127b8683bf5f",
+  "title": "Crime Statistics Act 2014"
+ },
  "54/2025": {
   "citation": "54/2025",
   "fetched_at": "2026-09-24T09:56:05+00:00",
@@ -238,6 +574,14 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2025-12/25-054aa-authorised.pdf",
   "sha256": "59dbd7161df754edbde0959abbff49b3dbd95645552a82f6a2a903be71d3808f",
   "title": "Justice Legislation Amendment (Community Safety) Act 2025"
+ },
+ "55/2014": {
+  "citation": "55/2014",
+  "fetched_at": "2026-10-06T23:59:37+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/criminal-organisations-control-and-other-acts-amendment-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/4a18f704-fa82-3240-96bf-3e1540e5c498_14-055aa%20authorised.pdf",
+  "sha256": "c7bb49611ac9c64f9abcbdcb8fe501544a1736192248a65851c2143710ab72a9",
+  "title": "Criminal Organisations Control and Other Acts Amendment Act 2014"
  },
  "55/2025": {
   "citation": "55/2025",
@@ -247,6 +591,86 @@
   "sha256": "d36291fd0f52597b4afcedd531212ca788adfd100a900ac202a0326b9a8b2d7f",
   "title": "Justice Legislation Amendment (Police and Other Matters) Act 2025"
  },
+ "56/2013": {
+  "citation": "56/2013",
+  "fetched_at": "2026-10-06T23:59:26+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/road-safety-and-sentencing-acts-amendment-act-2013",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/fb5ce6c9-1f76-36b1-8e0d-10e00bd4f4ac_13-056aa%20authorised.pdf",
+  "sha256": "434ff1ac5c780d8443558afa7ea739162c7af669c460b3acb8cd1a70ef80bd17",
+  "title": "Road Safety and Sentencing Acts Amendment Act 2013"
+ },
+ "57/2014": {
+  "citation": "57/2014",
+  "fetched_at": "2026-10-06T23:59:38+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/powers-attorney-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/dc2fd345-f750-3faa-9f08-5f1b20120f68_14-057aa%20authorised.pdf",
+  "sha256": "fbe326565b6d8b0beb9f447a9c1f501c85dee92f6d27f5741762fcb1408c2497",
+  "title": "Powers of Attorney Act 2014"
+ },
+ "57/2017": {
+  "citation": "57/2017",
+  "fetched_at": "2026-10-06T23:59:56+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/serious-sex-offenders-detention-and-supervision-amendment-governance-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/cbce226f-bd71-3c7f-aba2-8bcd0a4abce5_17-057aa%20authorised.pdf",
+  "sha256": "2dacca787b27ee80657b199ddb4c1dd0e4ff69e6b741523e0e50a3d5a7c77996",
+  "title": "Serious Sex Offenders (Detention and Supervision) Amendment (Governance) Act 2017"
+ },
+ "6/2017": {
+  "citation": "6/2017",
+  "fetched_at": "2026-10-06T23:59:49+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-legislation-further-amendment-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/378a730e-2290-3223-ad7f-22f9fba2fe25_17-006aa%20authorised.pdf",
+  "sha256": "65bb560927728128b84e60dfa6c88e3fcdf875c0fe66f9872e480d0ba7076413",
+  "title": "Crimes Legislation Further Amendment Act 2017"
+ },
+ "6/2018": {
+  "citation": "6/2018",
+  "fetched_at": "2026-10-06T23:59:58+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/oaths-and-affirmations-act-2018",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/22063251-e6db-3a49-b7ef-d96479c5a660_18-006aa%20authorised.pdf",
+  "sha256": "7054730e2da3dcaadeb4cf661e81433df892068e75bed7efb7cbf40442809f32",
+  "title": "Oaths and Affirmations Act 2018"
+ },
+ "60/2014": {
+  "citation": "60/2014",
+  "fetched_at": "2026-10-06T23:59:39+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/privacy-and-data-protection-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/c97d65b7-8505-30a7-a194-5a4528e9a4d6_14-060aa%20authorised.pdf",
+  "sha256": "099aff5a90cba731acf499ee7854d6c137742a28a60a15b7fd184b4d5496af19",
+  "title": "Privacy and Data Protection Act 2014"
+ },
+ "65/2011": {
+  "citation": "65/2011",
+  "fetched_at": "2026-10-06T23:59:16+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/sentencing-amendment-community-correction-reform-act-2011",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/8d8880fa-ca9d-30aa-ba76-9d0536f50f61_11-065a%20authorised.pdf",
+  "sha256": "07137a15a95ccb9af60204da4e0aea9e0f9556257eb84dbc39f01187c65ff64b",
+  "title": "Sentencing Amendment (Community Correction Reform) Act 2011"
+ },
+ "67/2011": {
+  "citation": "67/2011",
+  "fetched_at": "2026-10-06T23:59:17+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-further-amendment-act-2011",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/ff3cde73-258a-30e3-ab4f-27b7f40b0fd3_11-067aa%20authorised.pdf",
+  "sha256": "2109c750e830ddbea4dd51e1247a0f7422b921a4c15d67dc113f26a433375aa8",
+  "title": "Justice Legislation Further Amendment Act 2011"
+ },
+ "67/2013": {
+  "citation": "67/2013",
+  "fetched_at": "2026-10-06T23:59:27+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/workplace-injury-rehabilitation-and-compensation-act-2013",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/22d08742-cac9-374e-828b-cbe339e1c844_13-067a%20authorised.pdf",
+  "sha256": "a21857e2214f1a998a66dfee57ad2712b6ba22a4cc9336fa75339fb91b92d17d",
+  "title": "Workplace Injury Rehabilitation and Compensation Act 2013"
+ },
+ "7/2017": {
+  "citation": "7/2017",
+  "fetched_at": "2026-10-06T23:59:50+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/heritage-act-2017",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/531ea94f-14b5-3a5a-9f5b-59d4b1e13450_17-007aa%20authorised.pdf",
+  "sha256": "fb23bff66ae664e8c3667a089a105b5818fb48189a7266f92ee1fca1af71b881",
+  "title": "Heritage Act 2017"
+ },
  "7/2022": {
   "citation": "7/2022",
   "fetched_at": "2026-09-24T09:55:43+00:00",
@@ -254,5 +678,61 @@
   "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2022-03/22-007aa%20authorised.pdf",
   "sha256": "e4da37e931443875f7b70155e248411c752527127d95c97a7beced7228dc8522",
   "title": "Sex Work Decriminalisation Act 2022"
+ },
+ "74/2012": {
+  "citation": "74/2012",
+  "fetched_at": "2026-10-06T23:59:21+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/offshore-petroleum-and-greenhouse-gas-storage-amendment-nopsema-act-2012",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/db8080ee-db9d-3d22-80cb-7d32becc379e_12-074aa%20authorised.pdf",
+  "sha256": "9d0814af5c7195c68d69b02f7f59f21105f1f936a51c1ed338a80bb81807d6a3",
+  "title": "Offshore Petroleum and Greenhouse Gas Storage Amendment (NOPSEMA) Act 2012"
+ },
+ "74/2014": {
+  "citation": "74/2014",
+  "fetched_at": "2026-10-06T23:59:40+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/crimes-amendment-sexual-offences-and-other-matters-act-2014",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/b8ff2fb0-7eea-34bb-b383-9decc93a112a_14-074aa%20authorised.pdf",
+  "sha256": "d80cdb9f24b2b7797fa96f73c1b3eec5b0ac2f63b51dc55b0058f1c150177a88",
+  "title": "Crimes Amendment (Sexual Offences and Other Matters) Act 2014"
+ },
+ "77/2013": {
+  "citation": "77/2013",
+  "fetched_at": "2026-10-06T23:59:30+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/justice-legislation-amendment-miscellaneous-act-2013",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/f0166335-646d-3563-81cb-3ba6d7ee1045_13-077a%20authorised.pdf",
+  "sha256": "83afae71c6a956ee52b64e3a82825de0b251a93864d22354138817fae34ac3b1",
+  "title": "Justice Legislation Amendment (Miscellaneous) Act 2013"
+ },
+ "8/2019": {
+  "citation": "8/2019",
+  "fetched_at": "2026-10-07T00:00:06+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/west-gate-tunnel-truck-bans-and-traffic-management-act-2019",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/9f776a68-9a80-3883-bec6-33c90570e03b_19-008aa%20authorised.pdf",
+  "sha256": "12fd01a05c7180dcba2e347bb5f0355c9a9f4d95579c53ff79949361ada4f461",
+  "title": "West Gate Tunnel (Truck Bans and Traffic Management) Act 2019"
+ },
+ "81/2011": {
+  "citation": "81/2011",
+  "fetched_at": "2026-10-06T23:59:17+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/criminal-procedure-amendment-double-jeopardy-and-other-matters-act-2011",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/b49d1e83-813d-3af4-b307-513e9c13c380_11-081a%20authorised.pdf",
+  "sha256": "8c6e163af3a6b344b72e744581b8eb844439a1e70bb4fd0be9044398aa77b6dc",
+  "title": "Criminal Procedure Amendment (Double Jeopardy and Other Matters) Act 2011"
+ },
+ "82/2012": {
+  "citation": "82/2012",
+  "fetched_at": "2026-10-06T23:59:22+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/integrity-and-accountability-legislation-amendment-act-2012",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/5c01420c-72cc-326d-b5c9-fde0159dcc7c_12-082aa%20authorised.pdf",
+  "sha256": "b9cf908c72064d4bc3f12a5ea4c511c45791f095dacb25cee0494dcf36b3af45",
+  "title": "Integrity and Accountability Legislation Amendment Act 2012"
+ },
+ "9/2020": {
+  "citation": "9/2020",
+  "fetched_at": "2026-10-07T00:00:12+00:00",
+  "page": "https://www.legislation.vic.gov.au/as-made/acts/local-government-act-2020",
+  "pdf_url": "https://content.legislation.vic.gov.au/sites/default/files/2020-03/20-009aa%20authorised_0.pdf",
+  "sha256": "9fb34d90c2ed88b6bd2d131d9e1b0aa215474c2e9fe6109fb49fea4db6ab1293",
+  "title": "Local Government Act 2020"
  }
 }
