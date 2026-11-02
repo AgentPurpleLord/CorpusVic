@@ -4,6 +4,7 @@ dashboard endpoint that serves it, the section/index page renderers and
 the browser-side hover behaviour itself were exercised end to end against
 real parsed Act data and a real browser session instead."""
 import re
+from pathlib import Path
 
 from corpus.domain.amendments import build_amendment_index
 from corpus.domain.diffing import provision_identity
@@ -185,6 +186,18 @@ def test_every_part_of_the_breadcrumb_is_a_link():
         "/browse/a/#division-1---offences-against-the-person"
     assert links["Subdivision (4) - Offences against the person"] == \
         "/browse/a/#subdivision-4---offences-against-the-person"
+
+
+def test_the_breadcrumb_is_its_provisions_own_so_it_can_stay_in_view():
+    """reader.css pins the breadcrumb under the header while its provision
+    is on screen. A sticky element holds only within its parent, so it
+    must be the article's own child: nested deeper, it would scroll away
+    with the first lines; outside the article, one provision's trail
+    would stay up over the next."""
+    body = render_section(_parsed(_nested_act()), "Test Act", "/browse/a", "s16")
+    assert re.search(r'<article class="reader-section"[^>]*>\s*<div class="breadcrumb">', body)
+    css = (Path(__file__).parent.parent / "static" / "site" / "reader.css").read_text()
+    assert re.search(r"\.reader-section > \.breadcrumb \{[^}]*position: sticky", css)
 
 
 def test_a_breadcrumb_link_lands_on_a_heading_that_exists():

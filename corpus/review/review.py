@@ -150,7 +150,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from corpus.review import inheritance, structure
-from corpus.domain import amendments, diffing, lineage
+from corpus.domain import amendments, commentary, diffing, lineage
+from corpus.parsing.versions import split_document_slug
 from corpus.publishing import html_view
 from corpus.parsing import figures
 from corpus.storage import db
@@ -159,7 +160,7 @@ from corpus.review.corrections import add_correction, stats
 from corpus.ai.backend import OllamaUnavailable
 from corpus.parsing import identity
 from corpus.parsing.identity import annotate_ids, name_index
-from corpus.parsing.extract import BodyLine, join_printed_line, lines_in_rects
+from corpus.parsing.extract import BULLETS, BodyLine, join_printed_line, lines_in_rects
 from corpus.parsing.history_notes import parse_note
 from corpus.domain.hierarchy import UNIT_BOUNDARY_TYPES, UNIT_ROOT_TYPES, group_into_units, make_ranks
 from corpus.domain.profiles import load_profile, profile_for
@@ -549,14 +550,16 @@ def build_effective_nodes_indexed(act: str) -> tuple[list["dict | None"], list[l
 
 
 _WRAP_RE = re.compile(r"\s*\n\s*")
+_PRINTED_LINE_MAX = 120   # characters; the widest a printed line runs in these documents
 
 
 def reflow_with_map(text: str) -> tuple[str, list[int]]:
-    """The stored text's "\\n"s are just the source PDF's own line-wrap
-    points, not paragraph breaks -- displaying them raw makes every piece
-    look like a jagged list of half-sentences. Collapses each wrap into a
-    single space for display -- the same transform every renderer and
-    exporter applies (corpus.extract.reflow) -- but also returns the
+    """The stored text's "\\n"s are where the parse kept a break: between
+    an Explanatory Memorandum's paragraphs, before a dot point, between a
+    table's rows (join_printed_line says which; the PDF's own line wraps
+    are already gone). Shown as what they are -- a blank line between
+    paragraphs, a line of its own for a dot point -- and not collapsed
+    into one run, which hid the paragraph structure being reviewed. Also returns the
     raw-offset each reflowed character came from (one longer than the
     reflowed text, for the position just past its last character) -- callers use this to translate a browser
     text selection made against the *displayed* string back into an
@@ -564,6 +567,12 @@ def reflow_with_map(text: str) -> tuple[str, list[int]]:
     into), and to place an already-saved link's raw-offset span back onto
     the reflowed text for highlighting."""
     text = text or ""
+    # Text parsed before paragraph breaks were kept still has its line
+    # wraps as "\n", each at most a printed line long. A break between
+    # paragraphs is told by a stretch longer than any line prints, so
+    # older text -- an accepted row from before -- is not chopped into
+    # lines, and Reset to parse brings the paragraphs.
+    paragraphed = any(len(part) > _PRINTED_LINE_MAX for part in text.split("\n"))
     chars: list[str] = []
     offsets: list[int] = []
     pos = 0
@@ -571,8 +580,17 @@ def reflow_with_map(text: str) -> tuple[str, list[int]]:
         for j in range(pos, m.start()):
             chars.append(text[j])
             offsets.append(j)
-        chars.append(" ")
-        offsets.append(m.start())
+        if m.group(0).count("\n") and m.start() > 0 and m.end() < len(text) \
+                and (text[m.end()] in BULLETS or paragraphed):
+            # A blank line between paragraphs; a dot point just a new line.
+            # Both characters point at the break, so a selection across it
+            # still maps back to the stored text.
+            breaks = "\n" if text[m.end()] in BULLETS else "\n\n"
+        else:
+            breaks = " "
+        for ch in breaks:
+            chars.append(ch)
+            offsets.append(m.start())
         pos = m.end()
     for j in range(pos, len(text)):
         chars.append(text[j])
@@ -1548,6 +1566,58 @@ def _deleted_in_unit(unit_no: int) -> list[int]:
     return found
 
 
+_em_link_context: dict = {}
+
+
+def _em_links() -> "dict | None":
+    """For an Explanatory Memorandum, the Act its notes explain, that Act's
+    sections (what a note can be linked to) and run_bill_linking's guess
+    for each note. None for any other document."""
+    if _document_type != "em":
+        return None
+    if _em_link_context.get("act") == _act:
+        return _em_link_context
+    bill_docs, em_docs = commentary.load_link_docs(BASE_DIR)
+    em_doc = next((d for d in em_docs if d.get("em_slug") == _act), {})
+    bill_doc = next((d for d in bill_docs if d.get("bill_slug") == em_doc.get("bill_slug")), {})
+    act_slug = bill_doc.get("act_slug")
+    sections, title = [], None
+    parsed_path = BASE_DIR / "data" / "parsed" / f"{act_slug}.json"
+    if act_slug and parsed_path.exists():
+        parsed = json.loads(parsed_path.read_text(encoding="utf-8"))
+        title = (parsed.get("version") or {}).get("title")
+        schedule = None
+        for node in parsed.get("nodes") or []:
+            if node["type"] == "schedule":
+                schedule = node.get("number")
+            elif node.get("number") and (node["type"] == "section" or (schedule and node["type"] in ("clause", "item"))):
+                sections.append({"schedule": schedule if node["type"] != "section" else None,
+                                 "section": node["number"], "heading": node.get("heading") or ""})
+    _em_link_context.clear()
+    _em_link_context.update(
+        act=_act, target=split_document_slug(act_slug)[0] if act_slug else None,
+        target_title=title or (split_document_slug(act_slug)[0].replace("-", " ").title() if act_slug else None),
+        sections=sections,
+        suggestions=commentary.em_link_suggestions(_act, bill_docs, em_docs))
+    return _em_link_context
+
+
+def _em_link_payload(indices: list[int]) -> dict:
+    """{node index: {"suggested", "settled"}} for the clause notes among
+    these pieces. "settled" is None until a reviewer says; a settled link
+    with no section is "explains no provision"."""
+    context = _em_links()
+    if context is None:
+        return {}
+    settled = db.load_em_links(_act)
+    out = {}
+    for i in indices:
+        if _current_node(i).get("type") != "clause":
+            continue
+        out[i] = {"suggested": context["suggestions"].get(i), "settled": settled.get(_node_id(i) or "")}
+    return out
+
+
 def _unit_payload(unit_no: int) -> dict:
     indices = [i for i in _units[unit_no] if i not in _merged_away]
     unit_nodes = [_current_node(i) for i in indices]
@@ -1584,6 +1654,7 @@ def _unit_payload(unit_no: int) -> dict:
         # so this is None (not an error) after a restart. See merge_endpoint.
         "merged_into_unit": _merged_into_unit.get(unit_no) if not indices else None,
         "lineage": _unit_lineage_payload(unit_no, unit_nodes, indices),
+        "em_links": _em_link_payload(indices),
     }
 
 
@@ -1990,7 +2061,7 @@ def get_page_boxes(page_no: int):
                 "label": _box_label(labels.get(i), node),
                 "type": node["type"],
                 "status": _piece_status(i),
-                "preview": reflow_with_map(node.get("text") or node.get("heading") or "")[0][:140],
+                "preview": " ".join(reflow_with_map(node.get("text") or node.get("heading") or "")[0].split())[:140],
                 "rects": rects,
                 # Its boxes on other pages. A section running over a page
                 # break has one box on each, and without these the page
@@ -3632,6 +3703,41 @@ def post_link(req: LinkRequest):
                         node_text, target=target, node_index=req.node_index)
     except LinkError as e:
         raise HTTPException(400, str(e)) from e
+
+
+class EmLinkRequest(BaseModel):
+    schedule: str | None = None
+    # Empty: the note explains no provision.
+    section: str = ""
+
+
+@app.get("/api/em-link/sections")
+def em_link_sections():
+    context = _em_links()
+    if context is None:
+        raise HTTPException(404, "Only an Explanatory Memorandum links its notes to provisions")
+    return {"target": context["target"], "target_title": context["target_title"], "sections": context["sections"]}
+
+
+@app.post("/api/nodes/{node_index}/em-link")
+def settle_em_link(node_index: int, req: EmLinkRequest):
+    _require_live(node_index)
+    context = _em_links()
+    if context is None or not context["target"]:
+        raise HTTPException(400, "No Act is linked to this Explanatory Memorandum's Bill -- run the Bill linking first")
+    section = req.section.strip()
+    schedule = (req.schedule or "").strip() if section else ""
+    if section and not any(s["section"] == section and (s["schedule"] or "") == schedule for s in context["sections"]):
+        raise HTTPException(400, f"{context['target_title'] or context['target']} has no such provision")
+    db.save_em_link(_act, _node_id(node_index), context["target"], schedule, section)
+    return _em_link_payload([node_index]).get(node_index)
+
+
+@app.delete("/api/nodes/{node_index}/em-link")
+def clear_em_link(node_index: int):
+    _require_live(node_index)
+    db.clear_em_link(_act, _node_id(node_index))
+    return _em_link_payload([node_index]).get(node_index)
 
 
 @app.delete("/api/links/{link_id}")

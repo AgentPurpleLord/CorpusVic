@@ -37,8 +37,9 @@ _AGENT = "CorpusVic amending-Act fetcher (+https://corpusvic.au)"
 
 def slug(title: str) -> str:
     """The as-made address the site gives an Act: its title, lower-case,
-    punctuation dropped, words hyphenated."""
-    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    punctuation dropped, words hyphenated. An apostrophe joins rather than
+    splits: "Company's" is at .../companys-..., not .../company-s-...."""
+    return re.sub(r"[^a-z0-9]+", "-", re.sub(r"['’]", "", title.lower())).strip("-")
 
 
 # The words the site's address generator leaves out of some Acts' addresses
@@ -57,9 +58,9 @@ def slugs(title: str) -> list[str]:
     return [full] if short == full else [full, short]
 
 
-def _get(url: str) -> bytes:
+def _get(url: str, timeout: float = 60) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": _AGENT, "Accept": "*/*"})
-    with urllib.request.urlopen(request, timeout=60) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 
 

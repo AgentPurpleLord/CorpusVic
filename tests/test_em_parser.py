@@ -365,3 +365,20 @@ def test_a_wrapped_line_is_not_a_paragraph_just_because_it_is_short():
     entry = find(parse_em([page(lines)]).nodes, "clause", "2")
 
     assert "\n" not in entry["text"]
+
+
+def test_each_entry_knows_where_it_is_on_the_page():
+    """The review tool draws a box around each piece from these. An EM's
+    entries had none, so an EM could only be reviewed beside its pages,
+    never on them."""
+    result = _parse([
+        line("Clause 1", y0=100),
+        line("sets out the purposes of the Bill.", y0=112),
+        line("Clause 2", y0=130),
+        line("provides for the commencement of the Bill.", y0=142),
+    ])
+    for number in ("1", "2"):
+        [rect] = find(result.nodes, "clause", number)["rects"]
+        assert rect["page"] == 1 and rect["x1"] > rect["x0"] and rect["y1"] > rect["y0"]
+    one, two = (find(result.nodes, "clause", n)["rects"][0] for n in ("1", "2"))
+    assert one["y1"] <= two["y0"], "clause 1's box covers its own two lines, not clause 2's"

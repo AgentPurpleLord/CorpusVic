@@ -402,3 +402,17 @@ def test_an_example_keeps_where_its_piece_prints(act, tmp_path):
     examples.update("act", tmp_path)
     b = next(e for e in examples.load("act", tmp_path) if e["seen"]["text"].startswith("(b)"))
     assert b["rects"] and b["rects"][0]["page"] == 1
+
+
+def test_a_proposal_is_described_by_how_the_line_opens_not_by_its_regex():
+    """'^\\(([a-z]+)\\)(?:\\s|$)' is not something a reviewer can approve."""
+    from corpus.teaching import rules
+
+    rule = {"when": {"pattern": r"^\(([a-z]+)\)(?:\s|$)", "bold": False, "size_ratio": [0.97, 1.03],
+                     "parent_type": ["paragraph", "subsection"], "above_clean": True, "above_full": False},
+            "then": {"open": "paragraph", "number": True}}
+    said = rules.describe(rule)
+    assert "opens with lowercase letters as in (a) or (iv)" in said and "[a-z]" not in said
+    assert rules.pattern_words(r"^\((\d+(?:\.\d+)*[A-Z]*)\)(?:\s|$)") == "opens with a number as in (1) or (2A)"
+    assert rules.pattern_words(r"^\(([A-Z]+)\)(?:\s|$)") == "opens with capital letters as in (A) or (B)"
+    assert "matching" in rules.describe({"when": {"pattern": r"weird(\w+)"}, "then": {}}), "unknown shapes stay as written"

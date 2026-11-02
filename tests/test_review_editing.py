@@ -166,3 +166,22 @@ def test_editing_only_the_text_leaves_the_numbering_alone(section_97):
     _edit(6, text="enabling the accused to hear or read the evidence in full")
 
     assert _labels() == before
+
+
+def test_paragraph_breaks_show_in_review_and_old_line_wraps_still_do_not():
+    """An Explanatory Memorandum's paragraphs, and a list's dot points, are
+    shown as the breaks they are. Text parsed before breaks were kept has
+    its line wraps as newlines, each no longer than a printed line, and
+    is not chopped into lines by them."""
+    from corpus.review.review import reflow_with_map
+
+    long_a = "Chapter 1 comes into operation on the day after this Bill receives the Royal Assent, and so on. " * 2
+    long_a = long_a.strip()
+    shown, offsets = reflow_with_map(f"{long_a}\nClause 384 comes into operation.\n• one\n• two")
+    assert shown == f"{long_a}\n\nClause 384 comes into operation.\n• one\n• two"
+    assert len(offsets) == len(shown) + 1
+    start = shown.index("Clause 384")
+    assert f"{long_a}\nClause 384 comes into operation.\n• one\n• two"[offsets[start]:].startswith("Clause 384")
+
+    old = "to clarify, simplify and consolidate the laws\nrelating to criminal procedure in the\nMagistrates' Court;"
+    assert reflow_with_map(old)[0] == "to clarify, simplify and consolidate the laws relating to criminal procedure in the Magistrates' Court;"

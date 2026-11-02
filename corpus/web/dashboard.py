@@ -82,6 +82,7 @@ from datetime import datetime, timezone
 import sys
 import threading
 import time
+import urllib.error
 import traceback
 from pathlib import Path
 
@@ -1779,6 +1780,18 @@ def do_logout(request: Request):
 def index():
     return admin_html(STATIC_DIR / "dashboard.html")
 
+def _review_slug(work: str, newest: str) -> str:
+    """The version of `work` held whole (history.slim.base_version), or
+    `newest` where the work is held in one version or isn't versioned."""
+    from corpus.history import slim
+
+    held = slim.versions(work, BASE_DIR)
+    if len(held) < 2:
+        return newest
+    base = slim.base_version(work, BASE_DIR)
+    return held.get(base, newest)
+
+
 @app.get("/api/acts")
 def list_acts():
     started = time.monotonic()
@@ -1796,8 +1809,12 @@ def list_acts():
             if held is None or (status["version"] or 0) >= (held["version"] or 0):
                 newest[status["work"]] = status
     for status in newest.values():
+        # Review opens the version held whole, which is where the review
+        # is: the newest of several is cut down to what it changed, and
+        # sending Review there made a whole review look trimmed away.
+        status["review_slug"] = _review_slug(status["work"], status["slug"])
         t = time.monotonic()
-        progress = _review_progress(status["slug"])
+        progress = _review_progress(status["review_slug"])
         progress_took[status["slug"]] = time.monotonic() - t
         status["provisions_checked"], status["provisions_total"] = progress["checked"], progress["total"]
         status["review_status"] = ("reviewed" if progress["checked"] >= progress["total"]
@@ -1894,6 +1911,70 @@ def fetch_amending_acts(work: str):
     for slug in held:
         _kill_review_process(slug)
     return {"ok": True, "acts": len(manifest), "log": "\n".join(lines) or "No amending Acts are needed."}
+
+
+def _held_speeches(slug: str) -> "tuple[str, dict]":
+    from corpus.hansard import fetch as hansard_fetch
+
+    _validate_slug(slug)
+    found = hansard_fetch.bill_for(slug, BASE_DIR)
+    doc = hansard_fetch.load(found[0], BASE_DIR) if found else speeches_for(slug)
+    if doc is None:
+        raise HTTPException(404, "No speeches have been fetched for this Act.")
+    return doc["bill_slug"], doc
+
+
+@app.get("/api/acts/{slug}/speeches")
+def list_speeches(slug: str):
+    from corpus.hansard import speech
+
+    _bill, doc = _held_speeches(slug)
+    return {"bill_slug": doc["bill_slug"], "bill_title": doc.get("bill_title"), "speeches": [
+        {"index": i, **{k: r.get(k) for k in ("kind", "house", "date", "member", "source_url", "error")},
+         "paragraphs": speech.paragraph_count(r.get("html") or "")}
+        for i, r in enumerate(doc.get("speeches") or [])]}
+
+
+@app.post("/api/acts/{slug}/speeches/{index}/page")
+async def add_saved_speech(slug: str, index: int, page: UploadFile = File(...)):
+    """One record read from a Hansard page saved in the reviewer's own
+    browser -- the way past Hansard's firewall, which refuses this server."""
+    from corpus.hansard import fetch as hansard_fetch, speech
+
+    bill_slug, _doc = _held_speeches(slug)
+    raw = await page.read()
+    if len(raw) > 20_000_000:
+        raise HTTPException(413, "That page is too big to be a Hansard record.")
+    try:
+        record = hansard_fetch.from_saved_page(bill_slug, index, raw.decode("utf-8", errors="replace"), BASE_DIR)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"paragraphs": speech.paragraph_count(record["html"])}
+
+
+@app.post("/api/acts/{slug}/speeches")
+def fetch_speeches(slug: str):
+    """Fetches the second reading speeches and Statements of Compatibility
+    for the Bill this Act was enacted from (corpus/hansard/). A Bill no
+    link record names is looked for by the Act's title."""
+    from corpus.hansard import fetch as hansard_fetch, speech
+
+    _validate_slug(slug)
+    work = split_document_slug(slug)[0]
+    found = hansard_fetch.bill_for(slug, BASE_DIR, title=_act_title(slug))
+    if found is None:
+        raise HTTPException(404, f"No Bill page was found for {_act_title(slug)} on legislation.vic.gov.au.")
+    bill_slug, entry = found
+    try:
+        doc = hansard_fetch.fetch_bill(bill_slug, entry, BASE_DIR, act_work=work)
+    except Exception as e:   # the Bill page itself unreadable
+        raise HTTPException(502, f"The Bill page could not be read: {e}") from e
+    lines = [f"{entry.get('title') or bill_slug}: {entry['url']}"]
+    for r in doc["speeches"]:
+        what = f"error: {r['error']}" if r.get("error") else f"{speech.paragraph_count(r['html'])} paragraphs"
+        lines.append(f"{r['house']} -- {r['kind'].replace('_', ' ')} ({r.get('date') or 'no date'}): {what}")
+    fetched = sum(1 for r in doc["speeches"] if not r.get("error"))
+    return {"ok": fetched > 0, "fetched": fetched, "total": len(doc["speeches"]), "log": "\n".join(lines)}
 
 
 @app.post("/api/acts/{work}/amending/verify")
@@ -2913,8 +2994,10 @@ def work_versions(work: str):
              "as_at_printed": _act_version(slug).get("as_at_printed"), "to_review": None}
             for slug in slugs or ([work] if (BASE_DIR / "data" / "parsed" / f"{work}.json").exists() else [])]}
     state = inheritance.work_review(slugs[-1], BASE_DIR)
+    base_slug = _review_slug(work, slugs[-1])
     return {"work": work, "versions": [
-        {k: v[k] for k in ("version", "slug", "as_at_printed", "to_review", "current")}
+        {**{k: v[k] for k in ("version", "slug", "as_at_printed", "to_review", "current")},
+         "base": v["slug"] == base_slug, "slim": _is_slim(v["slug"])}
         for v in state["versions"]]}
 
 
@@ -3105,7 +3188,11 @@ def _slim_work(work: str, job: "dict | None" = None) -> dict:
     fetched again, and History review cannot judge a change without both
     versions' pages."""
     from corpus.history import slim
-    wanting = [v for v, entry in slim.apply(work, BASE_DIR, dry_run=True)["versions"].items() if entry["missing"]]
+    try:
+        wanting = [v for v, entry in slim.apply(work, BASE_DIR, dry_run=True)["versions"].items() if entry["missing"]]
+    except slim.Refused as e:
+        # Added, not cut down: the review it would have deleted matters more.
+        return {"work": work, "refused": str(e), "versions": {}}
     again, failed = [], []
     for n, version in enumerate(wanting, 1):
         if job is not None:
@@ -3127,11 +3214,12 @@ def _site_versions(work: str) -> list[dict]:
     held = _held(work)
     info = _act_version(held[-1])
     try:
-        return history_versions.available(_act_title(held[-1]), info.get("act_no"), info.get("year"))
+        versions = history_versions.available(_act_title(held[-1]), info.get("act_no"), info.get("year"))
     except amending_fetch.NotFound as e:
         raise HTTPException(404, str(e))
     except OSError as e:
         raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+    return [{**v, "fetchable": history_versions.fetchable(v)} for v in versions]
 
 
 @app.get("/api/works/{work}/versions/available")
@@ -3228,7 +3316,7 @@ def fetch_all_work_versions(work: str):
     does not hold yet, oldest first, as one background job: forty reprints
     at a few minutes' parse apiece outlasts any page kept open for it."""
     held = {split_document_slug(s)[1] for s in _held(work)}
-    wanted = sorted(v["version"] for v in _site_versions(work) if v.get("pdf_url") and v["version"] not in held)
+    wanted = sorted(v["version"] for v in _site_versions(work) if history_versions.fetchable(v) and v["version"] not in held)
     if not wanted:
         raise HTTPException(400, "Every version the site has a PDF of is held here already.")
     with _version_fetch_lock:
@@ -3306,14 +3394,9 @@ def _fetch_version(work: str, version: int, replace: bool = False, then_slim: bo
     """Downloads one version from the site and adds it as an uploaded one
     is."""
     wanted = next((v for v in _site_versions(work) if v["version"] == version), None)
-    if not wanted or not wanted["pdf_url"]:
-        raise HTTPException(404, f"The site has no single PDF of version {version}.")
-    try:
-        content = amending_fetch._get(wanted["pdf_url"])
-    except OSError as e:
-        raise HTTPException(502, f"Could not download version {version}: {e}")
-    if not content.startswith(b"%PDF"):
-        raise HTTPException(502, f"{wanted['pdf_url']} is not a PDF.")
+    if not wanted or not history_versions.fetchable(wanted):
+        raise HTTPException(404, f"The site has no PDF of version {version}.")
+    content = _download_reprint(wanted)
     if replace:
         return _replace_version(work, version, content, then_slim)
     return _add_version(work, content, f"{work}-v{version:03d}.pdf", version, then_slim)
@@ -3369,6 +3452,9 @@ class VicImportRequest(BaseModel):
     year: "int | None" = None
     bill_id: str = ""
     documents: list[str] = ["bill", "em"]
+    # The address the site's search gave: it can't be rebuilt from the
+    # title (see history.versions.locate).
+    path: str = ""
 
 
 # One at a time, in the background: a parse takes minutes, longer than a
@@ -3415,14 +3501,46 @@ def vic_import_status():
     return dict(_vic_import)
 
 
+_DOWNLOAD_TIMEOUT = 180   # a 5 MB reprint over a slow link outlasts a minute
+_DOWNLOAD_TRIES = 3
+
+
+def _retrying(fetch, what: str) -> bytes:
+    """`fetch(get)` with a patient `get`, tried again on a dropped
+    connection or a server error -- the failures that a second attempt
+    gets past. What is said on giving up names the reprint and why."""
+    get = lambda url: amending_fetch._get(url, timeout=_DOWNLOAD_TIMEOUT)
+    last = None
+    for attempt in range(_DOWNLOAD_TRIES):
+        try:
+            return fetch(get)
+        except urllib.error.HTTPError as e:
+            last = f"the site answered {e.code} {e.reason} for {e.url}"
+            if e.code < 500:
+                break   # 404 and its kind won't change on asking again
+        except ValueError as e:   # not a PDF: an answer, not a dropped line
+            last = str(e)
+            break
+        except OSError as e:
+            last = str(e)
+        if attempt + 1 < _DOWNLOAD_TRIES:
+            time.sleep(2 * (attempt + 1))
+    raise HTTPException(502, f"Could not download {what}: {last}")
+
+
 def _download_pdf(url: str) -> bytes:
-    try:
-        content = amending_fetch._get(url)
-    except OSError as e:
-        raise HTTPException(502, f"Could not download {url}: {e}")
-    if not content.startswith(b"%PDF"):
-        raise HTTPException(502, f"{url} is not a PDF.")
-    return content
+    def fetch(get):
+        content = get(url)
+        if not content.startswith(b"%PDF"):
+            raise ValueError(f"{url} is not a PDF")
+        return content
+    return _retrying(fetch, url)
+
+
+def _download_reprint(entry: dict) -> bytes:
+    """One reprint's PDF -- its volumes joined, where it is published in
+    volumes with no single file."""
+    return _retrying(lambda get: history_versions.download(entry, get), f"version {entry['version']}")
 
 
 def _vic_import_job(req: VicImportRequest, targets: list, job: dict, task: "dict | None" = None) -> None:
@@ -3448,17 +3566,29 @@ def _import_act(req: VicImportRequest, work: str, job: dict) -> None:
     fetched from its card."""
     job["step"] = "finding the newest reprint"
     try:
-        versions = history_versions.available(req.title, req.act_no, req.year)
+        versions = history_versions.available(req.title, req.act_no, req.year, path=req.path or None)
     except amending_fetch.NotFound as e:
         raise HTTPException(404, str(e))
-    newest = next((v for v in reversed(versions) if v.get("pdf_url")), None)
+    except OSError as e:
+        raise HTTPException(502, f"legislation.vic.gov.au did not answer: {e}")
+    candidates = [v for v in reversed(versions) if isinstance(v["version"], int) and history_versions.fetchable(v)]
+    if not candidates:
+        raise HTTPException(404, f"The site has no PDF of any reprint of {req.title}.")
+    # The newest, or failing that the one before: a reprint whose file the
+    # site can't serve shouldn't keep the Act out altogether.
+    newest, content, failures = None, None, []
+    for entry in candidates[:3]:
+        job["step"] = f"downloading version {entry['version']}" + (" (in volumes)" if entry.get("note") else "")
+        try:
+            content = _download_reprint(entry)
+            newest = entry
+            break
+        except HTTPException as e:
+            failures.append(str(e.detail))
     if newest is None:
-        raise HTTPException(404, f"The site has no single PDF of any reprint of {req.title}.")
-    latest = versions[-1]["version"] if versions else None
-    note = (f"Version {latest} is published in volumes, which cannot be read as one PDF; "
-            f"version {newest['version']} was retrieved instead." if latest != newest["version"] else None)
-    job["step"] = f"downloading version {newest['version']}"
-    content = _download_pdf(newest["pdf_url"])
+        raise HTTPException(502, " ".join(failures))
+    note = (f"Version {candidates[0]['version']} could not be downloaded ({failures[0]}); "
+            f"version {newest['version']} was retrieved instead." if failures else None)
     dest = BASE_DIR / "acts" / work / f"{work}-v{int(newest['version']):03d}.pdf"
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -3890,24 +4020,34 @@ def _bill_links_signature() -> tuple:
     return tuple(stamp)
 
 
+_link_docs_cache: dict = {}
+
+
 def _load_bill_link_docs() -> tuple[list[dict], list[dict]]:
-    """(bill->act documents, EM documents) from data/bill_links/. An
-    unreadable or malformed file is skipped rather than failing the page:
-    these are an optional enrichment of a browse view, not something it
-    depends on to render."""
-    bill_docs, em_docs = [], []
-    links_dir = BASE_DIR / "data" / "bill_links"
-    if not links_dir.is_dir():
-        return bill_docs, em_docs
-    for path in sorted(links_dir.glob("*.json")):
-        try:
-            doc = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+    """(bill->act documents, EM documents) from data/bill_links/, read
+    again only when a file there changes: every Act page asks."""
+    signature = (str(BASE_DIR), _bill_links_signature())
+    if _link_docs_cache.get("signature") != signature:
+        _link_docs_cache.update(signature=signature, docs=commentary.load_link_docs(BASE_DIR))
+    return _link_docs_cache["docs"]
+
+
+def _reviewed_em_links(em_docs: list[dict]) -> dict[str, dict[int, dict]]:
+    """{EM slug: {position in its current nodes: settled link}} -- what
+    reviewers have said each note explains, placed where the page index
+    looks notes up."""
+    from corpus.parsing.identity import node_ids
+
+    out: dict[str, dict[int, dict]] = {}
+    for slug in dict.fromkeys(d.get("em_slug") for d in em_docs if d.get("em_slug")):
+        rows = db.load_em_links(slug, BASE_DIR)
+        if not rows or not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
             continue
-        if not isinstance(doc, dict) or "links" not in doc:
-            continue  # pre-header format (a bare list) -- nothing to relate it by
-        (em_docs if doc.get("em_slug") else bill_docs).append(doc)
-    return bill_docs, em_docs
+        nodes, _unattached, hierarchy = _current_nodes(slug)
+        names = node_ids([dict(n) for n in nodes], hierarchy)
+        out[slug] = {i: {**rows[name], "clause_number": node.get("number"), "clause_schedule": node.get("schedule")}
+                     for i, (node, name) in enumerate(zip(nodes, names)) if name in rows}
+    return out
 
 
 def related_documents(act_slug: str) -> list[dict]:
@@ -3938,6 +4078,31 @@ def related_documents(act_slug: str) -> list[dict]:
             seen.add(entry["slug"])
             unique.append(entry)
     return unique
+
+
+_speeches_cache: dict = {}
+
+
+def speeches_for(act_slug: str) -> "dict | None":
+    """The second reading speeches held for the Bill this Act was enacted
+    from (corpus/hansard/), or None. A Bill is this Act's through a link
+    record (related_documents) or because it was fetched for it."""
+    from corpus.hansard import fetch as hansard_fetch
+
+    speeches_dir = BASE_DIR / hansard_fetch.SPEECHES_DIR
+    stamp = (str(BASE_DIR), tuple((p.name, p.stat().st_mtime_ns) for p in sorted(speeches_dir.glob("*.json")))
+             if speeches_dir.is_dir() else ())
+    if _speeches_cache.get("stamp") != stamp:
+        _speeches_cache.update(stamp=stamp, docs=hansard_fetch.held(BASE_DIR))
+    work = split_document_slug(act_slug)[0]
+    bills = {d["slug"] for d in related_documents(act_slug) if d["kind"] == "bill"}
+    for doc in _speeches_cache["docs"]:
+        # Only once some text is held: a page of links out to Hansard is
+        # not worth a link at the top of an Act.
+        if (doc.get("bill_slug") in bills or doc.get("act_work") == work) \
+                and any(s.get("html") for s in doc.get("speeches") or []):
+            return doc
+    return None
 
 
 def _bill_sources() -> dict:
@@ -3973,12 +4138,15 @@ def related_links(act_slug: str, href_of) -> list[dict]:
 
 
 def _commentary_index(act_slug: str) -> dict:
-    signature = _bill_links_signature()
+    bill_docs, em_docs = _load_bill_link_docs()
+    # A reviewer settling a link is a database write, not a change to
+    # data/bill_links/, so the EMs' own state is part of the answer.
+    signature = (_bill_links_signature(),
+                 tuple(_browse_state_signature(d["em_slug"]) for d in em_docs if d.get("em_slug")))
     cached = _commentary_cache.get(act_slug)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    bill_docs, em_docs = _load_bill_link_docs()
-    index = build_commentary_index(act_slug, bill_docs, em_docs)
+    index = build_commentary_index(act_slug, bill_docs, commentary.with_reviewed_links(em_docs, _reviewed_em_links(em_docs)))
     _commentary_cache[act_slug] = (signature, index)
     return index
 
@@ -4753,6 +4921,19 @@ def browse_endnotes(slug: str):
     return HTMLResponse(html_view.page_shell(
         f"{title} \u2014 Endnotes", body, _preview_bar(slug),
         base_url=_url(f"/browse/{slug}")))
+
+
+@app.get("/browse/{slug}/speeches", response_class=HTMLResponse)
+def browse_speeches(slug: str):
+    _validate_slug(slug)
+    if not (BASE_DIR / "data" / "parsed" / f"{slug}.json").exists():
+        raise HTTPException(404, f"{slug!r} hasn't been parsed yet -- add it first.")
+    body = reader.speeches_page(_SOURCE, slug, _url(f"/browse/{slug}"))
+    if body is None:
+        raise HTTPException(404, f"No second reading speeches are held for {slug!r}.")
+    return HTMLResponse(html_view.page_shell(
+        f"{_act_title(slug)} \u2014 Second reading speeches", body, _preview_bar(slug),
+        base_url=_url(f"/browse/{slug}"), reader=True))
 
 
 @app.get("/api/browse/{slug}/preview")

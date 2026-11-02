@@ -160,6 +160,38 @@ def test_a_work_is_slimmed_to_its_base_and_stays_readable(tmp_path, monkeypatch)
     assert slim.apply("act", tmp_path)["versions"][1]["missing"] == [], "slimming again only filters what it kept"
 
 
+def test_slimming_never_cuts_the_version_that_was_reviewed(tmp_path, monkeypatch):
+    """Slimming deletes a version's review of everything but its own
+    changes. A base set to a newer version while the older one holds the
+    review would have deleted it; instead nothing is touched, and the
+    message says how to set the base right."""
+    import json
+    import pytest
+    from corpus.history import slim
+    from corpus.storage import db
+
+    monkeypatch.chdir(tmp_path)
+    v1 = _act({"1": [("1", "a"), ("2", "b")]})
+    v2 = _act({"1": [("1", "a"), ("2", "b as amended")]},
+              {("1", "2"): ["S. 1(2) amended by No. 7/2026 s. 4."]})
+    for v, p in ((1, v1), (2, v2)):
+        _write(tmp_path, f"act-v{v}", {**p, "hierarchy": HIERARCHY})
+    rows = [{**n, "_node_id": n["id"], "verified_at": "2026-01-01"} for n in v1["nodes"]]
+    db.save_verified("act-v1", rows)
+    slim.set_base("act", 2, tmp_path)
+    before = (tmp_path / "data" / "parsed" / "act-v1.json").read_text()
+
+    with pytest.raises(slim.Refused) as refused:
+        slim.apply("act", tmp_path)
+    assert "--base 1" in str(refused.value)
+    assert (tmp_path / "data" / "parsed" / "act-v1.json").read_text() == before
+    assert len(db.load_verified("act-v1")) == len(rows), "its review is all still there"
+
+    slim.set_base("act", 1, tmp_path)
+    assert set(slim.apply("act", tmp_path)["versions"]) == {2}, "with the base right, the newer one is slimmed"
+    assert "slim" in json.loads((tmp_path / "data" / "parsed" / "act-v2.json").read_text())
+
+
 def test_a_slim_version_is_not_parsed_again_from_its_blanked_pdf(tmp_path, monkeypatch):
     import corpus.web.dashboard as dashboard
     import pytest

@@ -708,3 +708,13 @@ a.amend-prov:hover { background: var(--accent-soft); color: var(--accent); text-
 @media (max-width: 560px) {
   .prov-text { text-align: left; }
 }
+
+/* Second reading speeches (corpus/hansard/): prose, set as Hansard
+   paragraphs it, one section per record. */
+.speeches-link a { font-weight: 600; }
+.speech { margin: var(--space-4, 28px) 0; padding-top: var(--space-3, 16px); border-top: 1px solid var(--border); }
+.speech h2 { margin-bottom: 2px; }
+.speech-byline { font-family: var(--sans); font-size: 13px; margin-bottom: 14px; }
+.speech-text p { margin: 0 0 0.9em; line-height: 1.6; }
+.speech-text h3, .speech-text h4 { font-size: 1em; margin: 1.2em 0 0.5em; }
+.speech-source { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }

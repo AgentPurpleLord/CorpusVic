@@ -295,6 +295,88 @@ def test_definition_continuation_line_stays_attached_without_its_own_lead():
     assert definition["text"] == "means the period permitted by or under this Act for commencing an appeal;"
 
 
+def _road_safety_s3(*body):
+    return _parse([
+        line("Part 1—Preliminary", bold=True, size=16.0, x1=300),
+        line("3 Definitions", bold=True),
+        line("(1) In this Act—", x0=HEAD_X0),
+        *body,
+    ])
+
+
+def _terms(result):
+    return [(n["heading"], n["text"]) for n in result.nodes if n["type"] == "definition"]
+
+
+def test_a_term_filling_its_line_and_wrapping_is_one_definition():
+    """Road Safety Act s 3: the whole first line is the term, so it reads
+    bold and took the topical-heading branch -- "Chief Executive Officer
+    of the Victorian Institute" became a heading and "of Forensic
+    Medicine" the term; a lower-case one was glued to the definition
+    above."""
+    term1 = "Chief Executive Officer of the Victorian Institute"
+    term2 = "mass, dimension or load restraint limit or"
+    result = _road_safety_s3(
+        line("bus means a motor vehicle that seats 12;", x0=WRAP_X0, leading_bold_italic="bus"),
+        line(term1, x0=WRAP_X0, bold=True, leading_bold_italic=term1),
+        line("of Forensic Medicine means the Chief", x0=PARA_WRAP_X0, bold=True, leading_bold_italic="of Forensic Medicine"),
+        line("Executive Officer of the Institute;", x0=PARA_WRAP_X0),
+        line(term2, x0=WRAP_X0, bold=True, leading_bold_italic=term2),
+        line("requirement is any of the limits;", x0=PARA_WRAP_X0, leading_bold_italic="requirement"),
+    )
+    assert _terms(result) == [
+        ("bus", "means a motor vehicle that seats 12;"),
+        ("Chief Executive Officer of the Victorian Institute of Forensic Medicine",
+         "means the Chief Executive Officer of the Institute;"),
+        ("mass, dimension or load restraint limit or requirement", "is any of the limits;")]
+    assert not [n for n in result.nodes if n["type"] == "heading_group"]
+
+
+def test_a_plain_line_opening_with_a_term_is_not_a_heading():
+    """"ADS permit holder, in relation to an automated" is short,
+    capitalised and follows a finished sentence -- a topical heading's
+    shape -- but a topical heading is bold. It ran into the definition
+    above."""
+    result = _road_safety_s3(
+        line("ADS permit means a permit granted under", x0=WRAP_X0, leading_bold_italic="ADS permit"),
+        line("section 33D;", x0=PARA_WRAP_X0),
+        line("ADS permit holder, in relation to an automated", x0=WRAP_X0, leading_bold_italic="ADS permit holder"),
+        line("vehicle, means the holder of an ADS permit;", x0=PARA_WRAP_X0),
+        line("GCM (gross combination mass) of a motor", x0=WRAP_X0, leading_bold_italic="GCM"),
+        line("vehicle means the greatest possible sum;", x0=PARA_WRAP_X0),
+    )
+    assert [t for t, _ in _terms(result)] == ["ADS permit", "ADS permit holder", "GCM"]
+
+
+def test_a_term_cited_across_a_line_break_is_not_a_definition():
+    """Road Safety Act s 3(7): "For the purposes of the definition of
+    domestic" / "partner in subsection (1)--" opened a definition named
+    "partner"."""
+    result = _road_safety_s3(
+        line("bus means a motor vehicle that seats 12;", x0=WRAP_X0, leading_bold_italic="bus"),
+        line("(7) For the purposes of the definition of domestic", x0=HEAD_X0),
+        line("partner in subsection (1)—", x0=WRAP_X0, leading_bold_italic="partner"),
+        line("(a) a person is not a domestic partner only because they are co-tenants.", x0=PARA_X0),
+    )
+    assert [t for t, _ in _terms(result)] == ["bus"]
+    assert find(result.nodes, "subsection", "7")["text"] == \
+        "For the purposes of the definition of domestic partner in subsection (1)—"
+
+
+def test_a_lead_in_without_its_dash_still_opens_a_definition():
+    """Road Safety Act s 103U: "In sections 103V ... and 103Z" then
+    "2009 Act means..." -- the lead-in has no dash, and the term goes on
+    to define."""
+    result = _parse([
+        line("103U Definition", bold=True),
+        line("In sections 103V, 103W and 103Z", x0=WRAP_X0),
+        line("2009 Act means the Road Legislation", x0=WRAP_X0, bold=True, leading_bold_italic="2009 Act"),
+        line("Amendment Act 2009.", x0=WRAP_X0, bold=True),
+        line("103V Something else", bold=True),
+    ])
+    assert _terms(result) == [("2009 Act", "means the Road Legislation Amendment Act 2009.")]
+
+
 def test_a_long_defined_terms_own_wrap_extends_the_heading_not_a_new_definition():
     """Regression (Criminal Procedure Act): a long defined term can wrap
     across two physical lines ("indictable offence that may be heard
@@ -1841,6 +1923,59 @@ def test_an_example_that_opens_with_its_own_words_keeps_its_list():
     ])
     [example] = [n for n in result.nodes if n["type"] == "example"]
     assert example["number"] is None and "demand dowry" in example["text"] and "threaten 2 people" in example["text"]
+
+
+def test_an_examples_own_lettered_list_is_the_examples():
+    """Bail Act s 4E: "Example", "...would—", then (a)-(c) at the
+    example's own column. They closed the example and became paragraphs
+    of the section."""
+    from corpus.parsing.identity import annotate_ids
+    from corpus.publishing import html_view
+
+    result = _parse([
+        line("4E Unacceptable risk test", bold=True, x1=330),
+        line("(1) A bail decision maker must refuse bail if—", x0=HEAD_X0, x1=MARGIN),
+        line("(a) there is a risk; and", x0=PARA_X0, x1=400),
+        line("(b) the risk is an unacceptable risk.", x0=PARA_X0, x1=400),
+        line("Example", bold=True, size=10.0, x0=WRAP_X0, x1=260),
+        line("An unacceptable risk that the accused, if released on bail,", size=10.0, x0=WRAP_X0, x1=440),
+        line("would—", size=10.0, x0=WRAP_X0, x1=250),
+        line("(a) drive dangerously; or", size=10.0, x0=WRAP_X0, x1=400),
+        line("(b) commit a family violence offence; or", size=10.0, x0=WRAP_X0, x1=420),
+        line("(c) commit a home invasion.", size=10.0, x0=WRAP_X0, x1=400),
+        line("(2) The prosecutor bears the burden of satisfying the", x0=HEAD_X0, x1=MARGIN),
+        line("bail decision maker.", x0=WRAP_X0, x1=300),
+    ])
+    examples = [n for n in result.nodes if n["type"] == "example"]
+    assert [(e["number"], e["text"]) for e in examples] == [
+        (None, "An unacceptable risk that the accused, if released on bail, would—"),
+        ("a", "drive dangerously; or"), ("b", "commit a family violence offence; or"),
+        ("c", "commit a home invasion.")]
+    assert [n["number"] for n in result.nodes if n["type"] in ("paragraph", "subparagraph")] == ["a", "b"]
+    assert find(result.nodes, "subsection", "2")
+
+    annotate_ids(result.nodes, result.hierarchy)
+    page_html = html_view.render_section({"nodes": result.nodes, "hierarchy": result.hierarchy, "fingerprint": "fp"},
+                                         "An Act 2008", "", "s4e")
+    assert '<span class="prov-num">(a)</span>' in page_html.split("drive dangerously")[0].rsplit("prov-example", 1)[1]
+    assert page_html.count('<span class="prov-text">Example</span>') == 1
+    assert '<span class="prov-text">Examples</span>' not in page_html
+
+
+def test_a_sections_paragraph_after_an_example_still_closes_it():
+    """Bail Act s 5(3): an Example under paragraph (d), then "(e)" further
+    left -- the section's next paragraph, not the example's."""
+    result = _parse([
+        line("5 Conditions of bail", bold=True, x1=330),
+        line("(3) Conditions may include—", x0=HEAD_X0, x1=MARGIN),
+        line("(d) not contacting specified persons;", x0=PARA_X0, x1=400),
+        line("Example", bold=True, size=10.0, x0=PARA_WRAP_X0, x1=280),
+        line("Witnesses, alleged victims or co-accused:", size=10.0, x0=PARA_WRAP_X0, x1=440),
+        line("(e) surrender of the accused's passport;", x0=PARA_X0, x1=400),
+    ])
+    [example] = [n for n in result.nodes if n["type"] == "example"]
+    assert example["number"] is None
+    assert find(result.nodes, "paragraph", "e")["text"] == "surrender of the accused's passport;"
 
 
 def test_a_schedules_numbered_list_is_one_clause_per_item():

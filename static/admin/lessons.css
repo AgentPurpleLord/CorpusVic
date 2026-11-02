@@ -30,3 +30,8 @@ code { font-size: 12px; }
 .good { color: var(--done); }
 h2 { font-size: 15px; margin: 18px 0 6px; }
 details summary { cursor: pointer; }
+
+/* The real lines a proposal came from, shown in place of its pattern. */
+.samples { margin: 6px 0 10px; padding-left: 20px; }
+.samples li { margin: 3px 0; }
+.samples .line { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }

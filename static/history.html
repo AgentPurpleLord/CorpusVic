@@ -450,12 +450,12 @@ document.getElementById("fetch-versions").onclick = async () => {
   try {
     const data = await jsonOf(await fetch(API + "/versions/available"));
     panel.innerHTML = `<div class="vlist">${data.versions.slice().reverse().map((v) => `<label>
-        <input type="checkbox" value="${v.version}" data-held="${v.held ? 1 : ""}" ${v.pdf_url ? "" : "disabled"}>
+        <input type="checkbox" value="${v.version}" data-held="${v.held ? 1 : ""}" ${v.fetchable ? "" : "disabled"}>
         v${v.version} <small>${esc(v.effective || "")}${v.held ? " &middot; held" : v.note ? ` &middot; ${esc(v.note)}` : ""}</small>
         ${v.pdf_missing ? `<small class="missing">&middot; PDF missing</small>` : ""}
       </label>`).join("")}</div>
       <div class="decide"><button class="btn primary" id="fetch-ticked">Fetch and parse the ticked versions</button>
-        <button class="btn" id="fetch-all" ${data.versions.some((v) => v.pdf_url && !v.held) ? "" : "disabled"}>Fetch every version not held</button>
+        <button class="btn" id="fetch-all" ${data.versions.some((v) => v.fetchable && !v.held) ? "" : "disabled"}>Fetch every version not held</button>
         <small class="none">A held version ticked is fetched again: its PDF replaced and re-parsed, keeping what you have approved.</small></div>`;
     document.getElementById("fetch-ticked").onclick = fetchTicked;
     document.getElementById("fetch-all").onclick = fetchAll;
