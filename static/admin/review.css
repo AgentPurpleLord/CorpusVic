@@ -475,6 +475,18 @@ mark.unresolved { border-bottom: 2px dashed #9ca3af; }
 .piece-findings { margin-top: 6px; font-size: 12.5px; color: var(--flagged-text); }
 .piece-findings div { margin-top: 2px; }
 .piece-verified { margin-top: 6px; font-size: 11px; color: var(--muted); }
+.em-link {
+  margin-top: 8px; padding: 6px 9px; font-size: 12.5px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--panel); border-left: 2px solid var(--border);
+}
+.em-link-label { color: var(--muted); font-weight: 600; }
+.em-link-value { font-weight: 500; }
+.em-link-state { font-size: 11px; color: var(--muted); }
+.em-link-confirmed, .em-link-settled { border-left-color: #22c55e; }
+.em-link-suggested { border-left-color: #f59e0b; }
+.em-link-none .em-link-value { color: var(--muted); font-style: italic; }
+.em-link-select { max-width: 280px; font: inherit; font-size: 12px; }
 
 /* Type accent colours -- a left border, subtle, distinguishes piece
    type by colour without competing with the text itself. */

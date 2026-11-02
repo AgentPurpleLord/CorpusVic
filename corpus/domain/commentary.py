@@ -115,16 +115,12 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
         if not _same_work(doc.get("act_slug"), act_slug):
             continue
         bill_slug = doc.get("bill_slug")
-        mapping: dict[tuple, tuple] = {}
+        act_provision_by_clause[bill_slug] = _clause_mapping(doc)
         for link in doc.get("links") or []:
             section_number = link.get("act_section_number")
             if not section_number:
                 continue
             act_schedule = link.get("act_schedule")
-            mapping.setdefault(
-                provision_key(link.get("schedule"), link["clause_number"]),
-                (act_schedule, section_number),
-            )
             candidate = {
                 "bill_slug": bill_slug,
                 "clause_number": link["clause_number"],
@@ -153,7 +149,6 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
                 entries.append(candidate)
             elif _match_rank(candidate) > _match_rank(existing):
                 entries[entries.index(existing)] = candidate
-        act_provision_by_clause[bill_slug] = mapping
 
     for doc in em_link_docs:
         em_slug = doc.get("em_slug")
@@ -162,20 +157,10 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
             target = link.get("target")
             if not target or not _same_work(target.get("act_slug"), act_slug):
                 continue
-            if target["kind"] == "bill_clause":
-                found = act_provision_by_clause.get(bill_slug, {}).get(
-                    provision_key(target.get("schedule"), target["clause_number"])
-                )
-                provisions = [found] if found else []
-                via = "bill_clause"
-            elif target["kind"] == "act_section":
-                # A section named directly in the entry's text ("section
-                # 44A"). Prose like this always names one of the Act's
-                # own body sections, never a Schedule item.
-                provisions = [(None, n) for n in section_numbers_in_ref(target.get("section_ref"))]
-                via = "act_section"
-            else:
+            found = _em_target_provisions(target, act_provision_by_clause.get(bill_slug, {}))
+            if found is None:
                 continue
+            provisions, via = found
             for act_schedule, number in provisions:
                 bucket(act_schedule, number)["em"].append({
                     "em_slug": em_slug,
@@ -186,3 +171,108 @@ def build_commentary_index(act_slug: str, bill_link_docs: list[dict], em_link_do
                 })
 
     return index
+
+
+def _clause_mapping(bill_doc: dict) -> dict[tuple, tuple]:
+    """(Bill Schedule, clause number) -> the Act provision it became, as
+    (Act Schedule, section number), from one bill->act document."""
+    mapping: dict[tuple, tuple] = {}
+    for link in bill_doc.get("links") or []:
+        if link.get("act_section_number"):
+            mapping.setdefault(provision_key(link.get("schedule"), link["clause_number"]),
+                               (link.get("act_schedule"), link["act_section_number"]))
+    return mapping
+
+
+def _em_target_provisions(target: dict, clause_mapping: dict) -> "tuple[list[tuple], str] | None":
+    """([(Act Schedule, section number)], via) for one EM link target, or
+    None for a kind that reaches no provision."""
+    if target["kind"] == "bill_clause":
+        found = clause_mapping.get(provision_key(target.get("schedule"), target["clause_number"]))
+        return ([found] if found else []), "bill_clause"
+    if target["kind"] == "act_section":
+        # A section named directly in the entry's text ("section 44A").
+        # Prose like this always names one of the Act's own body
+        # sections, never a Schedule item.
+        return [(None, n) for n in section_numbers_in_ref(target.get("section_ref"))], "act_section"
+    if target["kind"] == "reviewed":
+        return [(target.get("schedule"), target["section"])], "reviewed"
+    return None
+
+
+def load_link_docs(base_dir) -> tuple[list[dict], list[dict]]:
+    """(bill->act documents, EM documents) from data/bill_links/. An
+    unreadable or malformed file is skipped rather than failing the page:
+    these are an optional enrichment of a browse view, not something it
+    depends on to render."""
+    import json
+    from pathlib import Path
+
+    bill_docs, em_docs = [], []
+    links_dir = Path(base_dir) / "data" / "bill_links"
+    if not links_dir.is_dir():
+        return bill_docs, em_docs
+    for path in sorted(links_dir.glob("*.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict) or "links" not in doc:
+            continue  # pre-header format (a bare list) -- nothing to relate it by
+        (em_docs if doc.get("em_slug") else bill_docs).append(doc)
+    return bill_docs, em_docs
+
+
+def em_link_suggestions(em_slug: str, bill_link_docs: list[dict], em_link_docs: list[dict]) -> dict[int, dict]:
+    """{EM node index: {"act", "act_title", "schedule", "section"}} --
+    run_bill_linking's guess at the provision each note explains, for a
+    reviewer to confirm or correct. "section" is None where the guess
+    names an Act or clause but no provision it could find."""
+    out: dict[int, dict] = {}
+    for doc in em_link_docs:
+        if doc.get("em_slug") != em_slug:
+            continue
+        bill_slug = doc.get("bill_slug")
+        bill_doc = next((d for d in bill_link_docs if d.get("bill_slug") == bill_slug), {})
+        mapping = _clause_mapping(bill_doc)
+        for link in doc.get("links") or []:
+            target = link.get("target") or {}
+            found = _em_target_provisions(target, mapping) if target.get("kind") else None
+            provisions = found[0] if found else []
+            act = target.get("act_slug") or (bill_doc.get("act_slug") if target.get("kind") == "bill_clause" else None)
+            schedule, section = provisions[0] if provisions else (None, None)
+            if not _same_work(act, bill_doc.get("act_slug") or ""):
+                # A note naming another Act's section ("Juries Act 2000
+                # s 22"): confirmed as offered, it would link this Act's
+                # section 22.
+                schedule, section = None, None
+            out.setdefault(link["em_node_index"], {
+                "act": split_document_slug(act)[0] if act else None,
+                "act_title": target.get("act_title"), "schedule": schedule, "section": section,
+            })
+    return out
+
+
+def with_reviewed_links(em_link_docs: list[dict], reviewed: dict[str, dict[int, dict]]) -> list[dict]:
+    """The EM documents with each reviewer-settled link in place of the
+    guess for its note: {em_slug: {EM node index: {target, schedule,
+    section}}}. A settled "no provision" drops the note's link; a note the
+    guesser missed gains one."""
+    out = []
+    for doc in em_link_docs:
+        settled = reviewed.get(doc.get("em_slug")) or {}
+        if not settled:
+            out.append(doc)
+            continue
+        links = []
+        for link in doc.get("links") or []:
+            if link["em_node_index"] not in settled:
+                links.append(link)
+        for index, row in sorted(settled.items()):
+            if row.get("section"):
+                links.append({"em_node_index": index, "clause_number": row.get("clause_number"),
+                              "schedule": row.get("clause_schedule"),
+                              "target": {"kind": "reviewed", "act_slug": row["target"],
+                                         "schedule": row.get("schedule"), "section": row["section"]}})
+        out.append({**doc, "links": links})
+    return out

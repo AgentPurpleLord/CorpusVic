@@ -96,12 +96,52 @@ def matches(rule: dict, seen: dict) -> "re.Match | bool":
     return m
 
 
+# What each class a proposal's pattern can contain is called, and two
+# lines it matches. Patterns are built only from these and escaped
+# punctuation (propose.shape), so a pattern they don't cover is left as it is.
+_CLASSES = {
+    r"[a-z]+": ("lowercase letters", ("a", "iv")),
+    r"[A-Z]+": ("capital letters", ("A", "B")),
+    r"\d+": ("a number", ("1", "12")),
+    r"\d+(?:\.\d+)*[A-Z]*": ("a number", ("1", "2A")),
+}
+
+
+def pattern_words(pattern: str) -> "str | None":
+    """A pattern as how the line opens, with real samples:
+    `^\\(([a-z]+)\\)(?:\\s|$)` is 'opens with lowercase letters in
+    brackets, like (a) or (iv)'. None for a pattern of another shape."""
+    body = re.sub(r"^\^|\(\?:\\s\|\$\)$", "", pattern)
+    parts = re.findall(r"\((" + "|".join(re.escape(c) for c in _CLASSES) + r")\)|(" + "|".join(
+        re.escape(c) for c in _CLASSES) + r")|\\(.)|([^\\()]+)", body)
+    names, samples, rebuilt = [], ([], []), ""
+    for cls, bare, escaped, plain in parts:
+        if cls or bare:
+            names.append(_CLASSES[cls or bare][0])
+            for k in (0, 1):
+                samples[k].append(_CLASSES[cls or bare][1][k])
+            rebuilt += bare or f"({cls})"
+        else:
+            for k in (0, 1):
+                samples[k].append(escaped or plain)
+            rebuilt += f"\\{escaped}" if escaped else plain
+    if rebuilt != body:
+        return None   # something in it these samples don't stand for
+    first, second = ("".join(s) for s in samples)
+    if parts and not names and first == second and first.strip():
+        return f"opens with {first}"
+    if not parts or not names:
+        return None
+    return f"opens with {' and '.join(dict.fromkeys(names))} as in {first} or {second}"
+
+
 def describe(rule: dict) -> str:
     """The rule in words, for the page you approve it on."""
     when, then = rule["when"], rule["then"]
     bits = []
     if "pattern" in when:
-        bits.append(f"a line matching {when['pattern']}")
+        words = pattern_words(when["pattern"])
+        bits.append(f"a line that {words}" if words else f"a line matching {when['pattern']}")
     if "bold" in when:
         bits.append("in bold" if when["bold"] else "not bold")
     if "size_ratio" in when:

@@ -1,0 +1,165 @@
+{
+ "data": {
+  "id": "abf61d4c-490f-411b-bdbf-fb62d8935497",
+  "type": "node--bill",
+  "attributes": {
+   "title": "Criminal Procedure Bill 2008"
+  },
+  "relationships": {
+   "field_bill_assembly_section": {
+    "data": [
+     {
+      "type": "paragraph--first_reading",
+      "id": "490a39b8-230c-41ed-b817-fe010673ae7b"
+     },
+     {
+      "type": "paragraph--second_reading",
+      "id": "797a0dfd-8c6c-4440-939d-e1dc6c4c09ec"
+     },
+     {
+      "type": "paragraph--consideration_in_detail",
+      "id": "513535be-bc28-430d-8ed2-98bf0c84f0a2"
+     },
+     {
+      "type": "paragraph--third_reading",
+      "id": "6799e45e-046e-4732-a8e9-908b1366f31d"
+     }
+    ]
+   },
+   "field_bill_council_section": {
+    "data": [
+     {
+      "type": "paragraph--first_reading",
+      "id": "a0046454-fb9c-45f3-9a0c-7644e2ff9229"
+     },
+     {
+      "type": "paragraph--second_reading",
+      "id": "a7c56970-66b2-4471-9aac-f49aee7737f1"
+     },
+     {
+      "type": "paragraph--committee_section",
+      "id": "e0f12471-5ef2-47cc-b9b3-c92470d50f7c"
+     },
+     {
+      "type": "paragraph--third_reading",
+      "id": "fb2b1065-d9d7-428d-8f46-fe049ff5ad5d"
+     }
+    ]
+   }
+  }
+ },
+ "included": [
+  {
+   "type": "paragraph--first_reading",
+   "id": "490a39b8-230c-41ed-b817-fe010673ae7b",
+   "attributes": {
+    "field_first_reading_custom": [],
+    "field_first_reading_introduced": {
+     "value": "",
+     "format": "rich_text",
+     "processed": "",
+     "string_value": "Hon R Hulls"
+    },
+    "field_first_reading_outcome": {
+     "value": "<a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&db=hansard91&dodraft=0&house=ASSEMBLY&speech=73284&activity=Statement+of+Compatibility&title=CRIMINAL+PROCEDURE+BILL&date1=4&date2=December&date3=2008&query=true%0a%09and+%28+activity+contains+'Statement+of+Compatibility'+%29%0a%09and+%28+hdate.hdate_3+=+2008+%29%0a%09and+%28+hdate.hdate_2+contains+'December'+%29%0a%09and+%28+house+contains+'ASSEMBLY'+%29%0a\">Click Here to View the Statement of Compatibility</a>",
+     "format": "rich_text_without_media",
+     "processed": "<a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&amp;db=hansard91&amp;dodraft=0&amp;house=ASSEMBLY&amp;speech=73284&amp;activity=Statement+of+Compatibility&amp;title=CRIMINAL+PROCEDURE+BILL&amp;date1=4&amp;date2=December&amp;date3=2008&amp;query=true%0a%09and+%28+activity+contains+'Statement+of+Compatibility'+%29%0a%09and+%28+hdate.hdate_3+=+2008+%29%0a%09and+%28+hdate.hdate_2+contains+'December'+%29%0a%09and+%28+house+contains+'ASSEMBLY'+%29%0a\">Click Here to View the Statement of Compatibility</a>",
+     "date_value": "2008-12-02T11:00:00+11:00",
+     "option_value": "passed"
+    }
+   }
+  },
+  {
+   "type": "paragraph--second_reading",
+   "id": "797a0dfd-8c6c-4440-939d-e1dc6c4c09ec",
+   "attributes": {
+    "field_second_reading_circulated": [
+     {
+      "label_value": "Amendments circulated",
+      "value": "<drupal-entity data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"cd1b1a49-a2c7-3da5-9327-fce544f00aa8\"></drupal-entity><drupal-entity data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"74af3ea9-eb1a-32fe-a403-b9947b8677d4\"></drupal-entity>",
+      "format": "rich_text",
+      "processed": "<div data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"cd1b1a49-a2c7-3da5-9327-fce544f00aa8\" data-langcode=\"en\" data-entity-embed-display-settings=\"[]\" class=\"embedded-entity embedded-entity--media embedded-entity--media--document\"><article class=\"media media--type-document media--view-mode-embedded\">\n  \n      \n            <div class=\"field field--name-field-media-file field--type-file field--label-hidden field__item\">\n<span class=\"file file--mime-application-msword file--x-office-document\"><a href=\"https://content.legislation.vic.gov.au/sites/default/files/cd1b1a49-a2c7-3da5-9327-fce544f00aa8_Clark.doc\" class=\"x-office-document\" aria-label=\"Clark.doc File type: Word. Size: 42.5 KB.\"><span class=\"file--title\">Clark.doc</span><span class=\"file--type\">Word</span><span class=\"file--size\">42.5 KB</span></a> <span class=\"file__size\">(42.5 KB)</span></span>\n</div>\n      \n  </article>\n</div>\n<div data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"74af3ea9-eb1a-32fe-a403-b9947b8677d4\" data-langcode=\"en\" data-entity-embed-display-settings=\"[]\" class=\"embedded-entity embedded-entity--media embedded-entity--media--pdf\"><article class=\"media media--type-pdf media--view-mode-embedded\">\n  \n      \n            <div class=\"field field--name-field-media-file field--type-file field--label-hidden field__item\">\n<span class=\"file file--mime-application-pdf file--application-pdf\"><a href=\"https://content.legislation.vic.gov.au/sites/default/files/74af3ea9-eb1a-32fe-a403-b9947b8677d4_Clark.pdf\" class=\"application-pdf\" aria-label=\"Clark.pdf File type: PDF. Size: 49.43 KB.\"><span class=\"file--title\">Clark.pdf</span><span class=\"file--type\">PDF</span><span class=\"file--size\">49.43 KB</span></a> <span class=\"file__size\">(49.43 KB)</span></span>\n</div>\n      \n  </article>\n</div>\n",
+      "date_value": null
+     }
+    ],
+    "field_second_reading_committee": [],
+    "field_second_reading_completed": {
+     "value": "",
+     "format": "rich_text",
+     "processed": "",
+     "date_value": "2009-02-05T11:00:00+11:00",
+     "option_value": "passed"
+    },
+    "field_second_reading_custom": [],
+    "field_second_reading_gov_b_prog": [],
+    "field_second_reading_instruction": [],
+    "field_second_reading_moved": [
+     {
+      "label_value": "Second reading moved",
+      "value": "<p><a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&db=hansard91&dodraft=0&house=ASSEMBLY&speech=73284&activity=Second+Reading&title=CRIMINAL+PROCEDURE+BILL&date1=4&date2=December&date3=2008&query=true%0a%09and+%28+activity+contains+'Second+Reading'+%29%0a%09and+%28+hdate.hdate_3+=+2008+%29%0a%09and+%28+hdate.hdate_2+contains+'December'+%29%0a%09and+%28+hdate.hdate_1+=+4+%29%0a%09and+%28+house+contains+'ASSEMBLY'+%29%0a\">Click Here to View the Second Reading Speech</a></p><p>Under the Government Business Program agreed to by the House 03/02/2009, debate on this bill must be completed by 4.00 pm on Thursday 05/02/2009. Debate resumed 03/02/2009; the Opposition (Mr Clark) on behalf of the Coalition circulated amendments.  Debate continued 04/02/2009.</p>",
+      "format": "rich_text",
+      "processed": "<p><a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&amp;db=hansard91&amp;dodraft=0&amp;house=ASSEMBLY&amp;speech=73284&amp;activity=Second+Reading&amp;title=CRIMINAL+PROCEDURE+BILL&amp;date1=4&amp;date2=December&amp;date3=2008&amp;query=true%0a%09and+%28+activity+contains+'Second+Reading'+%29%0a%09and+%28+hdate.hdate_3+=+2008+%29%0a%09and+%28+hdate.hdate_2+contains+'December'+%29%0a%09and+%28+hdate.hdate_1+=+4+%29%0a%09and+%28+house+contains+'ASSEMBLY'+%29%0a\">Click Here to View the Second Reading Speech</a></p><p>Under the Government Business Program agreed to by the House 03/02/2009, debate on this bill must be completed by 4.00 pm on Thursday 05/02/2009. Debate resumed 03/02/2009; the Opposition (Mr Clark) on behalf of the Coalition circulated amendments.  Debate continued 04/02/2009.</p>",
+      "date_value": "2008-12-04T11:00:00+11:00"
+     }
+    ],
+    "field_second_reading_reasoned_am": []
+   }
+  },
+  {
+   "type": "paragraph--first_reading",
+   "id": "a0046454-fb9c-45f3-9a0c-7644e2ff9229",
+   "attributes": {
+    "field_first_reading_custom": [],
+    "field_first_reading_introduced": {
+     "value": "",
+     "format": "rich_text",
+     "processed": "",
+     "string_value": "Hon. Justin Madden"
+    },
+    "field_first_reading_outcome": {
+     "value": "<a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&db=hansard91&dodraft=0&house=COUNCIL&speech=75245&activity=Statement+of+Compatibility&title=CRIMINAL+PROCEDURE+BILL&date1=5&date2=February&date3=2009&query=true%0a%09and+%28+activity+contains+'Statement+of+Compatibility'+%29%0a%09and+%28+hdate.hdate_3+=+2009+%29%0a%09and+%28+house+contains+'COUNCIL'+%29%0a\">Click Here to View the Statement of Compatibility</a>",
+     "format": "rich_text_without_media",
+     "processed": "<a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&amp;db=hansard91&amp;dodraft=0&amp;house=COUNCIL&amp;speech=75245&amp;activity=Statement+of+Compatibility&amp;title=CRIMINAL+PROCEDURE+BILL&amp;date1=5&amp;date2=February&amp;date3=2009&amp;query=true%0a%09and+%28+activity+contains+'Statement+of+Compatibility'+%29%0a%09and+%28+hdate.hdate_3+=+2009+%29%0a%09and+%28+house+contains+'COUNCIL'+%29%0a\">Click Here to View the Statement of Compatibility</a>",
+     "date_value": "2009-02-05T11:00:00+11:00",
+     "option_value": "passed"
+    }
+   }
+  },
+  {
+   "type": "paragraph--second_reading",
+   "id": "a7c56970-66b2-4471-9aac-f49aee7737f1",
+   "attributes": {
+    "field_second_reading_circulated": [
+     {
+      "label_value": "Amendments circulated",
+      "value": "<drupal-entity data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"8e32d773-d653-3e9e-b80b-345f38f8cfc8\"></drupal-entity><drupal-entity data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"9ef6ef36-2eb7-3d03-8860-9d09039c5bbc\"></drupal-entity>",
+      "format": "rich_text",
+      "processed": "<div data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"8e32d773-d653-3e9e-b80b-345f38f8cfc8\" data-langcode=\"en\" data-entity-embed-display-settings=\"[]\" class=\"embedded-entity embedded-entity--media embedded-entity--media--document\"><article class=\"media media--type-document media--view-mode-embedded\">\n  \n      \n            <div class=\"field field--name-field-media-file field--type-file field--label-hidden field__item\">\n<span class=\"file file--mime-application-msword file--x-office-document\"><a href=\"https://content.legislation.vic.gov.au/sites/default/files/8e32d773-d653-3e9e-b80b-345f38f8cfc8_Rich-Phillips%20260209.doc\" class=\"x-office-document\" aria-label=\"Rich-Phillips 260209.doc File type: Word. Size: 42.5 KB.\"><span class=\"file--title\">Rich-Phillips 260209.doc</span><span class=\"file--type\">Word</span><span class=\"file--size\">42.5 KB</span></a> <span class=\"file__size\">(42.5 KB)</span></span>\n</div>\n      \n  </article>\n</div>\n<div data-embed-button=\"tide_media\" data-entity-embed-display=\"view_mode:media.embedded\" data-entity-type=\"media\" data-entity-uuid=\"9ef6ef36-2eb7-3d03-8860-9d09039c5bbc\" data-langcode=\"en\" data-entity-embed-display-settings=\"[]\" class=\"embedded-entity embedded-entity--media embedded-entity--media--pdf\"><article class=\"media media--type-pdf media--view-mode-embedded\">\n  \n      \n            <div class=\"field field--name-field-media-file field--type-file field--label-hidden field__item\">\n<span class=\"file file--mime-application-pdf file--application-pdf\"><a href=\"https://content.legislation.vic.gov.au/sites/default/files/9ef6ef36-2eb7-3d03-8860-9d09039c5bbc_Rich-Phillips%20260209.pdf\" class=\"application-pdf\" aria-label=\"Rich-Phillips 260209.pdf File type: PDF. Size: 7.6 KB.\"><span class=\"file--title\">Rich-Phillips 260209.pdf</span><span class=\"file--type\">PDF</span><span class=\"file--size\">7.6 KB</span></a> <span class=\"file__size\">(7.6 KB)</span></span>\n</div>\n      \n  </article>\n</div>\n",
+      "date_value": null
+     }
+    ],
+    "field_second_reading_committee": [],
+    "field_second_reading_completed": {
+     "value": "",
+     "format": "rich_text",
+     "processed": "",
+     "date_value": "2009-02-26T11:00:00+11:00",
+     "option_value": "passed"
+    },
+    "field_second_reading_custom": [],
+    "field_second_reading_gov_b_prog": [],
+    "field_second_reading_instruction": [],
+    "field_second_reading_moved": [
+     {
+      "label_value": "Second reading moved",
+      "value": "<p><a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&db=hansard91&dodraft=0&house=COUNCIL&speech=75245&activity=Second+Reading&title=CRIMINAL+PROCEDURE+BILL&date1=5&date2=February&date3=2009&query=true%0a%09and+%28+activity+contains+'Second+Reading'+%29%0a%09and+%28+hdate.hdate_3+=+2009+%29%0a%09and+%28+house+contains+'COUNCIL'+%29%0a\">Click Here to View the Second Reading Speech</a></p><p>Debate resumed and amendments were circulated by Mr Rich-Phillips 26/02/2009.</p>",
+      "format": "rich_text",
+      "processed": "<p><a href=\"http://tex.parliament.vic.gov.au/bin/texhtmlt?form=VicHansard.dumpall&amp;db=hansard91&amp;dodraft=0&amp;house=COUNCIL&amp;speech=75245&amp;activity=Second+Reading&amp;title=CRIMINAL+PROCEDURE+BILL&amp;date1=5&amp;date2=February&amp;date3=2009&amp;query=true%0a%09and+%28+activity+contains+'Second+Reading'+%29%0a%09and+%28+hdate.hdate_3+=+2009+%29%0a%09and+%28+house+contains+'COUNCIL'+%29%0a\">Click Here to View the Second Reading Speech</a></p><p>Debate resumed and amendments were circulated by Mr Rich-Phillips 26/02/2009.</p>",
+      "date_value": "2009-02-05T11:00:00+11:00"
+     }
+    ],
+    "field_second_reading_reasoned_am": []
+   }
+  }
+ ]
+}

@@ -107,8 +107,11 @@ def test_the_sites_versions_are_listed_with_a_pdf_each():
 
     assert [(v["version"], v["pdf_url"]) for v in got] == [
         (1, "https://content.legislation.vic.gov.au/p001.pdf"), (50, "https://content.legislation.vic.gov.au/a050.pdf"),
-        ("059A", None), (60, None), (114, "https://content.legislation.vic.gov.au/a114.pdf")], \
-        "the authorised PDF where there is one; none offered for a lettered reprint or one in volumes"
+        ("059A", None), (60, "https://content.legislation.vic.gov.au/a060.pdf"),
+        (114, "https://content.legislation.vic.gov.au/a114.pdf")], \
+        "the authorised PDF where there is one -- for a reprint in volumes too, whose whole text it is; " \
+        "none for a lettered reprint"
+    assert [v["note"] for v in got if v["version"] == 60] == ["in volumes"]
 
 
 def test_a_title_leading_to_another_act_is_refused():
@@ -139,7 +142,7 @@ def test_a_fetched_version_is_added_as_an_uploaded_one_is(held, monkeypatch):
     monkeypatch.setattr(dashboard.threading, "Thread", _Now)
     monkeypatch.setattr(dashboard, "_site_versions", lambda work: [
         {"version": 1, "pdf_url": "https://c/p001.pdf"}, {"version": 2, "pdf_url": None}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"%PDF v1")
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 1, "act_no": "7", "year": 2009})
 
     job = _fetch(client, 1)
@@ -147,7 +150,7 @@ def test_a_fetched_version_is_added_as_an_uploaded_one_is(held, monkeypatch):
     assert (dashboard.BASE_DIR / "acts" / "cpa" / "cpa-v001.pdf").read_bytes() == b"%PDF v1"
     failed = {k: v for k, v in _fetch(client, 2).items() if k != "task"}
     assert failed == {"version": 2, "state": "failed", "result": None,
-                      "error": "The site has no single PDF of version 2."}
+                      "error": "The site has no PDF of version 2."}
 
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 3, "act_no": "7", "year": 2009})
     assert "the PDF says 3" in _fetch(client, 1)["error"]
@@ -158,7 +161,7 @@ def test_an_unexpected_failure_is_reported_in_words(held, monkeypatch):
     client, ran = held
     monkeypatch.setattr(dashboard.threading, "Thread", _Now)
     monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 1, "pdf_url": "https://c/p001.pdf"}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"%PDF v1")
 
     def refuse(path):
         raise RuntimeError("the front matter could not be read")
@@ -171,7 +174,7 @@ def test_a_folder_the_dashboard_may_not_write_to_says_how_to_give_it_back(held, 
     client, ran = held
     monkeypatch.setattr(dashboard.threading, "Thread", _Now)
     monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 1, "pdf_url": "https://c/p001.pdf"}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v1")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"%PDF v1")
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 1, "act_no": "7", "year": 2009})
 
     def refuse(self, target):
@@ -197,7 +200,7 @@ def test_a_held_version_is_fetched_again_over_its_bad_copy(held, monkeypatch):
     client, ran = held
     monkeypatch.setattr(dashboard.threading, "Thread", _Now)
     monkeypatch.setattr(dashboard, "_site_versions", lambda work: [{"version": 114, "pdf_url": "https://c/a114.pdf"}])
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF good copy")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"%PDF good copy")
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 114, "act_no": "7", "year": 2009})
 
     assert "already held" in _fetch(client, 114)["error"], "not replaced unless asked"
@@ -217,7 +220,7 @@ def test_a_held_version_without_its_pdf_is_fetched_into_its_folder(held, monkeyp
     assert client.get("/api/works/cpa/versions/available").json()["versions"][0]["pdf_missing"]
 
     monkeypatch.setattr(dashboard.threading, "Thread", _Now)
-    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url: b"%PDF v114")
+    monkeypatch.setattr(dashboard.amending_fetch, "_get", lambda url, timeout=60: b"%PDF v114")
     monkeypatch.setattr(dashboard, "read_front_matter", lambda path: {"version": 113, "act_no": "7", "year": 2009})
     assert "the PDF says 113" in _fetch_again(client, 114)["error"], "the wrong reprint is refused"
 

@@ -118,7 +118,11 @@ BRACKETED_LEVELS = {"subdivision", "subsection", "paragraph", "subparagraph", "s
 
 
 def _format_num(node_type: str, number: str) -> str:
-    return f"({number})" if node_type in BRACKETED_LEVELS else number
+    # An example's own list is lettered as printed, "(a)"; numbered
+    # examples are printed bare, "1".
+    if node_type in BRACKETED_LEVELS or (node_type == "example" and str(number).isalpha()):
+        return f"({number})"
+    return number
 
 
 def _q(tag: str) -> str:

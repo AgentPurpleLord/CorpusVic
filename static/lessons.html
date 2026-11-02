@@ -58,8 +58,10 @@ function candidateHtml(c) {
   const done = c.preview && c.preview.state === "done";
   return `<div class="card" data-id="${c.id}">
     <p><b>${esc(c.description)}</b></p>
-    <p class="muted">From ${c.count} of your decisions. Pattern <code>${esc(c.when.pattern)}</code></p>
-    <details><summary>The decisions it came from</summary>
+    <p class="muted">From ${c.count} of your decisions. Real lines it would apply to:</p>
+    <ul class="samples">${c.examples.slice(0, 4).map((e) =>
+      `<li><span class="line">${esc(e.text)}</span> <span class="muted">&mdash; ${esc(e.act)}, p.${e.page}</span></li>`).join("")}</ul>
+    <details open><summary>All the decisions it came from</summary>
       <table><tr><th>Act</th><th>Page</th><th>Line</th><th>You said</th><th>The parser said</th></tr>${ex}</table>
     </details>
     <div class="preview">${previewHtml(c.preview)}</div>

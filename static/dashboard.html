@@ -418,6 +418,19 @@
   </div>
 </div>
 
+<!-- A Bill's second reading speeches, for the Act's page on the site. -->
+<div class="overlay" id="speeches-modal">
+  <div class="modal wide">
+    <h2>Speeches &mdash; <span id="speeches-slug"></span></h2>
+    <p class="hint">The second reading speeches and Statements of Compatibility for the Bill this Act was enacted
+      from. Once one is held, the Act's contents on the site link to it at the top. Hansard's firewall refuses most
+      requests that don't come from a person's browser: where fetching fails, open the Hansard link, save the page
+      (<em>Save page as&hellip;</em>, &ldquo;Webpage, HTML only&rdquo;) and add it here.</p>
+    <div id="speeches-list"></div>
+    <div class="modal-actions"><button class="btn" id="speeches-fetch">Fetch from Hansard</button></div>
+  </div>
+</div>
+
 <!-- Background jobs, and a way to stop one between its steps. -->
 <div class="overlay" id="tasks-modal">
   <div class="modal wide">
@@ -859,20 +872,17 @@ function actCardHtml(s) {
   // has to say which one it is -- the slug alone doesn't always.
   const kindBadge = s.parsed && s.kind !== "act"
     ? `<span class="badge">${KIND_LABELS[s.kind] || s.kind}</span>` : "";
-  const nodesBadge = s.parsed && s.provisions_total != null
-    ? `<span class="badge">${s.provisions_total} provisions</span>` : "";
   const aknBadge = s.akn_exported ? `<span class="badge done">AKN exported</span>` : "";
   const mdBadge = s.markdown_exported ? `<span class="badge done">Markdown exported</span>` : "";
   const reviewBtn = s.parsed
-    ? `<a class="btn small" href="review/${s.slug}/" target="_blank">Review</a>`
+    // The version held whole, where the review is -- not the newest, which
+    // beside others keeps only what it changed.
+    ? `<a class="btn small" href="review/${s.review_slug || s.slug}/" target="_blank"
+         ${s.review_slug && s.review_slug !== s.slug ? `title="Opens ${escapeHtml(s.review_slug)}, the version held in full; newer versions keep only what changed -- each has its own Review under Versions"` : ""}>Review</a>`
     : `<button class="btn small" disabled title="Parse it first">Review</button>`;
   const browseBtn = s.parsed
     ? `<a class="btn small" href="browse/${s.slug}/" target="_blank" title="See how this document reads to a user, AustLII-style, reflecting your saved review progress">Browse</a>`
     : `<button class="btn small" disabled title="Parse it first">Browse</button>`;
-  const dlAkn = s.akn_exported
-    ? `<a class="btn small" href="api/acts/${s.slug}/download/akn">Download AKN</a>` : "";
-  const dlMd = s.markdown_exported
-    ? `<a class="btn small" href="api/acts/${s.slug}/download/markdown">Download Markdown</a>` : "";
 
   // One menu per Act, over all its versions: the card shows only the
   // newest, and an older reprint had no way to be re-parsed at all.
@@ -909,13 +919,11 @@ function actCardHtml(s) {
   return `
     <div class="act-card">
       <div class="head">
-        <span class="slug">${s.work}</span>
-        ${s.title ? `<span class="work-title">${escapeHtml(s.title)}</span>` : ""}
+        <span class="slug">${escapeHtml(s.title || s.work)}</span>
         <span class="badge ${statusClass(s)}">${statusLabel(s)}</span>
         ${publishBadge}
         ${kindBadge}
         ${asAt}
-        ${nodesBadge}
         ${aknBadge}
         ${mdBadge}
       </div>
@@ -925,20 +933,18 @@ function actCardHtml(s) {
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openNameModal('${s.work}')"
                 title="The title and link this work has on the public site">Name</button>
         ${browseBtn}
-        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','akn',this)">Export AKN</button>
-        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="runExport('${s.slug}','markdown',this)">Export Markdown</button>
         <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openDefinitionsModal('${s.slug}')"
                 title="Which words this document hyperlinks back to where they are defined">Defined terms</button>
-        <button class="btn small" ${s.parsed ? "" : "disabled"} onclick="openAiScanModal('${s.slug}')">&#129302; AI scan</button>
         ${s.kind === "act" && s.parsed
           ? `<a class="btn small" href="history/${encodeURIComponent(s.work)}/" target="_blank"
                title="Each change between this Act's versions, to confirm as Parliament's or deny as the parser's -- only confirmed changes are public">History review</a>` : ""}
+        ${s.kind === "act" && s.parsed
+          ? `<button class="btn small" onclick="openSpeeches('${escapeHtml(s.slug)}')"
+               title="The second reading speeches and Statements of Compatibility for the Bill this Act was enacted from, from Hansard -- linked at the top of the Act's contents on the site">Speeches</button>` : ""}
         ${s.parsed ? `<a class="btn small" href="api/works/${encodeURIComponent(s.work)}/report.md"
                title="Everything flagged in review, in any version, and every change denied in History review -- with your notes and the printed lines each came from -- as a file to hand back">Report</a>` : ""}
         ${s.parsed ? `<a class="btn small" href="teaching/${encodeURIComponent(s.slug)}/" target="_blank"
                title="Your review decisions, kept as examples the parser is checked against">Teaching</a>` : ""}
-        ${dlAkn}
-        ${dlMd}
       </div>
       ${s.kind === "act" && s.parsed ? versionsHtml(s) : ""}
     </div>`;
@@ -973,10 +979,11 @@ async function loadVersions(work, details) {
     if (!res.ok) throw new Error(data.detail || "Couldn't load the versions.");
     const rows = data.versions.slice().reverse().map((v) => `
       <tr>
-        <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}</td>
+        <td><strong>${v.version != null ? "v" + v.version : "unversioned"}</strong>${v.current ? " (current)" : ""}
+          ${v.base ? `<span class="badge done" title="Your review is here">held in full</span>` : v.slim ? `<span class="badge" title="Keeps only what changed in its step from its neighbour; the rest is read from the version held in full">only what changed</span>` : ""}</td>
         <td>${escapeHtml(v.as_at_printed ? "as at " + v.as_at_printed : "")}</td>
         <td>${!v.current || v.to_review == null ? "" : v.to_review ? `${v.to_review} to review` : "nothing to review"}</td>
-        <td>${v.current ? `<a href="review/${v.slug}/" target="_blank">Review</a> &middot; ` : ""}<a href="browse/${v.slug}/" target="_blank">Browse</a></td>
+        <td><a href="review/${v.slug}/" target="_blank">Review</a> &middot; <a href="browse/${v.slug}/" target="_blank">Browse</a></td>
       </tr>`).join("");
     body.innerHTML = `<table>${rows}</table>`;
   } catch (e) {
@@ -1642,6 +1649,64 @@ async function runExport(slug, kind, btn) {
   }
 }
 
+const SPEECH_KINDS = { second_reading: "Second reading speech", statement_of_compatibility: "Statement of Compatibility" };
+
+async function openSpeeches(slug) {
+  document.getElementById("speeches-slug").textContent = slug;
+  document.getElementById("speeches-fetch").onclick = (e) => fetchSpeeches(slug, e.target);
+  openModal("speeches-modal");
+  await paintSpeeches(slug);
+}
+
+async function paintSpeeches(slug) {
+  const list = document.getElementById("speeches-list");
+  list.innerHTML = `<p class="hint">Reading&hellip;</p>`;
+  const res = await fetch(`api/acts/${encodeURIComponent(slug)}/speeches`);
+  if (res.status === 404) { list.innerHTML = `<p class="hint">None fetched yet.</p>`; return; }
+  const data = await res.json();
+  list.innerHTML = `<p class="hint">${escapeHtml(data.bill_title || data.bill_slug)}</p>` + data.speeches.map((r) => `
+    <div class="task-row">
+      <div class="task-main"><strong>${escapeHtml(SPEECH_KINDS[r.kind] || r.kind)}</strong> &middot; ${escapeHtml(r.house)}
+        <div class="hint">${escapeHtml([r.date, r.member].filter(Boolean).join(" \u00b7 "))} &middot;
+          ${r.paragraphs ? `${r.paragraphs} paragraphs held` : `<span class="pr-error">not held${r.error ? ` (${escapeHtml(r.error)})` : ""}</span>`}
+          ${r.source_url ? ` &middot; <a href="${escapeHtml(r.source_url)}" target="_blank" rel="noopener">Hansard</a>` : ""}</div></div>
+      <label class="btn small" title="A Hansard page saved from your browser">Add saved page&hellip;
+        <input type="file" accept=".html,.htm,text/html" hidden onchange="addSavedSpeech('${escapeHtml(slug)}', ${r.index}, this)"></label>
+    </div>`).join("");
+}
+
+async function fetchSpeeches(slug, btn) {
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Fetching\u2026";
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/speeches`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${res.status} ${res.statusText}`);
+    toast(data.ok ? `${data.fetched} of ${data.total} fetched.` : "Hansard didn't give any of them -- add saved pages instead.", !data.ok);
+  } catch (e) {
+    toast(String(e.message || e), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+    paintSpeeches(slug);
+  }
+}
+
+async function addSavedSpeech(slug, index, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("page", file);
+  try {
+    const res = await fetch(`api/acts/${encodeURIComponent(slug)}/speeches/${index}/page`, { method: "POST", body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `${res.status} ${res.statusText}`);
+    toast(`${data.paragraphs} paragraphs read from the saved page.`);
+  } catch (e) { toast(String(e.message || e), true); }
+  paintSpeeches(slug);
+}
+
 let parseMenuWork = null;
 
 function versionsOf(work) {
@@ -2057,7 +2122,7 @@ async function retrieveVic() {
         documents: [["bill", "vic-doc-bill"], ["em", "vic-doc-em"]]
           .filter(([, id]) => document.getElementById(id).checked).map(([k]) => k) }
     : { kind: "act", slug: document.getElementById("vic-slug").value, title: vicPicked.title,
-        act_no: String(vicPicked.act_no || ""), year: vicPicked.year };
+        act_no: String(vicPicked.act_no || ""), year: vicPicked.year, path: vicPicked.path || "" };
   const btn = document.getElementById("vic-retrieve");
   btn.disabled = true;
   try {
